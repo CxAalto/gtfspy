@@ -1,0 +1,5 @@
+shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence,shape_dist_traveled
+EXT1_shape, 36.915682, -116.751677, 0,
+EXT1_shape, 36.90,     -116.76    , 2,
+EXT1_shape, 36.88,     -116.77    , 4,
+EXT1_shape, 36.868446, -116.784582, 8,

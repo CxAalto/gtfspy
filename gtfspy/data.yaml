@@ -1,0 +1,920 @@
+%Public transport data
+---
+
+description:
+  "This file contains information on the location of public transportation feeds, how to load them etc."
+
+schema:
+  Location:
+    name: "str"
+    files:
+      gtfs:
+        url: "www.example.com/gtfs.zip"
+
+sites:
+
+# These two are test GTFS on Richard's servers.
+  test:
+    name: Test data - Oulu
+    gtfs: http://rkd.zgib.net/~rkdarst/google_transit.zip
+  test2:
+    name: Test data - Oulu 2
+    gtfs: http://rkd.zgib.net/~rkdarst/gtfs-test/google_transit.zip
+    authentication: test
+
+  finland-matka:
+    name: "Finland"
+    authentication: default
+    gtfs: "http://api.matka.fi/data/gtfs.zip"
+    notes: "GTFS data for whole finland, experimental"
+    licence_notes: "The Finnish Transport Agency's open data licence, very allowing"
+    licence_url: "http://portal.liikennevirasto.fi/sivu/www/f/aineistopalvelut/verkkopalvelut/avoimen_datan_kayttoehdot/avoimen_datan_lisenssi_eng#.U553SXZsFgu"
+
+  helsinki:
+    name: "HSL"
+    authentication: default
+    gtfs: http://api.reittiopas.fi/data/google_transit.zip
+    files:
+      stop_time_observations:
+        url: "http://dev.hsl.fi/tmp/linfo/"
+    streams:
+      siri:
+        "http://dev.hsl.fi/siriaccess/vm/json?operatorRef=HSL"
+    notes: "See also dev.hsl.fi"
+    license-notes: "Use of these interfaces is free of charge. Distribution and re-use of HSL information is allowed. See: http://developer.reittiopas.fi/pages/en/home.php"
+
+
+  tampere:
+    gtfs: "http://data.itsfactory.fi/files/gtfs/google_transit.zip"
+    files:
+      gtfs:
+        license-notes: "See http://www.tampere.fi/tampereinfo/avoindata/avoindatalisenssi.html. Permissive (allows copying and redistributing), requires mentioning the city of Tampere whenever used."
+        notes: "See also old files at http://data.itsfactory.fi/files/gtfs/"
+        licence: "Tampere City Open Data License"
+    streams:
+      siri:
+        url: "http://data.itsfactory.fi/siriaccess/vm/json"
+
+  oulu:
+    gtfs: "http://www.transitdata.fi/oulu/google_transit.zip"
+    license-notes: "http://creativecommons.org/licenses/by/4.0/"
+    licence: "CC BY 4.0"
+
+  jyvaskyla:
+    source: http://data.jyvaskyla.fi/data.php
+    gtfs: http://data.jyvaskyla.fi/tiedostot/linkkidata.zip
+    license: http://data.jyvaskyla.fi/data.php
+
+  sweden:
+    name: "Sweden"
+    authentication: Sweden
+    gtfs: "https://api.trafiklab.se/samtrafiken/gtfs/sweden.zip"
+    files:
+      gtfs:
+        update-url: "https://api.trafiklab.se/samtrafiken/gtfs/feed_info.txt"
+        licence: "Something like CC BY 4.1"
+        licence-notes: "https://www.trafiklab.se/api/gtfs-sverige/licens"
+        notes: "Also additional files augmenting the sweden.zip are available, see https://www.trafiklab.se/api/gtfs-sverige/dokumentation-0, for using the service one has to create an account and a project within trafiklab"
+        udpated: "weekly (or at most daily)"
+        max_downloads: "50 queries/month, max. 1 query/min"
+
+
+  madrid:
+    source: http://opendata.emtmadrid.es/Datos-estaticos/Datos-generales
+    gtfs: http://servicios.emtmadrid.es:8080/GTFS/transitEMT.zip
+    notes: updated every Thursday
+  rome:
+    source: http://www.agenziamobilita.roma.it/en/dataset.html
+    gtfs: http://dati.muovi.roma.it/gtfs/google_transit.zip
+    license: CC-BY-3.0 (Italian)
+  oslo:
+    source: http://labs.ruter.no/how-to-use-the-api.aspx
+    gtfs: http://www.gtfs-data-exchange.com/agency/ruter/latest.zip
+    license: Norwegian license for open government data (NLOD)
+    # or http://reis.ruter.no/gtfs/gtfs.zip ?
+  tallinn:
+    source: http://www.peatus.ee/gtfs/
+    gtfs: http://www.peatus.ee/gtfs/gtfs.zip
+  paris:
+    source: http://data.ratp.fr/explore/dataset/offre-transport-de-la-ratp-format-gtfs/?tab=metas
+    gtfs: http://dataratp.download.opendatasoft.com/RATP_GTFS_FULL.zip
+    license: ODbL
+  budapest:
+    source: http://www.bkk.hu/apps/gtfs/
+    gtfs: http://www.bkk.hu/gtfs/budapest_gtfs.zip
+
+
+# US Cities, in order of population.
+  new_york:
+    source: 
+      subway: http://web.mta.info/developers/developer-data-terms.html
+      bronx: http://web.mta.info/developers/developer-data-terms.html
+      manhattan: http://web.mta.info/developers/developer-data-terms.html
+      queens: http://web.mta.info/developers/developer-data-terms.html
+      brooklyn: http://web.mta.info/developers/developer-data-terms.html
+      staten_island: http://web.mta.info/developers/developer-data-terms.html
+      metro_north: http://web.mta.info/developers/developer-data-terms.html
+      lirr: http://web.mta.info/developers/developer-data-terms.html
+      bus: http://web.mta.info/developers/developer-data-terms.html
+      nassau: http://www.nicebus.com/Passenger-Information/App-Developers.aspx
+      westchester: https://511ny.org/developers/resources
+    license:
+      subway: http://web.mta.info/developers/developer-data-terms.html
+      bronx: http://web.mta.info/developers/developer-data-terms.html
+      manhattan: http://web.mta.info/developers/developer-data-terms.html
+      queens: http://web.mta.info/developers/developer-data-terms.html
+      brooklyn: http://web.mta.info/developers/developer-data-terms.html
+      staten_island: http://web.mta.info/developers/developer-data-terms.html
+      metro_north: http://web.mta.info/developers/developer-data-terms.html
+      lirr: http://web.mta.info/developers/developer-data-terms.html
+      bus: http://web.mta.info/developers/developer-data-terms.html
+      nassau: http://www.nicebus.com/NiceBus/media/NiceBus-Images/131030_Legal-Agreements.pdf
+      westchester: 
+    gtfs:
+      subway: http://web.mta.info/developers/data/nyct/subway/google_transit.zip
+      bronx: http://web.mta.info/developers/data/nyct/bus/google_transit_bronx.zip
+      manhattan: http://web.mta.info/developers/data/nyct/bus/google_transit_manhattan.zip
+      queens: http://web.mta.info/developers/data/nyct/bus/google_transit_queens.zip
+      brooklyn: http://web.mta.info/developers/data/nyct/bus/google_transit_brooklyn.zip
+      staten_island: http://web.mta.info/developers/data/nyct/bus/google_transit_staten_island.zip
+      metro_north: http://web.mta.info/developers/data/mnr/google_transit.zip
+      lirr: http://web.mta.info/developers/data/lirr/google_transit.zip
+      bus: http://web.mta.info/developers/data/busco/google_transit.zip    
+      nassau: https://transit-admin.511ny.org/feeds/Nassau_Inter-County_Express.zip
+      westchester: https://transit-admin.511ny.org/feeds/Westchester_County_Bee-Line_System.zip
+  los_angeles:
+    source:
+      city_of_los_angeles: http://developer.metro.net/introduction/gtfs-data/download-metros-gtfs-data/
+      santa_monica: http://gtfs.bigbluebus.com/
+      long_beach:
+      torrance: http://transit.torranceca.gov/24436.htm
+      culver_city: http://www.culvercity.org/city-hall/city-maps-gis-program/download-gis-data
+      foothills_transit: http://foothilltransit.org/about/developer-resources/
+      pasadena_transit:
+      glendale:
+      san_bernadino:
+      riverside_transit:
+      corona_cruiser:
+    gtfs:
+      city_of_los_angeles: http://developer.metro.net/gtfs/google_transit.zip
+      santa_monica: http://gtfs.bigbluebus.com/current.zip
+      long_beach: http://www.gtfs-data-exchange.com/agency/long-beach-transit/latest.zip
+      torrance: http://www.torranceca.gov/TransitFeed/google_transit.zip
+      culver_city: http://www.culvercity.org/home/showdocument?id=1912
+      foothills_transit: http://foothilltransit.org/gtfs/foothilltransit-ca-us.zip
+      pasadena_transit: http://rt.pasadenatransit.net/rtt/public/utility/gtfs.aspx
+      glendale: http://www.gtfs-data-exchange.com/agency/glendale-beeline/latest.zip
+      san_bernadino: http://www.omnitrans.org/google/google_transit.zip
+      riverside_transit: http://www.gtfs-data-exchange.com/agency/riverside-transit-agency/latest.zip
+      corona_cruiser: http://data.trilliumtransit.com/gtfs/corona-ca-us/corona-ca-us.zip
+    license:
+       city_of_los_angeles: http://developer.metro.net/terms-and-conditions/
+  chicago:
+    source: 
+      cta: http://www.transitchicago.com/developers/gtfs.aspx
+      metra: https://metrarail.com/metra/en/home/about_metra/obtaining_records_from_metra.html
+      pace: http://www.pacebus.com/sub/about/data_services.asp
+    gtfs: 
+      cta: http://www.transitchicago.com/downloads/sch_data/google_transit.zip
+      metra: https://metrarail.com/content/dam/metra/documents/GTFS_Feed/GTFSdata052816.zip
+      pace: http://www.pacebus.com/gtfs/gtfs.zip
+    license:
+      cta: http://www.transitchicago.com/developers/terms.aspx
+      metra: https://metrarail.com/content/dam/metra/documents/GTFS_Feed/GTFS%20License%20Agreement.pdf
+      pace: http://www.pacebus.com/sub/about/data_services.asp#Limited_License
+  houston:
+    source: http://www.ridemetro.org/Pages/NewsDownloads.aspx
+    gtfs:
+      normal: http://www.ridemetro.org/Downloads/google_transit_merge.zip
+      merged: http://www.ridemetro.org/Downloads/google_transit.zip
+    notes: (rkd) I'm not sure what the difference between these is, one should check and
+           only keep the correct one.
+  philadelphia:
+    source:
+      septa: http://www2.septa.org/developer/index.php
+      patco: http://www.ridepatco.org/developers/
+    gtfs:
+      #septa: http://www2.septa.org/developer/download.php?fc=septa_gtfs.zip&download=download
+      septa: https://github.com/septadev/GTFS/releases/download/v20160425.2/gtfs_public.zip
+      patco: https://addtransit.com/gtfs/Patco/PortAuthorityTransitCorporation.zip
+    license:
+      septa: http://www2.septa.org/developer/index.php
+      patco: 
+  phoenix:
+    source:
+       1: http://www.valleymetro.org/developers
+       2: https://www.phoenix.gov/publictransit/developers-portal
+    gtfs: https://www.phoenix.gov/publictransitsite/Documents/google_transit.zip
+    notes: Source #1 needs registration, which I haven't done yet.  Source #2 seems free.
+  san_antonio:
+    source: http://www.viainfo.net/Opportunities/Developers.aspx
+    gtfs: http://www.viainfo.net/BusService/google_transit.zip
+    license: http://www.viainfo.net/Opportunities/DevLicense.aspx
+  san_diego:
+    source:
+      san_diego_mts: http://www.sdmts.com/Planning/Developers.asp
+      north_county_td:
+    gtfs:
+      san_diego_mts: http://www.sdmts.com/google_transit_files/google_transit.zip
+      north_county_td: http://www.gonctd.com/google_transit.zip
+    license: 
+      san_diego_mts: http://www.sdmts.com/Planning/Developers_TermsAndConditions.asp
+      north_county_td:
+  dallas:
+    source:
+      dart: 
+      fort_worth: http://www.fwta.org/TransitDataGTFS.aspx
+    gtfs:
+      dart: http://www.dart.org/transitdata/latest/google_transit.zip
+      fort_worth: http://www.fwta.org/Portals/0/google-transit/fwtatransitdata.zip
+    license: 
+      dart: http://www.dart.org/transitdata/legalnotices.asp  ???
+      fort_worth: http://www.fwta.org/TransitDataGTFS.aspx
+  san_jose:
+    source: http://www.vta.org/getting-around/gtfs-info/data-file
+    gtfs: http://www.vta.org/sfc/servlet.shepherd/document/download/069A0000001NUea
+    license: http://www.vta.org/getting-around/gtfs-info/dev-terms-of-use
+    notes: Make sure that the URL is updating!
+  austin:
+    source:
+      1: http://www.capmetro.org/metrolabs/
+      2: https://data.texas.gov/Capital-Metro/Capital-Metro-Google-Transit/r4v4-vz24
+    gtfs: https://data.texas.gov/download/r4v4-vz24/application/zip
+    license: open
+
+
+  san_francisco:
+    source: https://www.sfmta.com/about-sfmta/reports/gtfs-transit-data
+    gtfs: http://archives.sfmta.com/transitdata/google_transit.zip
+    license: https://www.sfmta.com/about-sfmta/reports/gtfs-transit-data
+  sf_bay_area:
+    notes: include BART, MUNI, AC transit, Caltrain, sanjose transit(above), etc.
+    gtfs:
+      sf-muni: http://archives.sfmta.com/transitdata/google_transit.zip
+      bart: http://www.bart.gov/dev/schedules/google_transit.zip
+      caltrain: http://www.caltrain.com/Assets/GTFS/caltrain/GTFS-Caltrain-Devs.zip
+      san_mateo: http://www.samtrans.com/Assets/GTFS/samtrans/SamTrans-GTFS.zip
+      golden_gate_transit: http://goldengatetransit.org/googleTransit/GTFSTransitData.zip
+      sf_bay_ferries: http://trilliumtransit.com/transit_feeds/sfbay-ferries-ca-us/sfbay-ferries-ca-us.zip
+      oakland: http://www.actransit.org/wp-content/uploads/gtfsmarch202016b.zip
+      westcat: http://data.trilliumtransit.com/gtfs/westcat-ca-us/westcat-ca-us.zip
+      concord_county: http://cccta.org/GTFS/google_transit.zip
+      marin_county: http://www.marintransit.org/data/google_transit.zip
+      capitol_corridor: http://www.capitolcorridor.org/googletransit/google_transit.zip
+      commuteorg_shuttles: http://www.commute.org/files/gtfs/Masterzip.zip
+    license:
+      sf-muni: https://www.sfmta.com/about-sfmta/reports/gtfs-transit-data
+      bart: http://www.bart.gov/dla
+      caltrain: http://www.caltrain.com/developer/Developer_License_Agreement_and_Privacy_Policy.html
+      san_mateo: 
+      golden_gate_transit: 
+      sf_bay_ferries: 
+      oakland: http://www.actransit.org/data-terms-and-conditions/
+      westcat: 
+      concord_county: 
+      marin_county: 
+      capitol_corridor: 
+      commuteorg_shuttles: 
+    source:
+      sf-muni: https://www.sfmta.com/about-sfmta/reports/gtfs-transit-data
+      bart: http://www.bart.gov/schedules/developers/gtfs
+      caltrain: http://www.caltrain.com/developer/Developer_License_Agreement_and_Privacy_Policy.html?IsSubmitted=True
+      san_mateo: 
+      golden_gate_transit: 
+      sf_bay_ferries: 
+      oakland: http://www.actransit.org/planning-focus/data-resource-center/
+      westcat: 
+      concord_county: 
+      marin_county: 
+      capitol_corridor: 
+      commuteorg_shuttles: http://commute.org/shuttles/shuttle-program
+  boston:
+    source: http://www.mbta.com/rider_tools/developers/default.asp?id=21895
+    gtfs: http://www.mbta.com/uploadedfiles/MBTA_GTFS.zip
+    license: ???
+  seattle:
+  portland:
+    source: http://oregon-gtfs.com/gtfs_data/rideconnection-or-us/
+    gtfs: http://oregon-gtfs.com/gtfs_data/rideconnection-or-us/rideconnection-or-us.zip
+  portland2:
+    source: 
+      portland_trimet: http://developer.trimet.org/GTFS.shtml
+      vancouver_wa: http://www.c-tran.com/about-c-tran/business/c-tran-gtfs-data
+    gtfs: 
+      portland_trimet: http://developer.trimet.org/schedule/gtfs.zip
+      vancouver_wa: http://www.c-tran.com/images/Google/GoogleTransitUpload.zip
+  washington_dc:
+    source:
+      dc: http://www.wmata.com/rider_tools/developer_resources.cfm
+      montgomery: http://www.montgomerycountymd.gov/DOT-Transit/GTFS/GTFSfiles.html
+      arlington: http://www.arlingtontransit.com/pages/rider-tools/tools-for-developers/
+      alexandria:
+      potomac: http://www.prtctransit.org/about-us/developers-tools.html
+      fairfax: http://www.fairfaxcounty.gov/connector/data/
+      central_maryland: http://www.cmrtransit.org/about/developer-resources/
+    gtfs:
+      dc: http://lrg.wmata.com/GTFS_data/google_transit.zip
+      montgomery: http://www.montgomerycountymd.gov/DOT-Transit/Resources/Files/RideOnGTFS.zip
+      arlington: http://realtime.commuterpage.com/rtt/public/utility/gtfs.aspx
+      alexandria: http://www.dashbus.com/google_transit.zip
+      potomac: http://www.prtctransit.org/feeds/google_transit.zip
+      fairfax: http://www.fairfaxcounty.gov/connector/data/connector_gtfs.zip
+      central_maryland: http://mdtrip.org/googletransit/RTA/google_transit.zip
+    license:
+      dc: http://www.wmata.com/rider_tools/license_agreement.cfm
+      montgomery: http://www.montgomerycountymd.gov/user_rights
+      arlington:
+      alexandria:
+      potomac: http://www.prtctransit.org/about-us/developers-tools.html
+      fairfax: http://www.fairfaxcounty.gov/connector/data/
+      central_maryland: http://www.cmrtransit.org/about/developer-resources/
+  atlanta:
+    source:
+      marta: http://www.itsmarta.com/developers/data-sources/general-transit-feed-specification-gtfs.aspx
+      cobb_county: http://www.atlantaregional.com/transportation/transit/existing-regional-transit-system
+      gwinnet_county: http://www.atlantaregional.com/transportation/transit/existing-regional-transit-system
+      georgia_regional: http://www.atlantaregional.com/transportation/transit/existing-regional-transit-system
+      cherokee_area: http://www.atlantaregional.com/transportation/transit/existing-regional-transit-system
+      georgia_tech_trolley: http://www.atlantaregional.com/transportation/transit/existing-regional-transit-system
+      buc_shuttle: http://www.atlantaregional.com/transportation/transit/existing-regional-transit-system
+      emory_cliff_shuttle: http://www.atlantaregional.com/transportation/transit/existing-regional-transit-system
+      atlantic_station: http://www.atlantaregional.com/transportation/transit/existing-regional-transit-system
+      atlanta_streetcar: http://www.atlantaregional.com/transportation/transit/existing-regional-transit-system
+    gtfs: 
+      marta: http://www.itsmarta.com/google_transit_feed/google_transit.zip
+      cobb_county: http://documents.atlantaregional.com/transitdata/gtfs_CCT.zip
+      gwinnet_county: http://documents.atlantaregional.com/transitdata/gtfs_GCT.zip
+      georgia_regional: http://www.grta.org/GTFS/Google_Transit.zip
+      cherokee_area: http://documents.atlantaregional.com/transitdata/gtfs_CATS.zip
+      georgia_tech_trolley: http://documents.atlantaregional.com/transitdata/gtfs_GT.zip
+      buc_shuttle: http://documents.atlantaregional.com/transitdata/gtfs_Buc.zip
+      emory_cliff_shuttle: http://documents.atlantaregional.com/transitdata/gtfs_CCTMA.zip
+      atlantic_station: http://documents.atlantaregional.com/transitdata/gtfs_Atlantic.zip
+      atlanta_streetcar: http://documents.atlantaregional.com/tcc/gtfs/gtfs_ASC_03282016.zip
+    license:
+      marta:
+      cobb_county: http://www.atlantaregional.com/File%20Library/Transportation/Transit/Developers-Agreement-for-Web.pdf
+      gwinnet_county: http://www.atlantaregional.com/File%20Library/Transportation/Transit/Developers-Agreement-for-Web.pdf
+      georgia_regional: http://www.atlantaregional.com/File%20Library/Transportation/Transit/Developers-Agreement-for-Web.pdf
+      cherokee_area: http://www.atlantaregional.com/File%20Library/Transportation/Transit/Developers-Agreement-for-Web.pdf
+      georgia_tech_trolley: http://www.atlantaregional.com/File%20Library/Transportation/Transit/Developers-Agreement-for-Web.pdf
+      buc_shuttle: http://www.atlantaregional.com/File%20Library/Transportation/Transit/Developers-Agreement-for-Web.pdf
+      emory_cliff_shuttle: http://www.atlantaregional.com/File%20Library/Transportation/Transit/Developers-Agreement-for-Web.pdf
+      atlantic_station: http://www.atlantaregional.com/File%20Library/Transportation/Transit/Developers-Agreement-for-Web.pdf
+      atlanta_streetcar: http://www.atlantaregional.com/File%20Library/Transportation/Transit/Developers-Agreement-for-Web.pdf
+    updates: 4/year
+  los_angeles2: Make sure that LA includes MetroRail
+  maryland:
+    source: http://mta.maryland.gov/content/developer-resources
+    gtfs: http://mta.maryland.gov/_googletransit/latest/google_transit.zip
+    license: no-warranty
+    notes: includes Baltimore
+  san_juan:
+  miami:
+  orange_county:
+    source: http://www.octa.net/News-and-Resources/Open-Data/Google-Transit-Feed/
+    gtfs: http://www.octa.net/current/google_transit.zip
+    license: http://www.octa.net/disclaimer/
+  honolulu:
+    source: http://forums.thebus.org/topic.asp?TOPIC_ID=1465&SearchTerms=google
+    gtfs: http://webapps.thebus.org/transitdata/production/google_transit.zip
+    license: http://www.thebus.org/transitfeed/terms-of-use.asp ???
+    notes: No official link found, also it is out of date at time of
+           finding.  Can't verify the linked license is the true one.
+  utah:
+    source: http://developer.rideuta.com/DeveloperResources/developer.aspx
+    notes: Unlike most sites, upstream data seems to be hosted on GTFS-data-exchange
+    license: http://developer.rideuta.com/TermsOfUse.aspx
+    gtfs: http://www.gtfs-data-exchange.com/agency/utah-transit-authority/latest.zip
+  # This worked once, but no more.  Maybe check other official feed source?
+  #minneapolis:
+  #  source: https://gisdata.mn.gov/dataset/us-mn-state-metc-trans-transit-schedule-google-fd
+  #  gtfs: ftp://ftp.gisdata.mn.gov/pub/gdrs/data/pub/us_mn_state_metc/trans_transit_schedule_google_fd/csv_trans_transit_schedule_google_fd.zip
+  #  notes: 'A different "official feed" source is listed here: http://www.gtfs-data-exchange.com/agency/metro-transit/'
+
+# World cities, by size
+
+# "Best transit systems in the world", according to various lists
+  # new york  (above)
+  berlin:
+    # gtfs: http://www.vbb.de/de/download/gtfs-daten.zip
+    # gtfs: http://www.vbb.de/de/datei/gtfs-daten.zip
+    # http://www.vbb.de/de/datei/GTFS_VBB_EndeApr_Dez2016.zip
+    gtfs: http://images.vbb.de/assets/ftp/file/405413.zip
+    source: https://code.google.com/p/googletransitdatafeed/wiki/PublicFeeds,
+    license: CC BY Attribution
+    notes: http://www.vbb.de/de/article/webservices/schnittstellen-fuer-webentwickler/5070.html#gtfs
+           is the VBG site for GTFS data, however it doesn't link to the always-up-to-date
+           version
+  #zurich:  (see switzerland below)
+  #frankfurt:
+  #london:
+  #paris:
+  #tokyo:
+  #munich:
+  #singapore:
+  #seoul:
+  #beijing:
+  #moscow:
+  #sao_paulo:
+    #http://www.sptrans.com.br/desenvolvedores/Default.aspx?login
+  #dubai:
+
+
+# Largest metropolitan areas in the world
+  #tokyo:
+  #seoul:
+  #shanghai:
+  #guangzhou:
+  #delhi:
+  #mexico_city:
+  #beijing:
+  #lagos:
+  #sao_paulo:
+  #mumbai:
+  #new_york:
+  #osaka:
+  #dhaka:
+  #kolkata:
+  #tehran:
+  #istanbul:
+  #london:
+  #los_angeles:
+  #buenos_aires:
+  #paris:
+
+
+# Other
+  switzerland:
+    source: http://gtfs.geops.ch/
+    gtfs: http://gtfs.geops.ch/dl/gtfs_complete.zip
+    license: http://www.fahrplanfelder.ch/fileadmin/fap_daten_test/141214_Nutzungsbed_Fahrpland_de.pdf
+  estonia:
+    source: http://www.peatus.ee/gtfs/
+    gtfs: http://www.peatus.ee/gtfs/gtfs.zip
+    notes: Linked from public GTFS page, but no official source.
+  canberra:
+    source: http://www.action.act.gov.au/timetables_and_maps/Plan-Your-Trip
+    gtfs: http://www.action.act.gov.au/__data/assets/file/0003/394356/google_transit.zip
+  des_moines:
+    notes: official source requires registering
+    source: google transit public feed listing
+    gtfs: http://api.ridedart.com/gtfs/file?key=ef0bd8fa9ef652bcfaea713da3b64078
+  vilnius:
+    source: public feeds listing, no official source
+    gtfs: http://www.stops.lt/vilnius/vilnius/gtfs.zip
+
+# Africa
+  # Algeria
+  algiers:
+    source: https://github.com/MajdaNaf/algiers-transit-data/tree/master/GTFS%20files
+    gtfs: https://github.com/MajdaNaf/algiers-transit-data/tree/master/GTFS%20files
+    license: https://github.com/MajdaNaf/algiers-transit-data/blob/master/LICENSE
+    notes: "unofficial, non-zip, outdated"
+  # Egypt
+  cairo:
+    source: https://github.com/transportforcairo/Metro-GTFS
+    gtfs: https://github.com/transportforcairo/Metro-GTFS/archive/master.zip
+    license: https://github.com/transportforcairo/Metro-GTFS/blob/master/LICENSE.md
+    notes: "outdated"
+  # Kenya
+  nairobi:
+    source: http://www.digitalmatatus.com/map.html
+    gtfs: http://www.digitalmatatus.com/pdf/GTFS_DATA_1.zip
+    notes: "unofficial source"
+  # South Africa 
+  cape_town:
+    source: http://www.gtfs-data-exchange.com/agency/myciti/
+    gtfs: http://gtfs.s3.amazonaws.com/myciti_20131022_0552.zip
+    license:
+    notes: "Unofficial, Outdated, official feed has disappeared"
+
+# Asia
+  # Israel
+  israel:
+    source: http://he.mot.gov.il/index.php?option=com_content&view=article&id=2244&catid=167&Itemid=304
+    gtfs: ftp://gtfs.mot.gov.il/israel-public-transportation.zip
+  # Philippines
+  manilla:
+    source: http://www.dotc.gov.ph/index.php/2014-09-02-05-02-46/transit-data
+    gtfs: http://www.dotc.gov.ph/images/Open_Data/gtfs_884416.zip
+    license: http://www.dotc.gov.ph/images/Open_Data/draft%20developer%20license%20agreement%20and%20terms%20of%20use%20gtfs.pdf
+  # Malaysia
+  kuala_lumpur:
+    source: http://www.gtfs-data-exchange.com/agency/myrapid-kuala-lumpur/
+    gtfs: http://gtfs.s3.amazonaws.com/myrapid-kuala-lumpur_20130923_1026.zip
+    notes: "Unofficial, Outdated, unable to find original data source"
+  # Singapore
+  singapore:
+    source: http://www.gtfs-data-exchange.com/agency/lta/
+    gtfs: http://gtfs.s3.amazonaws.com/lta_20150727_0653.zip
+    notes: "unofficial source"
+
+
+# Europe
+  # Belgium
+  belgium:
+    source: https://hello.irail.be/
+    gtfs:
+      brussels: http://gtfs.irail.be/mivb/mivb-gtfs.zip
+      flanders: http://gtfs.irail.be/de-lijn/de_lijn-gtfs.zip
+      wallonia: http://gtfs.irail.be/tec/tec-gtfs.zip
+      train: http://gtfs.irail.be/nmbs/nmbs-latest.zip
+    notes: "unofficial source"
+  # Czechia
+  prague:
+    source: http://opendata.praha.eu/dataset/dpp-jizdni-rady
+    gtfs: http://opendata.iprpraha.cz/DPP/jrdata_transit.zip
+    license: http://www.opendefinition.org/licenses/cc-zero
+  # Denmark
+  denmark:
+    source: http://labs.rejseplanen.dk/labs/data__brug/tilmelding_for_samarbejdspartnere/
+    gtfs: http://labs.rejseplanen.dk/files/GTFS/GTFS.zip
+    license: http://creativecommons.org/licenses/by-nd/3.0/
+  # Finland
+  kuopio:
+    source: http://joukkoliikenne.kuopio.fi/mobile-apps
+    gtfs: http://bussit.kuopio.fi/gtfs/gtfs.zip
+  turku:
+    source: http://data.foli.fi/doc/gtfs/v0/index
+    gtfs: http://data.foli.fi/gtfs/gtfs.zip
+  # France
+  angers:
+    source: http://data.angers.fr/donnees/mobilite-horaire-de-passage-theorique/?tx_icsoddatastore_pi1[keywords]=&tx_icsoddatastore_pi1[fileformat][0]=13
+    gtfs: http://data.angers.fr/?eID=ics_od_datastoredownload&file=1173
+    license: http://opendatacommons.org/licenses/odbl/1.0/
+    notes: "No fixed url"
+  bordeaux:
+    source: https://data.bordeaux-metropole.fr/apicub
+    gtfs:
+      bus: http://data.lacub.fr/files.php?gid=68&format=14
+      tram: http://data.lacub.fr/files.php?gid=67&format=14
+    license: http://creativecommons.org/licenses/by-nc-sa/2.0/fr/
+  brest:
+    source: https://geo.pays-de-brest.fr/actualites/Pages/public/Offre_Theorique_Bibus.aspx
+    gtfs: https://applications002.brest-metropole.fr/VIPDU72/GPB/Lot_BrestMetropole_Bibus.zip
+    license:
+  grenoble:
+    source: http://www.metromobilite.fr/pages/opendata/OpenDataHorairesTheoriques.html
+    gtfs: http://www.metromobilite.fr/data/Horaires/SEM-GTFS.zip
+    license: http://www.metromobilite.fr/pdf/ODbL_fr_VF_1.pdf
+  nice:
+    source: http://opendata.nicecotedazur.org/data/dataset/export-au-format-gtfs-du-reseau-de-transport-lignes-d-azur#
+    gtfs: http://opendata.nicecotedazur.org/data/storage/f/gtfs1459638001/GTFSExport.zip
+    license: http://opendata.nicecotedazur.org/data/pdf/licence_ouverte.pdf
+  nantes:
+    source: http://data.nantes.fr/donnees/detail/arrets-horaires-et-circuits-tan/
+    gtfs: http://data.nantes.fr/fileadmin/data/datastore/nm/mobilite/24440040400129_NM_TAN_00005/ARRETS_HORAIRES_CIRCUITS_TAN_gtfs.zip
+    license: Open Database License (ODbL), http://data.nantes.fr/licence/
+  rennes:
+    source: http://data.keolis-rennes.com/fr/les-donnees/donnees-telechargeables.html
+    gtfs: http://data.keolis-rennes.com/fileadmin/OpenDataFiles/GTFS/GTFS-20160209.zip
+    license: http://data.keolis-rennes.com/fr/pied-de-page/mentions-legales.html
+    notes: "filename fixed to upload date"
+  strassbourg:
+    source: http://www.cts-strasbourg.eu/fr/portail-open-data/index.html
+    gtfs: http://opendata.cts-strasbourg.fr/fichiers/gtfs/google_transit.zip
+    license: http://www.cts-strasbourg.eu/fr/cgucgv/
+  toulouse:
+    source: https://data.toulouse-metropole.fr/explore/dataset/tisseo-gtfs/information/
+    gtfs: https://data.toulouse-metropole.fr/explore/dataset/tisseo-gtfs/files/bd1298f158bc39ed9065e0c17ebb773b/download/
+    license: http://opendatacommons.org/licenses/odbl/
+  # Germany
+  mannheim:
+    source: https://opendata.rnv-online.de/datensaetze/gtfs-general-transit-feed-specification
+    gtfs: https://opendata.rnv-online.de/sites/default/files/rnv-GTFS_2.zip
+    license: dl-de-by-2.0
+  # Greece
+  athens:
+    source: http://geodata.gov.gr/el/dataset/oasa
+    gtfs: http://geodata.gov.gr/dataset/244cfb87-21a0-4f9f-90af-25e9a232af41/resource/d94179a0-a2bd-432f-8c5e-e05eae2886cf/download/googletransit.zip
+    license: https://creativecommons.org/licenses/by/3.0/
+  # Ireland
+  dublin:
+    notes: includes bus, luas (light rail) and all trains in ireland (Dart should be isolated) 
+    source: http://www.transportforireland.ie/transitData/PT_Data.html
+    gtfs:
+      bus: http://www.transportforireland.ie/transitData/google_transit_dublinbus.zip
+      luas: http://www.transportforireland.ie/transitData/google_transit_luas.zip
+      irish_rail: http://www.transportforireland.ie/transitData/google_transit_irishrail.zip
+    license: https://data.gov.ie/licence
+  # Italy
+  milano:
+    source: https://www.amat-mi.it/it/mobilita/dati-strumenti-tecnologie/dati-gtfs/
+    gtfs: http://amat-mi.it/it/downloads/data/gtfs/current/Export_OpenDataTPL_Current.zip
+    license: http://creativecommons.org/licenses/by/4.0/legalcode
+  naples:
+    source:
+      trenitalia: http://www.comune.napoli.it/flex/cm/pages/ServeBLOB.php/L/IT/IDPagina/29233
+      anm: http://www.comune.napoli.it/flex/cm/pages/ServeBLOB.php/L/IT/IDPagina/29233
+    gtfs:
+      trenitalia: http://www.anm.it/google/google-transit.zip
+      anm: http://www.anm.it/google/metronapoli/google-transit.zip
+    license:
+      trenitalia: http://www.dati.gov.it/iodl/2.0/
+      anm: http://www.dati.gov.it/iodl/2.0/
+  palermo:
+    source: http://www.comune.palermo.it/opendata_dld.php?id=318
+    gtfs: http://www.comune.palermo.it/gtfs/amat_feed_gtfs_v1.zip
+    license: http://creativecommons.org/licenses/by/4.0/deed.it
+  turin:
+    source: http://opendata.5t.torino.it/gtfs/
+    gtfs: http://opendata.5t.torino.it/gtfs/torino_it+SFM.zip
+    license:
+  venice:
+    source: http://dati.venezia.it/?q=content/actv-general-transit-feed-specification-gtfs
+    license: http://dati.venezia.it/?q=licenza/cc
+    gtfs:
+      bus: http://actv.avmspa.it/sites/default/files/attachments/opendata/automobilistico/actv_aut.zip
+      water: http://actv.avmspa.it/sites/default/files/attachments/opendata/navigazione/actv_nav.zip
+  # Luxembourg
+  luxembourg
+    source: http://openov.lu/data/
+    gtfs: http://openov.lu/data/gtfs/gtfs-openov-lu.zip
+  # Netherlands
+  netherlands:
+    source: http://gtfs.ovapi.nl/
+    gtfs: http://gtfs.ovapi.nl/new/gtfs-nl.zip
+    license: http://gtfs.ovapi.nl/README
+  # Norway
+  oslo:
+    source: https://ruter.no/labs/
+    gtfs: http://reis.ruter.no/gtfs/gtfs.zip
+    license: http://data.norge.no/nlod/en/1.0
+  stavanger:
+    source: https://data.norge.no/data/kolumbus/rutedata-fra-kolumbus
+    gtfs: http://www.rkt.no/gt/google_transit.zip
+    license: http://data.norge.no/nlod/
+  # Poland
+  szczecin:
+    source: http://zditm.szczecin.pl/rozklady/GTFS/latest/
+    gtfs: http://zditm.szczecin.pl/rozklady/GTFS/latest/google_gtfs.zip
+    license:
+  wroclaw:
+    source: http://www.wroclaw.pl/open-data/index.php/zbiory-danych/17-transport/106-rozklad-jazdy-transportu-publicznego
+    gtfs: http://www.wroclaw.pl/open-data/opendata/rozklady/OtwartyWroclaw_rozklad_jazdy_GTFS.zip
+    license: http://www.wroclaw.pl/open-data/index.php/warunki-korzystania
+  # Russia
+  st_petersburg:
+    source: http://transport.orgp.spb.ru/Portal/transport/internalapi/gtfs
+    gtfs: http://transport.orgp.spb.ru/Portal/transport/internalapi/gtfs/feed.zip
+    license:
+  # Spain
+  mallorca:
+    source: http://www.tib.org/portal/en/web/ctm/open-data
+    gtfs: http://www.tib.org/portal/documents/10286/110211/es-ctm-mallorca.zip
+    license: http://www.tib.org/portal/en/web/ctm/llicencies-us
+  # United Kingdom
+  manchester:
+    source: https://data.gov.uk/dataset/public-transport-schedules-gtfs
+    gtfs: http://odata.tfgm.com/opendata/downloads/TfGMgtfs.zip
+    license: http://odata.tfgm.com/opendata/downloads/Licences/FreeToUseData_SubLicence_G_v9.pdf
+# North America
+  # Canada
+  calgary:
+    source: https://data.calgary.ca/OpenData/Pages/DatasetDetails.aspx?DatasetID=PDC0-99999-99999-00501-P(CITYonlineDefault)
+    gtfs: https://data.calgary.ca/_layouts/OpenData/DownloadDataset.ashx?Format=FILE&DatasetId=PDC0-99999-99999-00501-P(CITYonlineDefault)&VariantId=6(CITYonlineDefault)
+    license: https://data.calgary.ca/OpenData/Pages/TermsOfUse.aspx
+  edmonton:
+    source: https://data.edmonton.ca/Transit/ETS-Bus-Schedule-GTFS-Data-Feed-zipped-files/gzhc-5ss6
+    gtfs: https://data.edmonton.ca/download/gzhc-5ss6/application/zip
+    license: http://www.edmonton.ca/city_government/documents/Web-version2.1-OpenDataAgreement.pdf
+  montreal:
+    source: http://www.stm.info/en/about/developers
+    gtfs: http://www.stm.info/sites/default/files/gtfs/gtfs_stm.zip
+    license: http://www.stm.info/en/about/developers/terms-use
+  ottawa:
+    source: http://www.octranspo1.com/developers
+    gtfs: http://www.octranspo1.com/files/google_transit.zip
+    license: http://www.octranspo1.com/developers/terms_of_service
+  toronto:
+    source:
+      ttc: http://www1.toronto.ca/wps/portal/contentonly?vgnextoid=96f236899e02b210VgnVCM1000003dd60f89RCRD
+      york: http://www.yrt.ca/en/aboutus/gtfsdownload.asp
+      brampton: http://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Pages/Data-Set-Details.aspx?ItemID=1
+      oakville: http://www.oakville.ca/data/oakville-transit-route-information.html
+      gotransit: http://www.gotransit.com/publicroot/en/schedules/DeveloperResources.aspx
+      upexpress: http://www.gotransit.com/publicroot/en/schedules/DeveloperResources.aspx
+      mississauga: http://www.mississauga.ca/portal/miway/developerdownload
+      durham: http://www.durham.ca/print.asp?nr=/departments/corpservices/it/gis/opendata.htm&setFooter=/includes/GISfooter.inc
+      burlington: http://cob.burlington.opendata.arcgis.com/
+      hamilton: https://www.hamilton.ca/city-initiatives/strategies-actions/open-accessible-data
+    gtfs:
+      ttc: http://opendata.toronto.ca/TTC/routes/OpenData_TTC_Schedules.zip
+      york: http://yrt.ca/google/google_transit.zip
+      brampton: http://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Documents/Google_Transit.zip
+      oakville: http://opendata.oakville.ca/Oakville_Transit_GTFS/Google_Transit.zip
+      gotransit: http://www.gotransit.com/publicroot/gtfs/google_transit.zip
+      upexpress: http://www.gotransit.com/publicroot/gtfs/google_transit_UP.zip
+      mississauga: https://www.miapp.ca/GTFS/google_transit.zip?#
+      durham: https://maps.durham.ca/OpenData/GTFS_Durham_TXT.zip
+      burlington: http://www.burlington.ca/en/services-for-you/resources/Ongoing_Projects/Open_Data/Catalogue/GTFS_Data.zip
+      hamilton: http://googlehsrdocs.hamilton.ca/
+    license:
+      brampton: http://www.brampton.ca/EN/City-Hall/OpenGov/Open-Data-Catalogue/Pages/Terms-of-Use.aspx
+      oakville: http://www.oakville.ca/data/open_data_licence.html
+      durham: http://www.durham.ca/corpservices.asp?nr=/departments/corpservices/it/gis/opendatalicense.htm&setFooter=/includes/GISfooter.inc
+      burlington: http://www.burlington.ca/en/services-for-you/resources/Ongoing_Projects/Open_Data/OpenDataBurlingtonTermsOfUseSeptember192011.pdf
+  vancouver:
+    source: http://www.translink.ca/en/Schedules-and-Maps/Developer-Resources.aspx
+    gtfs: http://ns.translink.ca/gtfs/google_transit.zip
+  winnipeg:
+    source: http://api.winnipegtransit.com/home/api/v2
+    gtfs: http://gtfs.winnipegtransit.com/google_transit.zip
+    license: http://api.winnipegtransit.com/home/licence
+  # Mexico
+  mexico_city:
+    source: http://www.gobiernoabierto.cdmx.gob.mx/sigdata/index.php/Publicacion/detalle_dataset/619
+    gtfs: https://s3.amazonaws.com/setravi/df_gtfs.zip
+    
+  # MURICA!
+  buffalo:
+    source: http://metro.nfta.com/Contact/Developers.aspx
+    gtfs: http://www.nfta.com/metro/__googletransit/google_transit.zip
+  cincinnati:
+    source: http://www.go-metro.com/about-metro/developer-data
+    gtfs: http://www.go-metro.com/uploads/GTFS/google_transit_info.zip
+  columbus:
+    source: http://www.cota.com/Auxiliary/Data.aspx
+    gtfs: http://www.cota.com/COTA/media/COTAContent/OpenGTFSData.zip
+  delaware:
+    source: http://dartfirststate.com/information/routes/index.shtml
+    gtfs: http://www.dartfirststate.com/information/routes/gtfs_data/dartfirststate_de_us.zip
+    license:
+  denver:
+    source: http://www.rtd-denver.com/Developer.shtml
+    gtfs: http://www.rtd-denver.com/gtfs-developer-guide.shtml#schedule-dataset
+    license:
+  detroit:
+    source: https://data.detroitmi.gov/Transportation/DDOT-GTFS-Transit-File/hv2v-es9i
+    gtfs: http://www.detroitmi.gov/Portals/0/docs/deptoftransportation/pdfs/ddot_gtfs.zip
+    license: Public Domain
+  connecticut:
+    source: http://www.cttransit.com/about/developers/gtfsdata/Main.asp
+    gtfs:
+      hartford: http://www.cttransit.com/uploads_GTFS/googleha_transit.zip
+      new_haven: http://www.cttransit.com/uploads_GTFS/googlenh_transit.zip
+      stamford: http://www.cttransit.com/uploads_GTFS/googlestam_transit.zip
+      waterbury: http://www.cttransit.com/uploads_GTFS/googlewat_transit.zip
+      new_britain: http://www.cttransit.com/uploads_GTFS/googlenb_transit.zip
+      meriden: http://www.cttransit.com/uploads_GTFS/googleme_transit.zip
+      shore_line_east: http://www.shorelineeast.com/google_transit.zip
+    license: http://www.cttransit.com/about/developers/gtfsdata/
+  indianapolis:
+    source: http://www.indygo.net/about-indygo/indygo-developer-content-area/
+    gtfs: http://www.indygo.net/wp-content/plugins/wp-gtfs/feed/gtfs.zip
+    license: http://www.indygo.net/about-indygo/indygo-developer-content-area/indygo-gtfs-terms-of-use/
+  kansas_city:
+    source: http://www.kcata.org/transit_data/access_gtdf
+    gtfs: http://www.kc-metro.com/gtf/google_transit.zip
+    license:
+  las_vegas:
+    source: http://www.rtcsnv.com/transit/rtc-transit-services/rtc-transit-developer-information/
+    gtfs: http://rtcws.rtcsnv.com/g/google_transit.zip
+    license:
+  miami:
+    source:
+      miami_dade: http://www.miamidade.gov/transit/open-data-feeds.asp
+      broward_county:
+      palm_beach:
+    gtfs:
+      miami_dade: http://www.miamidade.gov/transit/googletransit/current/google_transit.zip
+      broward_county: http://www.broward.org/bct/google/latest/google_transit.zip
+      palm_beach:  http://www.palmtran.org/feed/google_transit.zip
+  milwaukee:
+    source: http://kamino.mcts.org/gtfs/
+    gtfs: http://kamino.mcts.org/gtfs/google_transit.zip
+  nashville:
+    source: http://www.nashvillemta.org/Nashville-MTA-Developer-Data-Request.asp
+    gtfs: http://www.nashvillemta.org/GoogleExport/google_transit.zip
+  new_jersey:
+    source: 
+      bus: https://www.njtransit.com/mt/mt_servlet.srv?hdnPageAction=MTDevLoginTo
+      rail: https://www.njtransit.com/mt/mt_servlet.srv?hdnPageAction=MTDevLoginTo
+      path: http://www.panynj.gov/path/developers.html
+    gtfs:
+      bus: https://www.njtransit.com/mt/mt_servlet.srv?hdnPageAction=MTDevResourceDownloadTo&Category=bus
+      rail: https://www.njtransit.com/mt/mt_servlet.srv?hdnPageAction=MTDevResourceDownloadTo&Category=rail
+      path: http://data.trilliumtransit.com/gtfs/path-nj-us/path-nj-us.zip
+    notes: "njtransit is password protected"
+  new_orleans:
+    source: http://www.norta.com/Media/News-Events/ETA-launches.aspx
+    gtfs: http://www.norta.com/CMSTemplates/RTAApplication/MyRTA/OpenSourceDataDownload.aspx?key=LEYHIUOMZCDYZNFX
+    license:
+  orlando:
+    source: http://www.golynx.com/lynxmap/DataDownload/index_files/Page414.htm
+    gtfs: http://www.golynx.com/lynxmap/GoLYNX_data/google_transit.zip
+    license:
+  pittsburg:
+    source: http://www.portauthority.org/paac/CompanyInfoProjects/DeveloperResources.aspx
+    gtfs: http://www.portauthority.org/GeneralTransitFeed/general_transit_bing.zip
+    license:
+  providence:
+    source:
+    gtfs: http://www.ripta.com/googledata/current/google_transit.zip
+    license:
+  raleigh-durham:
+    source: http://www.gotriangle.org/developer-resources/gtfs
+    license: http://www.gotriangle.org/developer-terms-and-conditions
+    notes: "filename fixed to upload date"
+    gtfs:
+      triangle: http://admin.gotransitnc.org/sites/default/files/developergtfs/GoTriangle_GTFS_20160321.zip
+      raleigh: http://admin.gotransitnc.org/sites/default/files/developergtfs/GoRaleigh_GTFS_20160321.zip
+      chapel_hill: http://admin.gotransitnc.org/sites/default/files/developergtfs/Chapel%20Hill%20Transit_GTFS_20160321.zip
+      ctran: http://admin.gotransitnc.org/sites/default/files/developergtfs/CTran_GTFS_20160321.zip
+      durham: http://admin.gotransitnc.org/sites/default/files/developergtfs/GoDurham_GTFS_20160321.zip
+      duke: http://admin.gotransitnc.org/sites/default/files/developergtfs/Duke_GTFS_20160321.zip
+      wolfline: http://admin.gotransitnc.org/sites/default/files/developergtfs/Wolfline_GTFS_20160321.zip
+  sacramento:
+    source: http://www.sacrt.com/gtfs.stm
+    gtfs: http://iportal.sacrt.com/GTFS/SRTD/google_transit.zip
+    #gtfs: http://iportal.sacrt.com/gtfs/Google.zip
+  seattle:
+    #source: http://www.kingcounty.gov/transportation/kcdot/MetroTransit/Developers.aspx
+    #gtfs: http://metro.kingcounty.gov/GTFS/google_transit.zip
+    #license: http://www.kingcounty.gov/transportation/kcdot/MetroTransit/Developers/TermsOfUse.aspx
+    source: http://www.soundtransit.org/Developer-resources/Data-downloads
+    gtfs: http://developer.onebusaway.org/tmp/sound/gtfs/modified/gtfs_puget_sound_consolidated.zip
+    license: http://www.soundtransit.org/sites/default/files/documents/developer/pdf/electronicdatatermsofuse.pdf
+  st_louis:
+    source: http://www.metrostlouis.org/About/DeveloperResource.aspx
+    gtfs: ftp://metrostlouis.org/Transit/google_transit.zip
+    license: http://www.metrostlouis.org/About/DeveloperResource/DeveloperTermsofUse.aspx
+  tampa:
+    source:
+    gtfs: gohart.org/google/google_transit.zip
+    license:
+  tucson:
+    source: http://www.suntran.com/developers_feed.php
+    gtfs: http://www.suntran.com/GTFS/SuntranGTFS.zip
+  virginia_beach-norfolk:
+    source: http://gohrt.com/third-party-apps/
+    gtfs: http://www.gtfs-data-exchange.com/agency/hampton-roads-transit-hrt/latest.zip
+    license:
+  el_paso:
+    source:
+    gtfs: http://sunmetro.net/google_transit/Google_Transit.zip
+    license:
+
+# Oceania
+  # Australia
+  adelade:
+    source: http://data.sa.gov.au/data/dataset/adelaide-metro-general-transit-feed
+    gtfs: http://adelaidemetro.com.au/GTFS/google_transit.zip
+    license: 
+  new_south_wales:
+    source: https://tdx.transportnsw.info/?_ga=1.248203141.308158140.1458303814
+    #gtfs: https://tdx.transportnsw.info/download/files/full_greater_sydney_gtfs_static.zip
+    gtfs: https://opendata.transport.nsw.gov.au/direct/full_greater_sydney_gtfs_static.zip
+    license: https://tdx.transportnsw.info/terms-conditions.php
+  perth:
+    source: http://www.transperth.wa.gov.au/About/Spatial-Data-Access
+    gtfs: http://www.transperth.wa.gov.au/LinkClick.aspx?link=%2fTimetablePDFs%2fGoogleTransit%2fProduction%2fgoogle_transit.zip
+  south_east_queensland:
+    source: https://data.qld.gov.au/dataset/general-transit-feed-specification-gtfs-seq/
+    gtfs: http://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip
+    license: Attribution 3.0 Australia (CC BY 3.0 AU)
+  victoria:
+    source: https://www.data.vic.gov.au/data/dataset/ptv-timetable-and-geographic-information-2015-gtfs
+    gtfs: http://data.ptv.vic.gov.au/downloads/gtfs.zip
+    license: http://creativecommons.org/licenses/by/4.0/
+    notes: "zip containing zips"
+  # New Zealand
+  auckland:
+    source: https://api.at.govt.nz/docs/v1#GTFS
+    gtfs: https://cdn01.at.govt.nz/data/gtfs.zip
+    license: https://api.at.govt.nz/terms/
+  wellington:
+    source: https://www.metlink.org.nz/customer-services/general-transit-file-specification/
+    gtfs: https://www.metlink.org.nz/assets/Google_Transit/google-transit.zip
+
+# South America
+  # Brazil
+  belo_horizonte:
+    source: http://servicosbhtrans.pbh.gov.br/bhtrans/e-servicos/S43F01-extracao.asp
+    gtfs: http://servicosbhtrans.pbh.gov.br/transitfiles/gtfs_bhtransit.zip
+    license:
+  porto_alegre:
+    source: http://dados.portoalegre.rs.gov.br/dataset/gtfs/resource/
+    gtfs: http://datapoa.com.br/storage/f/2016-03-03T20%3A23%3A42.849Z/outputfiles.zip
+    license:
+  rio_de_janeiro:
+    source: http://data.rio/dataset/onibus-gtfs/resource/2de80207-ae46-4955-8adb-9eee0c89febb
+    gtfs: http://dadosabertos2.rio.rj.gov.br/dadoaberto/google-transit/google_transit.zip
+    license: http://opendefinition.org/licenses/odc-odbl/
+
+  # Chile
+  antofagasta:
+    source: http://datos.gob.cl/dataset/33297/resource/9111f713-0bbd-449f-ad65-4e3fce1583be
+    gtfs: http://datos.gob.cl/dataset/90e39a55-42d0-445e-b9d5-c73c07c6579b/resource/9111f713-0bbd-449f-ad65-4e3fce1583be/download/antofagasta5feb16.zip
+    license: http://creativecommons.org/licenses/by-nc/2.0/
+    notes: "No fixed url"
+  santiago:
+    source: http://www.dtpm.cl/index.php/2013-04-24-14-10-40/gtfs-vigente
+    gtfs: http://www.dtpm.cl/descargas/gtfs/GTFS.zip
+    license: http://www.dtpm.cl/index.php/terminos-y-condiciones
+  valparaiso:
+    source: http://datos.gob.cl/dataset/gtfs-valpo/resource/ae8d306d-7a47-4c9f-bdf0-d608bc33df40
+    gtfs: http://datos.gob.cl/dataset/9e74dc7e-9a58-41a1-8ccf-422b979173a8/resource/ae8d306d-7a47-4c9f-bdf0-d608bc33df40/download/valparaiso1feb16.zip
+    license: http://creativecommons.org/licenses/by-nc/2.0/
+    notes: "No fixed url" 

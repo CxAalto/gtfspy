@@ -1,0 +1,107 @@
+# This is the Makefile for automatic data processing.  It can generate
+# any output file, automatically handling dependencies.  Run this using:
+#   make -f code/Makefile_analysis aeouu
+#
+# Available filters are:
+# FILTER="-dle 2015-11-10"          # date less than or equal to
+# FILTER="-i  xxx"                  # Include only those matching pattern.
+# FILTER="-e  xxx"                  # Exclude those matching pattern.
+#
+# Example usage
+#
+#make -f code/Makefile_data import FILTER="-dge 2016-03-08"
+# Parallelize, don't stop on errors:
+#make -f code/Makefile_data import FILTER="-dge 2016-03-08 -e test" -j 4 --keep-going
+# Parallelize, log to make.log.txt
+# make -f code/Makefile_data import FILTER="-dge 2016-03-08 -e test" -j 4 --keep-going &> make.log.txt
+# make -f code/Makefile_data daily weekly FILTER="-dge 2016-03-15 -dle 2016-03-17 -e test -i switz" PROC=scratch/proc_latest -j 2 --keep-going 2>&1
+
+
+# Basic input/output paths
+RAW=scratch/rawgtfs
+PROC=scratch/proc
+
+# Get a list of all files.  This searches the raw directory and makes
+# a dependency for every input file.
+ALL := $(shell cd scratch/rawgtfs/ && find -maxdepth 3 -exec test -f {}/gtfs.zip \; -print; )
+# Filter files.  make FILTER='...' .
+ALL := $(shell python code/Makefile_data_filter.py "$(FILTER)" $(ALL) )
+
+
+PYTHON=time python
+IMPORT=$(PYTHON) code/import_gtfs.py
+
+# List all raw files
+list:
+	@echo $(ALL)
+
+# Run the download process.
+download:
+	$(PYTHON) code/locations.py scrape
+
+# Run all extraction and processing targets:
+all: import stats daily weekly
+
+# Extract GTFS, rawgtfs/city/date/region/gtfs.zip -> proc/city/date/region-gtfs/
+# Commands: make extract                - do everything
+#           make  proc/city/date/region-gtfs/    - extract one directory
+extract: $(foreach x, $(ALL), $(PROC)/$x-gtfs  )
+$(PROC)/%-gtfs: $(RAW)/%/gtfs.zip
+	mkdir -p $@
+	unzip $< -d $@
+
+# Convert GTFS to database
+# Extract GTFS, proc/city/date/region-gtfs/ -> proc/city/date/region.sqlite
+import: $(foreach x, $(ALL), $(PROC)/$x.sqlite  )
+#$(PROC)/%.sqlite: $(PROC)/%-gtfs
+$(PROC)/%.sqlite: $(RAW)/%/gtfs.zip
+	@mkdir -p `dirname $@`
+#	rm -f $(PWD)/$@  # no need to remove with create_file context manager.
+	@echo "IMPORTING: /$< --> $@"
+	$(IMPORT) import $(PWD)/$< $(PWD)/$@    2>&1 | tee $(PROC)/$*.log-import
+
+# Weekly extracts
+weekly: $(foreach x, $(ALL), $(PROC)/$x.week.sqlite  )
+$(PROC)/%.week.sqlite: $(PROC)/%.sqlite
+	@mkdir -p `dirname $@`
+	@echo "WEEKLY: /$< --> $@"
+	$(IMPORT) make-weekly $(PWD)/$< $(PWD)/$@    2>&1 | tee $(PROC)/$*.log-weekly
+
+# Daily extracts
+daily: $(foreach x, $(ALL), $(PROC)/$x.day.sqlite  )
+$(PROC)/%.day.sqlite: $(PROC)/%.sqlite
+	@mkdir -p `dirname $@`
+	@echo "DAILY: /$< --> $@"
+	$(IMPORT) make-daily $(PWD)/$< $(PWD)/$@    2>&1 | tee $(PROC)/$*.log-daily
+
+# Extract stop distances
+export-stop-distances: $(foreach x, $(ALL), $(PROC)/$x.stop-distances.txt  )
+$(PROC)/%.stop-distances.txt: $(PROC)/%.sqlite
+	$(IMPORT) export-stop-distances $(PWD)/$< $(PWD)/$@    2>&1 | tee $(PROC)/$*.log-stop-distances
+
+# Run statistics on GTFS database.
+# Extract GTFS, proc/city/date/region.sqlite -> proc/city/date/region.stats
+stats: $(foreach x, $(ALL), $(PROC)/$x.stats  )
+$(PROC)/%.stats: $(PROC)/%.sqlite
+	@$(PYTHON) code/gtfs.py metadata-list $(PWD)/$<    | tee $(PWD)/$@
+
+
+# Functions related to routing between stops.
+# Run make import, then make stop-dist-calc, then make stop-dist-import.
+
+# Java OSM routing
+OSM_ROUTE=java -jar route-it.jar
+# Stop distances cache
+SDCACHE=/path/to/stop-distances-cache.sqlite
+
+# Calculate routed stop distances (requires java + planet)
+stop-dist-calc: $(foreach x, $(ALL), $(PROC)/$x._dist-calculate_ )
+$(PROC)/%._dist-calculate_: $(PROC)/%.sqlite
+	# Arguments: planet gtfs-db.sqlite stop-distances-cache
+	$(OSM_ROUTE) planet.osm  $(PWD)/$<  $(SDCACHE)    | tee $(PROC)/$*.log-stop-dist-calculate
+
+# Import routed stop distances (requires java + cache DB)
+stop-dist-import: $(foreach x, $(ALL), $(PROC)/$x._dist-import_ )
+$(PROC)/%._dist-import_: $(PROC)/%.sqlite
+	# Arguments: planet(null) gtfs-db.sqlite stop-distances-cache
+	$(OSM_ROUTE) '' $(PWD)/$<  $(SDCACHE)             | tee $(PROC)/$*.log-stop-dist-import
