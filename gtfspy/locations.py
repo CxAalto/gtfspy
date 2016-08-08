@@ -1,7 +1,7 @@
 """Manage downloading of GTFS files over multiple locations.
 
 This file handles
-- Reading in code/data.yaml that describes data sources
+- Reading in gtfspy/data.yaml that describes data sources
 - Checking already-downloaded data
 - Downloading data, if it is time to do so again
 - It is possible that this can do further automatic processing, but for
@@ -225,7 +225,7 @@ def main_status(locations):
 
 if __name__ == "__main__":
     cmd = sys.argv[1]
-    locations = load_data('code/data.yaml')
+    locations = load_data('gtfspy/data.yaml')
     if cmd == 'status':
         main_status(locations)
     elif cmd == 'test':

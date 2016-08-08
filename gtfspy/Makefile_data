@@ -1,6 +1,6 @@
 # This is the Makefile for automatic data processing.  It can generate
 # any output file, automatically handling dependencies.  Run this using:
-#   make -f code/Makefile_analysis aeouu
+#   make -f gtfspy/Makefile_analysis aeouu
 #
 # Available filters are:
 # FILTER="-dle 2015-11-10"          # date less than or equal to
@@ -9,12 +9,12 @@
 #
 # Example usage
 #
-#make -f code/Makefile_data import FILTER="-dge 2016-03-08"
+#make -f gtfspy/Makefile_data import FILTER="-dge 2016-03-08"
 # Parallelize, don't stop on errors:
-#make -f code/Makefile_data import FILTER="-dge 2016-03-08 -e test" -j 4 --keep-going
+#make -f gtfspy/Makefile_data import FILTER="-dge 2016-03-08 -e test" -j 4 --keep-going
 # Parallelize, log to make.log.txt
-# make -f code/Makefile_data import FILTER="-dge 2016-03-08 -e test" -j 4 --keep-going &> make.log.txt
-# make -f code/Makefile_data daily weekly FILTER="-dge 2016-03-15 -dle 2016-03-17 -e test -i switz" PROC=scratch/proc_latest -j 2 --keep-going 2>&1
+# make -f gtfspy/Makefile_data import FILTER="-dge 2016-03-08 -e test" -j 4 --keep-going &> make.log.txt
+# make -f gtfspy/Makefile_data daily weekly FILTER="-dge 2016-03-15 -dle 2016-03-17 -e test -i switz" PROC=scratch/proc_latest -j 2 --keep-going 2>&1
 
 
 # Basic input/output paths
@@ -25,11 +25,11 @@ PROC=scratch/proc
 # a dependency for every input file.
 ALL := $(shell cd scratch/rawgtfs/ && find -maxdepth 3 -exec test -f {}/gtfs.zip \; -print; )
 # Filter files.  make FILTER='...' .
-ALL := $(shell python code/Makefile_data_filter.py "$(FILTER)" $(ALL) )
+ALL := $(shell python gtfspy/Makefile_data_filter.py "$(FILTER)" $(ALL) )
 
 
 PYTHON=time python
-IMPORT=$(PYTHON) code/import_gtfs.py
+IMPORT=$(PYTHON) gtfspy/import_gtfs.py
 
 # List all raw files
 list:
@@ -37,7 +37,7 @@ list:
 
 # Run the download process.
 download:
-	$(PYTHON) code/locations.py scrape
+	$(PYTHON) gtfspy/locations.py scrape
 
 # Run all extraction and processing targets:
 all: import stats daily weekly
@@ -83,7 +83,7 @@ $(PROC)/%.stop-distances.txt: $(PROC)/%.sqlite
 # Extract GTFS, proc/city/date/region.sqlite -> proc/city/date/region.stats
 stats: $(foreach x, $(ALL), $(PROC)/$x.stats  )
 $(PROC)/%.stats: $(PROC)/%.sqlite
-	@$(PYTHON) code/gtfs.py metadata-list $(PWD)/$<    | tee $(PWD)/$@
+	@$(PYTHON) gtfspy/gtfs.py metadata-list $(PWD)/$<    | tee $(PWD)/$@
 
 
 # Functions related to routing between stops.

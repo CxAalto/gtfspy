@@ -628,7 +628,7 @@ sites:
       bus: http://actv.avmspa.it/sites/default/files/attachments/opendata/automobilistico/actv_aut.zip
       water: http://actv.avmspa.it/sites/default/files/attachments/opendata/navigazione/actv_nav.zip
   # Luxembourg
-  luxembourg
+  luxembourg:
     source: http://openov.lu/data/
     gtfs: http://openov.lu/data/gtfs/gtfs-openov-lu.zip
   # Netherlands
