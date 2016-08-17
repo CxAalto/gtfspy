@@ -842,7 +842,7 @@ sites:
     license: http://www.metrostlouis.org/About/DeveloperResource/DeveloperTermsofUse.aspx
   tampa:
     source:
-    gtfs: gohart.org/google/google_transit.zip
+    gtfs: http://gohart.org/google/google_transit.zip
     license:
   tucson:
     source: http://www.suntran.com/developers_feed.php
