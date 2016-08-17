@@ -68,7 +68,7 @@ sites:
   sweden:
     name: "Sweden"
     authentication: Sweden
-    gtfs: "https://api.trafiklab.se/samtrafiken/gtfs/sweden.zip"
+    gtfs: "https://api.resrobot.se/gtfs/sweden.zip"
     files:
       gtfs:
         update-url: "https://api.trafiklab.se/samtrafiken/gtfs/feed_info.txt"
