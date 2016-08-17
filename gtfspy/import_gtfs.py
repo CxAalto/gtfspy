@@ -847,10 +847,12 @@ class AgencyLoader(TableLoader):
     @classmethod
     def post_import(cls, cur):
         TZs = cur.execute('SELECT DISTINCT timezone FROM agencies').fetchall()
-        if len(TZs) > 1:
-            raise ValueError("Multiple timezones in DB: %s" % TZs)
         if len(TZs) == 0:
-            raise ValueError("No timezones (or agencies?) in DB: %s" % TZs)
+            print "Error: no timezones in this database: %s"%self.gtfsdir
+            raise ValueError("Multiple timezones in DB: %s" % TZs)
+        elif len(TZs) != 1:
+            print "Error: multiple timezones in this database: %s"%self.gtfsdir
+            raise ValueError("Multiple timezones in DB: %s" % TZs)
         TZ = TZs[0][0]
         os.environ['TZ'] = TZ
         time.tzset()  # Cause C-library functions to notice the update.
