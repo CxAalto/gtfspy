@@ -2380,10 +2380,14 @@ if __name__ == "__main__":
         for row in G.meta.items():
             print row
     elif cmd == 'metadata-list':
-        print args[0]
+        #print args[0]  # need to not print to be valid json on stdout
         G = GTFS(args[0])
-        for row in G.meta.items():
-            print row
+        #for row in G.meta.items():
+        #    print row
+        stats = dict(G.meta.items())
+        import json
+        print json.dumps(stats, sort_keys=True,
+                         indent=4, separators=(',', ': '))
     elif cmd == 'make-daily':
         from_db = args[0]
         g = GTFS(from_db)
