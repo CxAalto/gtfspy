@@ -965,7 +965,7 @@ class FrequenciesLoader(TableLoader):
             if trip_duration is None:
                 raise ValueError("Stop times for frequency trip " + trip_data.trip_id + " are not properly defined")
             headway = freq_tuple.headway_secs
-            print trip_data.trip_I
+            #print trip_data.trip_I
             sql = "SELECT * FROM stop_times WHERE trip_I=" + str(trip_data.trip_I) + " ORDER BY seq"
             stop_time_data = pandas.read_sql_query(sql, conn)
 
