@@ -1,11 +1,15 @@
-import util
-from util import wgs84_distance
-import gtfs
-import pandas as pd
+from __future__ import absolute_import
+
 from collections import namedtuple
+from heapq import heappush, heappushpop, heappop
 
 import numpy as np
-from heapq import heappush, heappushpop, heappop
+import pandas as pd
+
+from . import util
+from .util import wgs84_distance
+from . import gtfs
+
 
 def get_spreading_trips(conn, start_time_ut, lat, lon,
                         max_duration_ut=4*3600,

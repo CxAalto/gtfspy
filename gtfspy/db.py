@@ -31,12 +31,14 @@ is important, because otherwise sqlite will create a new, empty database
 and it won't work.
 """
 
+from __future__ import absolute_import
 
 import os
 from os.path import join
 import sqlite3
 
-from .gtfs import GTFS
+# this is a circular import and also somehow breaks relative imports...
+#from . import gtfs
 
 # The following lists possible paths for the "master" database copies.
 # This is on scratch, or wherever is backed up and stable.

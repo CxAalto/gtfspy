@@ -1,13 +1,14 @@
+from __future__ import absolute_import
 
+import datetime
 import json
 import sys
 
-import db
-import datetime
-import shapes
 import numpy as np
 
+from . import db
 from .gtfs import GTFS
+from . import shapes
 
 def to_json(x):
     return json.dumps(x)

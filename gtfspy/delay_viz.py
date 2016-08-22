@@ -1,10 +1,13 @@
+from __future__ import absolute_import
+
 import json
 import sys
 
-import db
-import shapes
-
 import numpy as np
+
+from . import db
+from . import shapes
+
 
 def to_json(x):
     return json.dumps(x)

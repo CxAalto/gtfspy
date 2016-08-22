@@ -2,14 +2,21 @@
 """
 Created on Sat Apr 25 17:56:12 2015
 """
-import sqlite3
-import db
+
+from __future__ import absolute_import
+
 import math
+import sqlite3
 
-import util
-from cutil import wgs84_distance, wgs84_height, wgs84_width
+# Required for relative imports from __main__ script.
+if __name__ == '__main__' and __package__ is None:
+    import gtfspy
+    __package__ = 'gtfspy'
 
+from . import db
+from .cutil import wgs84_distance, wgs84_height, wgs84_width
 from .gtfs import GTFS
+from . import util
 
 create_stmt = ('CREATE TABLE IF NOT EXISTS main.stop_distances '
                '(from_stop_I INT, '

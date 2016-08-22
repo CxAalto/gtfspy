@@ -7,8 +7,10 @@ import datetime
 import os
 import shutil
 import tempfile
+
 import networkx as nx
 import matplotlib.pyplot as plt
+
 # Below is a race condition, so do it only on import.  Is there a
 # portable way to do this?
 current_umask = os.umask(0)

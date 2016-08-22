@@ -1,10 +1,10 @@
 from subprocess import call, Popen
-import requests
-
+import json
 import numpy as np
 import time
 import time
-import json
+
+import requests
 
 class OSMR_router:
 

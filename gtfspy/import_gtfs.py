@@ -9,20 +9,28 @@ to-do:
 - importing multiple GTFSs into the same database
 """
 
+from __future__ import absolute_import
+
 import codecs
 import csv
-import pandas
 from datetime import datetime, timedelta
 import os
 import re
+import sqlite3
 import time
 import zipfile
 
-import sqlite3
+import pandas
 
-import db
-import util
-from gtfs import GTFS
+# Required for relative imports from __main__ script.
+if __name__ == '__main__' and __package__ is None:
+    import gtfspy
+    __package__ = 'gtfspy'
+
+from . import gtfs
+from . import db
+from . import util
+#from .gtfs import GTFS
 
 
 class TableLoader(object):
@@ -714,7 +722,7 @@ class ShapeLoader(TableLoader):
 
     @classmethod
     def post_import(cls, cur):
-        import shapes
+        from . import shapes
         cur.execute('SELECT DISTINCT shape_id FROM shapes')
         shape_ids = tuple(x[0] for x in cur)
 
@@ -1155,7 +1163,7 @@ class MetadataLoader(TableLoader):
         pass
 
 
-import calc_transfers
+from . import calc_transfers
 class StopDistancesLoader(TableLoader):
     """Loader to calculate transfer distances.
 
@@ -1178,7 +1186,6 @@ class StopDistancesLoader(TableLoader):
         conn = self._conn
         cur = conn.cursor()
         cur2 = conn.cursor()
-        import calc_transfers
         if self.print_progress:
             print "Calculating transfers"
         calc_transfers.calc_transfers(conn, threshold=self.threshold)
@@ -1284,7 +1291,7 @@ def calculate_trip_shape_breakpoints(conn):
     """Pre-compute the shape points corresponding to each trip's stop.
 
     Depends: shapes"""
-    import shapes
+    from . import shapes
     print "Calculating trip shape breakpoints"
 
     cur = conn.cursor()
@@ -1375,7 +1382,6 @@ def calculate_trip_shape_breakpoints(conn):
 
 def validate_day_start_ut(conn):
     """This validates the day_start_ut of the days table."""
-    from gtfs import GTFS
     G = GTFS(conn)
     cur = conn.execute('SELECT date, day_start_ut FROM days')
     for date, day_start_ut in cur:
@@ -1578,7 +1584,7 @@ def import_gtfs(gtfssources, output, preserve_connection=False,
         F(conn)
 
     # Set up same basic metadata.
-    import gtfs as mod_gtfs
+    from . import gtfs as mod_gtfs
     G = mod_gtfs.GTFS(output)
     G.meta['gen_time_ut'] = time.time()
     G.meta['gen_time'] = time.ctime()

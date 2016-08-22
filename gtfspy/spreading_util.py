@@ -1,11 +1,14 @@
 # if gtfs.py is imported here, if gtfs.py is run as the main script,
 # then we get a cyclic import error and gtfs.py can't import Heap,
 # Event, and SpreadingStop directly from here.
+
+from __future__ import absolute_import
+
 #import gtfs
 from collections import namedtuple
+from heapq import heappush, heappushpop, heappop
 
 import numpy as np
-from heapq import heappush, heappushpop, heappop
 
 
 """

@@ -27,10 +27,14 @@ corresponding to each stop.  The last one is empty.
 
 
 """
+from __future__ import absolute_import
+
 import itertools
+
 import numpy as np
-import db
-from util import wgs84_distance
+
+from . import db
+from .util import wgs84_distance
 
 
 def print_coords(rows, prefix=''):

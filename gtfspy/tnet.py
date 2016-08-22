@@ -1,6 +1,6 @@
+from __future__ import absolute_import
 
-
-import db
+from . import db
 
 def make_tnet():
     conn = db.get_db()

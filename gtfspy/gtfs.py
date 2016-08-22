@@ -1,28 +1,33 @@
-import logging
-import warnings
+from __future__ import absolute_import
+
+import calendar
 from collections import Counter, defaultdict
+import datetime
+import logging
+import networkx
 import numpy
 import os
 import pandas as pd
+import shutil
 import sqlite3
 import sys
 import time
-import datetime
-
-import shutil
-
-import networkx
+import warnings
 
 import pytz
-import calendar
 
-import db
-import shapes
-import util
-from spreading_util import SpreadingStop
-from spreading_util import Heap
-from spreading_util import Event
-from util import wgs84_distance
+# Required for relative imports from __main__ script.
+if __name__ == '__main__' and __package__ is None:
+    import gtfspy
+    __package__ = 'gtfspy'
+
+from . import db
+from . import shapes
+from . import util
+from .spreading_util import SpreadingStop
+from .spreading_util import Heap
+from .spreading_util import Event
+from .util import wgs84_distance
 
 # py2/3 compatibility (copied from six)
 if sys.version_info[0] == 3:
@@ -88,7 +93,7 @@ class GTFS(object):
         self._timezone = pytz.timezone(self.get_timezone_name())
         self.meta = GTFSMetadata(self.conn)
         # Bind functions
-        from util import wgs84_distance
+        from .util import wgs84_distance
         self.conn.create_function("find_distance", 4, wgs84_distance)
 
 
@@ -106,7 +111,7 @@ class GTFS(object):
         gtfs_directory: str
             path to the directory for importing the database
         """
-        import import_gtfs
+        from . import import_gtfs
         conn = sqlite3.connect(":memory:")
         import_gtfs.import_gtfs(gtfs_directory,
                                 conn,
