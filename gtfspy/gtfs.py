@@ -471,7 +471,7 @@ class GTFS(object):
         assert os.path.exists(this_db_path), "Copying of in-memory databases is not supported"
         assert os.path.exists(os.path.dirname(os.path.abspath(copy_db_path))), \
             "the directory where the copied database will reside should exist beforehand"
-        assert not os.path.exists(copy_db_path), "the resulting database exists already"
+        assert not os.path.exists(copy_db_path), "the resulting database exists already: %s"%copy_db_path
 
         # this with statement
         # is used to ensure that no corrupted/uncompleted files get created in case of problems

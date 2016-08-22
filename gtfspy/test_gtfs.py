@@ -201,6 +201,7 @@ class TestGTFS(unittest.TestCase):
             hash_copy = hashlib.md5(open(fname_copy, 'rb').read()).hexdigest()
             assert os.path.exists(fname_copy)
             assert hash_orig == hash_copy
+            os.remove(fname_copy)
 
             # A simple test that changing update_metadata to True, does update somestuff:
             G.copy_and_filter(fname_copy, update_metadata=True)
@@ -208,6 +209,7 @@ class TestGTFS(unittest.TestCase):
             hash_copy = hashlib.md5(open(fname_copy, 'rb').read()).hexdigest()
             assert os.path.exists(fname_copy)
             assert hash_orig != hash_copy
+            os.remove(fname_copy)
 
             # test filtering by agency:
             G.copy_and_filter(fname_copy, agency_ids_to_preserve=['DTA'])
@@ -229,6 +231,7 @@ class TestGTFS(unittest.TestCase):
             stop_times_table = G_copy.get_table("stop_times")
             # 01:23:45 corresponds to 3600 + (32 * 60) + 45 [in day seconds]
             assert 3600 + (32 * 60) + 45 not in stop_times_table['arr_time']
+            os.remove(fname_copy)
 
             # untested tables with filtering: stops, stops_rtree (non-crucial though), shapes
             # (Shapes are not provided in the test data currently)
@@ -246,6 +249,7 @@ class TestGTFS(unittest.TestCase):
             dsut_end = G_copy.get_day_start_ut("2010-12-31")
             dsut_to_trip_I = G_copy.get_tripIs_within_range_by_dsut(dsut_end, dsut_end+24*3600)
             assert len(dsut_to_trip_I) > 0
+            os.remove(fname_copy)
 
             # the end date is not included:
             G.copy_and_filter(fname_copy, start_date="2007-01-02", end_date="2010-12-31")
@@ -264,6 +268,7 @@ class TestGTFS(unittest.TestCase):
             start_date_not_included = datetime.datetime.strptime("2007-01-01", "%Y-%m-%d")
             assert max_date_calendar < end_date_not_included, "the last date should not be included in calendar"
             assert start_date_not_included < min_date_calendar
+            os.remove(fname_copy)
 
             # test that the db is split by a given spatial boundary
             G.copy_and_filter(fname_copy, buffer_lat=36.914893, buffer_lon=-116.76821, buffer_distance=50000)
