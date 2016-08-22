@@ -7,6 +7,8 @@ import datetime
 import shapes
 import numpy as np
 
+from .gtfs import GTFS
+
 def to_json(x):
     return json.dumps(x)
 
@@ -30,13 +32,13 @@ def get_metainfo(season, day):
     # services: 3001T_20150710_20150809_M2 and
     # 3001T_20150710_20150809_T2
     if season == 's2015':
-        dbname = 'hsl-2015-07-12'
+        dbname = 'scratch/db/hsl-2015-07-12.sqlite'
         monday = datetime.datetime(2015,8,3)
     elif season == 'w2015':
-        dbname = 'hsl-2015-07-12'
+        dbname = 'scratch/db/hsl-2015-07-12.sqlite'
         monday = datetime.datetime(2015,8,17)
     elif season == 'w2014':
-        dbname = 'hsl-2015-04-24'
+        dbname = 'scratch/db/hsl-2015-04-24.sqlite'
         monday = datetime.datetime(2015,5,13)
 
     return daynumber, dbname, monday, day
@@ -47,7 +49,7 @@ def get_stop_freqs(season, day, hour, return_dict=False):
     """Get stop frequencies at one stop."""
     daynumber, dbname, monday, weekday = get_metainfo(season, day)
 
-    conn = db.connect_gtfs(dbname)
+    conn = GTFS(dbname).conn
     cur = conn.cursor()
 
     date = monday + datetime.timedelta(days=daynumber)
@@ -132,7 +134,7 @@ def get_pair_freqs(season, day, hour, return_dict=False, with_shapes=False):
     """Get stop frequencies between pairs of stops."""
     daynumber, dbname, monday, weekday = get_metainfo(season, day)
 
-    conn = db.connect_gtfs(dbname)
+    conn = GTFS(dbname).conn
     cur = conn.cursor()
 
     # what is going on here?:

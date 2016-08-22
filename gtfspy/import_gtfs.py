@@ -1387,7 +1387,7 @@ def main_make_views(gtfs_fname):
     """Re-create all views.
     """
     print "making views"
-    conn = db.connect_gtfs(None, fname=gtfs_fname, mode='w')
+    conn = GTFS(fname=gtfs_fname).conn
     for L in Loaders:
         L(None).make_views(conn)
     conn.commit()
@@ -1533,7 +1533,7 @@ def import_gtfs(gtfssources, output, preserve_connection=False,
     if isinstance(output, sqlite3.Connection):
         conn = output
     else:
-        conn = db.connect_gtfs(name=output, mode='w')
+        conn = sqlite3.connect(output)
     if not isinstance(gtfssources, list):
         gtfssources = [gtfssources]
     cur = conn.cursor()
@@ -1614,26 +1614,6 @@ def import_gtfs(gtfssources, output, preserve_connection=False,
         conn.close()
 
 
-def import_auto(gtfs_name, gtfs_dir=None):
-    """Import GTFS using old automatic directory stuff.
-
-    Uses the db module to automatically find input/output filenames,
-    given nothing other than the slug.  This logic is in code/db.py.
-    Actual importing is handed off to import_gtfs().
-    """
-    #gtfs_name = 'hsl-2015-07-12'
-    #gtfs_name = 'hsl-2015-04-24'
-
-    if gtfs_dir is None:
-        gtfsdir = db.raw_gtfs(name=gtfs_name)  # get GTFS directory path
-        if gtfsdir is None:
-            print "This GTFS does not exist!: %s, %s" % (gtfs_name, gtfs_dir)
-            return
-        import_gtfs(gtfs_dir, output=gtfs_name)
-    if not os.path.exists(os.path.join(gtfs_dir, 'stops.txt')):
-        print "This GTFS does not exist!: %s, %s" % (gtfs_name, gtfs_dir)
-        return
-
 
 if __name__ == "__main__":
     import argparse
@@ -1700,9 +1680,7 @@ if __name__ == "__main__":
 
     # if the first argument is import, import a GTFS directory to a .sqlite database.
     # Both directory and
-    if args.cmd == 'import-auto':
-        import_auto(args.gtfsname)
-    elif args.cmd == 'import':
+    if args.cmd == 'import':
         gtfs = args.gtfs
         output = args.output
         # This context manager makes a tmpfile for import.  If there

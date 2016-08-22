@@ -3,6 +3,8 @@ from nose.tools import *
 import shapes
 import numpy as np
 
+from .gtfspy import GTFS
+
 def test_shape_break_order():
     for trip_I in [
             # These trip IDs require the hsl-2015-07-12 DB.
@@ -24,7 +26,7 @@ def test_shape_break_order():
 def test_shape_break_order_1(trip_I=73775):
     """This is to a bug related to shape alignment."""
     import db
-    conn = db.connect_gtfs('hsl-2015-07-12')
+    conn = GTFS('scratch/db/hsl-2015-07-12.sqlite').conn
     cur = conn.cursor()
 
     cur.execute('''SELECT seq, lat, lon

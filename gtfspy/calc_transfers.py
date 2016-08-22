@@ -9,6 +9,8 @@ import math
 import util
 from cutil import wgs84_distance, wgs84_height, wgs84_width
 
+from .gtfs import GTFS
+
 create_stmt = ('CREATE TABLE IF NOT EXISTS main.stop_distances '
                '(from_stop_I INT, '
                ' to_stop_I INT, '
@@ -172,8 +174,7 @@ def calc_transfers(conn, threshold=1000):
     conn.commit()
 
 def export_transfers(conn, fname):
-    if isinstance(conn, str):
-        conn = db.connect_gtfs(conn)
+    conn = GTFS(conn).conn
     cur = conn.cursor()
     cur.execute('SELECT S1.lat, S1.lon, S2.lat, S2.lon, SD.d '
                 'FROM stop_distances SD '
@@ -189,7 +190,7 @@ if __name__ == "__main__":
     cmd = sys.argv[1]
     if cmd == 'calc':
         dbname = sys.argv[2]
-        conn = db.connect_gtfs(dbname)
+        conn = GTFS(dbname).conn
         calc_transfers(conn)
     elif cmd == 'export':
         export_transfers(sys.argv[2], sys.argv[3])

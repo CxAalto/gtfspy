@@ -70,14 +70,13 @@ class GTFS(object):
             path to the
         """
         if isinstance(fname, (str, unicode)):
-            if os.path.exists(fname):
-                self.conn = sqlite3.connect(fname)
-                self.fname = fname
-            else:
-                # This is a bit of a hack still.  Open object by DB
-                # name.
-                # #LEGACY
-                self.conn = db.connect_gtfs(name=fname)
+            self.conn = sqlite3.connect(fname)
+            self.fname = fname
+            # memory-mapped IO size, in bytes
+            self.conn.execute('PRAGMA mmap_size = 1000000000;')
+            # page cache size, in negative KiB.
+            self.conn.execute('PRAGMA cache_size = -2000000;')
+
         elif isinstance(fname, sqlite3.Connection):
             self.conn = fname
             self._dont_close = True
@@ -88,6 +87,10 @@ class GTFS(object):
         # Set timezones
         self._timezone = pytz.timezone(self.get_timezone_name())
         self.meta = GTFSMetadata(self.conn)
+        # Bind functions
+        from util import wgs84_distance
+        self.conn.create_function("find_distance", 4, wgs84_distance)
+
 
     def __del__(self):
         if not getattr(self, '_dont_close', False):
