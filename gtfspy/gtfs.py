@@ -28,6 +28,7 @@ from .spreading_util import SpreadingStop
 from .spreading_util import Heap
 from .spreading_util import Event
 from .util import wgs84_distance
+from .gtfs_validator import GTFSValidator
 
 # py2/3 compatibility (copied from six)
 if sys.version_info[0] == 3:
@@ -2217,103 +2218,16 @@ class GTFS(object):
         end_time_ut_conservative  = last_day_start_ut + 28 * 3600
         return start_time_ut_conservative, end_time_ut_conservative
 
-    def validate_gtfs(self):
+    def print_validation_warnings(self):
         """
-        Used for validation of GTFS object. Creates warnings if the feed contains:
-        Long Stop Spacings
-        5 Or More Consecutive Stop Times With Same Time
-        Long Trip Times
-        Unrealistic Average Speed (of trip)
-        Long Travel Time Between Consecutive Stops
-
-        The warnings dictionary contains the number of each warning type
-        The warnings_record collects the rows that produced the warnings
+        See GTFSValidator.validate for more information.
 
         Returns
         -------
-        warnings: dict
-        key: "warning type" string, value: "number of errors" int
-        warnings_record: dict
-        key: "row that produced error" tuple, value: "warning type(s)" string
-
+        warnings_container: gtfs_validator.ValidationWarningsContainer
         """
-        # These are the mode - feasable speed combinations used here:
-        # https://support.google.com/transitpartners/answer/1095482?hl=en
-        type_speed = {
-            0: ("Tram", 100),
-            1: ("Subway", 150),
-            2: ("Rail", 300),
-            3: ("Bus", 100),
-            4: ("Ferry", 80),
-            5: ("Cable Car", 50),
-            6: ("Gondola", 50),
-            7: ("Funicular", 50)
-        }
-        max_stop_spacing = 20000  # meters
-        max_time_between_stops = 1800  # seconds
-        n_stops_with_same_time = 5
-        max_trip_time = 7200  # seconds
-
-        conn = self.conn
-
-        conn.create_function("find_distance", 4, wgs84_distance)
-        cur = conn.cursor()
-        warnings_record = {}
-        warnings = {"Long Stop Spacing": 0, "5 Or More Consecutive Stop Times With Same Time": 0, "Long Trip Time": 0,
-                    "Unrealistic Average Speed": 0, "Long Travel Time Between Consecutive Stops": 0}
-
-        # this query calculates distance and travel time between consecutive stops
-        for n in cur.execute('select q1.trip_I, type, q1.stop_I as stop_1, q2.stop_I as stop_2, '
-                             'CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT) as distance, '
-                             'q2.arr_time_ds - q1.arr_time_ds as traveltime '
-                             'from (select * from stop_times, '
-                             'stops where stop_times.stop_I = stops.stop_I) q1, (select * from stop_times, '
-                             'stops where stop_times.stop_I = stops.stop_I) q2, trips, routes where q1.trip_I = q2.trip_I '
-                             'and q1.seq + 1 = q2.seq and q1.trip_I = trips.trip_I and trips.route_I = routes.route_I ').fetchall():
-
-            if n[4] > max_stop_spacing:
-                warnings_record[n] = "Long Stop Spacing"
-                warnings["Long Stop Spacing"] += 1
-            if n[5] > max_time_between_stops:
-
-                warnings["Long Travel Time Between Consecutive Stops"] += 1
-                if n in warnings_record.keys():
-                    warnings_record[n] += "," + "Long Travel Time Between Consecutive Stops"
-                else:
-                    warnings_record[n] = "Long Travel Time Between Consecutive Stops"
-
-        # this query returns the trips where there are N or more stops with the same stop time
-        for n in cur.execute('select trip_I, arr_time, N from ( select trip_I, arr_time, count(*) as N '
-                             'from stop_times group by trip_I, arr_time) q1 where N >= ?', (n_stops_with_same_time,)):
-            warnings["5 Or More Consecutive Stop Times With Same Time"] += 1
-            warnings_record[n] = "5 Or More Consecutive Stop Times With Same Time"
-
-        # this query calculates the distance and travel time for each complete trip
-        for n in cur.execute(
-                'select q1.trip_I, type, '
-                'sum(CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT)) as total_distance, '
-                'sum(q2.arr_time_ds - q1.arr_time_ds) as total_traveltime '
-                'from (select * from stop_times, '
-                'stops where stop_times.stop_I = stops.stop_I) q1, (select * from stop_times, '
-                'stops where stop_times.stop_I = stops.stop_I) q2, trips, routes where q1.trip_I = q2.trip_I '
-                'and q1.seq + 1 = q2.seq and q1.trip_I = trips.trip_I and trips.route_I = routes.route_I group by q1.trip_I').fetchall():
-
-            avg_velocity = n[2] / n[3] * 3.6
-            if avg_velocity > type_speed[n[1]][1]:
-                warnings["Unrealistic Average Speed"] += 1
-                warnings_record[n] = "Unrealistic Average Speed"
-
-            if n[3] > max_trip_time:
-                warnings["Long Trip Time"] += 1
-                if n in warnings_record.keys():
-                    warnings_record[n] += "," + "Long Trip Time"
-                else:
-                    warnings_record[n] = "Long Trip Time"
-
-        for key in warnings.keys():
-            print key + ": " + str(warnings[key])
-
-        return warnings, warnings_record
+        validator = GTFSValidator(self)
+        return validator.validate()
 
 class GTFSMetadata(object):
     """
@@ -2387,6 +2301,9 @@ if __name__ == "__main__":
         G.calc_and_store_stats()
         for row in G.meta.items():
             print row
+    elif cmd == "validate":
+        G = GTFS(args[0])
+        G.print_validation_warnings()
     elif cmd == 'metadata-list':
         #print args[0]  # need to not print to be valid json on stdout
         G = GTFS(args[0])
