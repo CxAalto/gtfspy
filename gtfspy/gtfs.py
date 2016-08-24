@@ -28,7 +28,6 @@ from .spreading_util import SpreadingStop
 from .spreading_util import Heap
 from .spreading_util import Event
 from .util import wgs84_distance
-from .gtfs_validator import GTFSValidator
 
 # py2/3 compatibility (copied from six)
 if sys.version_info[0] == 3:
@@ -48,20 +47,32 @@ TRAVEL_MODE_CABLE_CAR = 5
 TRAVEL_MODE_GONDOLA = 6
 TRAVEL_MODE_FUNICULAR = 7
 
-TRAVEL_MODES = {
+TRAVEL_MODE_TO_DESCRIPTION = {
     TRAVEL_MODE_WALK: "Walking layer",
     TRAVEL_MODE_TRAM: "Tram, Streetcar, Light rail. Any light rail "
-                       "or street level system within a metropolitan area.",
+                      "or street level system within a metropolitan area.",
     TRAVEL_MODE_SUBWAY: "Subway, Metro. Any underground rail system within a metropolitan area.",
     TRAVEL_MODE_RAIL: "Rail. Used for intercity or long - distance travel.",
     TRAVEL_MODE_BUS: "Bus. Used for short- and long-distance bus routes.",
     TRAVEL_MODE_FERRY: "Ferry. Used for short- and long-distance boat service.",
     TRAVEL_MODE_CABLE_CAR: "Cable car. Used for street-level cable cars "
-                            "where the cable runs beneath the car.",
+                           "where the cable runs beneath the car.",
     TRAVEL_MODE_GONDOLA: "Gondola, Suspended cable car. "
-                          "Typically used for aerial cable cars where "
-                          "the car is suspended from the cable.",
+                         "Typically used for aerial cable cars where "
+                         "the car is suspended from the cable.",
     TRAVEL_MODE_FUNICULAR: "Funicular. Any rail system designed for steep inclines."
+}
+
+TRAVEL_MODE_TO_SHORT_DESCRIPTION = {
+    TRAVEL_MODE_WALK: "Walk",
+    TRAVEL_MODE_TRAM: "Tram",
+    TRAVEL_MODE_SUBWAY: "Subway",
+    TRAVEL_MODE_RAIL: "Rail",
+    TRAVEL_MODE_BUS: "Bus",
+    TRAVEL_MODE_FERRY: "Ferry",
+    TRAVEL_MODE_CABLE_CAR: "Cable car",
+    TRAVEL_MODE_GONDOLA: "Gondola",
+    TRAVEL_MODE_FUNICULAR: "Funicular"
 }
 
 
@@ -2226,8 +2237,9 @@ class GTFS(object):
         -------
         warnings_container: gtfs_validator.ValidationWarningsContainer
         """
+        from .gtfs_validator import GTFSValidator
         validator = GTFSValidator(self)
-        return validator.validate()
+        return validator.get_warnings()
 
 class GTFSMetadata(object):
     """

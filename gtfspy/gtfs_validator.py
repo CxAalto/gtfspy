@@ -1,7 +1,10 @@
 from collections import defaultdict, Counter
 
+import sys
+
 from .util import wgs84_distance
 from .gtfs import GTFS
+from . import gtfs
 
 WARNING_LONG_STOP_SPACING = "Long Stop Spacing"
 WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "5 Or More Consecutive Stop Times With Same Time"
@@ -23,14 +26,16 @@ class GTFSValidator(object):
         """
         Parameters
         ----------
-        gtfs: GTFS
+        gtfs: GTFS, or path to a GTFS object
             A GTFS object
         """
+        if not isinstance(gtfs, GTFS):
+            gtfs = GTFS(gtfs)
         self.warnings_container = ValidationWarningsContainer()
         self.conn = gtfs.conn
         self.cur = gtfs.get_cursor()
 
-    def validate(self):
+    def get_warnings(self):
         """
         Validates/checks a given GTFS feed with respect to a number of different issues.
 
@@ -40,6 +45,7 @@ class GTFSValidator(object):
         -------
         warnings: ValidationWarningsContainer
         """
+        self.warnings_container.clear()
         self._validate_stops_with_same_stop_time()
         self._validate_speeds_and_trip_times()
         self._validate_stop_spacings()
@@ -77,15 +83,15 @@ class GTFSValidator(object):
     def _validate_speeds_and_trip_times(self):
         # These are the mode - feasible speed combinations used here:
         # https://support.google.com/transitpartners/answer/1095482?hl=en
-        type_speed = {
-            0: ("Tram", 100),
-            1: ("Subway", 150),
-            2: ("Rail", 300),
-            3: ("Bus", 100),
-            4: ("Ferry", 80),
-            5: ("Cable Car", 50),
-            6: ("Gondola", 50),
-            7: ("Funicular", 50)
+        gtfs_type_to_max_speed = {
+            gtfs.TRAVEL_MODE_TRAM: 100,
+            gtfs.TRAVEL_MODE_SUBWAY: 150,
+            gtfs.TRAVEL_MODE_RAIL: 300,
+            gtfs.TRAVEL_MODE_BUS: 100,
+            gtfs.TRAVEL_MODE_FERRY: 80,
+            gtfs.TRAVEL_MODE_CABLE_CAR: 50,
+            gtfs.TRAVEL_MODE_GONDOLA: 50,
+            gtfs.TRAVEL_MODE_FUNICULAR: 50
         }
         max_trip_time = 7200  # seconds
         self.conn.create_function("find_distance", 4, wgs84_distance)
@@ -104,7 +110,7 @@ class GTFSValidator(object):
 
         for row in rows:
             avg_velocity = row[2] / row[3] * 3.6
-            if avg_velocity > type_speed[row[1]][1]:
+            if avg_velocity > gtfs_type_to_max_speed[row[1]]:
                 self.warnings_container.add_warning(row, WARNING_UNREALISTIC_AVERAGE_SPEED)
 
             if row[3] > max_trip_time:
@@ -143,3 +149,20 @@ class ValidationWarningsContainer(object):
             maps each row to a list of warnings
         """
         return self._warnings_records
+
+    def clear(self):
+        self._warnings_counter.clear()
+        self._warnings_records.clear()
+
+
+def __main():
+    cmd = sys.argv[1]
+    args = sys.argv[2:]
+    if cmd == "validate":
+        validator = GTFSValidator(args[0])
+        warningsContainer = validator.get_warnings()
+        warningsContainer.print_summary()
+
+if __name__ == "__main__":
+    __main()
+
