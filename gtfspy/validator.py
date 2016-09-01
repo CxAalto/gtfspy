@@ -2,10 +2,15 @@ from collections import defaultdict, Counter
 
 import sys
 
-import travel_modes
+# the following is required when using this module as a script
+# (i.e. using the if __name__ == "__main__": part at the end of this file)
+if __name__ == '__main__' and __package__ is None:
+    # import gtfspy
+    __package__ = 'gtfspy'
+
+from . import travel_modes
 from .util import wgs84_distance
 from .gtfs import GTFS
-from . import gtfs
 
 WARNING_LONG_STOP_SPACING = "Long Stop Spacing"
 WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "5 Or More Consecutive Stop Times With Same Time"
@@ -21,7 +26,7 @@ ALL_WARNINGS = {
     WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS
 }
 
-class GTFSValidator(object):
+class Validator(object):
 
     def __init__(self, gtfs):
         """
@@ -163,7 +168,7 @@ def main():
     cmd = sys.argv[1]
     args = sys.argv[2:]
     if cmd == "validate":
-        validator = GTFSValidator(args[0])
+        validator = Validator(args[0])
         warningsContainer = validator.get_warnings()
         warningsContainer.print_summary()
 

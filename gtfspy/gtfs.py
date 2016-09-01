@@ -1854,14 +1854,14 @@ class GTFS(object):
 
     def print_validation_warnings(self):
         """
-        See GTFSValidator.validate for more information.
+        See Validator.validate for more information.
 
         Returns
         -------
-        warnings_container: gtfs_validator.ValidationWarningsContainer
+        warnings_container: validator.ValidationWarningsContainer
         """
-        from .gtfs_validator import GTFSValidator
-        validator = GTFSValidator(self)
+        from .validator import Validator
+        validator = Validator(self)
         return validator.get_warnings()
 
     def execute_custom_query(self, query):
