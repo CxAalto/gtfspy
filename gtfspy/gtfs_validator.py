@@ -2,6 +2,7 @@ from collections import defaultdict, Counter
 
 import sys
 
+import travel_modes
 from .util import wgs84_distance
 from .gtfs import GTFS
 from . import gtfs
@@ -30,10 +31,10 @@ class GTFSValidator(object):
             A GTFS object
         """
         if not isinstance(gtfs, GTFS):
-            gtfs = GTFS(gtfs)
+            self.gtfs = GTFS(gtfs)
+        else:
+            self.gtfs = gtfs
         self.warnings_container = ValidationWarningsContainer()
-        self.conn = gtfs.conn
-        self.cur = gtfs.get_cursor()
 
     def get_warnings(self):
         """
@@ -55,18 +56,19 @@ class GTFSValidator(object):
     def _validate_stops_with_same_stop_time(self):
         n_stops_with_same_time = 5
         # this query returns the trips where there are N or more stops with the same stop time
-        rows = self.cur.execute(
+        rows = self.gtfs.get_cursor().execute(
             'select trip_I, arr_time, N from ( select trip_I, arr_time, count(*) as N '
-            'from stop_times group by trip_I, arr_time) q1 where N >= ?', (n_stops_with_same_time,))
+            'from stop_times group by trip_I, arr_time) q1 where N >= ?', (n_stops_with_same_time,)
+        )
         for row in rows:
             self.warnings_container.add_warning(row, WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME)
 
     def _validate_stop_spacings(self):
-        self.conn.create_function("find_distance", 4, wgs84_distance)
+        self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)
         max_stop_spacing = 20000  # meters
         max_time_between_stops = 1800  # seconds
         # this query calculates distance and travel time between consecutive stops
-        rows = self.cur.execute(
+        rows = self.gtfs.execute_custom_query(
             'select q1.trip_I, type, q1.stop_I as stop_1, q2.stop_I as stop_2, '
             'CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT) as distance, '
             'q2.arr_time_ds - q1.arr_time_ds as traveltime '
@@ -84,18 +86,20 @@ class GTFSValidator(object):
         # These are the mode - feasible speed combinations used here:
         # https://support.google.com/transitpartners/answer/1095482?hl=en
         gtfs_type_to_max_speed = {
-            gtfs.TRAVEL_MODE_TRAM: 100,
-            gtfs.TRAVEL_MODE_SUBWAY: 150,
-            gtfs.TRAVEL_MODE_RAIL: 300,
-            gtfs.TRAVEL_MODE_BUS: 100,
-            gtfs.TRAVEL_MODE_FERRY: 80,
-            gtfs.TRAVEL_MODE_CABLE_CAR: 50,
-            gtfs.TRAVEL_MODE_GONDOLA: 50,
-            gtfs.TRAVEL_MODE_FUNICULAR: 50
+            travel_modes.TRAVEL_MODE_TRAM     : 100,
+            travel_modes.TRAVEL_MODE_SUBWAY   : 150,
+            travel_modes.TRAVEL_MODE_RAIL     : 300,
+            travel_modes.TRAVEL_MODE_BUS      : 100,
+            travel_modes.TRAVEL_MODE_FERRY    : 80,
+            travel_modes.TRAVEL_MODE_CABLE_CAR: 50,
+            travel_modes.TRAVEL_MODE_GONDOLA  : 50,
+            travel_modes.TRAVEL_MODE_FUNICULAR: 50
         }
         max_trip_time = 7200  # seconds
-        self.conn.create_function("find_distance", 4, wgs84_distance)
-        rows = self.cur.execute(
+        self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)
+
+        # what does this query do?
+        rows = self.gtfs.execute_custom_query(
             'SELECT '
             ' q1.trip_I, '
             ' type, '
@@ -155,7 +159,7 @@ class ValidationWarningsContainer(object):
         self._warnings_records.clear()
 
 
-def __main():
+def main():
     cmd = sys.argv[1]
     args = sys.argv[2:]
     if cmd == "validate":
@@ -164,5 +168,5 @@ def __main():
         warningsContainer.print_summary()
 
 if __name__ == "__main__":
-    __main()
+    main()
 

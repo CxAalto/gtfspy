@@ -1,4 +1,6 @@
-import util
+from __future__ import absolute_import
+
+from .. import util
 
 def approxeq(a, b):
     return abs(a-b) / float(abs(a+b))  <  1e-2

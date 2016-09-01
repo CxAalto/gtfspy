@@ -1,8 +1,8 @@
 import os
 import unittest
 
-from gtfs import GTFS
-from gtfs_validator import GTFSValidator
+from ..gtfs import GTFS
+from ..gtfs_validator import GTFSValidator
 
 class TestGTFSValidator(unittest.TestCase):
 

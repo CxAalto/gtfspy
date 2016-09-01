@@ -29,11 +29,7 @@ corresponding to each stop.  The last one is empty.
 """
 from __future__ import absolute_import
 
-import itertools
-
 import numpy as np
-
-from . import db
 from .util import wgs84_distance
 
 
@@ -242,61 +238,6 @@ def gen_cumulative_distances(stops):
     for stop in stops:
         stop['d'] = int(stop['d'])
         # stop['d'] = round(stop['d'], 1)
-
-
-def get_trip_segments(trip_id='2102_20150710_Ke_1_1022'):
-    """(UNUSED) Align stop-sequence and shape-sequence using distances.
-
-    This code is not used for anything.  It was a preliminary version
-    of `find_segments`, but was less useful for our actual need for
-    HSL/GPS data at the start of the project.  It could be expanded
-    and used later?
-    """
-    conn = db.connect(name='hsl-2015-07-12')
-    cur = conn.cursor()
-
-    # Get all stops in a list of dicts
-    cur.execute('''SELECT seq, lat, lon
-                    FROM trips
-                    JOIN stop_times
-                    USING (trip_I)
-                    LEFT JOIN stop
-                    USING (stop_id)
-                    WHERE trip_id=?
-                    ORDER BY seq''',
-                (trip_id,))
-    trip_points = [dict(seq=row[0], lat=row[1], lon=row[2]) for row in cur]
-    # for row in trip_points:
-    #    print row
-
-    # Get all shape points in a list of dicts
-    # print "shape"
-    cur.execute('''SELECT seq, lat, lon  FROM trips JOIN shapes USING (shape_id) WHERE trip_id=? ORDER BY seq''',
-                (trip_id,))
-    shape_points = [dict(seq=row[0], lat=row[1], lon=row[2]) for row in cur]
-    # for row in shape_points:
-    #    print row
-
-    shape_index = 0
-    for stop in trip_points:
-        last_d = float('inf')
-        print stop
-        for i in itertools.count(shape_index):
-            d = wgs84_distance(stop['lat'], stop['lon'],
-                               shape_points[i]['lat'],
-                               shape_points[i]['lon'])
-            # If we are getting closer to next stop, continue
-            if d < last_d:
-                last_d = d
-                print last_d
-            # We jqst went farther away, so decrement counter by one
-            # and continue
-            else:
-                stop['shape_seq'] = shape_points[shape_index:i]
-                stop['shape_idx'] = i - 1
-                shape_index = i - 1
-                break
-    return trip_points
 
 
 def get_shape_points(cur, shape_id):

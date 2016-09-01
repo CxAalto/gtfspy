@@ -1,10 +1,9 @@
 import os
-
-from gtfs import GTFS
-from import_gtfs import import_gtfs
-# import tempfile
 import sqlite3
 import unittest
+
+from ..gtfs import GTFS
+from ..import_gtfs import import_gtfs
 
 
 # noinspection PyTypeChecker

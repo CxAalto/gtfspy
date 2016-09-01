@@ -23,14 +23,14 @@ import zipfile
 import pandas
 
 # Required for relative imports from __main__ script.
+
 if __name__ == '__main__' and __package__ is None:
-    import gtfspy
+    #import gtfspy
     __package__ = 'gtfspy'
 
-from . import gtfs
-from . import db
+from .stats import Stats
 from . import util
-#from .gtfs import GTFS
+from .gtfs import GTFS
 
 
 class TableLoader(object):
@@ -852,14 +852,13 @@ class AgencyLoader(TableLoader):
                     phone         = row['agency_phone'].decode('utf-8') if 'agency_phone' in row else None,
                 )
 
-    @classmethod
-    def post_import(cls, cur):
+    def post_import(self, cur):
         TZs = cur.execute('SELECT DISTINCT timezone FROM agencies').fetchall()
         if len(TZs) == 0:
-            print "Error: no timezones in this database: %s"%self.gtfsdir
+            print "Error: no timezones in this database: %s" % self.gtfs_sources
             raise ValueError("Multiple timezones in DB: %s" % TZs)
         elif len(TZs) != 1:
-            print "Error: multiple timezones in this database: %s"%self.gtfsdir
+            print "Error: multiple timezones in this database: %s" % self.gtfs_sources
             raise ValueError("Multiple timezones in DB: %s" % TZs)
         TZ = TZs[0][0]
         os.environ['TZ'] = TZ
@@ -1607,7 +1606,8 @@ def import_gtfs(gtfssources, output, preserve_connection=False,
             if location_name_list:
                 G.meta[prefix + 'location_name'] = location_name_list[-1]
     G.meta['timezone'] = cur.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()[0]
-    G.calc_and_store_stats()
+    gtfs_stats = Stats(G)
+    gtfs_stats.update_stats()
     del G
 
     if print_progress:

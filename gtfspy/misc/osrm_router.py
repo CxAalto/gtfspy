@@ -1,9 +1,7 @@
 from subprocess import call, Popen
-import json
-import numpy as np
-import time
 import time
 
+import numpy as np
 import requests
 
 class OSMR_router:
@@ -99,7 +97,7 @@ class OSMR_router:
         r = requests.get("http://localhost:"+str(self.port)+query)
         print r.json()
 
-    def get_distance_table(locs):
+    def get_distance_table(self, locs):
         print "Fixed command, but works"
 
         query = "/table?"
@@ -108,7 +106,6 @@ class OSMR_router:
         query = query[:-1]
         r = requests.get("http://localhost:"+str(self.port)+query)
         print r.json()
-
 
     def get_dist_and_time(self, loc1, loc2):
         """
@@ -158,8 +155,8 @@ if __name__ == "__main__":
         start = time.time()
         for i in range(1000):
             rands = np.random.randn(4)/100
-            loc1 = 60.171263+rands[0],24.956605+rands[1]
-            loc2 = 60.165197+rands[2],24.952593+rands[3]
+            loc1 = 60.171263+rands[0], 24.956605+rands[1]
+            loc2 = 60.165197+rands[2], 24.952593+rands[3]
             a = router.get_dist_and_time(loc1, loc2)
         end = time.time()
         print start, end, end-start
@@ -167,6 +164,3 @@ if __name__ == "__main__":
         pass
     if router.ready():
         router._end_routed()
-
-
-

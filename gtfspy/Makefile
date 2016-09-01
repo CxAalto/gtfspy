@@ -1,0 +1,2 @@
+runTests:
+	nosetests test/

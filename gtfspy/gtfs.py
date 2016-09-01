@@ -1,32 +1,29 @@
 from __future__ import absolute_import
 
 import calendar
-from collections import Counter, defaultdict
 import datetime
 import logging
-import networkx
-import numpy
 import os
-import pandas as pd
 import shutil
 import sqlite3
 import sys
 import time
 import warnings
+from collections import Counter, defaultdict
 
+import networkx
+import numpy
+import pandas as pd
 import pytz
 
 # Required for relative imports from __main__ script.
+
 if __name__ == '__main__' and __package__ is None:
-    import gtfspy
+    # import gtfspy
     __package__ = 'gtfspy'
 
-from . import db
 from . import shapes
 from . import util
-from .spreading_util import SpreadingStop
-from .spreading_util import Heap
-from .spreading_util import Event
 from .util import wgs84_distance
 
 # py2/3 compatibility (copied from six)
@@ -34,47 +31,6 @@ if sys.version_info[0] == 3:
     binary_type = bytes
 else:
     binary_type = str
-
-# Setting up travel modes, directly extending from GTFS specification, see:
-# https://developers.google.com/transit/gtfs/reference#routestxt
-TRAVEL_MODE_WALK = -1
-TRAVEL_MODE_TRAM = 0
-TRAVEL_MODE_SUBWAY = 1
-TRAVEL_MODE_RAIL = 2
-TRAVEL_MODE_BUS = 3
-TRAVEL_MODE_FERRY = 4
-TRAVEL_MODE_CABLE_CAR = 5
-TRAVEL_MODE_GONDOLA = 6
-TRAVEL_MODE_FUNICULAR = 7
-
-TRAVEL_MODE_TO_DESCRIPTION = {
-    TRAVEL_MODE_WALK: "Walking layer",
-    TRAVEL_MODE_TRAM: "Tram, Streetcar, Light rail. Any light rail "
-                      "or street level system within a metropolitan area.",
-    TRAVEL_MODE_SUBWAY: "Subway, Metro. Any underground rail system within a metropolitan area.",
-    TRAVEL_MODE_RAIL: "Rail. Used for intercity or long - distance travel.",
-    TRAVEL_MODE_BUS: "Bus. Used for short- and long-distance bus routes.",
-    TRAVEL_MODE_FERRY: "Ferry. Used for short- and long-distance boat service.",
-    TRAVEL_MODE_CABLE_CAR: "Cable car. Used for street-level cable cars "
-                           "where the cable runs beneath the car.",
-    TRAVEL_MODE_GONDOLA: "Gondola, Suspended cable car. "
-                         "Typically used for aerial cable cars where "
-                         "the car is suspended from the cable.",
-    TRAVEL_MODE_FUNICULAR: "Funicular. Any rail system designed for steep inclines."
-}
-
-TRAVEL_MODE_TO_SHORT_DESCRIPTION = {
-    TRAVEL_MODE_WALK: "Walk",
-    TRAVEL_MODE_TRAM: "Tram",
-    TRAVEL_MODE_SUBWAY: "Subway",
-    TRAVEL_MODE_RAIL: "Rail",
-    TRAVEL_MODE_BUS: "Bus",
-    TRAVEL_MODE_FERRY: "Ferry",
-    TRAVEL_MODE_CABLE_CAR: "Cable car",
-    TRAVEL_MODE_GONDOLA: "Gondola",
-    TRAVEL_MODE_FUNICULAR: "Funicular"
-}
-
 
 class GTFS(object):
 
@@ -93,7 +49,6 @@ class GTFS(object):
             self.conn.execute('PRAGMA mmap_size = 1000000000;')
             # page cache size, in negative KiB.
             self.conn.execute('PRAGMA cache_size = -2000000;')
-
         elif isinstance(fname, sqlite3.Connection):
             self.conn = fname
             self._dont_close = True
@@ -101,13 +56,13 @@ class GTFS(object):
             raise NotImplementedError("Initiating GTFS using an object with type " + str(type(fname))
                                       + " is not supported")
 
-        # Set timezones
-        self._timezone = pytz.timezone(self.get_timezone_name())
         self.meta = GTFSMetadata(self.conn)
         # Bind functions
         from .util import wgs84_distance
         self.conn.create_function("find_distance", 4, wgs84_distance)
 
+        # Set timezones
+        self._timezone = pytz.timezone(self.get_timezone_name())
 
     def __del__(self):
         if not getattr(self, '_dont_close', False):
@@ -660,7 +615,8 @@ class GTFS(object):
                     G_copy.meta[key] = self.meta[key]
                 # Update *all* original metadata under orig_ namespace.
                 G_copy.meta.update(('orig_' + k, v) for k, v in self.meta.items())
-                G_copy.calc_and_store_stats()
+                from .stats import Stats
+                Stats(G_copy).update_stats()
 
                 # print "Vacuuming..."
                 copy_db_conn.execute('VACUUM;')
@@ -691,6 +647,12 @@ class GTFS(object):
             A pandas dataframe describing the database.
         """
         return pd.read_sql("SELECT * FROM " + table_name, self.conn)
+
+    def get_row_count(self, table):
+        """
+        Get number of rows in a table
+        """
+        return self.conn.cursor().execute("SELECT count(*) FROM " + table).fetchone()[0]
 
     def get_table_names(self):
         """
@@ -1210,106 +1172,9 @@ class GTFS(object):
                 el['route_type'] : type of vehicle as specified by GTFS, or -1 if walking
                 el['name'] : name of the route
         """
-        # events are sorted by arrival time, so in order to use the
-        # heapq, we need to have events coded as
-        # (arrival_time, (from_stop, to_stop))
-        start_stop_I = self.get_closest_stop(lat, lon)
-        end_time_ut = start_time_ut + max_duration_ut
-
-        print "Computing/fetching events"
-        events_df = self.get_transit_events(start_time_ut, end_time_ut)
-        all_stops = set(self.get_stop_info()['stop_I'])
-
-        uninfected_stops = all_stops.copy()
-        uninfected_stops.remove(start_stop_I)
-
-        # match stop_I to a more advanced stop object
-        seed_stop = SpreadingStop(start_stop_I, min_transfer_time)
-
-        stop_I_to_spreading_stop = {
-            start_stop_I: seed_stop
-        }
-        for stop in uninfected_stops:
-            stop_I_to_spreading_stop[stop] = SpreadingStop(stop, min_transfer_time)
-
-        # get for each stop their
-        walk_speed = 0.5  # meters/second
-
-        print "intializing heap"
-        event_heap = Heap(events_df)
-
-        start_event = Event(start_time_ut - 1,
-                            start_time_ut - 1,
-                            start_stop_I,
-                            start_stop_I,
-                            -1)
-
-        seed_stop.visit(start_event)
-        assert len(seed_stop.visit_events) > 0
-        event_heap.add_event(start_event)
-        event_heap.add_walk_events_to_heap(self, start_event,
-                                           start_time_ut, walk_speed,
-                                           uninfected_stops, max_duration_ut)
-
-        i = 1
-
-        while event_heap.size() > 0 and len(uninfected_stops) > 0:
-            e = event_heap.pop_next_event()
-            this_stop = stop_I_to_spreading_stop[e.from_stop_I]
-
-            if e.arr_time_ut > start_time_ut + max_duration_ut:
-                break
-
-            if this_stop.can_infect(e):
-
-                target_stop = stop_I_to_spreading_stop[e.to_stop_I]
-                already_visited = target_stop.has_been_visited()
-                target_stop.visit(e)
-
-                if not already_visited:
-                    uninfected_stops.remove(e.to_stop_I)
-                    print i, event_heap.size()
-                    event_heap.add_walk_events_to_heap(self, e, start_time_ut,
-                                                       walk_speed, uninfected_stops,
-                                                       max_duration_ut)
-                    i += 1
-
-        # create new transfer events and add them to the heap (=queue)
-        inf_times = [[stop_I, el.get_min_visit_time() - start_time_ut]
-                     for stop_I, el in stop_I_to_spreading_stop.items()]
-        inf_times = numpy.array(inf_times)
-        inf_time_data = pd.DataFrame(inf_times, columns=["stop_I", "inf_time_ut"])
-        stop_data = self.get_stop_info()
-
-        combined = inf_time_data.merge(stop_data, how='inner', on='stop_I', suffixes=('_infs', '_stops'), copy=True)
-
-        trips = []
-        for stop_I, dest_stop_obj in stop_I_to_spreading_stop.iteritems():
-            inf_event = dest_stop_obj.get_min_event()
-            if inf_event is None:
-                continue
-            dep_stop_I = inf_event.from_stop_I
-            dep_lat = float(combined[combined['stop_I'] == dep_stop_I]['lat'].values)
-            dep_lon = float(combined[combined['stop_I'] == dep_stop_I]['lon'].values)
-
-            dest_lat = float(combined[combined['stop_I'] == stop_I]['lat'].values)
-            dest_lon = float(combined[combined['stop_I'] == stop_I]['lon'].values)
-
-            if inf_event.trip_I == -1:
-                name = "walk"
-                rtype = -1
-            else:
-                name, rtype = self.get_route_name_and_type_of_tripI(inf_event.trip_I)
-
-            trip = {
-                "lats": [dep_lat, dest_lat],
-                "lons": [dep_lon, dest_lon],
-                "times": [inf_event.dep_time_ut, inf_event.arr_time_ut],
-                "name": name,
-                "route_type": rtype
-            }
-            trips.append(trip)
-        return {"trips": trips}
+        from .spreading.spreader import Spreader
+        spreader = Spreader(self, start_time_ut, lat, lon, max_duration_ut, min_transfer_time, shapes)
+        return spreader.spread()
 
     def get_closest_stop(self, lat, lon):
         """
@@ -1843,7 +1708,7 @@ class GTFS(object):
                                         fully_contained=False):
         """
         Obtain a list of events that take place during a time interval.
-        Each event needs to be only partially overlap the given time interval.
+        Each event needs to only partially overlap the given time interval.
         Does not include walking events.
         NOTE: This is currently extremely slow!
 
@@ -1947,267 +1812,9 @@ class GTFS(object):
         stop_data_df = pd.read_sql_query(query, self.conn, params=params)
         return stop_data_df
 
-    def calc_and_store_stats(self):
-        """
-        Computes stats and stores them into the underlying sqlite database.
-
-        Returns
-        -------
-        stats : dict
-        """
-        stats = self.get_stats()
+    def update_stats(self, stats):
         self.meta.update(stats)
         self.meta['stats_calc_at_ut'] = time.time()
-        return stats
-
-    def print_stats(self):
-        """
-        Print out basic statistics about a GTFS database
-
-        TODO: Merge with get_stats?
-        """
-        cur = self.conn.cursor()
-        conn = self.conn
-
-        def print_(x, n=None):
-            if n:
-                print "  " + x.ljust(25) + " = %s" % (n,)
-                return
-            print "  " + x
-
-        # Basic table counts
-        for table in ['agencies', 'routes', 'stops', 'stop_times', 'trips', 'calendar', 'shapes', 'calendar_days', 'days',
-                      'stop_distances']:
-            n = conn.execute('select count(*) from %s' % table).fetchone()[0]
-            print_(("Number of %s" % table).ljust(25) + " = %s" % n, )
-        # Stop lat/lon range
-        lats = [x[0] for x in conn.execute('select lat from stops').fetchall()]
-        lons = [x[0] for x in conn.execute('select lon from stops').fetchall()]
-        min_, min10, median, max90, max_ = numpy.percentile(lats, [0, 10, 50, 90, 100])
-        minO_, min10O, medianO, max90O, maxO_ = numpy.percentile(lons, [0, 10, 50, 90, 100])
-
-        print_("")
-        print_("Stop related")
-        print_("Stop lat min/max", (min_, max_))
-        print_("Stop lat middle 80%", (min10, max90))
-        print_("Height (km)", wgs84_distance(min_, medianO, max_, medianO) / 1000.)
-        print_("Height, middle 80% (km)", wgs84_distance(min10, medianO, max90, medianO) / 1000.)
-        print_("Stop lon min/max", (minO_, maxO_))
-        print_("Stop lon middle 80%", (min10O, max90O))
-        print_("Width (km)", wgs84_distance(median, minO_, median, maxO_) / 1000.)
-        print_("Width, middle 80% (km)", wgs84_distance(median, min10O, median, max90O) / 1000.)
-
-        print_("")
-        print_("Calendar related")
-        print_("Start date", cur.execute("select min(start_date) from calendar").fetchone()[0])
-        print_("End date", cur.execute("select max(end_date) from calendar").fetchone()[0])
-        # print_("Start date", cur.execute("select min(start_date) from calendar"))
-        # print_("End date", cur.execute("select max(end_date) from calendar"))
-
-    def write_stats_as_csv(self, path_to_csv):
-        """
-        Writes data from get_stats to csv file
-
-        Parameters
-        ----------
-        path_to_csv: filepath to csv file
-        """
-        import csv
-        stats_dict = self.get_stats()
-        # check if file exist
-        """if not os.path.isfile(path_to_csv):
-            is_new = True
-        else:
-            is_new = False"""
-        try:
-            with open(path_to_csv, 'rb') as csvfile:
-                if list(csv.reader(csvfile))[0]:
-                    is_new = False
-                else:
-                    is_new = True
-        except:
-            is_new = True
-
-        with open(path_to_csv, 'ab') as csvfile:
-            statswriter = csv.writer(csvfile, delimiter=',')
-            # write column names if new file
-            if is_new:
-                statswriter.writerow(sorted(stats_dict.keys()))
-            row_to_write = []
-            # write stats row sorted by column name
-            for key in sorted(stats_dict.keys()):
-                row_to_write.append(stats_dict[key])
-            statswriter.writerow(row_to_write)
-
-    def get_stats(self):
-        """
-        Get basic statistics of the GTFS data.
-
-        Returns
-        -------
-        stats: dict
-            A dictionary of various statistics.
-            Keys should be strings, values should be inputtable to a database (int, date, str, ...)
-            (but not a list)
-        """
-        conn = self.conn
-        cur = self.conn.cursor()
-        stats = {}
-        # Basic table counts
-        for table in ['agencies', 'routes', 'stops', 'stop_times', 'trips', 'calendar', 'shapes', 'calendar_dates', 'days',
-                      'stop_distances', 'frequencies', 'feed_info', 'transfers']:
-            n = conn.execute('SELECT count(*) FROM %s' % table).fetchone()[0]
-            stats["n_" + table] = n
-
-        # Agency names
-        stats["agencies"] = "_".join([x[0] for x in conn.execute('SELECT name FROM agencies').fetchall()]).encode('utf-8')
-
-        # Stop lat/lon range
-        lats = [x[0] for x in conn.execute('SELECT lat FROM stops').fetchall()]
-        lons = [x[0] for x in conn.execute('SELECT lon FROM stops').fetchall()]
-        percentiles = [0, 10, 50, 90, 100]
-        lat_min, lat_10, lat_median, lat_90, lat_max = numpy.percentile(lats, percentiles)
-        stats["lat_min"] = lat_min
-        stats["lat_10"] = lat_10
-        stats["lat_median"] = lat_median
-        stats["lat_90"] = lat_90
-        stats["lat_max"] = lat_max
-
-        lon_min, lon_10, lon_median, lon_90, lon_max = numpy.percentile(lons, percentiles)
-        stats["lon_min"] = lon_min
-        stats["lon_10"] = lon_10
-        stats["lon_median"] = lon_median
-        stats["lon_90"] = lon_90
-        stats["lon_max"] = lon_max
-
-        stats["height"] = wgs84_distance(lat_min, lon_median, lat_max, lon_median) / 1000.
-        stats["width"] = wgs84_distance(lon_min, lat_median, lon_max, lat_median) / 1000.
-
-        first_day_start_ut, last_day_start_ut = \
-            cur.execute("SELECT min(day_start_ut), max(day_start_ut) FROM days;").fetchone()
-
-        stats["start_time_ut"] = first_day_start_ut
-        if last_day_start_ut is None:
-            stats["end_time_ut"] = None
-        else:
-            # 28 (instead of 24) comes from the GTFS standard
-            stats["end_time_ut"] = last_day_start_ut + 28 * 3600
-
-        stats["start_date"] = cur.execute("SELECT min(date) FROM days").fetchone()[0]
-        stats["end_date"] = cur.execute("SELECT max(date) FROM days").fetchone()[0]
-
-        # Maximum activity day
-        max_activity_date = cur.execute(
-            'SELECT count(*), date FROM days GROUP BY date '
-            'ORDER BY count(*) DESC, date LIMIT 1;').fetchone()
-        if max_activity_date:
-            stats["max_activity_date"] = max_activity_date[1]
-            max_activity_hour = cur.execute(
-                'SELECT count(*), arr_time_hour FROM day_stop_times '
-                'WHERE date=? GROUP BY arr_time_hour '
-                'ORDER BY count(*) DESC;', (stats["max_activity_date"],)).fetchone()
-            if max_activity_hour:
-                stats["max_activity_hour"] = max_activity_hour[1]
-            else:
-                stats["max_activity_hour"] = None
-        # Fleet size estimate: considering each line separately
-        fleet_size_list = []
-        for row in cur.execute('Select type, max(vehicles) from '
-            '(select type, direction_id, sum(vehicles) as vehicles from '
-            '(select trips.route_I, trips.direction_id, routes.route_id, name, type, count(*) as vehicles, cycle_time_min from trips, routes, days, '
-            '(select first_trip.route_I, first_trip.direction_id, first_trip_start_time, first_trip_end_time, '
-            'MIN(start_time_ds) as return_trip_start_time, end_time_ds as return_trip_end_time, '
-            '(end_time_ds - first_trip_start_time)/60 as cycle_time_min from trips, '
-            '(select route_I, direction_id, MIN(start_time_ds) as first_trip_start_time, end_time_ds as first_trip_end_time from trips, days '
-            'where trips.trip_I=days.trip_I and start_time_ds >= ? * 3600 and start_time_ds <= (? + 1) * 3600 and date = ? '
-            'group by route_I, direction_id) first_trip '
-            'where first_trip.route_I = trips.route_I and first_trip.direction_id != trips.direction_id and start_time_ds >= first_trip_end_time '
-            'group by trips.route_I, trips.direction_id) return_trip '
-            'where trips.trip_I=days.trip_I and trips.route_I= routes.route_I and date = ? and trips.route_I = return_trip.route_I and trips.direction_id = return_trip.direction_id and start_time_ds >= first_trip_start_time and start_time_ds < return_trip_end_time '
-            'group by trips.route_I, trips.direction_id '
-            'order by type, name, vehicles desc) cycle_times '
-            'group by direction_id, type) vehicles_type '
-            'group by type;', (stats["max_activity_hour"], stats["max_activity_hour"], stats["max_activity_date"], stats["max_activity_date"])):
-            fleet_size_list.append(str(row[0]) + ':' + str(row[1]))
-        stats["fleet_size_route_based"] = ' '.join(fleet_size_list)
-        # Fleet size estimate: maximum number of vehicles in movement
-        fleet_size_dict = {}
-        fleet_size_list = []
-        if stats["max_activity_hour"]:
-            for minute in range(stats["max_activity_hour"]*3600, (stats["max_activity_hour"]+1)*3600, 60):
-                for row in cur.execute('SELECT type, count(*) FROM trips, routes, days '
-                    'WHERE trips.route_I = routes.route_I AND trips.trip_I=days.trip_I AND '
-                    'start_time_ds <= ? AND end_time_ds > ? + 60 AND date = ? '
-                    'GROUP BY type;', (minute, minute, stats["max_activity_date"])):
-
-                    if fleet_size_dict.get(row[0], 0) < row[1]:
-                        fleet_size_dict[row[0]] = row[1]
-
-        for key in fleet_size_dict.keys():
-            fleet_size_list.append(str(key)+':'+str(fleet_size_dict[key]))
-        stats["fleet_size_max_movement"] = ' '.join(fleet_size_list)
-
-
-
-        # Compute simple distributions of various colums that have a
-        # finite range of values.
-        def distribution(table, column):
-            """Count occurances of values and return it as a string.
-
-            Example return value:   '1:5 2:15'"""
-            cur.execute('SELECT {column}, count(*) '
-                        'FROM {table} GROUP BY {column} '
-                        'ORDER BY {column}'.format(column=column, table=table))
-            return ' '.join('%s:%s'%(t, c) for t, c in cur)\
-
-        # Commented lines refer to values that are not imported yet.
-        stats['routes__type__dist'] = distribution('routes', 'type')
-        #stats['stop_times__pickup_type__dist'] = distribution('stop_times', 'pickup_type')
-        #stats['stop_times__drop_off_type__dist'] = distribution('stop_times', 'drop_off_type')
-        #stats['stop_times__timepoint__dist'] = distribution('stop_times', 'timepoint')
-        stats['calendar_dates__exception_type__dist'] = distribution('calendar_dates', 'exception_type')
-        stats['frequencies__exact_times__dist'] = distribution('frequencies', 'exact_times')
-        stats['transfers__transfer_type__dist'] = distribution('transfers', 'transfer_type')
-        stats['agencies__lang__dist'] = distribution('agencies', 'lang')
-        stats['stops__location_type__dist'] = distribution('stops', 'location_type')
-        #stats['stops__wheelchair_boarding__dist'] = distribution('stops', 'wheelchair_boarding')
-        #stats['trips__wheelchair_accessible__dist'] = distribution('trips', 'wheelchair_accessible')
-        #stats['trips__bikes_allowed__dist'] = distribution('trips', 'bikes_allowed')
-        #stats[''] = distribution('', '')
-        return stats
-
-    def get_median_lat_lon_of_stops(self):
-        """
-        Get median latitude and longitude of stops
-
-        Returns
-        -------
-        median_lat : float
-        median_lon : float
-        """
-        cur = self.conn.cursor()
-        lats = [x[0] for x in cur.execute('SELECT lat FROM stops').fetchall()]
-        lons = [x[0] for x in cur.execute('SELECT lon FROM stops').fetchall()]
-        median_lat = numpy.percentile(lats, 50)
-        median_lon = numpy.percentile(lons, 50)
-        # {"lat_median": median_lat, "lon_median": median_lon}
-        return median_lat, median_lon
-
-    def get_centroid_of_stops(self):
-        """
-        Get mean latitude and longitude of stops
-
-        Returns
-        -------
-        mean_lat : float
-        mean_lon : float
-        """
-        cur = self.conn.cursor()
-        lats = [x[0] for x in cur.execute('SELECT lat FROM stops').fetchall()]
-        lons = [x[0] for x in cur.execute('SELECT lon FROM stops').fetchall()]
-        mean_lat = numpy.mean(lats)
-        mean_lon = numpy.mean(lons)
-        return mean_lat, mean_lon
 
     def get_conservative_gtfs_time_span_in_ut(self):
         """
@@ -2219,15 +1826,31 @@ class GTFS(object):
         start_time_ut_conservative : int
         end_time_ut_conservative : int
         """
-        # this could be included in the stats?
+        first_day_start_ut, last_day_start_ut = self.get_day_start_ut_span()
+        # 28 (instead of 24) comes from the GTFS standard
+        return first_day_start_ut, last_day_start_ut + 28*3600
+
+    def get_day_start_ut_span(self):
+        """
+        Return the first and last day_start_ut
+
+        Returns
+        -------
+        first_day_start_ut: int
+        last_day_start_ut: int
+        """
         cur = self.conn.cursor()
         first_day_start_ut, last_day_start_ut = \
             cur.execute("SELECT min(day_start_ut), max(day_start_ut) FROM days;").fetchone()
-        # no trip should start before the first_day_start_ut
-        start_time_ut_conservative = first_day_start_ut
-        # 28 (instead of 24) comes from the GTFS standard
-        end_time_ut_conservative  = last_day_start_ut + 28 * 3600
-        return start_time_ut_conservative, end_time_ut_conservative
+        return first_day_start_ut, last_day_start_ut
+
+    def get_min_date(self):
+        cur = self.conn.cursor()
+        return cur.execute("SELECT min(date) FROM days").fetchone()[0]
+
+    def get_max_date(self):
+        cur = self.conn.cursor()
+        return cur.execute("SELECT max(date) FROM days").fetchone()[0]
 
     def print_validation_warnings(self):
         """
@@ -2241,9 +1864,17 @@ class GTFS(object):
         validator = GTFSValidator(self)
         return validator.get_warnings()
 
+    def execute_custom_query(self, query):
+        return self.conn.cursor().execute(query)
+
+    def get_stats(self):
+        from gtfspy import stats
+        return stats.Stats(self).get_stats()
+
+
 class GTFSMetadata(object):
     """
-    This provides dictionary protocol for metadata.
+    This provides dictionary protocol for updating GTFS metadata ("meta table").
 
     TODO: does not rep ???
     """
@@ -2310,7 +1941,8 @@ if __name__ == "__main__":
     if cmd == 'stats':
         print args[0]
         G = GTFS(args[0])
-        G.calc_and_store_stats()
+        stats = G.get_stats()
+        G.update_stats(stats)
         for row in G.meta.items():
             print row
     elif cmd == "validate":

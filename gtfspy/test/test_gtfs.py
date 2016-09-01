@@ -1,16 +1,13 @@
-import os
 import datetime
-import pandas
-
+import os
 import sqlite3
-
-import networkx
-
-from util import wgs84_distance
-
-from gtfs import GTFS
 import unittest
 
+import networkx
+import pandas
+
+from ..gtfs import GTFS
+from ..util import wgs84_distance
 
 class TestGTFS(unittest.TestCase):
 
@@ -451,8 +448,6 @@ class TestGTFS(unittest.TestCase):
             if c in "seq shape_break".split(" "):
                 assert isinstance(el[c], int)
 
-
-
     def test_get_straight_line_transfer_distances(self):
         data = self.G.get_straight_line_transfer_distances()
         assert len(data) > 0
@@ -465,28 +460,6 @@ class TestGTFS(unittest.TestCase):
         data = self.G.get_straight_line_transfer_distances(a_stop_I)
         assert len(data) > 0
 
-    def test_get_stats(self):
-        d = self.G.get_stats()
-        assert isinstance(d, dict)
-
-    def test_calc_and_store_stats(self):
-        self.G.meta['stats_calc_at_ut'] = None
-        stats = self.G.calc_and_store_stats()
-        assert isinstance(stats, dict)
-        assert self.G.meta['stats_calc_at_ut'] is not None
-
-    def test_get_median_lat_lon_of_stops(self):
-        lat, lon = self.G.get_median_lat_lon_of_stops()
-        assert lat != lon, "probably median lat and median lon should not be equal for any real data set"
-        assert isinstance(lat, float)
-        assert isinstance(lon, float)
-
-    def test_get_centroid_of_stops(self):
-        lat, lon = self.G.get_centroid_of_stops()
-        assert lat != lon, "probably centroid lat and lon should not be equal for any real data set"
-        assert isinstance(lat, float)
-        assert isinstance(lon, float)
-
     def test_get_conservative_gtfs_time_span_in_ut(self):
         start_ut, end_ut = self.G.get_conservative_gtfs_time_span_in_ut()
         start_dt = datetime.datetime(2007, 1, 1)
@@ -495,213 +468,3 @@ class TestGTFS(unittest.TestCase):
         end_ut_comp = self.G.unlocalized_datetime_to_ut_seconds(end_dt) + (28 * 3600)
         assert start_ut == start_ut_comp
         assert end_ut == end_ut_comp
-
-    def test_write_stats_as_csv(self):
-        import tempfile as temp
-        import pandas as pd
-
-        testfile = temp.NamedTemporaryFile(mode='w+b')
-
-        self.G.write_stats_as_csv(testfile.name)
-        df = pd.read_csv(testfile.name)
-        print 'len is ' + str(len(df))
-        assert len(df) == 1
-
-        self.G.write_stats_as_csv(testfile.name)
-        df = pd.read_csv(testfile.name)
-        assert len(df) == 2
-        testfile.close()
-
-
-        # def test_get_events_by_tripI_and_dsut(self):
-        #     # OLD CODE:
-        #     #
-        #     # Original query data:
-        #     # """
-        #     #     select stop_I, dep_time_ds, arr_time_ds from stop_times JOIN stops USING(stop_I) where (trip_I = 1041) AND (dep_time_ds > 59200) AND (arr_time_ds < 59580) LIMIT 10;
-        #     # stop_I|dep_time_ds|arr_time_ds
-        #     # 217|59220|59220
-        #     # 215|59280|59280
-        #     # 213|59340|59340
-        #     # 211|59460|59460
-        #     # 235|59520|59520
-        #     #     """
-        #     # trip_I = 1041
-        #     # day_start_ut = 1437080400
-        #     # start_ut = day_start_ut + 59200
-        #     # end_ut = day_start_ut + 59580
-        #     # conn = db.connect_gtfs('hsl-2015-07-12')
-        #     # cur = conn.cursor()
-        #     # events = gtfs.get_events_by_tripI_and_dsut(cur, trip_I,
-        #     #                                   day_start_ut,
-        #     #                                   start_ut,
-        #     #                                   end_ut)
-        #     # assert isinstance(events, list)
-        #     # assert len(events) > 0
-        #     # event = events[0]
-        #     # for key in ['from_stop', 'to_stop', 'dep_time_ut', 'arr_time_ut']:
-        #     #     assert event.has_key(key), "Event does not have key: " +str(key)
-        #     # assert event['from_stop'] == 217
-        #     # assert event['to_stop'] == 215
-        #     # assert event['dep_time_ut'] == 59220+day_start_ut
-        #     # assert event['arr_time_ut'] == 59280+day_start_ut
-        #     #
-        #     # day_start_wrong_day_ut = 1438300800
-        #     # start_ut = day_start_wrong_day_ut + 59200
-        #     # end_ut = day_start_wrong_day_ut + 59580
-        #     # events = gtfs.get_events_by_tripI_and_dsut(cur, trip_I,
-        #     #                                   day_start_wrong_day_ut,
-        #     #                                   start_ut,
-        #     #                                   end_ut)
-        #     # assert len(events) == 0
-        #     pass  # untested
-        #
-        # def test_tripI_takes_place_on_dsut(self):
-        #     # OLD CODE:
-        #     #     conn = db.connect_gtfs('hsl-2015-07-12')
-        #     #     cur = conn.cursor()
-        #     #     trip_I = 1041
-        #     #     day_start_false = 1438300800
-        #     #     day_start_true = 1437080400
-        #     #     assert gtfs.tripI_takes_place_on_dsut(cur, trip_I, day_start_true)
-        #     #     assert not gtfs.tripI_takes_place_on_dsut(cur, trip_I, day_start_false)
-        #     pass  # untested
-        #
-        # def test_get_tripIs_from_stopI_within_time_range(self):
-        #     # OLD CODE:
-        #     # def test_get_trips_from_stop():
-        #     #     conn = db.connect_gtfs('hsl-2015-07-12')
-        #     #     cur = conn.cursor()
-        #     #     stop_I = 527
-        #     #     day_start_ut = 1442350800
-        #     #     start_ut = day_start_ut + 24299
-        #     #     end_ut = day_start_ut + 24301
-        #     #
-        #     #     trip_Is = gtfs.get_tripIs_from_stopI_within_time_range(cur,
-        #     #                                    stop_I,
-        #     #                                    day_start_ut,
-        #     #                                    start_ut,
-        #     #                                    end_ut)
-        #     #     assert len(trip_Is) == 1
-        #     #     assert trip_Is[0] == 35988
-        #     #
-        #     pass  # untested
-        #
-        # def test_day_start_ut(self):
-        #     #     os.environ['TZ'] = 'Europe/Helsinki' ; time.tzset()
-        #     #
-        #     #     ut = 1445772360  # 2015-10-25 13:26.  DST changed on this day.
-        #     #     day_start = gtfs.day_start_ut(ut)
-        #     #     # from datetime import datetime
-        #     #     assert day_start == 1445724000.0, \
-        #     #        "Wrong day start on DST backwards: %s!=%s"%(
-        #     #            day_start, 1445727600.0)  # 2015-10-25 01:00
-        #     pass  # untested
-        #
-        # def test_increment_daystart_ut_by_ndays(self):
-        #     # def test_increment_daystart_ut():
-        #     #     os.environ['TZ'] = 'Europe/Helsinki' ; time.tzset()
-        #     #
-        #     #     day0 = 1445682360.0  # 2015,10,24 13,26
-        #     #     ds0 = gtfs.day_start_ut(day0)
-        #     #     assert ds0 == 1445634000.0 # 2015,10,24, 0,0
-        #     #     ds1 = gtfs.increment_daystart_ut_by_ndays(ds0)
-        #     #     assert ds1 == 1445724000.0  # 2015,10,25, 1,0
-        #     #     ds2 = gtfs.increment_daystart_ut_by_ndays(ds1)
-        #     #     assert ds2 == 1445810400.0
-        #     #     ds0_b = gtfs.increment_daystart_ut_by_ndays(ds2, -2) # go back two days
-        #     #     assert ds0_b == ds0
-        #     pass  # untested
-        #
-        # # def test__get_possible_day_starts(self):
-        #     # def test__get_possible_day_starts():
-        #     #     os.environ['TZ'] = 'UTC' ; time.tzset()
-        #     #     day_start_ut = 2*24*3600
-        #     #     start_ut = day_start_ut
-        #     #     end_ut = start_ut+1
-        #     #     max_time_overnight= 0
-        #     #     # 7*3600
-        #     #     day_start_times_ut, start_times_ds, end_times_ds = \
-        #     #         gtfs._get_possible_day_starts(start_ut, end_ut, max_time_overnight)
-        #     #     assert isinstance(day_start_times_ut, list)
-        #     #     assert isinstance(start_times_ds, list)
-        #     #     assert isinstance(end_times_ds, list)
-        #     #     assert len(day_start_times_ut) == 1
-        #     #     assert day_start_times_ut[0] == day_start_ut
-        #     #     assert start_times_ds[0] == 0
-        #     #     assert end_times_ds[0] == 1
-        #     #
-        #     #     day_start_ut = 2*24*3600
-        #     #     start_ut = day_start_ut
-        #     #     end_ut = start_ut+24*3600+1
-        #     #     max_time_overnight= 1 # 1 second
-        #     #     day_start_times_ut, start_times_ds, end_times_ds = \
-        #     #         gtfs._get_possible_day_starts(start_ut, end_ut, max_time_overnight)
-        #     #     assert len(day_start_times_ut) == 3
-        #     #
-        #     #     os.environ['TZ'] = 'Europe/Helsinki' ; time.tzset()
-        #     #     day_start_ut = 1438300800 # multiple of 24*3600 (i.e. a _ds in UTC)
-        #     #     start_ut = day_start_ut + 100 #24299
-        #     #     end_ut = day_start_ut + 102 # 24301
-        #     #     # print ut_to_datetime_str(start_ut)
-        #     #     max_time_overnight = 7*60*60 # seven hours
-        #     #
-        #     #     day_start_times_ut, start_times_ds, end_times_ds = \
-        #     #         gtfs._get_possible_day_starts(start_ut, end_ut, 0)
-        #     #     assert len(day_start_times_ut) == 1
-        #     #     assert day_start_times_ut[0] == 1438300800-3*3600
-        #     #     assert start_times_ds[0] == 3*3600+100
-        #     #     assert end_times_ds[0] == 3*3600+102
-        #     #
-        #     #     day_start_ut = 1438300800 # multiple of 24*3600 (i.e. a _ds in UTC)
-        #     #     start_ut = day_start_ut + 24299
-        #     #     end_ut = day_start_ut + 24301
-        #     #     day_start_times_ut, start_times_ds, end_times_ds = \
-        #     #         gtfs._get_possible_day_starts(start_ut, end_ut, 7*3600)
-        #     #     assert len(day_start_times_ut) == 1
-        #     #     assert day_start_times_ut[0] == 1438300800-3*3600
-        #     #     assert start_times_ds[0] == 3*3600+24299
-        #     #     assert end_times_ds[0] == 3*3600+24301
-        #     pass  # untested
-        #
-        # def test_get_tripIs_within_range_by_dsut(self):
-        #     pass  # untested
-        #
-        # def test_get_stop_info(self):
-        #     stop_I = 1
-        #     df = self.G.get_stop_info(stop_I=stop_I)
-        #     assert isinstance(df, pandas.DataFrame)
-        #
-        # def test_get_transit_events_in_time_span(self):
-        #     # start_ut = 1
-        #     # end_ut = 2
-        #     # res = self.G.get_transit_events_in_time_span(start_ut, end_ut)
-        #     # assert isinstance(res, pandas.DataFrame)
-        #     pass  # not properly tested"
-        #     # OLD CODE:
-        #     #
-        #     # def test_get_events_within_range():
-        #     #     os.environ['TZ'] = 'Europe/Helsinki' ; time.tzset()
-        #     #     conn = db.connect_gtfs('hsl-2015-07-12')
-        #     #     day_start_ut = 1438300800 # multiple of 24*3600 (i.e. a _ds in UTC)
-        #     #     start_ut = 1438300800 + 24299
-        #     #     end_ut = 1438300800 + 24301
-        #     #     event_data = gtfs.get_transit_events_in_time_span(
-        #     #                     conn, start_ut, end_ut)
-        #     #     assert len(event_data['trip_I']) == 14070
-        #     #     n_events_1 = len(event_data['trip_I'])
-        #     #     # print ut_to_utc_datetime_str(end_ut)
-        #     #
-        #     #
-        #     #     conn = db.connect_gtfs('hsl-2015-07-12')
-        #     #     day_start_ut = 1438300800 # multiple of 24*3600 (i.e. a _ds in UTC)
-        #     #     start_ut = 1438300800 + 24299
-        #     #     end_ut = 1438300800 + 24301+3600
-        #     #     event_data = gtfs.get_transit_events_in_time_span(
-        #     #                     conn, start_ut, end_ut)
-        #     #     # print ut_to_utc_datetime_str(end_ut)
-        #     #     # print len(event_data)
-        #     #     assert len(event_data['trip_I']) == 14070
-        #     #     n_events_2 = len(event_data['trip_I'])
-        #     #     print len(event_data)
-        #     #     assert n_events_1 < n_events_2

@@ -4,7 +4,7 @@ import sqlite3
 class KutsuplusTraces:
 
     def __init__(self, dbfname="scratch/web/kutsuplus/kutsuplus-scrape-small.sqlite"):
-        self.dbfname=dbfname
+        self.dbfname = dbfname
         self.conn = sqlite3.connect(self.dbfname)
 
     def get_span(self):
