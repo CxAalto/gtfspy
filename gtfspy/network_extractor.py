@@ -1,7 +1,11 @@
 import sys
 
+import networkx
+
 # the following is required when using this module as a script
 # (i.e. using the if __name__ == "__main__": part at the end of this file)
+from gtfs import GTFS
+
 if __name__ == '__main__' and __package__ is None:
     # import gtfspy
     __package__ = 'gtfspy'
@@ -18,28 +22,46 @@ class NetworkExtractor(object):
         See the specifications from
 
         """
-        self.gtfs = gtfs
+        self._gtfs = gtfs  # type GTFS
 
     def stop_to_stop_network(self):
         """
-        First priority:
-            raw data, individual stops, directed
-        Link attributes:
-            From node
-            To node
-            Number of vehicles passed
-            Approximate capacity passed
-            Average travel time between stops
-            Straight-line distance
-            List of lines, separated with a
-            Node attributes:
-            ID
-            Coordinates
-            Name of the stop
-            Data format to be used:
-            Edge file (i, j, vehicle count, capacity, travel time, distance)
+        Extract a stop-to-stop network from the
+
+        Returns
+        -------
+        networkx.DiGraph
+
         """
-        pass
+        graph = networkx.DiGraph()
+        stops = self._gtfs.get_stop_info()
+        for stop in stops.itertuples():
+            attr_dict = {
+                "lat": stop.lat,
+                "lon": stop.lon,
+                "name": stop.name
+            }
+            graph.add_node(stop.stop_I, attr_dict=attr_dict)
+        # get all
+        segments
+        for segment in segments:
+            # get all stop times between the segments, and compute the mean travel time
+            # get the distance
+            # for each segement, get the total travel time
+            # for each seg
+        return graph
+
+    def get_walk_network(self):
+        """
+        Get the walk network.
+
+        Returns
+        -------
+        networkx.DiGraph
+        """
+
+
+
 
     def extract_multi_layer_network(self):
         """
@@ -62,11 +84,14 @@ class NetworkExtractor(object):
 def main():
     cmd = sys.argv[1]
     args = sys.argv[2:]
-    if cmd == "directed_network":
+    if cmd == "directed":
         extractor = NetworkExtractor(args[0])
-        warningsContainer = extractor.
-
-        warningsContainer.print_summary()
+    elif cmd == "multilayer":
+        extractor = NetworkExtractor(args[0])
+    elif cmd == "temporal":
+        extractor = NetworkExtractor(args[0])
+    elif cmd == "temporal":
+        extractor = NetworkExtractor(args[0])
 
 if __name__ == "__main__":
     main()
