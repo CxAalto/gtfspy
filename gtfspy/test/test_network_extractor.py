@@ -38,7 +38,7 @@ class NetworkExtractorTest(TestCase):
         for node, neighbor, data in directed_graph.edges(data=True):
             self.assertTrue(node in directed_graph)
             self.assertTrue(neighbor in directed_graph)
-            keys = ["distance", "time", "n_vehicles", "capacity_per_hour", "lines"]
+            keys = ["distance", "time", "n_vehicles", "capacity_per_hour", "lines", "modes"]
             for key in keys:
                 self.assertTrue(key in data)
                 value = data[key]
