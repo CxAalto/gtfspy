@@ -1,11 +1,11 @@
 import os
 import unittest
 
-from ..spreading.event import Event
-from ..spreading.spreader import Spreader
-from ..spreading.spreading_stop import SpreadingStop
+from gtfspy.spreading.event import Event
+from gtfspy.spreading.spreader import Spreader
+from gtfspy.spreading.spreading_stop import SpreadingStop
 
-from ..gtfs import GTFS
+from gtfspy.gtfs import GTFS
 
 
 class SpreadingTest(unittest.TestCase):

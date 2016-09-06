@@ -52,14 +52,12 @@ def find_segments(stops, shape):
     ----------
     stops: stop-sequence (list)
         List of stop points
-    shape: shape-sequence (list)
-        List of shape points
+    shape: list of shape points
+        shape-sequence of shape points
 
     Returns
     -------
-    tuple of:
-
-    break_points: list of ints
+    break_points: list[int]
         stops[i] corresponds to shape[break_points[i]].  This list can
         be used to partition the shape points into segments between
         one stop and the next.

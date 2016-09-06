@@ -1,20 +1,8 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Apr 25 17:56:12 2015
-"""
-
-from __future__ import absolute_import
-
 import math
 import sqlite3
 
-# Required for relative imports from __main__ script.
-if __name__ == '__main__' and __package__ is None:
-    import gtfspy
-    __package__ = 'gtfspy'
-
-from .cutil import wgs84_distance, wgs84_height, wgs84_width
-from .gtfs import GTFS
+from gtfspy.util import wgs84_distance, wgs84_height, wgs84_width
+from gtfspy.gtfs import GTFS
 
 create_stmt = ('CREATE TABLE IF NOT EXISTS main.stop_distances '
                '(from_stop_I INT, '
@@ -26,6 +14,7 @@ create_stmt = ('CREATE TABLE IF NOT EXISTS main.stop_distances '
                'UNIQUE (from_stop_I, to_stop_I)'
                ')'
                )
+
 
 def bind_functions(conn):
     conn.create_function("find_distance", 4, wgs84_distance)
@@ -178,6 +167,7 @@ def calc_transfers(conn, threshold=1000):
     cur.execute('DROP TABLE stop_distances_tmp')
     conn.commit()
 
+
 def export_transfers(conn, fname):
     conn = GTFS(conn).conn
     cur = conn.cursor()
@@ -190,7 +180,7 @@ def export_transfers(conn, fname):
         print >> f, ' '.join(str(x) for x in row)
 
 
-if __name__ == "__main__":
+def main():
     import sys
     cmd = sys.argv[1]
     if cmd == 'calc':
@@ -199,3 +189,8 @@ if __name__ == "__main__":
         calc_transfers(conn)
     elif cmd == 'export':
         export_transfers(sys.argv[2], sys.argv[3])
+
+if __name__ == "__main__":
+    main()
+
+

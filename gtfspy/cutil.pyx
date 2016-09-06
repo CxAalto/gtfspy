@@ -15,7 +15,7 @@ def wgs84_distance(float lat1, float lon1, float lat2, float lon2):
     dLat = TORADIANS*(lat2 - lat1)
     dLon = TORADIANS*(lon2 - lon1)
     a = (sin(dLat / 2) * sin(dLat / 2) +
-            cos(TORADIANS*(lat1)) * cos(TORADIANS*(lat2)) *
+            cos(TORADIANS * lat1 ) * cos(TORADIANS * lat2) *
             sin(dLon / 2) * sin(dLon / 2))
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
     d = EARTH_RADIUS * c

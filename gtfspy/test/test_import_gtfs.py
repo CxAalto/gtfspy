@@ -2,12 +2,13 @@ import os
 import sqlite3
 import unittest
 
-from ..gtfs import GTFS
-from ..import_gtfs import import_gtfs
+from gtfspy.gtfs import GTFS
+from gtfspy.import_gtfs import import_gtfs
 
 
 # noinspection PyTypeChecker
 class TestGtfsImport(unittest.TestCase):
+
     @classmethod
     def setup_class(cls):
         """This method is run once for each class before any tests are run"""

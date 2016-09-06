@@ -11,8 +11,8 @@ import time
 import warnings
 from collections import Counter, defaultdict
 
-import networkx
 import numpy
+import networkx
 import pandas as pd
 import pytz
 
@@ -22,15 +22,16 @@ if __name__ == '__main__' and __package__ is None:
     # import gtfspy
     __package__ = 'gtfspy'
 
-from . import shapes
-from . import util
-from .util import wgs84_distance
+from gtfspy import shapes
+from gtfspy import util
+from gtfspy.util import wgs84_distance
 
 # py2/3 compatibility (copied from six)
 if sys.version_info[0] == 3:
     binary_type = bytes
 else:
     binary_type = str
+
 
 class GTFS(object):
 
@@ -39,8 +40,8 @@ class GTFS(object):
 
         Parameters
         ----------
-        fname: str, sqlite3.connection object
-            path to the
+        fname: str | sqlite3.Connection
+            path to the preprocessed gtfs database or a connection to a gtfs database
         """
         if isinstance(fname, (str, unicode)):
             self.conn = sqlite3.connect(fname)
@@ -53,8 +54,8 @@ class GTFS(object):
             self.conn = fname
             self._dont_close = True
         else:
-            raise NotImplementedError("Initiating GTFS using an object with type " + str(type(fname))
-                                      + " is not supported")
+            raise NotImplementedError(
+                "Initiating GTFS using an object with type " + str(type(fname)) + " is not supported")
 
         self.meta = GTFSMetadata(self.conn)
         # Bind functions
@@ -189,7 +190,7 @@ class GTFS(object):
                 if "route_types" in link_attributes:
                     link_data['route_types'] = link_events.groupby('route_type').size().to_dict()
                 if "capacity_estimate" in link_attributes:
-                    #TODO !
+                    # TODO !
                     raise NotImplementedError
                 if "distance_straight_line" in link_attributes:
                     from_lat = net.node[from_stop_I]['lat']
@@ -244,13 +245,13 @@ class GTFS(object):
             net.add_node(stopTuple.stop_I, attr_dict=node_attributes)
 
         rows = self.conn.cursor().execute(
-                                        "SELECT trip_I, route_I, route_id "
-                                        "FROM routes "
-                                        "LEFT JOIN trips "
-                                        "USING(route_I) "
-                                        "GROUP BY route_I").fetchall()
-                                        # to take only one route per line
-                                        # as looping over all trip_Is is too costly
+            "SELECT trip_I, route_I, route_id "
+            "FROM routes "
+            "LEFT JOIN trips "
+            "USING(route_I) "
+            "GROUP BY route_I").fetchall()
+        # Grouping by route_I to consider only one route variation per route
+        # (looping over all trip_Is would be too costly)
 
         for trip_I, route_I, route_id in rows:
             if trip_I is None:
@@ -372,6 +373,7 @@ class GTFS(object):
             If the shape calculation succeeded, return a float, otherwise return None
             (i.e. in the case where the shapes table is empty)
         """
+
         query_template = "SELECT shape_break FROM stop_times WHERE trip_I={trip_I} AND seq={seq} "
         stop_seqs = [from_stop_seq, to_stop_seq]
         shape_breaks = []
@@ -438,7 +440,7 @@ class GTFS(object):
         assert os.path.exists(this_db_path), "Copying of in-memory databases is not supported"
         assert os.path.exists(os.path.dirname(os.path.abspath(copy_db_path))), \
             "the directory where the copied database will reside should exist beforehand"
-        assert not os.path.exists(copy_db_path), "the resulting database exists already: %s"%copy_db_path
+        assert not os.path.exists(copy_db_path), "the resulting database exists already: %s" % copy_db_path
 
         # this with statement
         # is used to ensure that no corrupted/uncompleted files get created in case of problems
@@ -494,16 +496,13 @@ class GTFS(object):
 
                 start_date_query = "UPDATE calendar " \
                                    "SET start_date='{start_date}' " \
-                                   "WHERE start_date<'{start_date}' ".format(
-                    **{"start_date": start_date}
-                )
+                                   "WHERE start_date<'{start_date}' ".format(start_date=start_date)
                 copy_db_conn.execute(start_date_query)
 
                 end_date_query = "UPDATE calendar " \
                                  "SET end_date='{end_date_to_include}' " \
-                                 "WHERE end_date>'{end_date_to_include}' ".format(
-                    **{"end_date_to_include": end_date_to_include_str}
-                )
+                                 "WHERE end_date>'{end_date_to_include}' "\
+                                 .format(end_date_to_include=end_date_to_include_str)
                 copy_db_conn.execute(end_date_query)
 
                 # then recursively delete further data:
@@ -558,22 +557,26 @@ class GTFS(object):
                                      'trip_I NOT IN (SELECT trip_I FROM trips)')
                 copy_db_conn.commit()
 
-
             # filter by boundary
             if (buffer_lat is not None) and (buffer_lon is not None) and (buffer_distance is not None):
                 logging.info("Making spatial extract")
                 copy_db_conn.create_function("find_distance", 4, wgs84_distance)
-                copy_db_conn.execute('DELETE FROM stops WHERE '
-                                     'stop_I NOT IN (select stops.stop_I from stop_times, stops, '
+                copy_db_conn.execute('DELETE FROM stops '
+                                     'WHERE stop_I NOT IN '
+                                     '(SELECT stops.stop_I FROM stop_times, stops, '
                                      '(select trip_I, min(seq) as min_seq, max(seq) as max_seq from stop_times, stops '
-                                     'where stop_times.stop_I = stops.stop_I and CAST(find_distance(lat, lon, ?, ?) AS INT) < ? '
+                                     'where stop_times.stop_I = stops.stop_I '
+                                     'AND CAST(find_distance(lat, lon, ?, ?) AS INT) < ? '
                                      'group by trip_I) q1 '
-                                     'where stop_times.stop_I = stops.stop_I and stop_times.trip_I = q1.trip_I and seq >= min_seq and seq <= max_seq '
+                                     'where stop_times.stop_I = stops.stop_I '
+                                     'and stop_times.trip_I = q1.trip_I '
+                                     'and seq >= min_seq '
+                                     'and seq <= max_seq '
                                      ')', (buffer_lat, buffer_lon, buffer_distance))
 
                 copy_db_conn.execute('DELETE FROM stop_times WHERE '
                                      'stop_I NOT IN (SELECT stop_I FROM stops)')
-                #delete trips with only one stop
+                # delete trips with only one stop
                 copy_db_conn.execute('DELETE FROM stop_times WHERE '
                                      'trip_I IN (select trip_I from '
                                      '(select trip_I, count(*) as N_stops from stop_times '
@@ -595,9 +598,9 @@ class GTFS(object):
                                      'OR to_stop_I NOT IN (SELECT stop_I FROM stops)')
                 copy_db_conn.commit()
 
-
             # select the largest and smallest seq value for each trip that is within boundary
-            # WITH query that includes all stops that are within area or stops of routes that leaves and then returns to area
+            # WITH query that includes all stops that are within area or stops of routes
+            # that leaves and then returns to area
             # DELETE from stops where not in WITH query
             # Cascade for other tables
 
@@ -615,8 +618,8 @@ class GTFS(object):
                     G_copy.meta[key] = self.meta[key]
                 # Update *all* original metadata under orig_ namespace.
                 G_copy.meta.update(('orig_' + k, v) for k, v in self.meta.items())
-                from .stats import Stats
-                Stats(G_copy).update_stats()
+                from gtfspy import stats
+                stats.update_stats(G_copy)
 
                 # print "Vacuuming..."
                 copy_db_conn.execute('VACUUM;')
@@ -1016,7 +1019,7 @@ class GTFS(object):
         n_rows = len(data)
         for i, row in enumerate(data.itertuples()):
             datum = {"name": row.name, "type": row.type, "agency": row.agency_id, "agency_name": row.agency_name}
-            print row.agency_id, ": ",  i, "/", n_rows
+            print row.agency_id, ": ", i, "/", n_rows
             # this function should be made also non-shape friendly (at this point)
             if use_shapes and row.shape_id:
                 shape = shapes.get_shape_points2(cur, row.shape_id)
@@ -1051,9 +1054,9 @@ class GTFS(object):
         """
         to_select = "trip_I, day_start_ut, start_time_ut, end_time_ut, shape_id "
         query = "SELECT " + to_select + \
-                     "FROM day_trips " \
-                     "WHERE " \
-                     "(end_time_ut > {start_ut} AND start_time_ut < {end_ut})".format(start_ut=start, end_ut=end)
+                "FROM day_trips " \
+                "WHERE " \
+                "(end_time_ut > {start_ut} AND start_time_ut < {end_ut})".format(start_ut=start, end_ut=end)
         return pd.read_sql_query(query, self.conn)
 
     def get_trip_counts_per_day(self):
@@ -1141,7 +1144,7 @@ class GTFS(object):
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
                             min_transfer_time=30,
-                            shapes=False):
+                            use_shapes=False):
         """
         Starting from a specific point and time, get complete single source
         shortest path spreading dynamics as trips, or "events".
@@ -1158,7 +1161,7 @@ class GTFS(object):
             maximum duration of the spreading process (in seconds)
         min_transfer_time : int
             minimum transfer time in seconds
-        shapes : bool
+        use_shapes : bool
             whether to include shapes
 
         Returns
@@ -1173,7 +1176,7 @@ class GTFS(object):
                 el['name'] : name of the route
         """
         from .spreading.spreader import Spreader
-        spreader = Spreader(self, start_time_ut, lat, lon, max_duration_ut, min_transfer_time, shapes)
+        spreader = Spreader(self, start_time_ut, lat, lon, max_duration_ut, min_transfer_time, use_shapes)
         return spreader.spread()
 
     def get_closest_stop(self, lat, lon):
@@ -1244,7 +1247,6 @@ class GTFS(object):
         results = cur.execute("SELECT name, type FROM routes WHERE route_I=(?)", (route_I,))
         name, rtype = results.fetchone()
         return unicode(name), int(rtype)
-
 
     def get_trip_stop_latlons(self, trip_I):
         """
@@ -1479,11 +1481,11 @@ class GTFS(object):
 
         Parameters
         ----------
-        start_ut : int
+        start_ut : list<int>
             start time in unix time
-        end_ut : int
+        end_ut : list<int>
             end time in unix time
-        max_time_overnight : int
+        max_time_overnight : list<int>
             the maximum length of time that a trip can take place on
             during the next day (i.e. after midnight run times like 25:35)
 
@@ -1568,6 +1570,7 @@ class GTFS(object):
         assert start_time_ut <= end_time_ut
         dst_ut, st_ds, et_ds = \
             self._get_possible_day_starts(start_time_ut, end_time_ut, 7)
+        # noinspection PyTypeChecker
         assert len(dst_ut) >= 0
         trip_I_dict = {}
         for day_start_ut, start_ds, end_ds in \
@@ -1677,8 +1680,8 @@ class GTFS(object):
         # 'filter' results so that only real "events" are taken into account
 
         from_indices = numpy.nonzero(
-            ( (events_result['trip_I'][:-1].values == events_result['trip_I'][1:].values))
-            * (events_result['seq'][:-1].values < events_result['seq'][1:].values)
+            (events_result['trip_I'][:-1].values == events_result['trip_I'][1:].values) *
+            (events_result['seq'][:-1].values < events_result['seq'][1:].values)
         )[0]
         to_indices = from_indices + 1
         # these should have same trip_ids
@@ -1704,8 +1707,7 @@ class GTFS(object):
         df = pd.DataFrame.from_records(data_tuples, columns=columns)
         return df
 
-    def get_transit_events_in_time_span(self, start_time_ut, end_time_ut,
-                                        fully_contained=False):
+    def get_transit_events_in_time_span(self, start_time_ut, end_time_ut):
         """
         Obtain a list of events that take place during a time interval.
         Each event needs to only partially overlap the given time interval.
@@ -1718,8 +1720,6 @@ class GTFS(object):
             start of the time interval in unix time (seconds)
         end_time_ut: int
             end of the time interval in unix time (seconds)
-        fully_contained: bool, optional (default=False)
-           Whether events need to be fully contained in the time interval.
 
         Returns
         -------
@@ -1828,7 +1828,7 @@ class GTFS(object):
         """
         first_day_start_ut, last_day_start_ut = self.get_day_start_ut_span()
         # 28 (instead of 24) comes from the GTFS standard
-        return first_day_start_ut, last_day_start_ut + 28*3600
+        return first_day_start_ut, last_day_start_ut + 28 * 3600
 
     def get_day_start_ut_span(self):
         """
@@ -1869,7 +1869,7 @@ class GTFS(object):
 
     def get_stats(self):
         from gtfspy import stats
-        return stats.Stats(self).get_stats()
+        return stats.get_stats(self)
 
 
 class GTFSMetadata(object):
@@ -1893,9 +1893,9 @@ class GTFSMetadata(object):
         """Get metadata from the DB"""
         if isinstance(value, binary_type):
             value = value.decode('utf-8')
-        ret = self._conn.execute('INSERT OR REPLACE INTO metadata '
-                                 '(key, value) VALUES (?, ?)',
-                                 (key, value)).fetchone()
+        self._conn.execute('INSERT OR REPLACE INTO metadata '
+                           '(key, value) VALUES (?, ?)',
+                           (key, value)).fetchone()
         self._conn.commit()
 
     def __delitem__(self, key):
@@ -1935,9 +1935,8 @@ class GTFSMetadata(object):
                 self[key] = value
 
 
-if __name__ == "__main__":
-    cmd = sys.argv[1]
-    args = sys.argv[2:]
+def main(cmd, args):
+    # noinspection PyPackageRequirements
     if cmd == 'stats':
         print args[0]
         G = GTFS(args[0])
@@ -1949,9 +1948,9 @@ if __name__ == "__main__":
         G = GTFS(args[0])
         G.print_validation_warnings()
     elif cmd == 'metadata-list':
-        #print args[0]  # need to not print to be valid json on stdout
+        # print args[0]  # need to not print to be valid json on stdout
         G = GTFS(args[0])
-        #for row in G.meta.items():
+        # for row in G.meta.items():
         #    print row
         stats = dict(G.meta.items())
         import json
@@ -1992,9 +1991,15 @@ if __name__ == "__main__":
         g = GTFS(from_db)
         g.copy_and_filter(to_db, buffer_distance=radius_in_km * 1000, buffer_lat=lat, buffer_lon=lon)
     elif cmd == 'interact':
+        # noinspection PyUnusedLocal
         G = GTFS(args[0])
+        # noinspection PyPackageRequirements
         import IPython
         IPython.embed()
     else:
         print("Unrecognized command: %s" % cmd)
         exit(1)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1], sys.argv[2:])

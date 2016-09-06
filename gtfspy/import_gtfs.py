@@ -22,15 +22,9 @@ import zipfile
 
 import pandas
 
-# Required for relative imports from __main__ script.
-
-if __name__ == '__main__' and __package__ is None:
-    #import gtfspy
-    __package__ = 'gtfspy'
-
-from .stats import Stats
-from . import util
-from .gtfs import GTFS
+from gtfspy import stats
+from gtfspy import util
+from gtfspy.gtfs import GTFS
 
 
 class TableLoader(object):
@@ -59,8 +53,8 @@ class TableLoader(object):
     # Finally, a subclass needs to define these methods:
     # def gen_rows(self, reader):
     # def index(self):
-    extra_keys = [ ]
-    extra_values = [ ]
+    extra_keys = []
+    extra_values = []
     is_zipfile = False
     table = ""  # e.g. stops for StopLoader
 
@@ -230,7 +224,7 @@ class TableLoader(object):
             prefixes = [""]
         return csv_reader_generators, prefixes
 
-    def gen_rows(self, csv_readers):
+    def gen_rows(self, csv_readers, prefixes):
         # to be overridden by Inherited classes
         pass
 
@@ -280,7 +274,7 @@ class TableLoader(object):
                 self.table,
                 (', '.join([x for x in fields if x[0] != '_'] + self.extra_keys)),
                 (', '.join([":" + x for x in fields if x[0] != '_'] + self.extra_values))
-                )
+            )
 
             # This does the actual insertions.  Passed the INSERT
             # statement and then an iterator over dictionaries.  Each
@@ -327,9 +321,8 @@ class TableLoader(object):
 
         self.create_table(conn)
         # This does insertions
-        if (self.mode in ('all', 'import') and self.fname and self.exists()
-                and self.table not in ignore_tables):
-                self.insert_data(conn)
+        if self.mode in ('all', 'import') and self.fname and self.exists() and self.table not in ignore_tables:
+            self.insert_data(conn)
         # This makes indexes in the DB.
         if self.mode in ('all', 'index') and hasattr(self, 'index'):
             self.create_index(conn)
@@ -364,9 +357,7 @@ class TableLoader(object):
         else:
             copy_where = ''
         cur.execute('INSERT INTO %s '
-                    'SELECT * FROM source.%s %s'%(
-                        cls.table, cls.table,
-                        copy_where))
+                    'SELECT * FROM source.%s %s' % (cls.table, cls.table, copy_where))
 
     @classmethod
     def post_import_round2(cls, conn):
@@ -1339,11 +1330,11 @@ def calculate_trip_shape_breakpoints(conn):
             breakpoints, badness \
                 = shapes.find_segments(stop_points, shape_points)
             if breakpoints != sorted(breakpoints):
-                route_name, route_id, route_I, trip_id, trip_I = \
-                    cur.execute('''SELECT name, route_id, route_I, trip_id, trip_I
-                                 FROM trips LEFT JOIN routes USING (route_I)
-                                 WHERE trip_I=? LIMIT 1''', (trip_I,)).fetchone()
-                #print "Ignoring: Route with bad shape ordering:", route_name, route_id, route_I, trip_id, trip_I
+                # route_name, route_id, route_I, trip_id, trip_I = \
+                #    cur.execute('''SELECT name, route_id, route_I, trip_id, trip_I
+                #                 FROM trips LEFT JOIN routes USING (route_I)
+                #                 WHERE trip_I=? LIMIT 1''', (trip_I,)).fetchone()
+                # print "Ignoring: Route with bad shape ordering:", route_name, route_id, route_I, trip_id, trip_I
                 count_bad_shape_ordering += 1
                 # select * from stop_times where trip_I=NNNN order by shape_break;
                 breakpoints_cache[cache_key] = None
@@ -1359,7 +1350,7 @@ def calculate_trip_shape_breakpoints(conn):
             continue
 
         if len(breakpoints) == 0:
-            # No valid route could be identified.
+            #  No valid route could be identified.
             #print "Ignoring: No shape identified for trip_I=%s, shape_id=%s" % (trip_I, shape_id)
             count_no_shape_fit += 1
             continue
@@ -1371,11 +1362,11 @@ def calculate_trip_shape_breakpoints(conn):
                         ((bkpt, trip_I, stpt['seq'])
                          for bkpt, stpt in zip(breakpoints, stop_points)))
     if count_bad_shape_fit > 0:
-        print " Shape trip breakpoints: %s bad fits"%(count_bad_shape_fit)
+        print " Shape trip breakpoints: %s bad fits" % count_bad_shape_fit
     if count_bad_shape_ordering > 0:
-        print " Shape trip breakpoints: %s bad shape orderings"%(count_bad_shape_ordering)
+        print " Shape trip breakpoints: %s bad shape orderings" % count_bad_shape_ordering
     if count_no_shape_fit > 0:
-        print " Shape trip breakpoints: %s no shape fits"%count_no_shape_fit
+        print " Shape trip breakpoints: %s no shape fits" % count_no_shape_fit
     conn.commit()
 
 
@@ -1518,11 +1509,11 @@ postprocessors = [
 ignore_tables = set()
 
 
-def import_gtfs(gtfssources, output, preserve_connection=False,
+def import_gtfs(gtfs_sources, output, preserve_connection=False,
                 print_progress=True, **kwargs):
     """Import a GTFS database
 
-    gtfssources: str or dict
+    gtfs_sources: str or dict
         path to the gtfs zip file or to the dir containing
         or alternatively, a dict mapping gtfs filenames
         (like 'stops.txt' and 'agencies.txt') into their
@@ -1539,8 +1530,8 @@ def import_gtfs(gtfssources, output, preserve_connection=False,
         conn = output
     else:
         conn = sqlite3.connect(output)
-    if not isinstance(gtfssources, list):
-        gtfssources = [gtfssources]
+    if not isinstance(gtfs_sources, list):
+        gtfs_sources = [gtfs_sources]
     cur = conn.cursor()
     time_import_start = time.time()
     # Use this for quick, fast checks on things.
@@ -1563,7 +1554,7 @@ def import_gtfs(gtfssources, output, preserve_connection=False,
 
     #TableLoader.mode = 'index'
     # Do the actual importing.
-    loaders = [L(gtfssource=gtfssources, print_progress=print_progress, **kwargs) for L in Loaders]
+    loaders = [L(gtfssource=gtfs_sources, print_progress=print_progress, **kwargs) for L in Loaders]
 
     # Do initial import.  This consists of making tables, raw insert
     # of the CSVs, and then indexing.
@@ -1591,8 +1582,8 @@ def import_gtfs(gtfssources, output, preserve_connection=False,
     G.meta['download_date'] = ''
     G.meta['location_name'] = ''
     # Extract things from GTFS
-    for i, source in enumerate(gtfssources):
-        if len(gtfssources) == 1:
+    for i, source in enumerate(gtfs_sources):
+        if len(gtfs_sources) == 1:
             prefix = ""
         else:
             prefix = "feed_" + str(i) + "_"
@@ -1606,8 +1597,7 @@ def import_gtfs(gtfssources, output, preserve_connection=False,
             if location_name_list:
                 G.meta[prefix + 'location_name'] = location_name_list[-1]
     G.meta['timezone'] = cur.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()[0]
-    gtfs_stats = Stats(G)
-    gtfs_stats.update_stats()
+    stats.update_stats(G)
     del G
 
     if print_progress:
@@ -1620,8 +1610,7 @@ def import_gtfs(gtfssources, output, preserve_connection=False,
         conn.close()
 
 
-
-if __name__ == "__main__":
+def _main():
     import argparse
 
     parser = argparse.ArgumentParser(description="""
@@ -1649,7 +1638,7 @@ if __name__ == "__main__":
     parser_import_multiple = subparsers.add_parser('import-multiple', help="GTFS import from multiple zip-files")
     parser_import_multiple.add_argument('gtfsnames', help='Input GTFS filename zips')
     parser_import_multiple.add_argument('zipfiles', metavar='zipfiles', type=str, nargs=argparse.ONE_OR_MORE,
-                        help='zipfiles for the import')
+                                        help='zipfiles for the import')
 
     # Parsing copy
     parser_copy = subparsers.add_parser('copy', help="Copy database")
@@ -1724,10 +1713,13 @@ if __name__ == "__main__":
         pass
         # This is designed for just testing things.  This code should
         # always be commented out in the VCS.
-        #conn = sqlite3.connect(args.gtfs)
-        #L = StopDistancesLoader(conn)
-        #L.post_import(None)
-        #L.export_stop_distances(conn, open('sd.txt', 'w'))
+        # conn = sqlite3.connect(args.gtfs)
+        # L = StopDistancesLoader(conn)
+        # L.post_import(None)
+        # L.export_stop_distances(conn, open('sd.txt', 'w'))
     else:
         print("Unrecognized command: %s" % args.cmd)
         exit(1)
+
+if __name__ == "__main__":
+    main()

@@ -6,11 +6,11 @@ import unittest
 import networkx
 import pandas
 
-from ..gtfs import GTFS
-from ..util import wgs84_distance
+from gtfspy.gtfs import GTFS
+from gtfspy.util import wgs84_distance
+
 
 class TestGTFS(unittest.TestCase):
-
     """
     Test data can be found under test_data/ directory.
     """
@@ -56,7 +56,7 @@ class TestGTFS(unittest.TestCase):
     def test_get_main_database_path(self):
         assert self.G.get_main_database_path() == "", "in memory database should equal ''"
 
-        from import_gtfs import import_gtfs
+        from gtfspy.import_gtfs import import_gtfs
         try:
             fname = self.gtfs_source_dir + "/test_gtfs.sqlite"
             if os.path.exists(fname) and os.path.isfile(fname):
@@ -87,21 +87,21 @@ class TestGTFS(unittest.TestCase):
                                "distance_straight_line", "distance_shape",
                                "route_ids"]
         nxGraph = self.G.to_directed_graph(link_attributes=all_link_attributes)
-        assert isinstance(nxGraph, networkx.DiGraph), type(nxGraph)
+        self.assertTrue(isinstance(nxGraph, networkx.DiGraph), type(nxGraph))
         nodes = nxGraph.nodes(data=True)
-        assert len(nodes) > 0
+        self.assertGreater(len(nodes) , 0)
         for node in nodes:
             node_attrs = node[1]
             node_id = node[0]
-            assert isinstance(node_id, int)
-            assert "lat" in node_attrs
-            assert "lon" in node_attrs
-            assert "name" in node_attrs
+            self.assertTrue(isinstance(node_id, int))
+            self.assertTrue("lat" in node_attrs)
+            self.assertTrue("lon" in node_attrs)
+            self.assertTrue("name" in node_attrs)
         edges = nxGraph.edges(data=True)
-        assert len(edges) > 0
+        self.assertGreater(len(edges) , 0)
         from_I, to_I, linkData = edges[0]
         for link_attr in all_link_attributes:
-            assert link_attr in linkData, "no " + link_attr + " found"
+            self.assertTrue(link_attr in linkData, "no " + link_attr + " found")
             if "duration_" in link_attr:
                 assert linkData[link_attr] >= 0
 
@@ -176,7 +176,7 @@ class TestGTFS(unittest.TestCase):
         pass
 
     def test_copy_and_filter(self):
-        from import_gtfs import import_gtfs
+        from gtfspy.import_gtfs import import_gtfs
         import hashlib
         try:
             # some preparations:
@@ -236,10 +236,6 @@ class TestGTFS(unittest.TestCase):
             # test filtering by start and end time, copy full range
             G.copy_and_filter(fname_copy, start_date="2007-01-01", end_date="2011-01-01", update_metadata=False)
             hash_copy = hashlib.md5(open(fname_copy, 'rb').read()).hexdigest()
-            calendar = G.get_table("calendar")
-            # print calendar
-            calendar_copy = G_copy.get_table("calendar")
-            # print calendar_copy
             assert hash_orig == hash_copy
 
             G_copy = GTFS(fname_copy)
