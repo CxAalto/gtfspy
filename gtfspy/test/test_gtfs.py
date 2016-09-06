@@ -80,72 +80,6 @@ class TestGTFS(unittest.TestCase):
         assert len(tables) > 11, "quite many tables should be available"
         assert "routes" in tables
 
-    def test_to_directed_graph(self):
-        # test that distance works
-        all_link_attributes = ["duration_min", "duration_max", "duration_median",
-                               "duration_avg", "n_vehicles", "route_types",
-                               "distance_straight_line", "distance_shape",
-                               "route_ids"]
-        nxGraph = self.G.to_directed_graph(link_attributes=all_link_attributes)
-        self.assertTrue(isinstance(nxGraph, networkx.DiGraph), type(nxGraph))
-        nodes = nxGraph.nodes(data=True)
-        self.assertGreater(len(nodes) , 0)
-        for node in nodes:
-            node_attrs = node[1]
-            node_id = node[0]
-            self.assertTrue(isinstance(node_id, int))
-            self.assertTrue("lat" in node_attrs)
-            self.assertTrue("lon" in node_attrs)
-            self.assertTrue("name" in node_attrs)
-        edges = nxGraph.edges(data=True)
-        self.assertGreater(len(edges) , 0)
-        from_I, to_I, linkData = edges[0]
-        for link_attr in all_link_attributes:
-            self.assertTrue(link_attr in linkData, "no " + link_attr + " found")
-            if "duration_" in link_attr:
-                assert linkData[link_attr] >= 0
-
-        at_least_one_shape_distance = False
-        for from_I, to_I, linkData in edges:
-            ds = linkData['distance_shape']
-            assert isinstance(ds, int) or (ds is None)
-            if isinstance(ds, int):
-                at_least_one_shape_distance = True
-            assert linkData['duration_min'] <= linkData["duration_avg"]
-            assert linkData['duration_avg'] <= linkData["duration_max"]
-            assert linkData['duration_median'] <= linkData["duration_max"]
-            assert linkData['duration_median'] >= linkData["duration_min"]
-            assert isinstance(linkData['distance_straight_line'], float)
-            n_veh = linkData["n_vehicles"]
-            route_types = linkData["route_types"]
-            route_types_sum = sum([count for route_type, count in route_types.iteritems()])
-            assert n_veh == route_types_sum
-            route_ids = linkData["route_ids"]
-            route_ids_sum = sum([count for route_type, count in route_ids.iteritems()])
-            assert n_veh == route_ids_sum
-
-        # print self.G.get_table("trips")
-        # print "printing tables:\n\n"
-        # print self.G.get_table("stop_times")
-        # print self.G.get_table("shapes")
-        # # print self.G.get_table("stops")
-        assert at_least_one_shape_distance, "no shape distances were found"
-
-    def test_to_undirected_line_graph(self):
-        G = self.G.to_undirected_line_graph()
-        assert len(G.nodes()) > 0
-        assert len(G.edges()) > 0
-        for from_node, to_node, data in G.edges(data=True):
-            assert "route_ids" in data
-            assert isinstance(from_node, int)
-            assert isinstance(to_node, int)
-            assert from_node in G.nodes()
-            assert to_node in G.nodes()
-        for node, data in G.nodes(data=True):
-            assert "lat" in data
-            assert "lon" in data
-            assert isinstance(node, int)
-
     def test_get_all_route_shapes(self):
         res = self.G.get_all_route_shapes()
         assert isinstance(res, list)
@@ -161,15 +95,6 @@ class TestGTFS(unittest.TestCase):
             assert isinstance(el["lons"], list)
             assert isinstance(el['lats'][0], float)
             assert isinstance(el['lons'][0], float)
-
-    def test_to_aggregate_line_graph(self):
-        net_old = self.G.to_undirected_line_graph()
-        net = self.G.to_aggregate_line_graph(1000)
-        assert len(net_old.nodes()) > len(net.nodes())
-        assert isinstance(net, networkx.Graph)
-        net = self.G.to_aggregate_line_graph(0)
-        print len(net_old.nodes())
-        assert len(net_old.nodes()) == len(net.nodes())
 
     def test_get_shape_distance_between_stops(self):
         # tested as a part of test_to_directed_graph, although this could be made a separate test as well
@@ -240,7 +165,7 @@ class TestGTFS(unittest.TestCase):
 
             G_copy = GTFS(fname_copy)
             dsut_end = G_copy.get_day_start_ut("2010-12-31")
-            dsut_to_trip_I = G_copy.get_tripIs_within_range_by_dsut(dsut_end, dsut_end+24*3600)
+            dsut_to_trip_I = G_copy.get_tripIs_within_range_by_dsut(dsut_end, dsut_end + 24 * 3600)
             assert len(dsut_to_trip_I) > 0
             os.remove(fname_copy)
 
@@ -319,7 +244,7 @@ class TestGTFS(unittest.TestCase):
             unlocalized_datetime_to_ut_seconds
         """
         ut = 10.0
-        gtfs_dt = self.G.ut_seconds_to_gtfs_datetime(ut)
+        gtfs_dt = self.G.unixtime_seconds_to_gtfs_datetime(ut)
         # print gtfs_dt
         unloc_dt = gtfs_dt.replace(tzinfo=None)
         # print unloc_dt
@@ -425,9 +350,6 @@ class TestGTFS(unittest.TestCase):
         name, type_ = self.G.get_route_name_and_type_of_tripI(trip_I)
         assert isinstance(name, unicode)
         assert isinstance(type_, int)
-
-    def test_get_trip_stop_latlons(self):
-        pass  # untested
 
     def get_trip_stop_time_data(self):
         start_ut, end_ut = self.G.get_conservative_gtfs_time_span_in_ut()

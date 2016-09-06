@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import print_function
 
 import calendar
 import datetime
@@ -15,12 +15,6 @@ import numpy
 import networkx
 import pandas as pd
 import pytz
-
-# Required for relative imports from __main__ script.
-
-if __name__ == '__main__' and __package__ is None:
-    # import gtfspy
-    __package__ = 'gtfspy'
 
 from gtfspy import shapes
 from gtfspy import util
@@ -69,6 +63,7 @@ class GTFS(object):
         if not getattr(self, '_dont_close', False):
             self.conn.close()
 
+
     @classmethod
     def from_directory_as_inmemory_db(cls, gtfs_directory):
         """
@@ -79,12 +74,13 @@ class GTFS(object):
         gtfs_directory: str
             path to the directory for importing the database
         """
-        from . import import_gtfs
+        # this import is here just to avoid circular imports
+        from gtfspy.import_gtfs import import_gtfs
         conn = sqlite3.connect(":memory:")
-        import_gtfs.import_gtfs(gtfs_directory,
-                                conn,
-                                preserve_connection=True,
-                                print_progress=False)
+        import_gtfs(gtfs_directory,
+                    conn,
+                    preserve_connection=True,
+                    print_progress=False)
         return cls(conn)
 
     def get_main_database_path(self):
@@ -100,259 +96,9 @@ class GTFS(object):
         cur.execute("PRAGMA database_list")
         rows = cur.fetchall()
         for row in rows:
-            print row
+            print(row)
             if row[1] == str("main"):
                 return row[2]
-
-    def to_directed_graph(self,
-                          link_attributes=None,
-                          start_time_ut=None,
-                          end_time_ut=None
-                          # node_attributes=None
-                          ):
-        """
-        Get a static graph presentation (networkx graph) of the GTFS feed.
-        Node indices correspond to integers (stop_I's in the underlying GTFS database).
-
-        Parameters
-        ----------
-        link_attributes : list, optional
-            What link attributes should be computed
-                "n_vehicles" : Number of vehicles passed
-                "route_types" : GTFS route types that take place within the (i.e. which layer are we talking about)
-                "duration_min" : minimum travel time between stops
-                "duration_max" : maximum travel time between stops
-                "duration_median" : median travel time between stops
-                "duration_avg" : average travel time between stops
-                "distance_straight_line" : distance along straight line (wgs84_distance)
-                "distance_shape" : minimum distance along shape
-                "capacity_estimate"  : approximate capacity passed
-                "route_ids" : route id
-        start_time_ut : int
-            only events taking place after this moment are taken into account
-        end_time_ut : int
-            only events taking place before this moment are taken into account
-        # node_attributes : None
-        #     Defaulting to include all the following: latitude, longitude and stop_name
-        #         "lat" : float, lon coordinate
-        #         "lon" : float, lat coordinate
-        #         "name" : str, name of the stop
-        # directed : bool
-        #    Is the network directed or not.
-        #    In case of (undirected) links (i.e. walking), then links to both directions are included.
-        # travel_modes : list, or set, optional (defaulting to all)
-        #    A collection of integers as specified by GTFS:
-        #    https://developers.google.com/transit/gtfs/reference#routestxt
-
-        Returns
-        -------
-        net : an instance of the networkx graphs
-            networkx.DiGraph : undirected simple
-        """
-        # get all nodes and their attributes
-        net = networkx.DiGraph()
-        nodeDataFrame = self.get_stop_info()  # node data frame
-        for stopTuple in nodeDataFrame.itertuples(index=False, name="NamedTupleStop"):
-            node_attributes = {
-                "lat": stopTuple.lat,
-                "lon": stopTuple.lon,
-                "name": stopTuple.name,
-            }
-            net.add_node(stopTuple.stop_I, attr_dict=node_attributes)
-        n_nodes = len(net.nodes())
-
-        # get all trips
-        events_df = self.get_transit_events(start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-        print events_df.columns.values
-
-        # group events by links, and loop over them (i.e. each link):
-        link_event_groups = events_df.groupby(['from_stop_I', 'to_stop_I'], sort=False)
-        for key, link_events in link_event_groups:
-            from_stop_I, to_stop_I = key
-            assert isinstance(link_events, pd.DataFrame)
-            # link_events columns:
-            # 'dep_time_ut' 'arr_time_ut' 'shape_id' 'route_type' 'trip_I' 'duration' 'from_seq' 'to_seq'
-            if link_attributes is None:
-                net.add_edge(from_stop_I, to_stop_I)
-            else:
-                link_data = {}
-                if "duration_min" in link_attributes:
-                    link_data['duration_min'] = link_events['duration'].min()
-                if "duration_max" in link_attributes:
-                    link_data['duration_max'] = link_events['duration'].max()
-                if "duration_median" in link_attributes:
-                    link_data['duration_median'] = link_events['duration'].median()
-                if "duration_avg" in link_attributes:
-                    link_data['duration_avg'] = link_events['duration'].mean()
-                # statistics on numbers of vehicles:
-                if "n_vehicles" in link_attributes:
-                    link_data['n_vehicles'] = link_events.shape[0]
-                if "route_types" in link_attributes:
-                    link_data['route_types'] = link_events.groupby('route_type').size().to_dict()
-                if "capacity_estimate" in link_attributes:
-                    # TODO !
-                    raise NotImplementedError
-                if "distance_straight_line" in link_attributes:
-                    from_lat = net.node[from_stop_I]['lat']
-                    from_lon = net.node[from_stop_I]['lon']
-                    to_lat = net.node[to_stop_I]['lat']
-                    to_lon = net.node[to_stop_I]['lon']
-                    distance = wgs84_distance(from_lat, from_lon, to_lat, to_lon)
-                    link_data['distance_straight_line'] = distance
-                if "distance_shape" in link_attributes:
-                    found = None
-                    assert "shape_id" in link_events.columns.values
-                    for i, shape_id in enumerate(link_events["shape_id"].values):
-                        if shape_id is not None:
-                            found = i
-                            break
-                    if found is None:
-                        link_data["distance_shape"] = None
-                    else:
-                        link_event = link_events.iloc[found]
-                        distance = self.get_shape_distance_between_stops(
-                            link_event["trip_I"],
-                            int(link_event["from_seq"]),
-                            int(link_event["to_seq"])
-                        )
-                        link_data['distance_shape'] = distance
-                if "route_ids" in link_attributes:
-                    link_data["route_ids"] = link_events.groupby("route_id").size().to_dict()
-                net.add_edge(from_stop_I, to_stop_I, attr_dict=link_data)
-
-        assert len(net.nodes()) == n_nodes
-
-        return net
-
-    def to_undirected_line_graph(self, verbose=True):
-        """
-        Return a graph, where edges have route_id as labels. Only one arbitrary "instance/trip" of each "route"
-        (or "line") is taken into account.
-
-        Returns
-        -------
-        giant : the largest connected component of the undirected line graph (non-connected stops are filtered out)
-
-        """
-        net = networkx.Graph()
-        nodeDataFrame = self.get_stop_info()  # node data frame
-        for stopTuple in nodeDataFrame.itertuples(index=False, name="NamedTupleStop"):
-            node_attributes = {
-                "lat": stopTuple.lat,
-                "lon": stopTuple.lon,
-                "name": stopTuple.name,
-            }
-            net.add_node(stopTuple.stop_I, attr_dict=node_attributes)
-
-        rows = self.conn.cursor().execute(
-            "SELECT trip_I, route_I, route_id "
-            "FROM routes "
-            "LEFT JOIN trips "
-            "USING(route_I) "
-            "GROUP BY route_I").fetchall()
-        # Grouping by route_I to consider only one route variation per route
-        # (looping over all trip_Is would be too costly)
-
-        for trip_I, route_I, route_id in rows:
-            if trip_I is None:
-                continue
-            query2 = "SELECT stop_I, seq " \
-                     "FROM stop_times " \
-                     "WHERE trip_I={trip_I} " \
-                     "ORDER BY seq".format(trip_I=trip_I)
-            df = pd.read_sql(query2, self.conn)
-            stop_Is = df['stop_I'].values
-            edges = zip(stop_Is[:-1], stop_Is[1:])
-            for from_stop_I, to_stop_I in edges:
-                if net.has_edge(from_stop_I, to_stop_I):
-                    edge_data = net.get_edge_data(from_stop_I, to_stop_I)
-                    edge_data["route_ids"].append(route_id)
-                    edge_data["route_Is"].append(route_I)
-                else:
-                    net.add_edge(from_stop_I, to_stop_I,
-                                 route_ids=[route_id], route_Is=[route_I])
-        if verbose:
-            if len(net.edges()) == 0:
-                print "Warning: no edges in the line network, is the stop_times table defined properly?"
-
-        # return only the maximum connected component to remove unassosicated nodes
-        giant = max(networkx.connected_component_subgraphs(net), key=len)
-        return giant
-
-    def undir_line_graph_to_aggregated(self, graph, distance):
-        """
-        See to_aggregate_line_graph for documentation
-        """
-        assert distance <= 1000, "only works with distances below 1000 meters"
-        nodes = set(graph.nodes())
-
-        node_distance_graph = networkx.Graph()
-
-        stop_distances = self.get_table("stop_distances")
-        stop_pairs = stop_distances[stop_distances['d'] <= distance]
-        stop_pairs = zip(stop_pairs['from_stop_I'], stop_pairs['to_stop_I'])
-        for node in nodes:
-            node_distance_graph.add_node(node)
-        for node, another_node in stop_pairs:
-            if (node in nodes) and (another_node in nodes):
-                node_distance_graph.add_edge(node, another_node)
-
-        node_group_iter = networkx.connected_components(node_distance_graph)
-
-        aggregate_graph = networkx.Graph()
-        old_node_to_new_node = {}
-        for node_group in node_group_iter:
-            new_node_id = tuple(node for node in node_group)
-            lats = []
-            lons = []
-            names = []
-            for node in node_group:
-                if node not in graph:
-                    # some stops may not part of the original node line graph
-                    # (e.g. if some lines are not considered, or there are extra stops in stops table)
-                    continue
-                old_node_to_new_node[node] = new_node_id
-                lats.append(graph.node[node]['lat'])
-                lons.append(graph.node[node]['lon'])
-                names.append(graph.node[node]['name'])
-            new_lat = numpy.mean(lats)
-            new_lon = numpy.mean(lons)
-            attr_dict = {
-                "lat"  : new_lat,
-                "lon"  : new_lon,
-                "names": names
-            }
-            aggregate_graph.add_node(new_node_id, attr_dict=attr_dict)
-
-        for from_node, to_node, data in graph.edges(data=True):
-            new_from_node = old_node_to_new_node[from_node]
-            new_to_node = old_node_to_new_node[to_node]
-            if aggregate_graph.has_edge(new_from_node, new_to_node):
-                edge_data = aggregate_graph.get_edge_data(new_from_node, new_to_node)
-                edge_data['route_ids'].append(data['route_ids'])
-            else:
-                aggregate_graph.add_edge(new_from_node, new_to_node, route_ids=data['route_ids'])
-
-        return aggregate_graph
-
-    def to_aggregate_line_graph(self, distance):
-        """
-        Aggregate graph by grouping nodes that are within
-        a specified distance.
-        The new node_ids are tuple of the old node_ids.
-
-        Parameters
-        ----------
-        distance : float
-            group all nodes within this distance.
-
-        Returns
-        -------
-        graph : networkx.Graph
-        """
-        graph = self.to_undirected_line_graph()
-        # 1st group the nodes
-        return self.undir_line_graph_to_aggregated(graph, distance)
 
     def get_shape_distance_between_stops(self, trip_I, from_stop_seq, to_stop_seq):
         """
@@ -534,8 +280,8 @@ class GTFS(object):
                 for idx, row in agencies.iterrows():
                     if row['agency_id'] not in agency_ids_to_preserve:
                         agencies_to_remove.append(row['agency_id'])
-                for agid in agencies_to_remove:
-                    copy_db_conn.execute('DELETE FROM agencies WHERE agency_id=?', (agid,))
+                for agency_id in agencies_to_remove:
+                    copy_db_conn.execute('DELETE FROM agencies WHERE agency_id=?', (agency_id,))
                 # and remove recursively related to the agencies:
                 copy_db_conn.execute('DELETE FROM routes WHERE '
                                      'agency_I NOT IN (SELECT agency_I FROM agencies)')
@@ -637,7 +383,7 @@ class GTFS(object):
 
     def get_table(self, table_name):
         """
-        Return a Pandas dataframe corresponding to a table
+        Return a pandas.DataFrame object corresponding to the sql table
 
         Parameters
         ----------
@@ -647,7 +393,6 @@ class GTFS(object):
         Returns
         -------
         df : pandas.DataFrame
-            A pandas dataframe describing the database.
         """
         return pd.read_sql("SELECT * FROM " + table_name, self.conn)
 
@@ -659,15 +404,15 @@ class GTFS(object):
 
     def get_table_names(self):
         """
-        Return a list of the underlying database names
+        Return a list of the underlying tables in the database.
 
         Returns
         -------
-        table_names: a list of the underlying datbase names
+        table_names: list[str]
         """
         return list(pd.read_sql("SELECT * FROM main.sqlite_master WHERE type='table'", self.conn)["name"])
 
-    def tzset(self):
+    def set_current_process_time_zone(self):
         """
         This function queries a GTFS connection, finds the timezone of this
         database, and sets it in the TZ environment variable.  This is a
@@ -679,6 +424,7 @@ class GTFS(object):
 
         Alters os.environ['TZ']
         """
+        # TODO!: This is dangerous (?). We should get rid of this IMHO (RK)
         TZ = self.conn.execute('SELECT timezone FROM agencies LIMIT 1').fetchall()[0][0]
         # print TZ
         os.environ['TZ'] = TZ
@@ -717,7 +463,7 @@ class GTFS(object):
 
         Returns
         -------
-        tzstring : str
+        timezone_string : str
         """
         if dt is None:
             download_date = self.meta.get('download_date')
@@ -727,30 +473,38 @@ class GTFS(object):
                 dt = datetime.datetime.today()
         loc_dt = self._timezone.localize(dt)
         # get the timezone
-        tzstring = loc_dt.strftime("%z")
-        return tzstring
+        timezone_string = loc_dt.strftime("%z")
+        return timezone_string
 
-    def ut_seconds_to_gtfs_datetime(self, unixtime):
-        """Unixtime to localized datetime
+    def unixtime_seconds_to_gtfs_datetime(self, unixtime):
+        """
+        Convert unixtime to localized datetime
 
-        input:  int (unixtime)
-        output: datetime (tz=GTFS timezone)
+        Parameters
+        ----------
+        unixtime : int
+
+        Returns
+        -------
+        gtfs_datetime: datetime.datetime
+            time localized to gtfs_datetime's timezone
         """
         return datetime.datetime.fromtimestamp(unixtime, self._timezone)
 
-    def unlocalized_datetime_to_ut_seconds(self, unloc_t):
+    def unlocalized_datetime_to_ut_seconds(self, unlocalized_datetime):
         """
         Convert datetime (in GTFS timezone) to unixtime
 
         Parameters
         ----------
-        unloc_t : datetime (tz coerced to GTFS timezone, should NOT be UTC.)
+        unlocalized_datetime : datetime.datetime
+            (tz coerced to GTFS timezone, should NOT be UTC.)
 
         Returns
         -------
         output : int (unixtime)
         """
-        loc_dt = self._timezone.localize(unloc_t)
+        loc_dt = self._timezone.localize(unlocalized_datetime)
         unixtime_seconds = calendar.timegm(loc_dt.utctimetuple())
         return unixtime_seconds
 
@@ -760,7 +514,7 @@ class GTFS(object):
 
         Parameters
         ----------
-        date : str, unicode, or datetime.datetime
+        date : str | unicode | datetime.datetime
             something describing the date
 
         Returns
@@ -803,7 +557,7 @@ class GTFS(object):
         """
         trips = []
         trip_df = self.get_tripIs_active_in_range(start, end)
-        print "gtfs_viz.py: fetched " + str(len(trip_df)) + " trip ids"
+        print("gtfs_viz.py: fetched " + str(len(trip_df)) + " trip ids")
         shape_cache = {}
 
         # loop over all trips:
@@ -841,6 +595,7 @@ class GTFS(object):
                 if shape_id not in shape_cache:
                     shape_cache[shape_id] = shapes.get_shape_points2(self.conn.cursor(), shape_id)
                 shape_data = shape_cache[shape_id]
+                # noinspection PyBroadException
                 try:
                     trip['times'] = shapes.interpolate_shape_times(shape_data['d'], shape_breaks, stop_dep_times)
                     trip['lats'] = shape_data['lats']
@@ -850,7 +605,7 @@ class GTFS(object):
                     trip['times'] = trip['times'][start_break:end_break + 1]
                     trip['lats'] = trip['lats'][start_break:end_break + 1]
                     trip['lons'] = trip['lons'][start_break:end_break + 1]
-                except Exception as e:
+                except:
                     # In case interpolation fails:
                     trip['times'] = stop_dep_times
                     trip['lats'] = stop_lats
@@ -953,7 +708,7 @@ class GTFS(object):
                             "shape_breaks": [shape_break, shape_break_n]
                         }
                         tripI_to_seq[row.trip_I].append(seg)
-        print len(segment_counts)
+        print(len(segment_counts))
 
         stop_names = {}
         for (stop_I, stop_J) in segment_counts.keys():
@@ -1019,14 +774,14 @@ class GTFS(object):
         n_rows = len(data)
         for i, row in enumerate(data.itertuples()):
             datum = {"name": row.name, "type": row.type, "agency": row.agency_id, "agency_name": row.agency_name}
-            print row.agency_id, ": ", i, "/", n_rows
+            print(row.agency_id, ": ", i, "/", n_rows)
             # this function should be made also non-shape friendly (at this point)
             if use_shapes and row.shape_id:
                 shape = shapes.get_shape_points2(cur, row.shape_id)
                 lats = shape['lats']
                 lons = shape['lons']
             else:
-                stop_shape = self.get_trip_stop_latlons(row.trip_I)
+                stop_shape = self.get_trip_stop_coordinates(row.trip_I)
                 lats = list(stop_shape['lat'])
                 lons = list(stop_shape['lon'])
             datum['lats'] = lats
@@ -1073,8 +828,8 @@ class GTFS(object):
         query = "SELECT date, count(*) AS number_of_trips FROM day_trips GROUP BY date"
         # this yields the actual data
         trip_counts_per_day = pd.read_sql_query(query, self.conn, index_col="date")
-        # the rest is simply code for filling out "gaps" in the timeline
-        # (necessary for visualizations sometimes)
+        # the rest is simply code for filling out "gaps" in the time span
+        # (necessary for some visualizations)
         max_day = trip_counts_per_day.index.max()
         min_day = trip_counts_per_day.index.min()
         min_date = datetime.datetime.strptime(min_day, '%Y-%m-%d')
@@ -1082,20 +837,21 @@ class GTFS(object):
         num_days = (max_date - min_date).days
         dates = [min_date + datetime.timedelta(days=x) for x in range(num_days + 1)]
         trip_counts = []
-        date_strs = []
+        date_strings = []
         for date in dates:
-            datestr = date.strftime("%Y-%m-%d")
-            date_strs.append(datestr)
+            date_string = date.strftime("%Y-%m-%d")
+            date_strings.append(date_string)
             try:
-                value = trip_counts_per_day.loc[datestr, 'number_of_trips']
+                value = trip_counts_per_day.loc[date_string, 'number_of_trips']
             except KeyError:
                 # set value to 0 if dsut is not present, i.e. when no trips
                 # take place on that day
                 value = 0
             trip_counts.append(value)
-        for datestr in trip_counts_per_day.index:
-            assert datestr in date_strs
-        data = {"dates": date_strs, "trip_counts": trip_counts}
+        # check that all date_strings are included (move this to tests?)
+        for date_string in trip_counts_per_day.index:
+            assert date_string in date_strings
+        data = {"dates": date_strings, "trip_counts": trip_counts}
         return pd.DataFrame(data)
 
         # Remove these pieces of code when this function has been tested:
@@ -1175,7 +931,7 @@ class GTFS(object):
                 el['route_type'] : type of vehicle as specified by GTFS, or -1 if walking
                 el['name'] : name of the route
         """
-        from .spreading.spreader import Spreader
+        from gtfspy.spreading.spreader import Spreader
         spreader = Spreader(self, start_time_ut, lat, lon, max_duration_ut, min_transfer_time, use_shapes)
         return spreader.spread()
 
@@ -1248,7 +1004,7 @@ class GTFS(object):
         name, rtype = results.fetchone()
         return unicode(name), int(rtype)
 
-    def get_trip_stop_latlons(self, trip_I):
+    def get_trip_stop_coordinates(self, trip_I):
         """
         Get coordinates for a given trip_I
 
@@ -1416,7 +1172,7 @@ class GTFS(object):
     #     """
     #     start_ds = start_ut - day_start_ut
     #     end_ds = end_ut - day_start_ut
-    #     # is the _distinct_ relly required?
+    #     # is the _distinct_ really required?
     #     query = "SELECT distinct(trip_I) " \
     #             "FROM days " \
     #             "JOIN stop_times " \
@@ -1451,24 +1207,24 @@ class GTFS(object):
             Unixtime corresponding to start of day
         """
         # set timezone to the one of gtfs
-        self.tzset()
+        self.set_current_process_time_zone()
         # last -1 equals to 'not known' for DST (automatically deduced then)
         return time.mktime(time.localtime(ut)[:3] + (12, 00, 0, 0, 0, -1)) - 43200
 
-    def increment_daystart_ut_by_ndays(self, daystart_ut, n_days=1):
+    def increment_day_start_ut(self, day_start_ut, n_days=1):
         """Increment the GTFS-definition of "day start".
 
         Parameters
         ----------
-        daystart_ut : int
+        day_start_ut : int
             unixtime of the previous start of day.  If this time is between
             12:00 or greater, there *will* be bugs.  To solve this, run the
             input through day_start_ut first.
         n_days: int
             number of days to increment
         """
-        self.tzset()
-        day0 = time.localtime(daystart_ut + 43200)  # time of noon
+        self.set_current_process_time_zone()
+        day0 = time.localtime(day_start_ut + 43200)  # time of noon
         dayN = time.mktime(day0[:2] +  # YYYY, MM
                            (day0[2] + n_days,) +  # DD
                            (12, 00, 0, 0, 0, -1)) - 43200  # HHMM, etc.  Minus 12 hours.
@@ -1522,7 +1278,7 @@ class GTFS(object):
         # If we are early enough in a day that we might have trips from
         # the previous day still running, decrement the start day.
         if start_day_ds < max_time_overnight:
-            start_day_ut = self.increment_daystart_ut_by_ndays(start_day_ut, n_days=-1)
+            start_day_ut = self.increment_day_start_ut(start_day_ut, n_days=-1)
 
         # day_start_times_ut = range(start_day_ut, end_day_ut+seconds_in_a_day, seconds_in_a_day)
 
@@ -1530,17 +1286,17 @@ class GTFS(object):
         # range(day_start_ut, day_end_ut+1day, 1day).
         day_start_times_ut = [start_day_ut]
         while day_start_times_ut[-1] < end_day_ut:
-            day_start_times_ut.append(self.increment_daystart_ut_by_ndays(day_start_times_ut[-1]))
+            day_start_times_ut.append(self.increment_day_start_ut(day_start_times_ut[-1]))
 
         start_times_ds = []
         end_times_ds = []
         # For every possible day start:
-        for dstu in day_start_times_ut:
-            # start day_seconds starts at either zero, or time-daystart
-            daystart_ut = max(0, start_ut - dstu)
-            start_times_ds.append(daystart_ut)
+        for dsut in day_start_times_ut:
+            # start day_seconds starts at either zero, or time - daystart
+            day_start_ut = max(0, start_ut - dsut)
+            start_times_ds.append(day_start_ut)
             # end day_seconds is time-day_start
-            day_end_ut = end_ut - dstu
+            day_end_ut = end_ut - dsut
             end_times_ds.append(day_end_ut)
         # Return three tuples which can be zip:ped together.
         return day_start_times_ut, start_times_ds, end_times_ds
@@ -1755,7 +1511,7 @@ class GTFS(object):
                         "ORDER BY seq"
                 params = (trip_I, day_start_ut)
                 stop_data_df = pd.read_sql_query(query, self.conn, params=params)
-                # check that all events take place within the given timeframe
+                # check that all events take place within the given time frame
                 # (at least partially)
                 valids = (
                     (stop_data_df['arr_time_ut'].iloc[1:].values >= start_time_ut) *
@@ -1782,7 +1538,7 @@ class GTFS(object):
 
     def get_straight_line_transfer_distances(self, stop_I=None):
         """
-        Get (straight line) distances to stations that can be transfered to.
+        Get (straight line) distances to stations that can be transferred to.
 
         Parameters
         ----------
@@ -1925,7 +1681,7 @@ class GTFSMetadata(object):
 
     def update(self, dict_):
         # Would be more efficient to do it in a new query here, but
-        # prefering simplicity.  metadata updates are probably
+        # preferring simplicity.  metadata updates are probably
         # infrequent.
         if hasattr(dict_, 'items'):
             for key, value in dict_.items():
@@ -1938,12 +1694,12 @@ class GTFSMetadata(object):
 def main(cmd, args):
     # noinspection PyPackageRequirements
     if cmd == 'stats':
-        print args[0]
+        print(args[0])
         G = GTFS(args[0])
         stats = G.get_stats()
         G.update_stats(stats)
         for row in G.meta.items():
-            print row
+            print(row)
     elif cmd == "validate":
         G = GTFS(args[0])
         G.print_validation_warnings()
@@ -1954,8 +1710,8 @@ def main(cmd, args):
         #    print row
         stats = dict(G.meta.items())
         import json
-        print json.dumps(stats, sort_keys=True,
-                         indent=4, separators=(',', ': '))
+        print(json.dumps(stats, sort_keys=True,
+                         indent=4, separators=(',', ': ')))
     elif cmd == 'make-daily':
         from_db = args[0]
         g = GTFS(from_db)
@@ -1973,7 +1729,7 @@ def main(cmd, args):
         d = datetime.datetime.strptime(download_date, '%Y-%m-%d').date()
         date_start = d + datetime.timedelta(7 - d.isoweekday() + 1)  # inclusive
         date_end = d + datetime.timedelta(7 - d.isoweekday() + 1 + 7)  # exclusive
-        print date_start, date_end
+        print(date_start, date_end)
         g.copy_and_filter(to_db, start_date=date_start, end_date=date_end)
     elif "spatial-extract":
         try:
@@ -1983,8 +1739,8 @@ def main(cmd, args):
             radius_in_km = float(args[3])
             to_db = args[4]
         except Exception as e:
-            print "spatial-extract usage: python gtfs.py spatial-extract fromdb.sqlite center_lat center_lon " \
-                  "radius_in_km todb.sqlite"
+            print("spatial-extract usage: python gtfs.py spatial-extract fromdb.sqlite center_lat center_lon "
+                  "radius_in_km todb.sqlite")
             raise e
         logging.basicConfig(level=logging.INFO)
         logging.info("Loading initial database")

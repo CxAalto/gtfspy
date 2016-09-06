@@ -29,6 +29,6 @@ class TestUtil(unittest.TestCase):
 
     def test_day_seconds_to_str_time(self):
         str_time = util.day_seconds_to_str_time(25 * 3600 + 59 * 60 + 10)
-        assert str_time == "25:59:10", str_time
+        self.assertTrue(str_time == "25:59:10", "the times can also go over 24 hours")
         str_time = util.day_seconds_to_str_time(0)
-        assert str_time == "00:00:00", str_time
+        self.assertTrue(str_time == "00:00:00", "day should start at 00:00")
