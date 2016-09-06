@@ -3,8 +3,8 @@ from unittest import TestCase
 
 import networkx as nx
 
-from ..gtfs import GTFS
-from ..network_extractor import NetworkExtractor
+from gtfspy.gtfs import GTFS
+import gtfspy.network_extractor as extracts
 
 class NetworkExtractorTest(TestCase):
 
@@ -18,10 +18,9 @@ class NetworkExtractorTest(TestCase):
         """This method is run once before _each_ test method is executed"""
         self.gtfs_source_dir = self.__class__.gtfs_source_dir
         self.gtfs = self.__class__.G
-        self.exctractor = NetworkExtractor(self.gtfs)
 
     def test_stop_to_stop_network_format(self):
-        directed_graph = self.exctractor.stop_to_stop_network()
+        directed_graph = extracts.stop_to_stop_network(self.gtfs)
         self.assertTrue(isinstance(directed_graph, nx.DiGraph))
         self.assertGreater(len(directed_graph.nodes()), 0)
         for node, data in directed_graph.nodes(data=True):
