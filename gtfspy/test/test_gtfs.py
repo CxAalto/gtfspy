@@ -336,7 +336,7 @@ class TestGTFS(unittest.TestCase):
         lat, lon = lat_s + 10**-5, lon_s + 10**-5
         stop_I = self.G.get_closest_stop(lat, lon)
         assert isinstance(stop_I, int)
-        df = self.G.get_stop_info(stop_I)
+        df = self.G.stop(stop_I)
         name = df['name'][0]
         # print name
         # check that correct stop has been found:

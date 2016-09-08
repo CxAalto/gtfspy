@@ -650,7 +650,7 @@ class GTFS(object):
                 if (stop_time_row.dep_time_ut >= start_ut) and (stop_time_row.dep_time_ut <= end_ut):
                     stop_counts[stop_time_row.stop_I] += 1
 
-        all_stop_data = self.get_stop_info()
+        all_stop_data = self.stops()
         counts = [stop_counts[stop_I] for stop_I in all_stop_data["stop_I"].values]
 
         all_stop_data.loc[:, "count"] = pd.Series(counts, index=all_stop_data.index)
@@ -714,7 +714,7 @@ class GTFS(object):
         for (stop_I, stop_J) in segment_counts.keys():
             for s in [stop_I, stop_J]:
                 if s not in stop_names:
-                    pdframe = self.get_stop_info(s)
+                    pdframe = self.stop(s)
                     stop_names[s] = pdframe['name'].values[0]
 
         seg_data = []
@@ -1350,7 +1350,17 @@ class GTFS(object):
                 trip_I_dict[day_start_ut] = trip_Is
         return trip_I_dict
 
-    def get_stop_info(self, stop_I=None):
+    def stops(self):
+        """
+        Get all stop data as a pandas DataFrame
+
+        Returns
+        -------
+        df: pandas.DataFrame
+        """
+        return self.get_table("stops")
+
+    def stop(self, stop_I):
         """
         Get all stop data as a pandas DataFrame for all stops, or an individual stop'
 
@@ -1363,11 +1373,7 @@ class GTFS(object):
         -------
         df: pandas.DataFrame
         """
-        if stop_I is None:
-            return pd.read_sql_query("SELECT * FROM stops", self.conn)
-        else:
-            return pd.read_sql_query("SELECT * FROM stops WHERE stop_I=?",
-                                     self.conn, params=(stop_I,))
+        return pd.read_sql_query("SELECT * FROM stops WHERE stop_I=?", self.conn, params=(stop_I,))
 
     def get_transit_events(self, start_time_ut=None, end_time_ut=None):
         """
@@ -1403,7 +1409,7 @@ class GTFS(object):
         else:
             table_name = "day_trips"
         event_query = "SELECT stop_I, seq, trip_I, route_I, routes.route_id AS route_id, routes.type AS route_type, " \
-                      "shape_id, day_start_ut+dep_time_ds AS dep_time_ut, day_start_ut+arr_time_ds AS arr_time_ut " \
+                          "shape_id, day_start_ut+dep_time_ds AS dep_time_ut, day_start_ut+arr_time_ds AS arr_time_ut " \
                       "FROM " + table_name + " " \
                       "JOIN trips USING(trip_I) " \
                       "JOIN routes USING(route_I) " \

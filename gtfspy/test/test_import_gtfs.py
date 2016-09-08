@@ -7,7 +7,7 @@ from gtfspy.import_gtfs import import_gtfs
 
 
 # noinspection PyTypeChecker
-class TestGtfsImport(unittest.TestCase):
+class TestImport(unittest.TestCase):
 
     @classmethod
     def setup_class(cls):

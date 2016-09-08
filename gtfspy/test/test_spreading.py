@@ -62,7 +62,7 @@ class SpreadingTest(unittest.TestCase):
         gtfs_source_dir = os.path.join(os.path.dirname(__file__), "test_data")
         gtfs = GTFS.from_directory_as_inmemory_db(gtfs_source_dir)
         first_day_start_ut, last_day_start_ut = gtfs.get_day_start_ut_span()
-        stop_1_info = gtfs.get_stop_info(1)
+        stop_1_info = gtfs.stop(1)
         lat = stop_1_info.get("lat")
         lon = stop_1_info.get("lon")
         spreader = Spreader(gtfs, first_day_start_ut + 8 * 3600, lat, lon, 24 * 3600, 30, True, 0.5)

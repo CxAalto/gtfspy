@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import networkx
 
@@ -6,26 +8,114 @@ import numpy
 
 from gtfspy.util import wgs84_distance
 
-def stop_to_stop_network(gtfs):
+
+def walk_stop_to_stop_network(gtfs):
     """
-    First priority:
+    Get the walk network.
+    If OpenStreetMap-based walking distances have been computed, then those are used as the distance.
+    Otherwise, the great circle distances ("d_great_circle") is used.
+
+    Parameters
+    ----------
+    gtfs: gtfspy.GTFS
+
+    Returns
+    -------
+    net: networkx.Graph
+    """
+    net = networkx.Graph()
+    stops = gtfs.get_table("stops")
+    for stop in stops.itertuples():
+        data = {
+            "lat" : stops.lat,
+            "lon" : stops.lon,
+            "name" : stops.name
+        }
+        net.add_node(stop.stop_I, data)
+    transfers = gtfs.get_table("stop_distances")
+    for transfer in transfers.itertuples():
+        from_node = transfer.from_stop_I
+        to_node = transfer.to_stop_I
+        d = transfer.d
+        d_walk = transfer.d_walk
+        net.add_edge(from_node, to_node, {"d_great_circle": d, "d_walk": d_walk})
+    return net
+
+
+def write_transit_stop_to_stop_network_edgelist(gtfs, filename_to_write):
+    """
+    Write the
+
+    Parameters
+    ----------
+    gtfs : gtfspy.GTFS
+    filename_to_write : str
+
+    Returns
+    -------
+    None
+    """
+    net = transit_stop_to_stop_network_directed(gtfs)
+    networkx.write_edgelist(net, filename_to_write, delimiter=",", data=True)
+
+
+def transit_stop_to_stop_network_directed(gtfs):
+    """
+    Create a stop-to-stop network from the gtfs.
+
+    First priority issues:
         raw data, individual stops, directed
     Link attributes:
-        From node
-        To node
-        Number of vehicles passed
-        Approximate capacity passed
-        Average travel time between stops
-        Straight-line distance
-        List of lines, separated with a
-        Node attributes:
+        - Number of vehicles passed
+        - Approximate capacity passed
+        - Average travel time between stops
+        - Straight-line distance
+        - List of lines, separated with a
+    Node attributes:
         ID
         Coordinates
-        Name of the stop
-        Data format to be used:
+        Name
+
+
+    Data format to be used:
         Edge file (i, j, vehicle count, capacity, travel time, distance)
+
+
+    Parameters
+    ----------
+    gtfs: gtfspy.GTFS
+        the gtfs object based on which the graph will be created
+
+    Returns
+    -------
+    networkx.DiGraph
+
     """
-    pass
+    graph = networkx.DiGraph()
+    stops = gtfs.stops()
+    for stop in stops.itertuples():
+        attr_dict = {
+            "lat": stop.lat,
+            "lon": stop.lon,
+            "name": stop.name
+        }
+        graph.add_node(stop.stop_I, attr_dict=attr_dict)
+
+    # get all
+    segments = gtfs.get_segments_with_info()
+    # number of vehicles passed
+    # capacity passed
+    # mean travel time between stops
+    # straight-line distance
+    # List of lines
+
+    for segment in segments:
+        pass
+        # get all stop times between the segments, and compute the mean travel time
+        # get the distance
+        # for each segement, get the total travel time
+        # for each seg
+    return graph
 
 
 def multi_layer_network(gtfs):
@@ -155,7 +245,7 @@ def undirected_line_network(gtfs, verbose=True):
 
     """
     net = networkx.Graph()
-    nodeDataFrame = gtfs.get_stop_info()  # node data frame
+    nodeDataFrame = gtfs.stops()  # node data frame
     for stopTuple in nodeDataFrame.itertuples(index=False, name="NamedTupleStop"):
         node_attributes = {
             "lat": stopTuple.lat,
@@ -193,7 +283,7 @@ def undirected_line_network(gtfs, verbose=True):
                              route_ids=[route_id], route_Is=[route_I])
     if verbose:
         if len(net.edges()) == 0:
-            print "Warning: no edges in the line network, is the stop_times table defined properly?"
+            print("Warning: no edges in the line network, is the stop_times table defined properly?")
 
     # return only the maximum connected component to remove unassosicated nodes
     giant = max(networkx.connected_component_subgraphs(net), key=len)
@@ -245,7 +335,7 @@ def directed_stop_to_stop_network(gtfs, link_attributes=None,
     """
     # get all nodes and their attributes
     net = networkx.DiGraph()
-    nodeDataFrame = gtfs.get_stop_info()  # node data frame
+    nodeDataFrame = gtfs.stops()  # node data frame
     for stopTuple in nodeDataFrame.itertuples(index=False, name="NamedTupleStop"):
         node_attributes = {
             "lat": stopTuple.lat,
@@ -257,7 +347,6 @@ def directed_stop_to_stop_network(gtfs, link_attributes=None,
 
     # get all trips
     events_df = gtfs.get_transit_events(start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-    print events_df.columns.values
 
     # group events by links, and loop over them (i.e. each link):
     link_event_groups = events_df.groupby(['from_stop_I', 'to_stop_I'], sort=False)

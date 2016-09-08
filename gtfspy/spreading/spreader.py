@@ -66,7 +66,7 @@ class Spreader(object):
 
         print "Computing/fetching events"
         events_df = self.gtfs.get_transit_events(self.start_time_ut, end_time_ut)
-        all_stops = set(self.gtfs.get_stop_info()['stop_I'])
+        all_stops = set(self.gtfs.stops()['stop_I'])
 
         self._uninfected_stops = all_stops.copy()
         self._uninfected_stops.remove(start_stop_I)
@@ -155,7 +155,7 @@ class Spreader(object):
                      for stop_I, el in self._stop_I_to_spreading_stop.items()]
         inf_times = numpy.array(inf_times)
         inf_time_data = pd.DataFrame(inf_times, columns=["stop_I", "inf_time_ut"])
-        stop_data = self.gtfs.get_stop_info()
+        stop_data = self.gtfs.stops()
 
         combined = inf_time_data.merge(stop_data, how='inner', on='stop_I', suffixes=('_infs', '_stops'), copy=True)
 

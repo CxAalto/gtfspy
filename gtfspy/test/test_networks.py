@@ -6,8 +6,8 @@ import unittest
 import networkx
 
 from gtfspy.gtfs import GTFS
-from gtfspy import extracts
-
+from gtfspy import networks
+from gtfspy.calc_transfers import calc_transfers
 
 class ExtractsTest(unittest.TestCase):
 
@@ -22,21 +22,31 @@ class ExtractsTest(unittest.TestCase):
         self.gtfs_source_dir = self.__class__.gtfs_source_dir
         self.gtfs = self.__class__.G
 
-    def test_to_aggregate_line_graph(self):
-        net_old = extracts.undirected_line_network(self.gtfs)
-        net = extracts.aggregate_line_network(self.gtfs, 1000)
+    def test_walk_network(self):
+        calc_transfers(self.gtfs.conn, 10**6)
+        walk_net = networks.walk_stop_to_stop_network(self.gtfs)
+        self.assertGreater(len(walk_net.nodes()), 0)
+        self.assertGreater(len(walk_net.edges()), 1)
+        for form_node, to_node, data_dict in walk_net.edges(data=True):
+            self.assertIn("d_great_circle", data_dict)
+            self.assertGreater(data_dict["d_great_circle"], 0)
+            self.assertIsNone(data_dict["d_walk"])  # for this test data set, there is no OSM mapping
+
+    def test_aggregate_line_graph(self):
+        net_old = networks.undirected_line_network(self.gtfs)
+        net = networks.aggregate_line_network(self.gtfs, 1000)
         self.assertGreater(len(net_old.nodes()), len(net.nodes()))
         self.assertTrue(isinstance(net, networkx.Graph))
-        net = extracts.aggregate_line_network(self.gtfs, 0)
-        self.assertEquals(len(net_old.nodes()), len(net.nodes()), "no nodes should be collapsed with 0 distance")
+        net = networks.aggregate_line_network(self.gtfs, 0)
+        self.assertEquals(len(net_old.nodes()), len(net.nodes()), "no nodes should be using 0 distance")
 
-    def test_to_directed_graph(self):
+    def test_directed_graph(self):
         # test that distance works
         all_link_attributes = ["duration_min", "duration_max", "duration_median",
                                "duration_avg", "n_vehicles", "route_types",
                                "distance_straight_line", "distance_shape",
                                "route_ids"]
-        nxGraph = extracts.directed_stop_to_stop_network(self.gtfs, link_attributes=all_link_attributes)
+        nxGraph = networks.directed_stop_to_stop_network(self.gtfs, link_attributes=all_link_attributes)
         self.assertTrue(isinstance(nxGraph, networkx.DiGraph), type(nxGraph))
         nodes = nxGraph.nodes(data=True)
         self.assertGreater(len(nodes), 0)
@@ -84,8 +94,8 @@ class ExtractsTest(unittest.TestCase):
         # # print self.gtfs.get_table("stops")
         self.assertTrue(at_least_one_shape_distance, "at least one shape distance should exist")
 
-    def test_to_undirected_line_graph(self):
-        line_net = extracts.undirected_line_network(self.gtfs)
+    def test_undirected_line_graph(self):
+        line_net = networks.undirected_line_network(self.gtfs)
         self.assertGreater(len(line_net.nodes()), 0, "there should be at least some nodes")
         self.assertGreater(len(line_net.edges()), 0, "there should be at least some edges")
         for from_node, to_node, data in line_net.edges(data=True):
@@ -98,4 +108,5 @@ class ExtractsTest(unittest.TestCase):
             assert "lat" in data
             assert "lon" in data
             assert isinstance(node, int)
+
 

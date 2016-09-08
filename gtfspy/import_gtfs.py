@@ -10,6 +10,7 @@ to-do:
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 
 import codecs
 import csv
@@ -140,7 +141,7 @@ class TableLoader(object):
                     return True
                 # File does not exist in the zip archive
                 except KeyError:
-                    print self.fname
+                    print(self.fname)
                     continue
             # Normal filename
             if isinstance(source, str):
@@ -263,7 +264,6 @@ class TableLoader(object):
         for i, (csv_reader, prefix) in enumerate(zip(*(self._get_csv_reader_generators()))):
             try:
                 fields = next(iter(self.gen_rows([csv_reader], [prefix]))).keys()
-                print fields
             except StopIteration:
                 # The file has *only* a header and no data.
                 # next(iter()) yields StopIteration and we can't
@@ -280,8 +280,8 @@ class TableLoader(object):
             # statement and then an iterator over dictionaries.  Each
             # dictionary is inserted.
             if self.print_progress:
-                print 'Importing %s into %s' % (self.fname, self.table)
-            # the first row was conumed by fetching the fields
+                print('Importing %s into %s' % (self.fname, self.table))
+            # the first row was consumed by fetching the fields
             # (this could be optimized)
             new_csv_readers, _ = self._get_csv_reader_generators()
             cur.executemany(stmt, self.gen_rows([new_csv_readers[i]], [prefix]))
@@ -289,7 +289,7 @@ class TableLoader(object):
 
     def run_post_import(self, conn):
         if self.print_progress:
-            print 'Post-import %s into %s' % (self.fname, self.table)
+            print('Post-import %s into %s' % (self.fname, self.table))
         cur = conn.cursor()
         self.post_import(cur)
         conn.commit()
@@ -299,7 +299,7 @@ class TableLoader(object):
             return
         cur = conn.cursor()
         if self.print_progress:
-            print 'Indexing %s' % (self.table,)
+            print('Indexing %s' % (self.table,))
         self.index(cur)
         conn.commit()
 
@@ -315,7 +315,7 @@ class TableLoader(object):
           after all tables are loaded.
         """
         if self.print_progress:
-            print 'Beginning', self.__class__.__name__
+            print('Beginning', self.__class__.__name__)
         # what is this mystical self._conn ?
         self._conn = conn
 
@@ -353,7 +353,7 @@ class TableLoader(object):
         cur = conn.cursor()
         if where and cls.copy_where:
             copy_where = cls.copy_where.format(**where)
-            print copy_where
+            print(copy_where)
         else:
             copy_where = ''
         cur.execute('INSERT INTO %s '
@@ -846,10 +846,10 @@ class AgencyLoader(TableLoader):
     def post_import(self, cur):
         TZs = cur.execute('SELECT DISTINCT timezone FROM agencies').fetchall()
         if len(TZs) == 0:
-            print "Error: no timezones in this database: %s" % self.gtfs_sources
+            print("Error: no timezones in this database: %s" % self.gtfs_sources)
             raise ValueError("Multiple timezones in DB: %s" % TZs)
         elif len(TZs) != 1:
-            print "Error: multiple timezones in this database: %s" % self.gtfs_sources
+            print("Error: multiple timezones in this database: %s" % self.gtfs_sources)
             raise ValueError("Multiple timezones in DB: %s" % TZs)
         TZ = TZs[0][0]
         os.environ['TZ'] = TZ
@@ -1177,12 +1177,12 @@ class StopDistancesLoader(TableLoader):
         cur = conn.cursor()
         cur2 = conn.cursor()
         if self.print_progress:
-            print "Calculating transfers"
+            print("Calculating transfers")
         calc_transfers.calc_transfers(conn, threshold=self.threshold)
 
         # Copy data from transfers table.  Several steps below.
         if self.print_progress:
-            print "Copying information from transfers to stop_distances."
+            print("Copying information from transfers to stop_distances.")
         calc_transfers.bind_functions(conn)
 
         # Add min transfer times (transfer_type=2).  This just copies
@@ -1277,15 +1277,16 @@ class StopDistancesLoader(TableLoader):
         for row in cur:
             f_out.write(','.join(str(x) for x in row) + '\n')
 
+
 def calculate_trip_shape_breakpoints(conn):
     """Pre-compute the shape points corresponding to each trip's stop.
 
     Depends: shapes"""
-    from . import shapes
-    print "Calculating trip shape breakpoints"
+    from gtfspy import shapes
 
     cur = conn.cursor()
     breakpoints_cache = {}
+
     # Counters for problems - don't print every problem.
     count_bad_shape_ordering = 0
     count_bad_shape_fit = 0
@@ -1362,11 +1363,11 @@ def calculate_trip_shape_breakpoints(conn):
                         ((bkpt, trip_I, stpt['seq'])
                          for bkpt, stpt in zip(breakpoints, stop_points)))
     if count_bad_shape_fit > 0:
-        print " Shape trip breakpoints: %s bad fits" % count_bad_shape_fit
+        print(" Shape trip breakpoints: %s bad fits" % count_bad_shape_fit)
     if count_bad_shape_ordering > 0:
-        print " Shape trip breakpoints: %s bad shape orderings" % count_bad_shape_ordering
+        print(" Shape trip breakpoints: %s bad shape orderings" % count_bad_shape_ordering)
     if count_no_shape_fit > 0:
-        print " Shape trip breakpoints: %s no shape fits" % count_no_shape_fit
+        print(" Shape trip breakpoints: %s no shape fits" % count_no_shape_fit)
     conn.commit()
 
 
@@ -1382,7 +1383,7 @@ def validate_day_start_ut(conn):
 def main_make_views(gtfs_fname):
     """Re-create all views.
     """
-    print "making views"
+    print("creating views")
     conn = GTFS(fname=gtfs_fname).conn
     for L in Loaders:
         L(None).make_views(conn)
@@ -1601,10 +1602,10 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     del G
 
     if print_progress:
-        print "Vacuuming..."
+        print("Vacuuming...")
     cur.execute('VACUUM;')
     if print_progress:
-        print "Analyzing..."
+        print("Analyzing...")
     cur.execute('ANALYZE')
     if not (preserve_connection is True):
         conn.close()
@@ -1685,7 +1686,7 @@ def _main():
             import_gtfs(gtfs, output=tmpfile)
     elif args.cmd == "import-multiple":
         zipfiles = args.zipfiles
-        print zipfiles
+        print(zipfiles)
     elif args.cmd == 'make-views':
         main_make_views(args.gtfs)
     # This is now implemented in gtfs.py, please remove the commented code
