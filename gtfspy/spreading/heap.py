@@ -3,7 +3,7 @@ from heapq import heappush, heappop
 import numpy as np
 
 from ..gtfs import GTFS
-from ..travel_modes import TRAVEL_MODE_WALK
+from ..route_types import WALK
 from .event import Event
 
 class EventHeap:
@@ -78,5 +78,5 @@ class EventHeap:
                 transfer_arr_time = e.arr_time_ut + int(d/float(walk_speed))
                 if transfer_arr_time > start_time_ut+max_duration_ut:
                     continue
-                te = Event(transfer_arr_time, e.arr_time_ut, e.to_stop_I, transfer_to_stop_I, TRAVEL_MODE_WALK)
+                te = Event(transfer_arr_time, e.arr_time_ut, e.to_stop_I, transfer_to_stop_I, WALK)
                 self.add_event(te)

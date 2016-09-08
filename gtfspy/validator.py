@@ -8,7 +8,7 @@ if __name__ == '__main__' and __package__ is None:
     # import gtfspy
     __package__ = 'gtfspy'
 
-from . import travel_modes
+from . import route_types
 from .util import wgs84_distance
 from .gtfs import GTFS
 
@@ -91,14 +91,14 @@ class Validator(object):
         # These are the mode - feasible speed combinations used here:
         # https://support.google.com/transitpartners/answer/1095482?hl=en
         gtfs_type_to_max_speed = {
-            travel_modes.TRAVEL_MODE_TRAM     : 100,
-            travel_modes.TRAVEL_MODE_SUBWAY   : 150,
-            travel_modes.TRAVEL_MODE_RAIL     : 300,
-            travel_modes.TRAVEL_MODE_BUS      : 100,
-            travel_modes.TRAVEL_MODE_FERRY    : 80,
-            travel_modes.TRAVEL_MODE_CABLE_CAR: 50,
-            travel_modes.TRAVEL_MODE_GONDOLA  : 50,
-            travel_modes.TRAVEL_MODE_FUNICULAR: 50
+            route_types.TRAM     : 100,
+            route_types.SUBWAY   : 150,
+            route_types.RAIL     : 300,
+            route_types.BUS      : 100,
+            route_types.FERRY    : 80,
+            route_types.CABLE_CAR: 50,
+            route_types.GONDOLA  : 50,
+            route_types.FUNICULAR: 50
         }
         max_trip_time = 7200  # seconds
         self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)

@@ -19,6 +19,8 @@ import pytz
 from gtfspy import shapes
 from gtfspy import util
 from gtfspy.util import wgs84_distance
+from gtfspy.route_types import WALK
+from gtfspy.route_types import TRANSIT_ROUTE_TYPES
 
 # py2/3 compatibility (copied from six)
 if sys.version_info[0] == 3:
@@ -1371,11 +1373,32 @@ class GTFS(object):
 
         Returns
         -------
-        df: pandas.DataFrame
+        stop: pandas.DataFrame
         """
         return pd.read_sql_query("SELECT * FROM stops WHERE stop_I=?", self.conn, params=(stop_I,))
 
-    def get_transit_events(self, start_time_ut=None, end_time_ut=None):
+    def get_stops_for_route_type(self, route_type):
+        """
+        Parameters
+        ----------
+        route_type: int
+
+        Returns
+        -------
+        stops: pandas.DataFrame
+
+        """
+        if route_type is WALK:
+            return self.stops()
+        else:
+            return pd.read_sql_query("SELECT DISTINCT stops.stop_I, stops.* "
+                                     "FROM stops JOIN stop_times ON stops.stop_I == stop_times.stop_I "
+                                     "           JOIN trips ON stop_times.trip_I = trips.trip_I"
+                                     "           JOIN routes ON trips.route_I == routes.route_I "
+                                     "WHERE routes.type=(?)", self.conn, params=(route_type,))
+
+
+    def get_transit_events(self, start_time_ut=None, end_time_ut=None, route_type=None):
         """
         Obtain a list of events that take place during a time interval.
         Each event needs to be only partially overlap the given time interval.
@@ -1387,6 +1410,8 @@ class GTFS(object):
             start of the time interval in unix time (seconds)
         end_time_ut: int
             end of the time interval in unix time (seconds)
+        route_type: int
+            consider only events for this route_type
 
         Returns
         -------
@@ -1398,16 +1423,13 @@ class GTFS(object):
                 to_stop_I: int
                 trip_I : int
                 shape_id : int
+                route_type : int
 
         See also
         --------
         get_transit_events_in_time_span : an older version of the same thing
         """
-        cur = self.conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='day_trips2'")
-        if len(cur.fetchall()) > 0:
-            table_name = "day_trips2"
-        else:
-            table_name = "day_trips"
+        table_name = self._get_day_trips_table_name()
         event_query = "SELECT stop_I, seq, trip_I, route_I, routes.route_id AS route_id, routes.type AS route_type, " \
                           "shape_id, day_start_ut+dep_time_ds AS dep_time_ut, day_start_ut+arr_time_ds AS arr_time_ut " \
                       "FROM " + table_name + " " \
@@ -1415,32 +1437,28 @@ class GTFS(object):
                       "JOIN routes USING(route_I) " \
                       "JOIN stop_times USING(trip_I)"
 
-        if end_time_ut or start_time_ut:
+        where_clauses = []
+        if end_time_ut:
+            where_clauses.append(table_name + ".start_time_ut< {end_time_ut}".format(end_time_ut=end_time_ut))
+            where_clauses.append("dep_time_ut  <={end_time_ut}".format(end_time_ut=end_time_ut))
+        if start_time_ut:
+            where_clauses.append(table_name + ".end_time_ut  > {start_time_ut}".format(start_time_ut=start_time_ut))
+            where_clauses.append("arr_time_ut  >={start_time_ut}".format(start_time_ut=start_time_ut))
+        if route_type:
+            assert route_type in TRANSIT_ROUTE_TYPES
+            where_clauses.append("routes.type={route_type}".format(route_type=route_type))
+        if len(where_clauses) > 0:
             event_query += " WHERE "
-        prev_where = False
-        if end_time_ut:
-            event_query += table_name + ".start_time_ut<{end_time_ut}".format(end_time_ut=end_time_ut)
-            prev_where = True
-        if start_time_ut:
-            if prev_where:
-                event_query += " AND "
-            event_query += "day_trips2.end_time_ut>{start_time_ut}".format(start_time_ut=start_time_ut)
-        if end_time_ut:
-            if prev_where:
-                event_query += " AND "
-            prev_where = True
-            event_query += "dep_time_ut<={end_time_ut}".format(end_time_ut=end_time_ut)
-        if start_time_ut:
-            if prev_where:
-                event_query += " AND "
-            event_query += "arr_time_ut>={start_time_ut}".format(start_time_ut=start_time_ut)
-        # ensure ordering
+            for i, where_clause in enumerate(where_clauses):
+                if i is not 0:
+                    event_query += " AND "
+                event_query += where_clause
+        # ordering is required for later stages
         event_query += " ORDER BY trip_I, day_start_ut+dep_time_ds;"
-        # print event_query
 
         events_result = pd.read_sql_query(event_query, self.conn)
-        # 'filter' results so that only real "events" are taken into account
 
+        # 'filter' results so that only real "events" are taken into account
         from_indices = numpy.nonzero(
             (events_result['trip_I'][:-1].values == events_result['trip_I'][1:].values) *
             (events_result['seq'][:-1].values < events_result['seq'][1:].values)
@@ -1468,79 +1486,6 @@ class GTFS(object):
                    "duration", "from_seq", "to_seq"]
         df = pd.DataFrame.from_records(data_tuples, columns=columns)
         return df
-
-    def get_transit_events_in_time_span(self, start_time_ut, end_time_ut):
-        """
-        Obtain a list of events that take place during a time interval.
-        Each event needs to only partially overlap the given time interval.
-        Does not include walking events.
-        NOTE: This is currently extremely slow!
-
-        Parameters
-        ----------
-        start_time_ut : int
-            start of the time interval in unix time (seconds)
-        end_time_ut: int
-            end of the time interval in unix time (seconds)
-
-        Returns
-        -------
-        events: pandas DataFrame
-            with the following columns and types
-                dep_time_ut: int
-                arr_time_ut: int
-                from_stop_I: int
-                to_stop_I: int
-                trip_I : int
-        """
-        warnings.warn("get_transit_event_in_time_span will probably be deprecated soon", DeprecationWarning)
-        # get relevant trips and day_start_times
-        day_start_to_trips = \
-            self.get_tripIs_within_range_by_dsut(start_time_ut, end_time_ut)
-        res_df = pd.DataFrame(columns=['from_stop_I', 'to_stop_I',
-                                       'dep_time_ut', 'arr_time_ut',
-                                       'trip_I']
-                              )
-        for day_start_ut, trip_Is in day_start_to_trips.items():
-            for trip_I in trip_Is:
-                # Manual join is much faster than using the view.
-                query = "SELECT " \
-                        "stop_I, " \
-                        "day_start_ut+dep_time_ds AS dep_time_ut, " \
-                        "day_start_ut+arr_time_ds AS arr_time_ut, " \
-                        "trip_I " \
-                        "FROM days " \
-                        "JOIN stop_times " \
-                        "USING (trip_I) " \
-                        "WHERE trip_I=? " \
-                        "AND day_start_ut=? " \
-                        "ORDER BY seq"
-                params = (trip_I, day_start_ut)
-                stop_data_df = pd.read_sql_query(query, self.conn, params=params)
-                # check that all events take place within the given time frame
-                # (at least partially)
-                valids = (
-                    (stop_data_df['arr_time_ut'].iloc[1:].values >= start_time_ut) *
-                    (stop_data_df['dep_time_ut'].iloc[:-1].values <= end_time_ut)
-                )
-                from_stops = stop_data_df['stop_I'].iloc[:-1][valids]
-                to_stops = stop_data_df['stop_I'].iloc[1:][valids]
-                dep_times_ut = stop_data_df['dep_time_ut'].iloc[:-1][valids]
-                arr_times_ut = stop_data_df['arr_time_ut'].iloc[1:][valids]
-                trip_Is = stop_data_df['trip_I'].iloc[1:][valids]
-                df_dict = {
-                    'from_stop_I': from_stops.values,
-                    'to_stop_I': to_stops.values,
-                    'dep_time_ut': dep_times_ut.values,
-                    'arr_time_ut': arr_times_ut.values,
-                    'trip_I': trip_Is.values,
-                }
-                trip_df = pd.DataFrame.from_records(df_dict)
-                if res_df is None:
-                    res_df = trip_df.copy()
-                else:
-                    res_df = res_df.append(trip_df, ignore_index=True)
-        return res_df
 
     def get_straight_line_transfer_distances(self, stop_I=None):
         """
@@ -1614,6 +1559,7 @@ class GTFS(object):
         cur = self.conn.cursor()
         return cur.execute("SELECT max(date) FROM days").fetchone()[0]
 
+
     def print_validation_warnings(self):
         """
         See Validator.validate for more information.
@@ -1632,6 +1578,15 @@ class GTFS(object):
     def get_stats(self):
         from gtfspy import stats
         return stats.get_stats(self)
+
+    def _get_day_trips_table_name(self):
+        cur = self.conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='day_trips2'")
+        print(self.get_table("day_trips2"))
+        if len(cur.fetchall()) > 0:
+            table_name = "day_trips2"
+        else:
+            table_name = "day_trips"
+        return table_name
 
 
 class GTFSMetadata(object):

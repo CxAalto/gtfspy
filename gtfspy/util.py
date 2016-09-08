@@ -166,6 +166,7 @@ def execute(cur, *args):
         print stmt % (args[1])
     return cur.execute(*args)
 
+
 def ut_to_utc_datetime_str(time_ut):
     dt = datetime.datetime.utcfromtimestamp(time_ut)
     return dt.strftime("%b %d %Y %H:%M:%S")
@@ -179,6 +180,7 @@ def makedirs(path):
     if not os.path.isdir(path):
         os.makedirs(path)
     return path
+
 
 def draw_net_using_node_coords(net):
     """
@@ -200,6 +202,7 @@ def draw_net_using_node_coords(net):
     ax = fig.add_subplot(111)
     nx.draw(net, pos=node_coords, ax=ax, node_size=50)
     return fig
+
 
 def day_seconds_to_str_time(ds):
     assert ds >= 0
