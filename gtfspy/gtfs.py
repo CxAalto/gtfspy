@@ -102,6 +102,10 @@ class GTFS(object):
             if row[1] == str("main"):
                 return row[2]
 
+    def get_location_name(self):
+
+        return self.meta.get('location_name', "location_unknown")
+
     def get_shape_distance_between_stops(self, trip_I, from_stop_seq, to_stop_seq):
         """
         Get the distance along a shape between stops

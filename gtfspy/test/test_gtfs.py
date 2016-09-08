@@ -212,8 +212,8 @@ class TestGTFS(unittest.TestCase):
             import pandas
             conn_copy = sqlite3.connect(fname_copy)
             stop_ids_df = pandas.read_sql('SELECT stop_id from stop_times '
-                                       'left join stops '
-                                       'on stops.stop_I = stop_times.stop_I', conn_copy)
+                                          'left join stops '
+                                          'on stops.stop_I = stop_times.stop_I', conn_copy)
             stop_ids = stop_ids_df["stop_id"].values
             # print stop_ids
             assert "FUR_CREEK_RES" not in stop_ids
@@ -398,3 +398,9 @@ class TestGTFS(unittest.TestCase):
         end_ut_comp = self.gtfs.unlocalized_datetime_to_ut_seconds(end_dt) + (28 * 3600)
         assert start_ut == start_ut_comp
         assert end_ut == end_ut_comp
+
+    def test_get_location_name(self):
+        location_name = self.G.get_location_name()
+        self.assertEqual(location_name, "test_data")
+        self.assertTrue(isinstance(location_name, (str, unicode) ), type(location_name))
+        self.assertGreater(len(location_name), 0)

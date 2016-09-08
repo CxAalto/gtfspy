@@ -26,6 +26,7 @@ import pandas
 from gtfspy import stats
 from gtfspy import util
 from gtfspy.gtfs import GTFS
+from gtfspy import calc_transfers
 
 
 class TableLoader(object):
@@ -714,7 +715,7 @@ class ShapeLoader(TableLoader):
 
     @classmethod
     def post_import(cls, cur):
-        from . import shapes
+        from gtfspy import shapes
         cur.execute('SELECT DISTINCT shape_id FROM shapes')
         shape_ids = tuple(x[0] for x in cur)
 
@@ -1154,7 +1155,6 @@ class MetadataLoader(TableLoader):
         pass
 
 
-from . import calc_transfers
 class StopDistancesLoader(TableLoader):
     """Loader to calculate transfer distances.
 
@@ -1284,6 +1284,7 @@ def calculate_trip_shape_breakpoints(conn):
 
     Depends: shapes"""
     from gtfspy import shapes
+    print("Calculating trip shape breakpoints")
 
     cur = conn.cursor()
     breakpoints_cache = {}
@@ -1576,7 +1577,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
         F(conn)
 
     # Set up same basic metadata.
-    from . import gtfs as mod_gtfs
+    from gtfspy import gtfs as mod_gtfs
     G = mod_gtfs.GTFS(output)
     G.meta['gen_time_ut'] = time.time()
     G.meta['gen_time'] = time.ctime()
@@ -1598,6 +1599,8 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
             location_name_list = re.findall(r'/([^/]+)/\d{4}-\d{2}-\d{2}', source)
             if location_name_list:
                 G.meta[prefix + 'location_name'] = location_name_list[-1]
+            else:
+                G.meta[prefix + 'location_name'] = source.split("/")[-1]
     G.meta['timezone'] = cur.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()[0]
     stats.update_stats(G)
     del G
@@ -1612,7 +1615,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
         conn.close()
 
 
-def _main():
+def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="""

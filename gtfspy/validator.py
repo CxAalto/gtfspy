@@ -62,8 +62,13 @@ class Validator(object):
         n_stops_with_same_time = 5
         # this query returns the trips where there are N or more stops with the same stop time
         rows = self.gtfs.get_cursor().execute(
-            'select trip_I, arr_time, N from ( select trip_I, arr_time, count(*) as N '
-            'from stop_times group by trip_I, arr_time) q1 where N >= ?', (n_stops_with_same_time,)
+            'SELECT '
+            'trip_I, '
+            'arr_time, '
+            'N '
+            'FROM '
+            '(SELECT trip_I, arr_time, count(*) as N FROM stop_times GROUP BY trip_I, arr_time) q1 '
+            'WHERE >= ?', (n_stops_with_same_time,)
         )
         for row in rows:
             self.warnings_container.add_warning(row, WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME)
@@ -74,13 +79,22 @@ class Validator(object):
         max_time_between_stops = 1800  # seconds
         # this query calculates distance and travel time between consecutive stops
         rows = self.gtfs.execute_custom_query(
-            'select q1.trip_I, type, q1.stop_I as stop_1, q2.stop_I as stop_2, '
+            'SELECT '
+            'q1.trip_I, '
+            'type, '
+            'q1.stop_I as stop_1, '
+            'q2.stop_I as stop_2, '
             'CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT) as distance, '
             'q2.arr_time_ds - q1.arr_time_ds as traveltime '
-            'from (select * from stop_times, '
-            'stops where stop_times.stop_I = stops.stop_I) q1, (select * from stop_times, '
-            'stops where stop_times.stop_I = stops.stop_I) q2, trips, routes where q1.trip_I = q2.trip_I '
-            'and q1.seq + 1 = q2.seq and q1.trip_I = trips.trip_I and trips.route_I = routes.route_I ').fetchall()
+            'FROM '
+            '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q1, '
+            '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q2, '
+            'trips, '
+            'routes '
+            'WHERE q1.trip_I = q2.trip_I '
+            'AND nd q1.seq + 1 = q2.seq '
+            'AND q1.trip_I = trips.trip_I '
+            'AND trips.route_I = routes.route_I ').fetchall()
         for row in rows:
             if row[4] > max_stop_spacing:
                 self.warnings_container.add_warning(row, WARNING_LONG_STOP_SPACING)
@@ -103,7 +117,7 @@ class Validator(object):
         max_trip_time = 7200  # seconds
         self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)
 
-        # what does this query do?
+        # this query returns the total distance and travel time for each trip calculated for each stop spacing separately
         rows = self.gtfs.execute_custom_query(
             'SELECT '
             ' q1.trip_I, '
@@ -112,7 +126,8 @@ class Validator(object):
             ' sum(q2.arr_time_ds - q1.arr_time_ds) AS total_traveltime '
             ' FROM '
             '(SELECT * FROM stop_times, '
-            'stops WHERE stop_times.stop_I = stops.stop_I) q1, (SELECT * FROM stop_times, '
+            'stops WHERE stop_times.stop_I = stops.stop_I) q1, '
+            '(SELECT * FROM stop_times, '
             'stops WHERE stop_times.stop_I = stops.stop_I) q2, trips, routes WHERE q1.trip_I = q2.trip_I '
             'AND q1.seq + 1 = q2.seq AND q1.trip_I = trips.trip_I '
             '  AND trips.route_I = routes.route_I GROUP BY q1.trip_I').fetchall()
@@ -124,7 +139,8 @@ class Validator(object):
 
             if row[3] > max_trip_time:
                 self.warnings_container.add_warning(row, WARNING_LONG_TRIP_TIME)
-
+    def _validate_stop_time_sequence(self):
+        pass
 
 class ValidationWarningsContainer(object):
 
