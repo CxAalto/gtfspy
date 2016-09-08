@@ -195,6 +195,10 @@ def _distribution(gtfs, table, column):
 
 def _fleet_size_estimate(gtfs, hour, date):
     """
+    Calculates fleet size estimates by two separate formula:
+     1. Considering all routes separately with no interlining and doing a deficit calculation at every terminal
+     2. By looking at the maximum number of vehicles in simultaneous movement
+
     Parameters
     ----------
     gtfs: GTFS
@@ -289,7 +293,27 @@ def update_stats(gtfs):
     stats = get_stats(gtfs)
     gtfs.update_stats(stats)
 
-def route_distributions(gtfs):
+
+def trip_stats(gtfs, results_by_mode=False):
+    """
+
+    Parameters
+    ----------
+    gtfs: GTFS
+    results_by_mode: bool
+
+    Returns
+    -------
+    if results_by_mode is False:
+    q_result: pandas dataframe
+
+    if results_by_mode is True:
+    q_results: dict
+        a dict with keys:
+            fleet_size_route_based
+            fleet_size_max_movement
+
+    """
     conn = gtfs.conn
 
     conn.create_function("find_distance", 4, wgs84_distance)
@@ -318,5 +342,11 @@ def route_distributions(gtfs):
     q_result['avg_speed_kmh'] = 3.6 * q_result['total_distance'] / q_result['total_traveltime']
     q_result['total_distance'] = q_result['total_distance'] / 1000
     q_result['total_traveltime'] = q_result['total_traveltime'] / 60
-    q_result = q_result.loc[q_result['avg_speed_kmh'] == float("inf")]
-    return q_result
+    q_result = q_result.loc[q_result['avg_speed_kmh'] != float("inf")]
+    if results_by_mode:
+        q_results = {}
+        for type in q_result['type'].unique().tolist():
+            q_results[type] = q_result.loc[q_result['type'] == type]
+        return q_results
+    else:
+        return q_result
