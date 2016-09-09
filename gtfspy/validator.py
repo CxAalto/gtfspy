@@ -68,7 +68,7 @@ class Validator(object):
             'N '
             'FROM '
             '(SELECT trip_I, arr_time, count(*) as N FROM stop_times GROUP BY trip_I, arr_time) q1 '
-            'WHERE >= ?', (n_stops_with_same_time,)
+            'WHERE N >= ?', (n_stops_with_same_time,)
         )
         for row in rows:
             self.warnings_container.add_warning(row, WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME)
