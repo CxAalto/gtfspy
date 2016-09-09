@@ -7,7 +7,6 @@ import os
 import sqlite3
 import sys
 import time
-import warnings
 from collections import Counter, defaultdict
 
 import numpy
@@ -17,7 +16,7 @@ import pytz
 from gtfspy import shapes
 from gtfspy.util import wgs84_distance
 from gtfspy.route_types import WALK
-from gtfspy.route_types import TRANSIT_ROUTE_TYPES
+from gtfspy.route_types import ALL_ROUTE_TYPES
 
 # py2/3 compatibility (copied from six)
 if sys.version_info[0] == 3:
@@ -1157,7 +1156,6 @@ class GTFS(object):
                                      "           JOIN routes ON trips.route_I == routes.route_I "
                                      "WHERE routes.type=(?)", self.conn, params=(route_type,))
 
-
     def get_transit_events(self, start_time_ut=None, end_time_ut=None, route_type=None):
         """
         Obtain a list of events that take place during a time interval.
@@ -1204,8 +1202,8 @@ class GTFS(object):
         if start_time_ut:
             where_clauses.append(table_name + ".end_time_ut  > {start_time_ut}".format(start_time_ut=start_time_ut))
             where_clauses.append("arr_time_ut  >={start_time_ut}".format(start_time_ut=start_time_ut))
-        if route_type:
-            assert route_type in TRANSIT_ROUTE_TYPES
+        if route_type is not None:
+            assert route_type in ALL_ROUTE_TYPES
             where_clauses.append("routes.type={route_type}".format(route_type=route_type))
         if len(where_clauses) > 0:
             event_query += " WHERE "

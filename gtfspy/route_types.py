@@ -11,12 +11,11 @@ CABLE_CAR = 5
 GONDOLA = 6
 FUNICULAR = 7
 
-TRANSIT_ROUTE_TYPES = {WALK, TRAM, SUBWAY, RAIL, BUS, FERRY, CABLE_CAR, GONDOLA, FUNICULAR}
+ALL_ROUTE_TYPES = {WALK, TRAM, SUBWAY, RAIL, BUS, FERRY, CABLE_CAR, GONDOLA, FUNICULAR}
+TRANSIT_ROUTE_TYPES = ALL_ROUTE_TYPES.difference({WALK})
 
 ROUTE_TYPE_TO_DESCRIPTION = {
-    WALK: "Walking layer",
-    TRAM: "Tram, Streetcar, Light rail. Any light rail "
-                      "or street level system within a metropolitan area.",
+    WALK: "Walk, pedestrian travle",
     SUBWAY: "Subway, Metro. Any underground rail system within a metropolitan area.",
     RAIL: "Rail. Used for intercity or long - distance travel.",
     BUS: "Bus. Used for short- and long-distance bus routes.",
@@ -39,6 +38,18 @@ ROUTE_TYPE_TO_SHORT_DESCRIPTION = {
     CABLE_CAR: "Cable car",
     GONDOLA: "Gondola",
     FUNICULAR: "Funicular"
+}
+
+ROUTE_TYPE_TO_LOWERCASE_TAG = {
+    WALK: "walk",
+    TRAM: "tram",
+    SUBWAY: "subway",
+    RAIL: "rail",
+    BUS: "bus",
+    FERRY: "ferry",
+    CABLE_CAR: "cablecar",
+    GONDOLA: "gondola",
+    FUNICULAR: "funicular"
 }
 
 # Use these on your own risk!

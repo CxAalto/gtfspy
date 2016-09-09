@@ -26,8 +26,6 @@ class TestGTFS(unittest.TestCase):
         """This method is run once before _each_ test method is executed"""
         self.gtfs_source_dir = self.__class__.gtfs_source_dir
         self.gtfs = self.__class__.G
-        # GTFS.from_directory_as_inmemory_db(self.gtfs_source_dir)
-        # os.path.join(os.path.dirname(__file__), "test_data")
 
     def tearDown(self):
         """This method is run once after _each_ test method is executed"""
@@ -36,12 +34,8 @@ class TestGTFS(unittest.TestCase):
     def test_get_cursor(self):
         assert isinstance(self.gtfs.get_cursor(), sqlite3.Cursor)
 
-    def test_tzset(self):
-        """ How to test this properly?"""
-        pass
-
     def test_get_timezone_name(self):
-        assert isinstance(self.gtfs.get_timezone_string(), str)
+        self.assertIsInstance(self.gtfs.get_timezone_string(), str)
 
     def test_get_day_start_ut(self):
         """ America/Los_Angeles on 2016,1,1 should map to -07:00 when DST IS in place"""
@@ -49,10 +43,9 @@ class TestGTFS(unittest.TestCase):
         epoch = datetime.datetime(1970, 1, 1)
         day_start_utc_ut = (date - epoch).total_seconds()
         # day starts 7 hours later in Los Angeles
-        day_start_ut_test = day_start_utc_ut + 7 * 3600
-        day_start_ut_code = self.gtfs.get_day_start_ut(date)
-        # print day_start_ut_test - day_start_ut_code
-        assert day_start_ut_test == day_start_ut_code
+        day_start_ut_should_be = day_start_utc_ut + 7 * 3600
+        day_start_ut_is = self.gtfs.get_day_start_ut(date)
+        self.assertEquals(day_start_ut_should_be, day_start_ut_is)
 
     def test_get_main_database_path(self):
         assert self.gtfs.get_main_database_path() == "", "in memory database should equal ''"
@@ -114,16 +107,15 @@ class TestGTFS(unittest.TestCase):
 
     def test_get_timezone_string(self):
         tz_string = self.gtfs.get_timezone_string()
-        assert len(tz_string) == 5
-        assert tz_string[0] in "+-"
+        self.assertEquals(len(tz_string), 5)
+        self.assertIn(tz_string[0], "+-")
         for i in range(1, 5):
-            assert tz_string[i] in "0123456789"
-        # print tz_name, tz_string
+            self.assertIn(tz_string[i], "0123456789")
         dt = datetime.datetime(1970, 1, 1)
         tz_string_epoch = self.gtfs.get_timezone_string(dt)
-        assert tz_string != tz_string_epoch
+        self.assertNotEqual(tz_string, tz_string_epoch)
 
-    def test_timezone_convertions(self):
+    def test_timezone_conversions(self):
         """
         Two methods are tested:
             ut_seconds_to_gtfs_datetime
@@ -131,11 +123,8 @@ class TestGTFS(unittest.TestCase):
         """
         ut = 10.0
         gtfs_dt = self.gtfs.unixtime_seconds_to_gtfs_datetime(ut)
-        # print gtfs_dt
         unloc_dt = gtfs_dt.replace(tzinfo=None)
-        # print unloc_dt
         ut_later = self.gtfs.unlocalized_datetime_to_ut_seconds(unloc_dt)
-        # print ut_later
         assert ut == ut_later
 
     def test_get_trip_trajectory_data_within_timespan(self):
@@ -167,13 +156,6 @@ class TestGTFS(unittest.TestCase):
         assert res is not None, "this is a it compiles test"
 
     def test_get_tripIs_active_in_range(self):
-        # one line in calendar.txt:
-        #  FULLW,1,1,1,1,1,1,1,20070101,20101231
-        # one line in trips.txt
-        #  AB,FULLW,AB1,to Bullfrog,0,1,
-        # lines in stop_times.txt
-        #  AB1, 8:00:00, 8:00:00, BEATTY_AIRPORT,1,,,,
-        #  AB1, 8:10:00, 8:15:00, BULLFROG, 2,,,,
         dt_start_query = datetime.datetime(2007, 1, 1, 7, 59, 59)
         dt_end_query = datetime.datetime(2007, 1, 1, 8, 2, 01)
         dt_start_real = datetime.datetime(2007, 1, 1, 8, 0, 00)
@@ -276,5 +258,5 @@ class TestGTFS(unittest.TestCase):
     def test_get_location_name(self):
         location_name = self.G.get_location_name()
         self.assertEqual(location_name, "test_data")
-        self.assertTrue(isinstance(location_name, (str, unicode) ), type(location_name))
+        self.assertTrue(isinstance(location_name, (str, unicode)), type(location_name))
         self.assertGreater(len(location_name), 0)
