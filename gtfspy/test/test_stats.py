@@ -54,3 +54,14 @@ class StatsTest(unittest.TestCase):
         self.assertTrue(lat != lon, "probably centroid lat and lon should not be equal for any real data set")
         self.assertTrue(isinstance(lat, float))
         self.assertTrue(isinstance(lon, float))
+
+    def test_trip_stats(self):
+        df = stats.trip_stats(self.gtfs)
+        self.assertTrue(isinstance(df, pd.DataFrame))
+        self.assertTrue(len(df.columns.values) > 0)
+        self.assertTrue(len(df.index) > 0)
+        # applying the function with results_by_mode = True, which should produce a dict
+        df = stats.trip_stats(self.gtfs, True)
+        self.assertTrue(isinstance(df, dict))
+        # assuming test data only has one mode type
+        self.assertTrue(len(df.keys()) == 1)
