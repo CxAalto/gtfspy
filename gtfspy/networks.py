@@ -7,6 +7,7 @@ import pandas as pd
 import numpy
 
 from gtfspy.util import wgs84_distance
+from gtfspy import route_types
 
 
 def walk_stop_to_stop_network(gtfs):
@@ -21,24 +22,17 @@ def walk_stop_to_stop_network(gtfs):
 
     Returns
     -------
-    net: networkx.Graph
+    net: networkx.DiGraph
     """
     net = networkx.Graph()
-    stops = gtfs.get_table("stops")
-    for stop in stops.itertuples():
-        data = {
-            "lat" : stops.lat,
-            "lon" : stops.lon,
-            "name" : stops.name
-        }
-        net.add_node(stop.stop_I, data)
+    _add_stops_to_net(net, gtfs.get_table("stops"))
     transfers = gtfs.get_table("stop_distances")
     for transfer in transfers.itertuples():
         from_node = transfer.from_stop_I
         to_node = transfer.to_stop_I
         d = transfer.d
         d_walk = transfer.d_walk
-        net.add_edge(from_node, to_node, {"d_great_circle": d, "d_walk": d_walk})
+        net.add_edge(from_node, to_node, {"d_great_circle": d, "d_shape": d_walk})
     return net
 
 
@@ -59,102 +53,11 @@ def write_transit_stop_to_stop_network_edgelist(gtfs, filename_to_write):
     networkx.write_edgelist(net, filename_to_write, delimiter=",", data=True)
 
 
-def transit_stop_to_stop_network_directed(gtfs):
-    """
-    Create a stop-to-stop network from the gtfs.
-
-    First priority issues:
-        raw data, individual stops, directed
-    Link attributes:
-        - Number of vehicles passed
-        - Approximate capacity passed
-        - Average travel time between stops
-        - Straight-line distance
-        - List of lines, separated with a
-    Node attributes:
-        ID
-        Coordinates
-        Name
-
-
-    Data format to be used:
-        Edge file (i, j, vehicle count, capacity, travel time, distance)
-
-
-    Parameters
-    ----------
-    gtfs: gtfspy.GTFS
-        the gtfs object based on which the graph will be created
-
-    Returns
-    -------
-    networkx.DiGraph
-
-    """
-    graph = networkx.DiGraph()
-    stops = gtfs.stops()
-    for stop in stops.itertuples():
-        attr_dict = {
-            "lat": stop.lat,
-            "lon": stop.lon,
-            "name": stop.name
-        }
-        graph.add_node(stop.stop_I, attr_dict=attr_dict)
-
-    # get all
-    segments = gtfs.get_segments_with_info()
-    # number of vehicles passed
-    # capacity passed
-    # mean travel time between stops
-    # straight-line distance
-    # List of lines
-
-    for segment in segments:
-        pass
-        # get all stop times between the segments, and compute the mean travel time
-        # get the distance
-        # for each segement, get the total travel time
-        # for each seg
-    return graph
-
-
-def multi_layer_network(gtfs):
-    """
-    Stop-to-stop networks + layers reflecting modality
-        Ask Mikko for more details?
-        Separate networks for each mode.
-        Modes:
-        Walking + GTFS
-
-    Parameters
-    ----------
-    gtfs
-
-    Returns
-    -------
-    ?
-
-    """
-    pass
-
-
-def multilayer_temporal_network(gtfs):
-    """
-    Parameters
-    ----------
-    gtfs
-
-    Returns
-    -------
-    multilayer_temporal_network? :)
-    """
-    pass
-
-
-def _undir_line_graph_to_aggregated(self, graph, distance):
+def aggregate__network(self, graph, distance):
     """
     See to_aggregate_line_graph for documentation
     """
+    raise NotImplementedError("this is not working fully yet")
     assert distance <= 1000, "only works with distances below 1000 meters"
     nodes = set(graph.nodes())
 
@@ -204,22 +107,160 @@ def _undir_line_graph_to_aggregated(self, graph, distance):
             edge_data['route_ids'].append(data['route_ids'])
         else:
             aggregate_graph.add_edge(new_from_node, new_to_node, route_ids=data['route_ids'])
-
     return aggregate_graph
 
 
-def aggregate_line_network(gtfs, distance):
+def route_type_stop_to_stop_network(gtfs,
+                                    route_type,
+                                    link_attributes=None,
+                                    start_time_ut=None,
+                                    end_time_ut=None):
     """
-    Aggregate graph by grouping nodes that are within
-    a specified distance.
-    The ids of the nodes are tuples of the original stop_Is.
-
-
-    For more details see to_undirected_line_graph()
+    Get a stop-to-stop network describing a single mode of travel.
 
     Parameters
     ----------
-    gtfs: gtfspy.GTFS
+    gtfs : gtfspy.GTFS
+    route_type : int
+        See gtfspy.route_types for the list of possible types.
+    link_attributes: list[str], optional
+        defaulting to use the following link attributes:
+            "n_vehicles" : Number of vehicles passed
+            "duration_min" : minimum travel time between stops
+            "duration_max" : maximum travel time between stops
+            "duration_median" : median travel time between stops
+            "duration_avg" : average travel time between stops
+            "d_great_circle" : distance along straight line (wgs84_distance)
+            "distance_shape" : minimum distance along shape
+            "capacity_estimate"  : approximate capacity passed through the stop
+            "route_ids" : route id
+    start_time_ut
+        start time of the time span (in unix time)
+    end_time_ut: int
+        end time of the time span (in unix time)
+
+    Returns
+    -------
+    net: networkx.DiGraph
+        A directed graph Directed graph
+
+    """
+    if route_type is route_types.WALK:
+        net = walk_stop_to_stop_network(gtfs)
+        for from_node, to_node, data in net.edges(data=true):
+            data["n_vehicles"] = None
+            data["duration_min"] = None
+            data["duration_max"] = None
+            data["duration_avg"] = None
+            data["duration_median"] = None
+            data["capacity_estimate"] = None
+            data["route_ids"] = None
+        return net.to_directed()
+    else:
+        stops_dataframe = gtfs.get_stops_for_route_type(route_type)
+        net = networkx.DiGraph()
+        _add_stops_to_net(net, stops_dataframe)
+
+        events_df = gtfs.get_transit_events(start_time_ut=start_time_ut,
+                                            end_time_ut=end_time_ut,
+                                            route_type=route_type)
+
+        # group events by links, and loop over them (i.e. each link):
+        link_event_groups = events_df.groupby(['from_stop_I', 'to_stop_I'], sort=False)
+        for key, link_events in link_event_groups:
+            from_stop_I, to_stop_I = key
+            assert isinstance(link_events, pd.DataFrame)
+            # 'dep_time_ut' 'arr_time_ut' 'shape_id' 'route_type' 'trip_I' 'duration' 'from_seq' 'to_seq'
+            if link_attributes is None:
+                net.add_edge(from_stop_I, to_stop_I)
+            else:
+                link_data = {}
+                if "duration_min" in link_attributes:
+                    link_data['duration_min'] = link_events['duration'].min()
+                if "duration_max" in link_attributes:
+                    link_data['duration_max'] = link_events['duration'].max()
+                if "duration_median" in link_attributes:
+                    link_data['duration_median'] = link_events['duration'].median()
+                if "duration_avg" in link_attributes:
+                    link_data['duration_avg'] = link_events['duration'].mean()
+                # statistics on numbers of vehicles:
+                if "n_vehicles" in link_attributes:
+                    link_data['n_vehicles'] = link_events.shape[0]
+                if "route_types" in link_attributes:
+                    link_data['route_types'] = link_events.groupby('route_type').size().to_dict()
+                if "capacity_estimate" in link_attributes:
+                    link_data['capacity_estimate'] = route_types.ROUTE_TYPE_TO_APPROXIMATE_CAPACITY[route_type]
+                if "distance_great_circle" in link_attributes:
+                    from_lat = net.node[from_stop_I]['lat']
+                    from_lon = net.node[from_stop_I]['lon']
+                    to_lat = net.node[to_stop_I]['lat']
+                    to_lon = net.node[to_stop_I]['lon']
+                    distance = wgs84_distance(from_lat, from_lon, to_lat, to_lon)
+                    link_data['distance_great_circle'] = distance
+                if "distance_shape" in link_attributes:
+                    assert "shape_id" in link_events.columns.values
+                    found = None
+                    for i, shape_id in enumerate(link_events["shape_id"].values):
+                        if shape_id is not None:
+                            found = i
+                            break
+                    if found is None:
+                        link_data["distance_shape"] = None
+                    else:
+                        link_event = link_events.iloc[found]
+                        distance = gtfs.get_shape_distance_between_stops(
+                            link_event["trip_I"],
+                            int(link_event["from_seq"]),
+                            int(link_event["to_seq"])
+                        )
+                        link_data['distance_shape'] = distance
+                if "route_ids" in link_attributes:
+                    link_data["route_ids"] = link_events.groupby("route_id").size().to_dict()
+                net.add_edge(from_stop_I, to_stop_I, attr_dict=link_data)
+        return net
+
+
+def multi_layer_network(gtfs):
+    """
+    Stop-to-stop networks + layers reflecting modality
+        Ask Mikko for more details?
+        Separate networks for each mode.
+        Modes:
+        Walking + GTFS
+
+    Parameters
+    ----------
+    gtfs
+
+    Returns
+    -------
+    ?
+
+    """
+    pass
+
+
+def multilayer_temporal_network(gtfs):
+    """
+    Parameters
+    ----------
+    gtfs
+
+    Returns
+    -------
+    ?
+    """
+    pass
+
+
+def aggregate_stop_to_stop_network(network, distance):
+    """
+    Aggregate graph by grouping nodes that are within a specified distance.
+    The ids of the nodes are tuples of the original stop_Is.
+
+    Parameters
+    ----------
+    network: networkx.DiGraph
     distance: float
         group all nodes within this distance.
 
@@ -227,184 +268,7 @@ def aggregate_line_network(gtfs, distance):
     -------
     graph: networkx.Graph
     """
-    graph = undirected_line_network(gtfs)
-    return _undir_line_graph_to_aggregated(gtfs, graph, distance)
-
-
-def undirected_line_network(gtfs, verbose=True):
-    """
-    Return a graph, where edges have route_id as labels.
-    Only one arbitrary "instance/trip" of each "route"
-    (or "line") is taken into account.
-    Non-connected stops are filtered out from the network.
-
-    Returns
-    -------
-    giant: networkx.Graph
-        the largest connected component of the undirected line graph
-
-    """
-    net = networkx.Graph()
-    nodeDataFrame = gtfs.stops()  # node data frame
-    for stopTuple in nodeDataFrame.itertuples(index=False, name="NamedTupleStop"):
-        node_attributes = {
-            "lat": stopTuple.lat,
-            "lon": stopTuple.lon,
-            "name": stopTuple.name,
-        }
-        net.add_node(stopTuple.stop_I, attr_dict=node_attributes)
-
-    rows = gtfs.conn.cursor().execute(
-        "SELECT trip_I, route_I, route_id "
-        "FROM routes "
-        "LEFT JOIN trips "
-        "USING(route_I) "
-        "GROUP BY route_I").fetchall()
-    # Grouping by route_I to consider only one route variation per route
-    # (looping over all trip_Is would be too costly)
-
-    for trip_I, route_I, route_id in rows:
-        if trip_I is None:
-            continue
-        query2 = "SELECT stop_I, seq " \
-                 "FROM stop_times " \
-                 "WHERE trip_I={trip_I} " \
-                 "ORDER BY seq".format(trip_I=trip_I)
-        df = pd.read_sql(query2, gtfs.conn)
-        stop_Is = df['stop_I'].values
-        edges = zip(stop_Is[:-1], stop_Is[1:])
-        for from_stop_I, to_stop_I in edges:
-            if net.has_edge(from_stop_I, to_stop_I):
-                edge_data = net.get_edge_data(from_stop_I, to_stop_I)
-                edge_data["route_ids"].append(route_id)
-                edge_data["route_Is"].append(route_I)
-            else:
-                net.add_edge(from_stop_I, to_stop_I,
-                             route_ids=[route_id], route_Is=[route_I])
-    if verbose:
-        if len(net.edges()) == 0:
-            print("Warning: no edges in the line network, is the stop_times table defined properly?")
-
-    # return only the maximum connected component to remove unassosicated nodes
-    giant = max(networkx.connected_component_subgraphs(net), key=len)
-    return giant
-
-
-def directed_stop_to_stop_network(gtfs, link_attributes=None,
-                                  start_time_ut=None, end_time_ut=None):
-
-    """
-    Get a static graph presentation (networkx graph) of the GTFS feed.
-    Node indices correspond to integers (stop_I's in the underlying GTFS database).
-
-    Parameters
-    ----------
-    gtfs : gtfspy.GTFS
-    link_attributes : list, optional
-        What link attributes should be computed
-            "n_vehicles" : Number of vehicles passed
-            "route_types" : GTFS route types that take place within the (i.e. which layer are we talking about)
-            "duration_min" : minimum travel time between stops
-            "duration_max" : maximum travel time between stops
-            "duration_median" : median travel time between stops
-            "duration_avg" : average travel time between stops
-            "distance_straight_line" : distance along straight line (wgs84_distance)
-            "distance_shape" : minimum distance along shape
-            "capacity_estimate"  : approximate capacity passed
-            "route_ids" : route id
-    start_time_ut : int
-        only events taking place after this moment are taken into account
-    end_time_ut : int
-        only events taking place before this moment are taken into account
-    # node_attributes : None
-    #     Defaulting to include all the following: latitude, longitude and stop_name
-    #         "lat" : float, lon coordinate
-    #         "lon" : float, lat coordinate
-    #         "name" : str, name of the stop
-    # directed : bool
-    #    Is the network directed or not.
-    #    In case of (undirected) links (i.e. walking), then links to both directions are included.
-    # travel_modes : list, or set, optional (defaulting to all)
-    #    A collection of integers as specified by GTFS:
-    #    https://developers.google.com/transit/gtfs/reference#routestxt
-
-    Returns
-    -------
-    net : an instance of the networkx graphs
-        networkx.DiGraph : undirected simple
-    """
-    # get all nodes and their attributes
-    net = networkx.DiGraph()
-    nodeDataFrame = gtfs.stops()  # node data frame
-    for stopTuple in nodeDataFrame.itertuples(index=False, name="NamedTupleStop"):
-        node_attributes = {
-            "lat": stopTuple.lat,
-            "lon": stopTuple.lon,
-            "name": stopTuple.name,
-        }
-        net.add_node(stopTuple.stop_I, attr_dict=node_attributes)
-    n_nodes = len(net.nodes())
-
-    # get all trips
-    events_df = gtfs.get_transit_events(start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-
-    # group events by links, and loop over them (i.e. each link):
-    link_event_groups = events_df.groupby(['from_stop_I', 'to_stop_I'], sort=False)
-    for key, link_events in link_event_groups:
-        from_stop_I, to_stop_I = key
-        assert isinstance(link_events, pd.DataFrame)
-        # link_events columns:
-        # 'dep_time_ut' 'arr_time_ut' 'shape_id' 'route_type' 'trip_I' 'duration' 'from_seq' 'to_seq'
-        if link_attributes is None:
-            net.add_edge(from_stop_I, to_stop_I)
-        else:
-            link_data = {}
-            if "duration_min" in link_attributes:
-                link_data['duration_min'] = link_events['duration'].min()
-            if "duration_max" in link_attributes:
-                link_data['duration_max'] = link_events['duration'].max()
-            if "duration_median" in link_attributes:
-                link_data['duration_median'] = link_events['duration'].median()
-            if "duration_avg" in link_attributes:
-                link_data['duration_avg'] = link_events['duration'].mean()
-            # statistics on numbers of vehicles:
-            if "n_vehicles" in link_attributes:
-                link_data['n_vehicles'] = link_events.shape[0]
-            if "route_types" in link_attributes:
-                link_data['route_types'] = link_events.groupby('route_type').size().to_dict()
-            if "capacity_estimate" in link_attributes:
-                # TODO !
-                raise NotImplementedError
-            if "distance_straight_line" in link_attributes:
-                from_lat = net.node[from_stop_I]['lat']
-                from_lon = net.node[from_stop_I]['lon']
-                to_lat = net.node[to_stop_I]['lat']
-                to_lon = net.node[to_stop_I]['lon']
-                distance = wgs84_distance(from_lat, from_lon, to_lat, to_lon)
-                link_data['distance_straight_line'] = distance
-            if "distance_shape" in link_attributes:
-                found = None
-                assert "shape_id" in link_events.columns.values
-                for i, shape_id in enumerate(link_events["shape_id"].values):
-                    if shape_id is not None:
-                        found = i
-                        break
-                if found is None:
-                    link_data["distance_shape"] = None
-                else:
-                    link_event = link_events.iloc[found]
-                    distance = gtfs.get_shape_distance_between_stops(
-                        link_event["trip_I"],
-                        int(link_event["from_seq"]),
-                        int(link_event["to_seq"])
-                    )
-                    link_data['distance_shape'] = distance
-            if "route_ids" in link_attributes:
-                link_data["route_ids"] = link_events.groupby("route_id").size().to_dict()
-            net.add_edge(from_stop_I, to_stop_I, attr_dict=link_data)
-
-    assert len(net.nodes()) == n_nodes
-    return net
+    pass
 
 
 def main():
@@ -412,3 +276,81 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# def undirected_stop_to_stop_network_with_route_information(gtfs, verbose=True):
+#     """
+#     Return a graph, where edges have route_id as labels.
+#     Note: Only one route variation of each route is taken into account.
+#     Un-connected stops are filtered out from the network.
+#
+#     Returns
+#     -------
+#     giant: networkx.Graph
+#         the largest connected component of the undirected line graph
+#
+#     """
+#     net = networkx.Graph()
+#     node_data_frame = gtfs.stops()
+#     for stop_tuple in node_data_frame.itertuples(index=False, name="NamedTupleStop"):
+#         node_attributes = {
+#             "lat": stop_tuple.lat,
+#             "lon": stop_tuple.lon,
+#             "name": stop_tuple.name,
+#         }
+#         net.add_node(stop_tuple.stop_I, attr_dict=node_attributes)
+#
+#     rows = gtfs.conn.cursor().execute(
+#         "SELECT trip_I, route_I, route_id "
+#         "FROM routes "
+#         "LEFT JOIN trips "
+#         "USING(route_I) "
+#         "GROUP BY route_I").fetchall()
+#
+#     # Grouping by route_I to consider only one route variation per route
+#     # (looping over all trip_Is would be too costly)
+#
+#     for trip_I, route_I, route_id in rows:
+#         if trip_I is None:
+#             continue
+#         query2 = "SELECT stop_I, seq " \
+#                  "FROM stop_times " \
+#                  "WHERE trip_I={trip_I} " \
+#                  "ORDER BY seq".format(trip_I=trip_I)
+#         df = pd.read_sql(query2, gtfs.conn)
+#         stop_Is = df['stop_I'].values
+#         edges = zip(stop_Is[:-1], stop_Is[1:])
+#         for from_stop_I, to_stop_I in edges:
+#             if net.has_edge(from_stop_I, to_stop_I):
+#                 edge_data = net.get_edge_data(from_stop_I, to_stop_I)
+#                 edge_data["route_ids"].append(route_id)
+#                 edge_data["route_Is"].append(route_I)
+#             else:
+#                 net.add_edge(from_stop_I, to_stop_I,
+#                              route_ids=[route_id], route_Is=[route_I])
+#     if verbose:
+#         if len(net.edges()) == 0:
+#             print("Warning: no edges in the line network, is the stop_times table defined properly?")
+#
+#     # return only the maximum connected component to remove unassosicated nodes
+#     giant = max(networkx.connected_component_subgraphs(net), key=len)
+#     return giant
+
+
+def _add_stops_to_net(net, stops):
+    """
+    Add nodes to the network from the pandas dataframe describing (a part of the) stops table in the GTFS database.
+
+    Parameters
+    ----------
+    net: networkx.Graph
+    stops: pandas.DataFrame
+    """
+    for stop in stops.itertuples():
+        data = {
+            "lat" : stop.lat,
+            "lon" : stop.lon,
+            "name" : stop.name
+        }
+        net.add_node(stop.stop_I, data)
+

@@ -617,6 +617,7 @@ class StopTimesLoader(TableLoader):
     #                 'JOIN stop_times USING (trip_I)')
     #    conn.commit()
 
+
 class DayTripsMaterializer(TableLoader):
     """Make the tabel day_trips with (date, trip_I, start, end, day_start_ut).
 
