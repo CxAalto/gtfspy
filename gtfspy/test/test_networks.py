@@ -26,12 +26,7 @@ class NetworkExtractsTest(unittest.TestCase):
         """This method is run once before _each_ test method is executed"""
         self.gtfs_source_dir = self.__class__.gtfs_source_dir
         self.gtfs = self.__class__.G
-        self.extract_output_dir = os.path.join(self.gtfs_source_dir, "../", "test_extracts/")
-        if os.path.exists(self.extract_output_dir):
-            raise RuntimeError("There should be no extract output directory when starting the tests: " +
-                               self.extract_output_dir)
-
-    def tearDown(self):
+        self.extract_output_dir = os.path.join(self.gtfs_source_dir, "../", "test_gtfspy_extracts_8211231/")
         if os.path.exists(self.extract_output_dir):
             shutil.rmtree(self.extract_output_dir)
 
@@ -112,10 +107,12 @@ class NetworkExtractsTest(unittest.TestCase):
         columns_should_exist = ["dep_time_ut", "arr_time_ut", "from", "to", "route_type", "route_id", "trip_I"]
         for col in columns_should_exist:
             self.assertIn(col, df.columns.values)
+        print(df)
 
     def test_write_temporal_networks_by_route_type(self):
         networks.write_temporal_networks_by_route_type(self.gtfs, self.extract_output_dir)
         self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "bus.tnet")))
+
 
     # def test_clustered_stops_network(self):
     #     orig_net = networks.undirected_stop_to_stop_network_with_route_information(self.gtfs)

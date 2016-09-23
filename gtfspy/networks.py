@@ -19,7 +19,7 @@ DEFAULT_STOP_TO_STOP_LINK_ATTRIBUTES = [
 
 def walk_stop_to_stop_network(gtfs):
     """
-    Get the walk network.
+    Construct the walk network.
     If OpenStreetMap-based walking distances have been computed, then those are used as the distance.
     Otherwise, the great circle distances ("d_great_circle") is used.
 
@@ -30,6 +30,11 @@ def walk_stop_to_stop_network(gtfs):
     Returns
     -------
     net: networkx.DiGraph
+        edges have attributes
+            d_great_circle:
+                straight-line distance between stops
+            d_shape:
+                distance along the road/tracks/..
     """
     net = networkx.Graph()
     _add_stops_to_net(net, gtfs.get_table("stops"))
@@ -41,63 +46,6 @@ def walk_stop_to_stop_network(gtfs):
         d_walk = transfer.d_walk
         net.add_edge(from_node, to_node, {"d_great_circle": d, "d_shape": d_walk})
     return net
-
-
-# def aggregate__network(self, graph, distance):
-#     """
-#     See to_aggregate_line_graph for documentation
-#     """
-#     raise NotImplementedError("this is not working fully yet")
-#     assert distance <= 1000, "only works with distances below 1000 meters"
-#     nodes = set(graph.nodes())
-#
-#     node_distance_graph = networkx.Graph()
-#
-#     stop_distances = self.get_table("stop_distances")
-#     stop_pairs = stop_distances[stop_distances['d'] <= distance]
-#     stop_pairs = zip(stop_pairs['from_stop_I'], stop_pairs['to_stop_I'])
-#     for node in nodes:
-#         node_distance_graph.add_node(node)
-#     for node, another_node in stop_pairs:
-#         if (node in nodes) and (another_node in nodes):
-#             node_distance_graph.add_edge(node, another_node)
-#
-#     node_group_iter = networkx.connected_components(node_distance_graph)
-#
-#     aggregate_graph = networkx.Graph()
-#     old_node_to_new_node = {}
-#     for node_group in node_group_iter:
-#         new_node_id = tuple(node for node in node_group)
-#         lats = []
-#         lons = []
-#         names = []
-#         for node in node_group:
-#             if node not in graph:
-#                 # some stops may not part of the original node line graph
-#                 # (e.g. if some lines are not considered, or there are extra stops in stops table)
-#                 continue
-#             old_node_to_new_node[node] = new_node_id
-#             lats.append(graph.node[node]['lat'])
-#             lons.append(graph.node[node]['lon'])
-#             names.append(graph.node[node]['name'])
-#         new_lat = numpy.mean(lats)
-#         new_lon = numpy.mean(lons)
-#         attr_dict = {
-#             "lat": new_lat,
-#             "lon": new_lon,
-#             "names": names
-#         }
-#         aggregate_graph.add_node(new_node_id, attr_dict=attr_dict)
-#
-#     for from_node, to_node, data in graph.edges(data=True):
-#         new_from_node = old_node_to_new_node[from_node]
-#         new_to_node = old_node_to_new_node[to_node]
-#         if aggregate_graph.has_edge(new_from_node, new_to_node):
-#             edge_data = aggregate_graph.get_edge_data(new_from_node, new_to_node)
-#             edge_data['route_ids'].append(data['route_ids'])
-#         else:
-#             aggregate_graph.add_edge(new_from_node, new_to_node, route_ids=data['route_ids'])
-#     return aggregate_graph
 
 
 def stop_to_stop_network_for_route_type(gtfs,
@@ -236,7 +184,8 @@ def combined_stop_to_stop_transit_network(gtfs):
     """
     Compute stop-to-stop networks for all travel modes and combine them into a single network.
     The modes of transport are encoded to a single network.
-    Does NOT include the walki mode
+    The network consists of multiple links corresponding to each travel mode.
+    Walk mode is not included.
 
     Parameters
     ----------
@@ -304,24 +253,6 @@ def _write_stop_to_stop_network(net, base_name):
     networkx.write_edgelist(net, base_name + "_with_data.edg", data=True)
 
 
-# def cluster_network_stops(stop_to_stop_net, distance):
-#     """
-#     Aggregate graph by grouping nodes that are within a specified distance.
-#     The ids of the nodes are tuples of the original stop_Is.
-#
-#     Parameters
-#     ----------
-#     network: networkx.DiGraph
-#     distance: float
-#         group all nodes within this distance.
-#
-#     Returns
-#     -------
-#     graph: networkx.Graph
-#     """
-#     pass
-
-
 def _add_stops_to_net(net, stops):
     """
     Add nodes to the network from the pandas dataframe describing (a part of the) stops table in the GTFS database.
@@ -372,7 +303,7 @@ def temporal_network(gtfs,
     Returns
     -------
     events_df: pandas.DataFrame
-        Columns: departure_stop, arrival_stop, departure_time_ut, arrival_time_ut, route_type, route_I
+        Columns: departure_stop, arrival_stop, departure_time_ut, arrival_time_ut, route_type, route_I, mode
     """
     events_df = gtfs.get_transit_events(start_time_ut=start_time_ut,
                                         end_time_ut=end_time_ut,
@@ -406,3 +337,78 @@ def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_u
     util.makedirs(os.path.dirname(os.path.abspath(output_filename)))
     pandas_data_frame = temporal_network(gtfs, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
     pandas_data_frame.to_csv(output_filename)
+
+
+# def cluster_network_stops(stop_to_stop_net, distance):
+#     """
+#     Aggregate graph by grouping nodes that are within a specified distance.
+#     The ids of the nodes are tuples of the original stop_Is.
+#
+#     Parameters
+#     ----------
+#     network: networkx.DiGraph
+#     distance: float
+#         group all nodes within this distance.
+#
+#     Returns
+#     -------
+#     graph: networkx.Graph
+#     """
+#     pass
+
+
+# def aggregate__network(self, graph, distance):
+#     """
+#     See to_aggregate_line_graph for documentation
+#     """
+#     raise NotImplementedError("this is not working fully yet")
+#     assert distance <= 1000, "only works with distances below 1000 meters"
+#     nodes = set(graph.nodes())
+#
+#     node_distance_graph = networkx.Graph()
+#
+#     stop_distances = self.get_table("stop_distances")
+#     stop_pairs = stop_distances[stop_distances['d'] <= distance]
+#     stop_pairs = zip(stop_pairs['from_stop_I'], stop_pairs['to_stop_I'])
+#     for node in nodes:
+#         node_distance_graph.add_node(node)
+#     for node, another_node in stop_pairs:
+#         if (node in nodes) and (another_node in nodes):
+#             node_distance_graph.add_edge(node, another_node)
+#
+#     node_group_iter = networkx.connected_components(node_distance_graph)
+#
+#     aggregate_graph = networkx.Graph()
+#     old_node_to_new_node = {}
+#     for node_group in node_group_iter:
+#         new_node_id = tuple(node for node in node_group)
+#         lats = []
+#         lons = []
+#         names = []
+#         for node in node_group:
+#             if node not in graph:
+#                 # some stops may not part of the original node line graph
+#                 # (e.g. if some lines are not considered, or there are extra stops in stops table)
+#                 continue
+#             old_node_to_new_node[node] = new_node_id
+#             lats.append(graph.node[node]['lat'])
+#             lons.append(graph.node[node]['lon'])
+#             names.append(graph.node[node]['name'])
+#         new_lat = numpy.mean(lats)
+#         new_lon = numpy.mean(lons)
+#         attr_dict = {
+#             "lat": new_lat,
+#             "lon": new_lon,
+#             "names": names
+#         }
+#         aggregate_graph.add_node(new_node_id, attr_dict=attr_dict)
+#
+#     for from_node, to_node, data in graph.edges(data=True):
+#         new_from_node = old_node_to_new_node[from_node]
+#         new_to_node = old_node_to_new_node[to_node]
+#         if aggregate_graph.has_edge(new_from_node, new_to_node):
+#             edge_data = aggregate_graph.get_edge_data(new_from_node, new_to_node)
+#             edge_data['route_ids'].append(data['route_ids'])
+#         else:
+#             aggregate_graph.add_edge(new_from_node, new_to_node, route_ids=data['route_ids'])
+#     return aggregate_graph

@@ -1,20 +1,20 @@
 """
 Author: rmkujala
 """
+
 from collections import defaultdict
-from collections import namedtuple
-import time
 
 import networkx
 
-Connection = namedtuple('Connection',
-                        ['departure_stop', 'arrival_stop', 'departure_time', 'arrival_time', 'trip_id'])
+from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 
 
-class ConnectionScan:
+class ConnectionScan(AbstractRoutingAlgorithm):
     """
-    A simple implementation of the Connection Scan Algorithm (CSA) for public transport networks that fits
-    (relatively well) the gtfspy data model.
+    A simple implementation of the Connection Scan Algorithm (CSA) solving the first arrival problem
+    for public transport networks.
+
+    http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf
     """
 
     def __init__(self, transit_events, seed_stop, start_time,
@@ -28,14 +28,15 @@ class ConnectionScan:
         start_time : int
             start time in unixtime seconds
         end_time: int
-            end time in unixtime seconds
+            end time in unixtime seconds (no new connections will be scanned after this time)
         transfer_margin: int
             required extra margin required for transfers in seconds
         walk_speed: float
             walking speed between stops in meters / second
         walk_network: networkx.Graph
-            each edge should have the walking distance as an attribute ("distance_shape") expressed in meters
+            each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         """
+        AbstractRoutingAlgorithm.__init__(self)
         self._seed = seed_stop
         self._connections = transit_events
         self._start_time = start_time
@@ -51,20 +52,6 @@ class ConnectionScan:
         # trip flags:
         self.__trip_reachable = defaultdict(lambda: False)
 
-        # meta information:
-        self._run_time = None
-        self._has_run = False
-
-    def run(self):
-        """Run the algorithm"""
-        if self._has_run:
-            raise RuntimeError("Algorithm has already run, please initialize a new algorithm")
-        start_time = time.time()
-        self._run()
-        end_time = time.time()
-        self._run_time = end_time - start_time
-        self._has_run = True
-
     def get_arrival_times(self):
         """
         Returns
@@ -75,21 +62,14 @@ class ConnectionScan:
         assert self._has_run
         return self.__stop_labels
 
-    def get_run_time(self):
-        """
-        Returns
-        -------
-        run_time: float
-            running time of the algorithm in seconds
-        """
-        assert self._has_run
-        return self._run_time
-
     def _run(self):
+        self._scan_footpaths(self._seed, self._start_time)
         for connection in self._connections:
+            departure_time = connection.departure_time
+            if departure_time > self._end_time:
+                return
             from_stop = connection.departure_stop
             to_stop = connection.arrival_stop
-            departure_time = connection.departure_time
             arrival_time = connection.arrival_time
             trip_id = connection.trip_id
             reachable = False
