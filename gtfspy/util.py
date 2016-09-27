@@ -173,7 +173,8 @@ def ut_to_utc_datetime_str(time_ut):
 
 
 def makedirs(path):
-    """Make directories if they don't exist, otherwise nothing.
+    """
+    Create directories if they do not exist, otherwise do nothing.
 
     Return path for convenience
     """

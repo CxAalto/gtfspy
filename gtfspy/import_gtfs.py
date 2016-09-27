@@ -1284,8 +1284,7 @@ def calculate_trip_shape_breakpoints(conn):
 
     Depends: shapes"""
     from gtfspy import shapes
-    print("Calculating trip shape breakpoints")
-
+    
     cur = conn.cursor()
     breakpoints_cache = {}
 

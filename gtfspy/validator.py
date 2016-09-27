@@ -92,7 +92,7 @@ class Validator(object):
             'trips, '
             'routes '
             'WHERE q1.trip_I = q2.trip_I '
-            'AND nd q1.seq + 1 = q2.seq '
+            'AND q1.seq + 1 = q2.seq '
             'AND q1.trip_I = trips.trip_I '
             'AND trips.route_I = routes.route_I ').fetchall()
         for row in rows:
