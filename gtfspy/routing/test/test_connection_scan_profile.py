@@ -51,13 +51,12 @@ class ConnectionScanProfileTest(unittest.TestCase):
         pareto_tuples = set()
         pareto_tuples.add(ParetoTuple(departure_time=10, arrival_time_target=35))
         pareto_tuples.add(ParetoTuple(departure_time=20, arrival_time_target=50))
+        pareto_tuples.add(ParetoTuple(departure_time=32, arrival_time_target=55))
 
-        # pareto_tuples.add(ParetoTuple(departure_time=32, arrival_time_target=55))  # does not work yet
-
-        for pareto_tuple in pareto_tuples:
-            self.assertIn(pareto_tuple, source_stop_pareto_optimal_tuples)
-        for result_tuple in source_stop_pareto_optimal_tuples:
-            self.assertIn(result_tuple, pareto_tuples)
+        self._assert_pareto_tuple_sets_equal(
+            pareto_tuples,
+            source_stop_pareto_optimal_tuples
+        )
 
     def test_wrong_event_data_ordering(self):
         event_list_wrong_ordering = [
@@ -98,8 +97,37 @@ class ConnectionScanProfileTest(unittest.TestCase):
         source_stop_profile = csa_profile.stop_profiles[source_stop]
         source_stop_pareto_tuples = source_stop_profile.get_pareto_tuples()
 
-        for pareto_tuple in pareto_tuples:
-            self.assertIn(pareto_tuple, source_stop_pareto_tuples)
-        for result_tuple in source_stop_pareto_tuples:
-            self.assertIn(result_tuple, pareto_tuples)
+        self._assert_pareto_tuple_sets_equal(
+            pareto_tuples,
+            source_stop_pareto_tuples
+        )
 
+    def test_last_leg_is_walk(self):
+        event_list_raw_data = [
+            (0, 1, 0, 10, "trip_1")
+        ]
+        transit_connections = map(lambda el: Connection(*el), event_list_raw_data)
+        walk_network = networkx.Graph()
+        walk_network.add_edge(1, 2, {"distance_shape": 20})
+
+        walk_speed = 1
+        source_stop = 0
+        target_stop = 2
+        transfer_margin = 0
+        start_time = 0
+        end_time = 50
+        pareto_tuples = set()
+        pareto_tuples.add(ParetoTuple(departure_time=0, arrival_time_target=30))
+
+        csa_profile = ConnectionScanProfiler(transit_connections, target_stop,
+                                             start_time, end_time, transfer_margin,
+                                             walk_network, walk_speed)
+        csa_profile.run()
+        found_tuples = csa_profile.stop_profiles[source_stop].get_pareto_tuples()
+        self._assert_pareto_tuple_sets_equal(found_tuples, pareto_tuples)
+
+    def _assert_pareto_tuple_sets_equal(self, found_tuples, should_be_tuples):
+        for found_tuple in found_tuples:
+            self.assertIn(found_tuple, should_be_tuples)
+        for should_be_tuple in should_be_tuples:
+            self.assertIn(should_be_tuple, found_tuples)

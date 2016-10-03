@@ -67,6 +67,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         """
         AbstractRoutingAlgorithm.__init__(self)
+
         self._target = target_stop
         self._connections = transit_events
         self._start_time = start_time
@@ -101,15 +102,19 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             arrival_profile = self._stop_profiles[arrival_stop]  # NodeProfile
             dep_stop_profile = self._stop_profiles[departure_stop]
 
-            earliest_arrival_time = arrival_profile.get_earliest_arrival_time_at_target(arrival_time +
-                                                                                        self._transfer_margin)
-            trip_arrival_time = self.__trip_min_arrival_time[trip_id]
+            earliest_arrival_time_via_transfer = arrival_profile.get_earliest_arrival_time_at_target(
+                arrival_time + self._transfer_margin
+            )
+            earliest_arrival_time_via_same_trip = self.__trip_min_arrival_time[trip_id]
+            earliest_arrival_time_via_walking_to_target = arrival_time + self._get_walk_time_to_target(arrival_stop)
 
-            min_arrival_time = min(trip_arrival_time, earliest_arrival_time)
+            min_arrival_time = min(earliest_arrival_time_via_same_trip,
+                                   earliest_arrival_time_via_transfer,
+                                   earliest_arrival_time_via_walking_to_target)
             if min_arrival_time == float("inf"):
                 continue
-            if trip_arrival_time > min_arrival_time:
-                self.__trip_min_arrival_time[trip_id] = earliest_arrival_time
+            if earliest_arrival_time_via_same_trip > min_arrival_time:
+                self.__trip_min_arrival_time[trip_id] = earliest_arrival_time_via_transfer
 
             pareto_tuple = ParetoTuple(departure_time, min_arrival_time)
             updated_dep_stop = dep_stop_profile.update_pareto_optimal_tuples(pareto_tuple)
@@ -124,6 +129,12 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             neighbor_dep_time = connection_dep_time - distance_shape / self._walk_speed
             pt = ParetoTuple(departure_time=neighbor_dep_time, arrival_time_target=arrival_time_target)
             self._stop_profiles[neighbor].update_pareto_optimal_tuples(pt)
+
+    def _get_walk_time_to_target(self, arrival_stop):
+        if self._walk_network.has_edge(arrival_stop, self._target):
+            return self._walk_network[arrival_stop][self._target]["distance_shape"] / self._walk_speed
+        else:
+            return float("inf")
 
     @property
     def stop_profiles(self):
