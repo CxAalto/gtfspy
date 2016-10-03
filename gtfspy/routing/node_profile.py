@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 
 
 class AbstractNodeProfile:
-    """ Defines the profile interface """
+    """ Defines the NodeProfile interface """
 
     __metaclass__ = ABCMeta
 
@@ -35,7 +35,7 @@ class NodeProfile(AbstractNodeProfile):
 
     def update_pareto_optimal_tuples(self, new_pareto_tuple):
         """
-        # this function could be optimized
+        # this function should be optimized
 
         Parameters
         ----------

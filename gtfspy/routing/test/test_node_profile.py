@@ -8,7 +8,6 @@ class TestNodeProfile(TestCase):
 
     def test_add_if_pareto_optimal(self):
         node_profile = NodeProfile()
-
         self.assertEquals(float("inf"), node_profile.get_earliest_arrival_time_at_target(0))
 
         pair1 = ParetoTuple(departure_time=1, arrival_time_target=2)
@@ -21,7 +20,6 @@ class TestNodeProfile(TestCase):
 
         pair3 = ParetoTuple(departure_time=1, arrival_time_target=1)
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pair3))
-
         self.assertEquals(1, len(node_profile._pareto_tuples))
 
         pair4 = ParetoTuple(departure_time=1, arrival_time_target=2)
