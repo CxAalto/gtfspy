@@ -1599,7 +1599,8 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
             if location_name_list:
                 G.meta[prefix + 'location_name'] = location_name_list[-1]
             else:
-                G.meta[prefix + 'location_name'] = source.split("/")[-1]
+                G.meta[prefix + 'location_name'] = source.split("/")[-4]
+
     G.meta['timezone'] = cur.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()[0]
     stats.update_stats(G)
     del G
