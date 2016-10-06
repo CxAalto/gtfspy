@@ -81,7 +81,7 @@ def write_temporal_networks_by_route_type(gtfs, extract_output_dir):
         pandas_data_frame = temporal_network(gtfs, start_time_ut=None, end_time_ut=None)
         tag = route_types.ROUTE_TYPE_TO_LOWERCASE_TAG[route_type]
         out_file_name = os.path.join(extract_output_dir, tag + ".tnet")
-        pandas_data_frame.to_csv(out_file_name, encoding='utf-8')
+        pandas_data_frame.to_csv(out_file_name, encoding='utf-8', index=False)
 
 
 def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_ut=None):
