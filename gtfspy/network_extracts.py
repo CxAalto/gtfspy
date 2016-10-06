@@ -20,7 +20,7 @@ def write_walk_transfer_edges(gtfs, output):
     """
     transfers = gtfs.get_table("stop_distances")
     print(transfers.columns)
-    transfers.drop([u"min_transfer_time", u"timed_transfer"], 1)
+    transfers.drop([u"min_transfer_time", u"timed_transfer"], 1, inplace=True)
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
         transfers.to_csv(tmpfile, encoding='utf-8', index=False)
 

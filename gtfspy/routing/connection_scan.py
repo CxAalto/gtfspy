@@ -34,7 +34,7 @@ class ConnectionScan(AbstractRoutingAlgorithm):
         walk_speed: float
             walking speed between stops in meters / second
         walk_network: networkx.Graph
-            each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
+            each edge should have the walking distance as a data attribute ("d_walk") expressed in meters
         """
         AbstractRoutingAlgorithm.__init__(self)
         self._seed = seed_stop
@@ -97,8 +97,9 @@ class ConnectionScan(AbstractRoutingAlgorithm):
         ----------
         stop_id: int
         """
-        for _, neighbor, distance_shape in self._walk_network.edges_iter(nbunch=[stop_id], data="distance_shape"):
-            arrival_time = walk_departure_time + distance_shape / self._walk_speed
+        for _, neighbor, data in self._walk_network.edges_iter(nbunch=[stop_id], data=True):
+            d_walk = data["d_walk"]
+            arrival_time = walk_departure_time + d_walk / self._walk_speed
             self._update_stop_label(neighbor, arrival_time)
 
 
