@@ -17,18 +17,10 @@ def write_walk_transfer_edges(gtfs, output):
     gtfs: gtfspy.GTFS
         Not used if @param:net is given
     output: str
-
-    Return
-    ------
-    net: networkx.Graph
     """
-    net = walk_transfer_stop_to_stop_network(gtfs)
-    u, v, data = next(net.edges_iter(data=True))
-    keys = sorted(list(data.keys()))
+    transfers = gtfs.get_table("stop_distances")
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
-        with open(tmpfile, 'w') as f:
-            f.write("#from to " + " ".join(keys) + "\n")
-            networkx.write_edgelist(net, f, data=keys, delimiter=",")
+        transfers.to_csv(tmpfile, encoding='utf-8', index=False)
 
 
 def write_nodes(gtfs, output):
@@ -151,7 +143,7 @@ def main():
         with util.create_file(nodes_filename, tmpdir=True, keepext=True) as tmpfile:
             write_nodes(gtfs, tmpfile)
 
-        transfers_filename = output_basename + ".transfers.edg"
+        transfers_filename = output_basename + ".transfers.csv"
         with util.create_file(transfers_filename, tmpdir=True, keepext=True) as tmpfile:
             write_walk_transfer_edges(gtfs, tmpfile)
 
