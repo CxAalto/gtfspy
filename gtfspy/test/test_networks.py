@@ -4,6 +4,7 @@ import os
 import unittest
 import shutil
 
+import network_extracts
 import networkx
 import pandas
 
@@ -32,7 +33,7 @@ class NetworkExtractsTest(unittest.TestCase):
 
     def test_walk_network(self):
         calc_transfers(self.gtfs.conn, 10**6)
-        walk_net = networks.walk_stop_to_stop_network(self.gtfs)
+        walk_net = networks.walk_transfer_stop_to_stop_network(self.gtfs)
         self.assertGreater(len(walk_net.nodes()), 0)
         self.assertGreater(len(walk_net.edges()), 1)
         for form_node, to_node, data_dict in walk_net.edges(data=True):
@@ -41,7 +42,7 @@ class NetworkExtractsTest(unittest.TestCase):
             self.assertIsNone(data_dict["d_shape"])  # for this test data set, there is no OSM routing done
 
     def test_write_stop_to_stop_networks(self):
-        networks.write_stop_to_stop_networks(self.gtfs, self.extract_output_dir)
+        network_extracts.write_stop_to_stop_networks(self.gtfs, self.extract_output_dir)
         self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "walk.edg")))
         self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "bus.edg")))
 

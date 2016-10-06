@@ -1,12 +1,9 @@
 from __future__ import print_function
 
-import os
-
 import networkx
 import pandas as pd
 
 from gtfspy import route_types
-from gtfspy import util
 from gtfspy.util import wgs84_distance
 
 DEFAULT_STOP_TO_STOP_LINK_ATTRIBUTES = [
@@ -16,8 +13,7 @@ DEFAULT_STOP_TO_STOP_LINK_ATTRIBUTES = [
     "route_ids"
 ]
 
-
-def walk_stop_to_stop_network(gtfs):
+def walk_transfer_stop_to_stop_network(gtfs):
     """
     Construct the walk network.
     If OpenStreetMap-based walking distances have been computed, then those are used as the distance.
@@ -46,7 +42,6 @@ def walk_stop_to_stop_network(gtfs):
         d_walk = transfer.d_walk
         net.add_edge(from_node, to_node, {"d_great_circle": d, "d_shape": d_walk})
     return net
-
 
 def stop_to_stop_network_for_route_type(gtfs,
                                         route_type,
@@ -85,7 +80,7 @@ def stop_to_stop_network_for_route_type(gtfs,
     if link_attributes is None:
         link_attributes = DEFAULT_STOP_TO_STOP_LINK_ATTRIBUTES
     if route_type is route_types.WALK:
-        net = walk_stop_to_stop_network(gtfs)
+        net = walk_transfer_stop_to_stop_network(gtfs)
         for from_node, to_node, data in net.edges(data=True):
             data["n_vehicles"] = None
             data["duration_min"] = None
@@ -206,53 +201,6 @@ def combined_stop_to_stop_transit_network(gtfs):
     return multi_di_graph
 
 
-def write_stop_to_stop_networks(gtfs, output_dir):
-    """
-    Parameters
-    ----------
-    gtfs: gtfspy.GTFS
-    output_dir: (str, unicode)
-        a path where to write
-    """
-    single_layer_networks = stop_to_stop_networks_by_type(gtfs)
-    util.makedirs(output_dir)
-    for route_type, net in single_layer_networks.iteritems():
-        tag = route_types.ROUTE_TYPE_TO_LOWERCASE_TAG[route_type]
-        base_name = os.path.join(output_dir, tag)
-        _write_stop_to_stop_network(net, base_name)
-
-
-def write_temporal_networks_by_route_type(gtfs, extract_output_dir):
-    """
-    Write temporal networks by route type to disk.
-
-    Parameters
-    ----------
-    gtfs: gtfspy.GTFS
-    extract_output_dir: str
-    """
-    util.makedirs(extract_output_dir)
-    for route_type in route_types.TRANSIT_ROUTE_TYPES:
-        pandas_data_frame = temporal_network(gtfs, start_time_ut=None, end_time_ut=None)
-        tag = route_types.ROUTE_TYPE_TO_LOWERCASE_TAG[route_type]
-        out_file_name = os.path.join(extract_output_dir, tag + ".tnet")
-        pandas_data_frame.to_csv(out_file_name)
-
-
-def _write_stop_to_stop_network(net, base_name):
-    """
-    Write out a network
-
-    Parameters
-    ----------
-    net: networkx.DiGraph
-    base_name: str
-        path to the filename (without extension)
-    """
-    networkx.write_edgelist(net, base_name + ".edg")
-    networkx.write_edgelist(net, base_name + "_with_data.edg", data=True)
-
-
 def _add_stops_to_net(net, stops):
     """
     Add nodes to the network from the pandas dataframe describing (a part of the) stops table in the GTFS database.
@@ -269,18 +217,6 @@ def _add_stops_to_net(net, stops):
             "name": stop.name
         }
         net.add_node(stop.stop_I, data)
-
-
-def write_combined_transit_stop_to_stop_network(gtfs, extract_output_dir):
-    """
-    Parameters
-    ----------
-    gtfs : gtfspy.GTFS
-    extract_output_dir : str
-    """
-    multi_di_graph = combined_stop_to_stop_transit_network(gtfs)
-    util.makedirs(extract_output_dir)
-    _write_stop_to_stop_network(multi_di_graph, os.path.join(extract_output_dir, "combined"))
 
 
 def temporal_network(gtfs,
@@ -320,23 +256,6 @@ def temporal_network(gtfs,
         inplace=True
     )
     return events_df
-
-
-def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_ut=None):
-    """
-    Parameters
-    ----------
-    gtfs : gtfspy.GTFS
-    output_filename : str
-        path to the directory where to store teh extracts
-    start_time_ut: int | None
-        start time of the extract in unixtime (seconds after epoch)
-    end_time_ut: int | None
-        end time of the extract in unixtime (seconds after epoch)
-    """
-    util.makedirs(os.path.dirname(os.path.abspath(output_filename)))
-    pandas_data_frame = temporal_network(gtfs, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-    pandas_data_frame.to_csv(output_filename)
 
 
 # def cluster_network_stops(stop_to_stop_net, distance):
@@ -412,3 +331,4 @@ def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_u
 #         else:
 #             aggregate_graph.add_edge(new_from_node, new_to_node, route_ids=data['route_ids'])
 #     return aggregate_graph
+
