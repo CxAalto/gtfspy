@@ -4,7 +4,7 @@ import networkx
 
 from gtfspy import route_types
 from gtfspy import util
-from gtfspy.networks import walk_transfer_stop_to_stop_network, stop_to_stop_networks_by_type, temporal_network, \
+from gtfspy.networks import stop_to_stop_networks_by_type, temporal_network, \
     combined_stop_to_stop_transit_network
 
 
@@ -19,6 +19,8 @@ def write_walk_transfer_edges(gtfs, output):
     output: str
     """
     transfers = gtfs.get_table("stop_distances")
+    print(transfers.columns)
+    transfers.drop([u"min_transfer_time", u"timed_transfer"], 1)
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
         transfers.to_csv(tmpfile, encoding='utf-8', index=False)
 
@@ -78,7 +80,7 @@ def write_temporal_networks_by_route_type(gtfs, extract_output_dir):
     """
     util.makedirs(extract_output_dir)
     for route_type in route_types.TRANSIT_ROUTE_TYPES:
-        pandas_data_frame = temporal_network(gtfs, start_time_ut=None, end_time_ut=None)
+        pandas_data_frame = temporal_network(gtfs, start_time_ut=None, end_time_ut=None, route_type=route_type)
         tag = route_types.ROUTE_TYPE_TO_LOWERCASE_TAG[route_type]
         out_file_name = os.path.join(extract_output_dir, tag + ".tnet")
         pandas_data_frame.to_csv(out_file_name, encoding='utf-8', index=False)

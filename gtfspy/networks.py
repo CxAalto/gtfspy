@@ -247,9 +247,7 @@ def temporal_network(gtfs,
     events_df.drop('duration', 1, inplace=True)
     events_df.rename(
         columns={
-            'from_seq': "seq",
-            'from_stop_I': "from",
-            'to_stop_I': "to"
+            'from_seq': "seq"
         },
         inplace=True
     )

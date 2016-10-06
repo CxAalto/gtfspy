@@ -105,7 +105,8 @@ class NetworkExtractsTest(unittest.TestCase):
         networks.write_temporal_network(self.gtfs, path, None, None)
         self.assertTrue(os.path.exists(path))
         df = pandas.read_csv(path)
-        columns_should_exist = ["dep_time_ut", "arr_time_ut", "from", "to", "route_type", "route_id", "trip_I"]
+        columns_should_exist = ["dep_time_ut", "arr_time_ut", "from_stop_I", "to_stop_I",
+                                "route_type", "route_id", "trip_I"]
         for col in columns_should_exist:
             self.assertIn(col, df.columns.values)
         print(df)
