@@ -28,6 +28,8 @@ Implements
 """
 from collections import defaultdict
 
+import networkx
+
 from gtfspy.routing.models import Connection, ParetoTuple
 from gtfspy.routing.node_profile import NodeProfile, IdentityNodeProfile
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
@@ -43,36 +45,42 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
     def __init__(self,
                  transit_events,
                  target_stop,
-                 start_time,
-                 end_time,
-                 transfer_margin,
-                 walk_network,
-                 walk_speed):
+                 start_time=None,
+                 end_time=None,
+                 transfer_margin=0,
+                 walk_network=None,
+                 walk_speed=1.5):
         """
         Parameters
         ----------
         transit_events: list[Connection]
-            events are assumed to be ordered in increasing departure_time (!)
+            events are assumed to be ordered in DECREASING departure_time (!)
         target_stop: int
             index of the target stop
-        start_time : int
+        start_time : int, optional
             start time in unixtime seconds
-        end_time: int
-            end time in unixtime seconds (no new connections will be scanned after this time)
-        transfer_margin: int
+        end_time: int, optional
+            end time in unixtime seconds (no connections will be scanned after this time)
+        transfer_margin: int, optional
             required extra margin required for transfers in seconds
-        walk_speed: float
-            walking speed between stops in meters / second
-        walk_network: networkx.Graph
+        walk_speed: float, optional
+            walking speed between stops in meters / second.
+        walk_network: networkx.Graph, optional
             each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         """
         AbstractRoutingAlgorithm.__init__(self)
 
         self._target = target_stop
         self._connections = transit_events
+        if start_time is None:
+            start_time = transit_events[-1].departure_time
+        if end_time is None:
+            end_time = transit_events[0].departure_time
         self._start_time = start_time
         self._end_time = end_time
         self._transfer_margin = transfer_margin
+        if walk_network is None:
+            walk_network = networkx.Graph()
         self._walk_network = walk_network
         self._walk_speed = walk_speed
 
