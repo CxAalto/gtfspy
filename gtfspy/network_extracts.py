@@ -100,7 +100,7 @@ def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_u
     """
     util.makedirs(os.path.dirname(os.path.abspath(output_filename)))
     pandas_data_frame = temporal_network(gtfs, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-    pandas_data_frame.to_csv(output_filename, encoding='utf-8')
+    pandas_data_frame.to_csv(output_filename, encoding='utf-8', index=False)
 
 
 def _write_stop_to_stop_network(net, base_name, data=True):
