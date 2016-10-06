@@ -51,7 +51,6 @@ class GTFS(object):
 
         self.meta = GTFSMetadata(self.conn)
         # Bind functions
-        from .util import wgs84_distance
         self.conn.create_function("find_distance", 4, wgs84_distance)
 
         # Set timezones
