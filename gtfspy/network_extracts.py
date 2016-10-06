@@ -24,10 +24,11 @@ def write_walk_transfer_edges(gtfs, output):
     """
     net = walk_transfer_stop_to_stop_network(gtfs)
     u, v, data = next(net.edges_iter(data=True))
-    keys = list(data.keys()).sort()
+    keys = sorted(list(data.keys()))
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
-        tmpfile.write("#from to " + " ".join(keys))
-        networkx.write_edgelist(net, tmpfile, data=keys)
+        with open(tmpfile, 'w') as f:
+            f.write("#from to " + " ".join(keys) + "\n")
+            networkx.write_edgelist(net, f, data=keys, delimiter=",")
 
 
 def write_nodes(gtfs, output):
@@ -43,7 +44,7 @@ def write_nodes(gtfs, output):
     """
     nodes = gtfs.get_table("stops")
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
-        nodes.to_csv(tmpfile)
+        nodes.to_csv(tmpfile, encoding='utf-8', index=False)
 
 
 def write_combined_transit_stop_to_stop_network(gtfs, extract_output_dir):
@@ -88,7 +89,7 @@ def write_temporal_networks_by_route_type(gtfs, extract_output_dir):
         pandas_data_frame = temporal_network(gtfs, start_time_ut=None, end_time_ut=None)
         tag = route_types.ROUTE_TYPE_TO_LOWERCASE_TAG[route_type]
         out_file_name = os.path.join(extract_output_dir, tag + ".tnet")
-        pandas_data_frame.to_csv(out_file_name)
+        pandas_data_frame.to_csv(out_file_name, encoding='utf-8')
 
 
 def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_ut=None):
@@ -105,7 +106,7 @@ def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_u
     """
     util.makedirs(os.path.dirname(os.path.abspath(output_filename)))
     pandas_data_frame = temporal_network(gtfs, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-    pandas_data_frame.to_csv(output_filename)
+    pandas_data_frame.to_csv(output_filename, encoding='utf-8')
 
 
 def _write_stop_to_stop_network(net, base_name, data=True):
@@ -131,30 +132,30 @@ def main():
     subparsers = parser.add_subparsers(dest='cmd')
 
     # parsing import
-    parser_routingnets = subparsers.add_parser('extract_routingnets', help="Direct import GTFS->sqlite")
+    parser_routingnets = subparsers.add_parser('extract_temporal', help="Direct import GTFS->sqlite")
     parser_routingnets.add_argument('gtfs', help='Input GTFS .sqlite (must end in .sqlite)')
-    parser_routingnets.add_argument('destdir', help='Output directory for any extracts produced')  # Parsing copy
+    parser_routingnets.add_argument('basename', help='Basename for the output files')  # Parsing copy
 
     args = parser.parse_args()
 
     # if the first argument is import, import a GTFS directory to a .sqlite database.
     # Both directory and
-    if args.cmd == 'extract_routingnets':
+    if args.cmd == 'extract_temporal':
         gtfs_fname = args.gtfs
-        destdir = args.destdir
+        output_basename = args.basename
 
         from gtfspy.gtfs import GTFS
         gtfs = GTFS(gtfs_fname)
 
-        nodes_filename = os.path.join(destdir, "nodes.csv")
+        nodes_filename = output_basename + ".nodes.csv"
         with util.create_file(nodes_filename, tmpdir=True, keepext=True) as tmpfile:
             write_nodes(gtfs, tmpfile)
 
-        transfers_filename = os.path.join(destdir, "transfers.edg")
+        transfers_filename = output_basename + ".transfers.edg"
         with util.create_file(transfers_filename, tmpdir=True, keepext=True) as tmpfile:
             write_walk_transfer_edges(gtfs, tmpfile)
 
-        temporal_network_filename = os.path.join(destdir, "temporal_network.csv")
+        temporal_network_filename = output_basename + ".temporal_network.csv"
         with util.create_file(temporal_network_filename , tmpdir=True, keepext=True) as tmpfile:
             write_temporal_network(gtfs, tmpfile)
 

@@ -468,7 +468,6 @@ class GTFS(object):
                             "shape_breaks": [shape_break, shape_break_n]
                         }
                         tripI_to_seq[row.trip_I].append(seg)
-        print(len(segment_counts))
 
         stop_names = {}
         for (stop_I, stop_J) in segment_counts.keys():
