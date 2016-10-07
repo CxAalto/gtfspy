@@ -31,7 +31,7 @@ from collections import defaultdict
 import networkx
 
 from gtfspy.routing.models import Connection, ParetoTuple
-from gtfspy.routing.node_profile import NodeProfile, IdentityNodeProfile
+from gtfspy.routing.node_profile import NodeProfile, IdentityNodeProfile, DecreasingDepTimeNodeProfile
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 
 
@@ -97,7 +97,10 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         # if source node in s1:
         latest_dep_time = float("inf")
         connections = self._connections  # list[Connection]
-        for connection in connections:
+        n_connections = len(connections)
+        for i, connection in enumerate(connections):
+            if i % 1000 == 0:
+                print(i, "/", n_connections)
             assert(isinstance(connection, Connection))
             departure_time = connection.departure_time
             assert(departure_time <= latest_dep_time)
