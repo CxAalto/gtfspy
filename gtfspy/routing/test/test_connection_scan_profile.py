@@ -6,6 +6,7 @@ from gtfspy.routing.connection_scan_profile import ConnectionScanProfiler
 from gtfspy.routing.models import ParetoTuple, Connection
 
 # noinspection PyAttributeOutsideInit
+from gtfspy.routing.node_profile import DecreasingDepTimeNodeProfile
 
 
 class ConnectionScanProfileTest(unittest.TestCase):

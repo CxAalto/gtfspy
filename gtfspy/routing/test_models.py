@@ -16,3 +16,7 @@ class TestParetoTuple(TestCase):
         self.assertTrue(pt2.dominates(pt4))
         self.assertTrue(pt2.dominates(pt5))
 
+    def test_duration(self):
+        pt1 = ParetoTuple(departure_time=0, arrival_time_target=20)
+        self.assertEqual(20, pt1.duration())
+

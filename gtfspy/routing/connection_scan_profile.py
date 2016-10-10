@@ -49,7 +49,9 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
                  end_time=None,
                  transfer_margin=0,
                  walk_network=None,
-                 walk_speed=1.5):
+                 walk_speed=1.5,
+                 verbose=False,
+                 node_profile_class=NodeProfile):
         """
         Parameters
         ----------
@@ -67,6 +69,10 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             walking speed between stops in meters / second.
         walk_network: networkx.Graph, optional
             each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
+        verbose: boolean, optional
+            whether to print out progress
+        node_profile_class:
+            NodeProfile.class
         """
         AbstractRoutingAlgorithm.__init__(self)
 
@@ -83,6 +89,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             walk_network = networkx.Graph()
         self._walk_network = walk_network
         self._walk_speed = walk_speed
+        self._verbose = verbose
 
         # algorithm internals
 
@@ -90,7 +97,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         self.__trip_min_arrival_time = defaultdict(lambda: float("inf"))
 
         # initialize stop_profiles
-        self._stop_profiles = defaultdict(lambda: NodeProfile())
+        self._stop_profiles = defaultdict(lambda: node_profile_class())
         self._stop_profiles[self._target] = IdentityNodeProfile()
 
     def _run(self):
@@ -99,7 +106,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         connections = self._connections  # list[Connection]
         n_connections = len(connections)
         for i, connection in enumerate(connections):
-            if i % 1000 == 0:
+            if self._verbose and i % 1000 == 0:
                 print(i, "/", n_connections)
             assert(isinstance(connection, Connection))
             departure_time = connection.departure_time
