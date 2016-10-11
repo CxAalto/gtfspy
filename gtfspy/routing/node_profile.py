@@ -1,5 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
+import copy
+
 from gtfspy.routing.models import ParetoTuple
 
 
@@ -66,60 +68,70 @@ class NodeProfile(AbstractNodeProfile):
             return True
 
     def get_earliest_arrival_time_at_target(self, dep_time):
-        minimum = float('inf')
-        for pt in self._pareto_tuples:
-            if pt.departure_time > dep_time and pt.arrival_time_target < minimum:
-                minimum = pt.arrival_time_target
-        return minimum
-
-    def get_pareto_tuples(self):
-        return self._pareto_tuples
-
-
-class DecreasingDepTimeNodeProfile(AbstractNodeProfile):
-    """
-    In the connection scan algorithm, each stop has a profile entry
-    that stores information on the Pareto-Optimal
-    (departure_time_this_node, arrival_time_target_node) tuples.
-    """
-
-    def __init__(self):
-        super(DecreasingDepTimeNodeProfile, self).__init__()
-        self._pareto_tuples = []  # set[ParetoTuple]
-
-    def update_pareto_optimal_tuples(self, new_pareto_tuple):
         """
-        # this function should be optimized
+        Get the earliest arrival time at the target, given a departure time.
 
         Parameters
         ----------
-        new_pareto_tuple: ParetoTuple
+        dep_time : float, int
+            time in unix seconds
 
         Returns
         -------
-        added: bool
-            whether the new pareto_tuple was included
+        arrival_time : float
+            Arrival time in the given time unit (seconds after unix epoch).
         """
-        assert(isinstance(new_pareto_tuple, ParetoTuple))
-        if len(self._pareto_tuples) is 0:
-            self._pareto_tuples.append(new_pareto_tuple)
-            return True
-        if new_pareto_tuple.dominates(self._pareto_tuples[-1]):
-            self._pareto_tuples[-1] = new_pareto_tuple
-            return True
-        return False
-
-    def get_earliest_arrival_time_at_target(self, dep_time):
         minimum = float('inf')
         for pt in self._pareto_tuples:
             if pt.departure_time > dep_time and pt.arrival_time_target < minimum:
                 minimum = pt.arrival_time_target
-        return minimum
+        return float(minimum)
 
     def get_pareto_tuples(self):
-        return self._pareto_tuples
+        return copy.deepcopy(self._pareto_tuples)
 
 
+# class DecreasingDepTimeNodeProfile(AbstractNodeProfile):
+#     """
+#     In the connection scan algorithm, each stop has a profile entry
+#     that stores information on the Pareto-Optimal
+#     (departure_time_this_node, arrival_time_target_node) tuples.
+#     """
+#
+#     def __init__(self):
+#         super(DecreasingDepTimeNodeProfile, self).__init__()
+#         self._pareto_tuples = []  # set[ParetoTuple]
+#
+#     def update_pareto_optimal_tuples(self, new_pareto_tuple):
+#         """
+#         Parameters
+#         ----------
+#         new_pareto_tuple: ParetoTuple
+#
+#         Returns
+#         -------
+#         added: bool
+#             whether the new pareto_tuple was included
+#         """
+#         assert(isinstance(new_pareto_tuple, ParetoTuple))
+#         if len(self._pareto_tuples) > 0:
+#             assert (self._pareto_tuples[-1].departure_time >= new_pareto_tuple.departure_time)
+#
+#         if len(self._pareto_tuples) > 0 and self._pareto_tuples[-1].dominates(new_pareto_tuple):
+#             return False
+#         else:
+#             self._pareto_tuples.append(new_pareto_tuple)
+#             return True
+#
+#     def get_earliest_arrival_time_at_target(self, dep_time):
+#         minimum = float('inf')
+#         for pt in self._pareto_tuples:
+#             if pt.departure_time > dep_time and pt.arrival_time_target < minimum:
+#                 minimum = pt.arrival_time_target
+#         return minimum
+#
+#     def get_pareto_tuples(self):
+#         return self._pareto_tuples
 
 
 class IdentityNodeProfile(AbstractNodeProfile):
@@ -135,4 +147,3 @@ class IdentityNodeProfile(AbstractNodeProfile):
 
     def get_pareto_tuples(self):
         return []
-

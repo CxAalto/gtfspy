@@ -19,7 +19,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
             (1, 2, 10, 20, "trip_2"),
             (0, 1, 0, 10, "trip_1")
         ]
-        self.transit_connections = map(lambda el: Connection(*el), event_list_raw_data)
+        self.transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         self.walk_network = networkx.Graph()
         self.walk_network.add_edge(1, 2, {"d_walk": 20})
         self.walk_network.add_edge(3, 4, {"d_walk": 15})
@@ -76,7 +76,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
         event_list_raw_data = [
             (2, 4, 40, 50, "trip_5"),
         ]
-        transit_connections = map(lambda el: Connection(*el), event_list_raw_data)
+        transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
         walk_network.add_edge(1, 2, {"d_walk": 20})
         walk_network.add_edge(3, 4, {"d_walk": 15})
@@ -106,7 +106,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
         event_list_raw_data = [
             (0, 1, 0, 10, "trip_1")
         ]
-        transit_connections = map(lambda el: Connection(*el), event_list_raw_data)
+        transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
         walk_network.add_edge(1, 2, {"d_walk": 20})
 
