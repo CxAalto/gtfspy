@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 
 from gtfspy.routing.models import ParetoTuple
 
-class NodeProfileAnalyzer:
 
+class NodeProfileAnalyzer:
     def __init__(self, node_profile, start_time_dep, end_time_dep):
         """
         Initialize the data structures required by
@@ -23,7 +23,7 @@ class NodeProfileAnalyzer:
         # used for computing temporal distances:
         pareto_tuples = [pt for pt in node_profile.get_pareto_tuples() if
                          (start_time_dep <= pt.departure_time <= end_time_dep)]
-        pareto_tuples = sorted(pareto_tuples, key=lambda pt: pt.departure_time)
+        pareto_tuples = sorted(pareto_tuples, key=lambda ptuple: ptuple.departure_time)
         pareto_tuples.append(
             ParetoTuple(departure_time=end_time_dep,
                         arrival_time_target=node_profile.get_earliest_arrival_time_at_target(end_time_dep))
@@ -44,7 +44,6 @@ class NodeProfileAnalyzer:
         self._virtual_waiting_times = numpy.array(_virtual_waiting_times)
         self._virtual_arrival_times = numpy.array(_virtual_arrival_times)
         self.trip_durations = self._virtual_durations[:-1]
-
 
     def min_trip_duration(self):
         """
@@ -122,22 +121,7 @@ class NodeProfileAnalyzer:
         -------
         median_temporal_distance : float
         """
-        temporal_distance_split_points = set()
-        for waiting_time, duration in zip(self._virtual_waiting_times, self._virtual_durations):
-            temporal_distance_split_points.add(duration)
-            temporal_distance_split_points.add(duration + waiting_time)
-        temporal_distance_split_points_ordered = numpy.array(sorted(list(temporal_distance_split_points)))
-        temporal_distance_split_widths = temporal_distance_split_points_ordered[1:] - \
-            temporal_distance_split_points_ordered[:-1]
-
-        counts = numpy.zeros(len(temporal_distance_split_widths))
-        for waiting_time, duration in zip(self._virtual_waiting_times, self._virtual_durations):
-            start_index = numpy.searchsorted(temporal_distance_split_points_ordered, duration)
-            end_index = numpy.searchsorted(temporal_distance_split_points_ordered, duration + waiting_time)
-            counts[start_index:end_index] += 1
-        unnorm_cdf = numpy.array([0] + list(numpy.cumsum(temporal_distance_split_widths * counts)))
-        assert (unnorm_cdf[-1] == self.end_time_dep - self.start_time_dep)
-        norm_cdf = unnorm_cdf / unnorm_cdf[-1]
+        temporal_distance_split_points_ordered, norm_cdf = self._temporal_distance_cdf()
         left = numpy.searchsorted(norm_cdf, 0.5, side="right")
         right = numpy.searchsorted(norm_cdf, 0.5, side="left")
         if left == right:
@@ -145,7 +129,7 @@ class NodeProfileAnalyzer:
             right_cdf_val = norm_cdf[left]
             delta_y = right_cdf_val - left_cdf_val
             assert (delta_y > 0)
-            delta_x = (temporal_distance_split_points_ordered[left] - temporal_distance_split_points_ordered[left -1])
+            delta_x = (temporal_distance_split_points_ordered[left] - temporal_distance_split_points_ordered[left - 1])
             median = (0.5 - left_cdf_val) / delta_y * delta_x + temporal_distance_split_points_ordered[left - 1]
             return median
         else:
@@ -171,22 +155,63 @@ class NodeProfileAnalyzer:
         """
         return (numpy.array(self._virtual_durations) + numpy.array(self._virtual_waiting_times)).max()
 
-    def plot_cdf(self):
-        # use
-        pass
+    def plot_temporal_distance_cdf(self):
+        """
+        Plot the temporal distance cumulative density function.
 
-    def plot_pdf(self):
-        # use
-        pass
+        Returns
+        -------
+        fig: matplotlib.Figure
+        """
+        xvalues, cdf = self._temporal_distance_cdf()
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        xvalues = numpy.array(xvalues) / 60.0
+        ax.plot(xvalues, cdf, "-k")
+        ax.fill_between(xvalues, cdf, color="red", alpha=0.2)
+        ax.set_ylabel("CDF(t)")
+        ax.set_xlabel("Temporal distance t (min)")
+        return fig
 
-    def plot_temporal_variation(self, timezone=None, show=False):
+    def plot_temporal_distance_pdf(self):
+        """
+        Plot the temporal distance probability density function.
+
+        Returns
+        -------
+        fig: matplotlib.Figure
+        """
+        temporal_distance_split_points_ordered, densities = self._temporal_distance_pdf()
+        xs = []
+        for i, x in enumerate(temporal_distance_split_points_ordered):
+            xs.append(x)
+            xs.append(x)
+        ys = [0]
+        for y in densities:
+            ys.append(y)
+            ys.append(y)
+        ys.append(0)
+        # convert data to minutes:
+        xs = numpy.array(xs) / 60.0
+        ys = numpy.array(ys) * 60.0
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(xs, ys, "k-")
+        ax.fill_between(xs, ys, color="red", alpha=0.2)
+        ax.set_xlabel("Temporal distance t (min)")
+        ax.set_ylabel("PDF(t) t (min)")
+        ax.set_ylim(bottom=0)
+        return fig
+
+    def plot_temporal_distance_variation(self, timezone=None):
         """
         See plots.py: plot_temporal_distance_variation for more documentation.
         """
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-        vlines = []
+        vertical_lines = []
         slopes = []
 
         for i, (departure_time, duration, waiting_time) in enumerate(zip(
@@ -201,7 +226,6 @@ class NodeProfileAnalyzer:
             else:
                 previous_dep_time = self._virtual_dep_times[i - 1]
 
-
             duration_minutes = duration / 60.0
             waiting_time_minutes = waiting_time / 60.
 
@@ -212,9 +236,9 @@ class NodeProfileAnalyzer:
             slopes.append(slope)
 
             if i != 0:
-                previous_duration_minutes = self._virtual_durations[i -1] / 60.0
-                vlines.append(dict(x=[previous_dep_time, previous_dep_time],
-                                   y=[previous_duration_minutes, duration_after_previous_departure_minutes]))
+                previous_duration_minutes = self._virtual_durations[i - 1] / 60.0
+                vertical_lines.append(dict(x=[previous_dep_time, previous_dep_time],
+                                           y=[previous_duration_minutes, duration_after_previous_departure_minutes]))
 
         if timezone is None:
             print("Warning: No timezone specified, defaulting to UTC")
@@ -231,7 +255,7 @@ class NodeProfileAnalyzer:
         for line in slopes:
             xs = [_ut_to_unloc_datetime(x) for x in line['x']]
             ax.plot(xs, line['y'], "-", color="black")
-        for line in vlines:
+        for line in vertical_lines:
             xs = [_ut_to_unloc_datetime(x) for x in line['x']]
             ax.plot(xs, line['y'], "--", color="black")
 
@@ -255,7 +279,58 @@ class NodeProfileAnalyzer:
         ax.set_ylabel("Duration to destination (min)")
         fig.tight_layout()
         plt.xticks(rotation=45)
-        plt.subplots_adjust(bottom=0.3)
-        if show:
-            plt.show()
+        fig.subplots_adjust(bottom=0.3)
         return fig
+
+    def _temporal_distance_cdf(self):
+        """
+        Temporal distance cumulative density function.
+
+        Returns
+        -------
+        x_values: numpy.array
+            values for the x-axis
+        cdf: numpy.array
+            cdf values
+        """
+        temporal_distance_split_points = set()
+        for waiting_time, duration in zip(self._virtual_waiting_times, self._virtual_durations):
+            if duration != float("inf"):
+                temporal_distance_split_points.add(duration)
+                temporal_distance_split_points.add(duration + waiting_time)
+        temporal_distance_split_points_ordered = numpy.array(sorted(list(temporal_distance_split_points)))
+        temporal_distance_split_widths = temporal_distance_split_points_ordered[1:] - \
+                                         temporal_distance_split_points_ordered[:-1]
+
+        counts = numpy.zeros(len(temporal_distance_split_widths))
+        infinity_waiting_time = 0
+        for waiting_time, duration in zip(self._virtual_waiting_times, self._virtual_durations):
+            if duration == float("inf"):
+                infinity_waiting_time += waiting_time
+            else:
+                start_index = numpy.searchsorted(temporal_distance_split_points_ordered, duration)
+                end_index = numpy.searchsorted(temporal_distance_split_points_ordered, duration + waiting_time)
+                counts[start_index:end_index] += 1
+
+        unnormalized_cdf = numpy.array([0] + list(numpy.cumsum(temporal_distance_split_widths * counts)))
+        assert (unnormalized_cdf[-1] == (self.end_time_dep - self.start_time_dep - infinity_waiting_time))
+        norm_cdf = unnormalized_cdf / (unnormalized_cdf[-1] + infinity_waiting_time)
+        return temporal_distance_split_points_ordered, norm_cdf
+
+
+    def _temporal_distance_pdf(self):
+        """
+        Temporal distance probability density function.
+
+        Returns
+        -------
+        temporal_distance_split_points_ordered: numpy.array
+        density: numpy.array
+            len(density) == len(temporal_distance_split_points_ordered) -1
+        """
+        temporal_distance_split_points_ordered, norm_cdf = self._temporal_distance_cdf()
+        temporal_distance_split_widths = temporal_distance_split_points_ordered[1:] - \
+                                         temporal_distance_split_points_ordered[:-1]
+        densities = (norm_cdf[1:] - norm_cdf[:-1]) / temporal_distance_split_widths
+        assert (len(densities) == len(temporal_distance_split_points_ordered) - 1)
+        return temporal_distance_split_points_ordered, densities

@@ -1,8 +1,12 @@
+import unittest
+
+from matplotlib import pyplot as plt
 from unittest import TestCase
 
 from gtfspy.routing.analyses.node_profile_analyzer import NodeProfileAnalyzer
 from gtfspy.routing.models import ParetoTuple
 from gtfspy.routing.node_profile import NodeProfile
+
 
 
 class TestNodeProfileAnalyzer(TestCase):
@@ -45,4 +49,24 @@ class TestNodeProfileAnalyzer(TestCase):
         self.assertAlmostEqual(1, analyzer.min_temporal_distance())
         self.assertAlmostEqual((1.5 * 1 + 2.5 * 1 + 2.5 * 1) / 3., analyzer.mean_temporal_distance())
         self.assertAlmostEqual(2.25, analyzer.median_temporal_distance())
+
+    @unittest.skip("Skipping a test for plotting")
+    def test_all_plots(self):
+        profile = NodeProfile()
+        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=2 * 60, arrival_time_target=11 * 60))
+        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=20 * 60, arrival_time_target=25 * 60))
+        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=40 * 60, arrival_time_target=45 * 60))
+        analyzer = NodeProfileAnalyzer(profile, 0, 60 * 60)
+        analyzer.plot_temporal_distance_variation()
+        analyzer.plot_temporal_distance_cdf()
+        analyzer.plot_temporal_distance_pdf()
+
+        profile = NodeProfile()
+        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=2 * 60, arrival_time_target=3 * 60))
+        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=4 * 60, arrival_time_target=25 * 60))
+        analyzer = NodeProfileAnalyzer(profile, 0, 5 * 60)
+        analyzer.plot_temporal_distance_variation()
+        analyzer.plot_temporal_distance_cdf()
+        analyzer.plot_temporal_distance_pdf()
+        plt.show()
 

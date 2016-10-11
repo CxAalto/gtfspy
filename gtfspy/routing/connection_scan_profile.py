@@ -31,7 +31,7 @@ from collections import defaultdict
 import networkx
 
 from gtfspy.routing.models import Connection, ParetoTuple
-from gtfspy.routing.node_profile import NodeProfile, IdentityNodeProfile, DecreasingDepTimeNodeProfile
+from gtfspy.routing.node_profile import NodeProfile, IdentityNodeProfile
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 
 
