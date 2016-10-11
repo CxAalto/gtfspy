@@ -437,12 +437,62 @@ class TestImport(unittest.TestCase):
             import_gtfs(gtfs_sources, self.conn, preserve_connection=True)
         except ValueError:
             error_raised = True
-        assert error_raised, "different timezones should raise an error"
+        assert error_raised, "different timezones in multiple feeds should raise an error"
 
-        mod_agencyText = \
-            'agency_id, agency_name, agency_timezone, agency_url' \
-            '\nag1, CompNet, America/Los_Angeles, www.example.com'
-        self.fdict['agency.txt'] = mod_agencyText
+
+        #mod_agencyText = \
+        #    'agency_id, agency_name, agency_timezone, agency_url' \
+         #   '\nag1, CompNet, America/Los_Angeles, www.example.com'
+        #self.fdict['agency.txt'] = mod_agencyText
+
+
+        # test that if trip_id:s (or stop_id:s etc. ) are the same in two feeds,
+        # they get different trip_Is in the database created
+
+        self.tearDown()
+        self.setUp()
+
+        # assert if importing two of the same feed will create the double number of trips
+        gtfs_source = [self.fdict]
+        import_gtfs(gtfs_source, self.conn, preserve_connection=True)
+        n_rows_ref = self.conn.execute("SELECT count(*) FROM trips").fetchone()[0]
+        self.tearDown()
+        self.setUp()
+        gtfs_sources = [self.fdict, self.fdict]
+        import_gtfs(gtfs_sources, self.conn, preserve_connection=True)
+        n_rows_double = self.conn.execute("SELECT count(*) FROM trips").fetchone()[0]
+        self.assertEqual(n_rows_double, 2*n_rows_ref)
+
+        # check for duplicate trip_I's
+        rows = self.conn.execute("SELECT count(*) FROM trips GROUP BY trip_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0],1)
+
+        # check for duplicate service_I's in calendar
+        rows = self.conn.execute("SELECT count(*) FROM calendar GROUP BY service_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
+        # check for duplicate service_I's in calendar_dates
+        rows = self.conn.execute("SELECT count(*) FROM calendar_dates GROUP BY service_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
+        # check for duplicate route_I's
+        rows = self.conn.execute("SELECT count(*) FROM routes GROUP BY route_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
+        # check for duplicate agency_I's
+        rows = self.conn.execute("SELECT count(*) FROM agencies GROUP BY agency_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
+        # check for duplicate stop_I's
+        rows = self.conn.execute("SELECT count(*) FROM stops GROUP BY stop_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
 
     def test_metaData(self):
         # TODO! untested

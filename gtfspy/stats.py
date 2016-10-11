@@ -310,8 +310,7 @@ def trip_stats(gtfs, results_by_mode=False):
     if results_by_mode is True:
     q_results: dict
         a dict with keys:
-            fleet_size_route_based
-            fleet_size_max_movement
+
 
     """
     conn = gtfs.conn
@@ -343,6 +342,7 @@ def trip_stats(gtfs, results_by_mode=False):
     q_result['total_distance'] = q_result['total_distance'] / 1000
     q_result['total_traveltime'] = q_result['total_traveltime'] / 60
     q_result = q_result.loc[q_result['avg_speed_kmh'] != float("inf")]
+
     if results_by_mode:
         q_results = {}
         for type in q_result['type'].unique().tolist():
@@ -350,3 +350,52 @@ def trip_stats(gtfs, results_by_mode=False):
         return q_results
     else:
         return q_result
+
+
+def stop_headways(gtfs, results_by_mode=False):
+    """
+    is this meaningful?
+    :param gtfs:
+    :param results_by_mode:
+    :return:
+    """
+    pass
+
+
+def section_stats(gtfs, results_by_mode=False):
+    conn = gtfs.conn
+
+    conn.create_function("find_distance", 4, wgs84_distance)
+    cur = conn.cursor()
+    # this query calculates the distance and travel time for each complete trip
+    # stop_data_df = pd.read_sql_query(query, self.conn, params=params)
+
+    query = 'SELECT q1.trip_I,  type,  q1.stop_I as stop_1,  q2.stop_I as stop_2,  ' \
+            'CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT) as distance, ' \
+            'q2.arr_time_ds - q1.arr_time_ds as traveltime ' \
+            'FROM ' \
+            '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q1, ' \
+            '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q2, ' \
+            'trips, ' \
+            'routes ' \
+            'WHERE q1.trip_I = q2.trip_I ' \
+            'AND q1.seq + 1 = q2.seq ' \
+            'AND q1.trip_I = trips.trip_I ' \
+            'AND trips.route_I = routes.route_I '
+
+    q_result = pd.read_sql_query(query, conn)
+
+    if results_by_mode:
+        q_results = {}
+        for type in q_result['type'].unique().tolist():
+            q_results[type] = q_result.loc[q_result['type'] == type]
+        return q_results
+    else:
+        return q_result
+
+
+def route_frequencies(gtfs, results_by_mode=False):
+    pass
+
+def hourly_frequencies(gtfs, results_by_mode=False):
+    pass

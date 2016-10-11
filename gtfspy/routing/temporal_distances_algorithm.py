@@ -80,4 +80,5 @@ class TemporalDistancesAlgorithm:
 
     def _run_algo(self):
         for event in self._transit_events.itertuples():
-            if (self.__la)
+            if (self.__la):
+                pass

@@ -17,13 +17,15 @@ WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "5 Or More Consecutive Stop
 WARNING_LONG_TRIP_TIME = "Long Trip Time"
 WARNING_UNREALISTIC_AVERAGE_SPEED = "Unrealistic Average Speed"
 WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "Long Travel Time Between Consecutive Stops"
+WARNING_STOP_SEQUENCE_ERROR = "Stop Sequence Error"
 
 ALL_WARNINGS = {
     WARNING_LONG_STOP_SPACING,
     WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME,
     WARNING_LONG_TRIP_TIME,
     WARNING_UNREALISTIC_AVERAGE_SPEED,
-    WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS
+    WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS,
+    WARNING_STOP_SEQUENCE_ERROR
 }
 
 class Validator(object):
@@ -55,6 +57,7 @@ class Validator(object):
         self._validate_stops_with_same_stop_time()
         self._validate_speeds_and_trip_times()
         self._validate_stop_spacings()
+        self._validate_stop_sequence()
         self.warnings_container.print_summary()
         return self.warnings_container
 
@@ -139,8 +142,22 @@ class Validator(object):
 
             if row[3] > max_trip_time:
                 self.warnings_container.add_warning(row, WARNING_LONG_TRIP_TIME)
-    def _validate_stop_time_sequence(self):
-        pass
+
+    def _validate_stop_sequence(self):
+        # this function checks if the stop sequence value is changing with +1 for each stop. This is not (yet) enforced
+        rows = self.gtfs.execute_custom_query('SELECT trip_I, dep_time_ds, seq '
+                                              'FROM stop_times '
+                                              'ORDER BY trip_I, dep_time_ds, seq').fetchall()
+
+        for row in rows:
+            new_trip_id = row[0]
+            new_seq = row[2]
+            if old_trip_id == new_trip_id:
+                if old_seq + 1 != new_seq:
+                    self.warnings_container.add_warning(row, WARNING_STOP_SEQUENCE_ERROR)
+            old_trip_id = row[0]
+            old_seq = row[2]
+
 
 class ValidationWarningsContainer(object):
 
