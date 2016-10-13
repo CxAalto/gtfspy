@@ -52,10 +52,10 @@ class NodeProfileAnalyzer:
         Returns
         -------
         float: min_trip_duration
-            None if no trips take place
+            float('inf') if no trips take place
         """
         if len(self.trip_durations) is 0:
-            return None
+            return float('inf')
         else:
             return numpy.min(self.trip_durations)
 
@@ -66,10 +66,10 @@ class NodeProfileAnalyzer:
         Returns
         -------
         float: max_trip_duration
-            None if no trips take place
+            float('inf') if no trips take place
         """
         if len(self.trip_durations) is 0:
-            return None
+            return float('inf')
         else:
             return numpy.max(self.trip_durations)
 
@@ -80,10 +80,10 @@ class NodeProfileAnalyzer:
         Returns
         -------
         float: max_trip_duration
-            None if no trips take place
+            float('inf') if no trips take place
         """
         if len(self.trip_durations) == 0:
-            return None
+            return float('inf')
         else:
             return numpy.mean(self.trip_durations)
 
@@ -94,10 +94,10 @@ class NodeProfileAnalyzer:
         Returns
         -------
         float: max_trip_duration
-            None if no trips take place
+            float('inf') if no trips take place
         """
         if len(self.trip_durations) is 0:
-            return None
+            return float('inf')
         else:
             return numpy.median(self.trip_durations)
 
@@ -143,7 +143,7 @@ class NodeProfileAnalyzer:
         -------
         min_temporal_distance: float
         """
-        return min(self._virtual_durations)
+        return self.min_trip_duration()
 
     def max_temporal_distance(self):
         """
@@ -219,7 +219,8 @@ class NodeProfileAnalyzer:
                 self._virtual_durations,
                 self._virtual_waiting_times)):
             if i == len(self._virtual_dep_times) - 1:
-                continue  # do not do anything for the last as it is virtual
+                # do not do anything for the last as it is a virtual observation (i.e. inserted)
+                continue
 
             if i == 0:
                 previous_dep_time = self.start_time_dep
@@ -236,6 +237,7 @@ class NodeProfileAnalyzer:
             slopes.append(slope)
 
             if i != 0:
+                # no vertical line for the first observation
                 previous_duration_minutes = self._virtual_durations[i - 1] / 60.0
                 vertical_lines.append(dict(x=[previous_dep_time, previous_dep_time],
                                            y=[previous_duration_minutes, duration_after_previous_departure_minutes]))

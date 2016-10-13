@@ -1,11 +1,11 @@
 import unittest
-
-from matplotlib import pyplot as plt
 from unittest import TestCase
 
-from gtfspy.routing.analyses.node_profile_analyzer import NodeProfileAnalyzer
+from matplotlib import pyplot as plt
+
 from gtfspy.routing.models import ParetoTuple
 from gtfspy.routing.node_profile import NodeProfile
+from routing.node_profile_analyzer import NodeProfileAnalyzer
 
 
 
@@ -14,10 +14,10 @@ class TestNodeProfileAnalyzer(TestCase):
     def test_trip_duration_statistics_empty_profile(self):
         profile = NodeProfile()
         analyzer = NodeProfileAnalyzer(profile, 0, 10)
-        self.assertEqual(None, analyzer.max_trip_duration())
-        self.assertEqual(None, analyzer.min_trip_duration())
-        self.assertEqual(None, analyzer.mean_trip_duration())
-        self.assertEqual(None, analyzer.median_trip_duration())
+        self.assertEqual(float('inf'), analyzer.max_trip_duration())
+        self.assertEqual(float('inf'), analyzer.min_trip_duration())
+        self.assertEqual(float('inf'), analyzer.mean_trip_duration())
+        self.assertEqual(float('inf'), analyzer.median_trip_duration())
 
     def test_trip_duration_statistics_simple(self):
         pairs = [
