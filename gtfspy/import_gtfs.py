@@ -209,17 +209,20 @@ class TableLoader(object):
         csv_readers = [csv.DictReader(iter_file(f)) for f in fs]
         csv_reader_generators = []
         for csv_reader in csv_readers:
-            csv_reader.fieldnames = [x.strip() for x in csv_reader.fieldnames]
-            # Make a generator that strips the values in all fields before
-            # passing it on.  GTFS standard requires that there be no
-            # spare whitespace, but not all do it.  The csv module has a
-            # `skipinitialspace` option, but let's make sure that we strip
-            # it from both sides.
-            # The following results in a generator, the complicated
-            csv_reader_stripped = (dict((k, (v.strip() if v is not None else None))  # v is not always a string
-                                        for k, v in row.items())
-                                   for row in csv_reader)
-            csv_reader_generators.append(csv_reader_stripped)
+            try:
+                csv_reader.fieldnames = [x.strip() for x in csv_reader.fieldnames]
+                # Make a generator that strips the values in all fields before
+                # passing it on.  GTFS standard requires that there be no
+                # spare whitespace, but not all do it.  The csv module has a
+                # `skipinitialspace` option, but let's make sure that we strip
+                # it from both sides.
+                # The following results in a generator, the complicated
+                csv_reader_stripped = (dict((k, (v.strip() if v is not None else None))  # v is not always a string
+                                            for k, v in row.items())
+                                       for row in csv_reader)
+                csv_reader_generators.append(csv_reader_stripped)
+            except:
+                print("file missing")
         prefixes = ["feed_" + str(i) + "_" for i in range(len(csv_reader_generators))]
         if len(prefixes) == 1:
             # no prefix for a single source feed
@@ -1512,7 +1515,7 @@ ignore_tables = set()
 
 
 def import_gtfs(gtfs_sources, output, preserve_connection=False,
-                print_progress=True, **kwargs):
+                print_progress=True, location_name=None, **kwargs):
     """Import a GTFS database
 
     gtfs_sources: str or dict
@@ -1595,11 +1598,14 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
             filename_date_list = re.findall(r'\d{4}-\d{2}-\d{2}', source)
             if filename_date_list:
                 G.meta[prefix + 'download_date'] = filename_date_list[-1]
-            location_name_list = re.findall(r'/([^/]+)/\d{4}-\d{2}-\d{2}', source)
-            if location_name_list:
-                G.meta[prefix + 'location_name'] = location_name_list[-1]
+            if location_name:
+                G.meta['location_name'] = location_name
             else:
-                G.meta[prefix + 'location_name'] = source.split("/")[-4]
+                location_name_list = re.findall(r'/([^/]+)/\d{4}-\d{2}-\d{2}', source)
+                if location_name_list:
+                    G.meta[prefix + 'location_name'] = location_name_list[-1]
+                else:
+                    G.meta[prefix + 'location_name'] = source.split("/")[-4]
 
     G.meta['timezone'] = cur.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()[0]
     stats.update_stats(G)

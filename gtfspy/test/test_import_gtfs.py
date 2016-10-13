@@ -494,6 +494,20 @@ class TestImport(unittest.TestCase):
             self.assertIs(row[0], 1)
 
 
+    def test_importMultiple_with_unequal_tables(self):
+        gtfs_source1 = self.fdict.copy()
+
+        gtfs_source2 = self.fdict.copy()
+        gtfs_source2.pop('calendar.txt')
+        gtfs_source2.pop('feed_info.txt')
+        gtfs_source2.pop('agency.txt')
+        gtfs_sources = [gtfs_source2, gtfs_source1]
+        self.assertNotEqual(gtfs_source1, gtfs_source2)
+
+        import_gtfs(gtfs_sources, self.conn, preserve_connection=True)
+
+        #self.assertIsInstance(gtfs_source2['calendar_dates.txt'], list)
+
     def test_metaData(self):
         # TODO! untested
         pass
