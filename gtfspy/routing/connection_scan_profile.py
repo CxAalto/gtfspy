@@ -31,7 +31,7 @@ from collections import defaultdict
 import networkx
 
 from gtfspy.routing.models import Connection, ParetoTuple
-from gtfspy.routing.node_profile import NodeProfile, IdentityNodeProfile
+from gtfspy.routing.node_profile import NodeProfile
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 
 
@@ -50,8 +50,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
                  transfer_margin=0,
                  walk_network=None,
                  walk_speed=1.5,
-                 verbose=False,
-                 node_profile_class=NodeProfile):
+                 verbose=False):
         """
         Parameters
         ----------
@@ -71,8 +70,6 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         verbose: boolean, optional
             whether to print out progress
-        node_profile_class:
-            NodeProfile.class
         """
         AbstractRoutingAlgorithm.__init__(self)
 
@@ -97,8 +94,14 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         self.__trip_min_arrival_time = defaultdict(lambda: float("inf"))
 
         # initialize stop_profiles
-        self._stop_profiles = defaultdict(lambda: node_profile_class())
-        self._stop_profiles[self._target] = IdentityNodeProfile()
+        self._stop_profiles = defaultdict(lambda: NodeProfile())
+        # initialize stop_profiles for target stop, and its neighbors
+        self._stop_profiles[self._target] = NodeProfile(0)
+        if target_stop in walk_network.nodes():
+            for target_neighbor in walk_network.neighbors(target_stop):
+                edge_data = walk_network.get_edge_data(target_neighbor, target_stop)
+                walk_duration = edge_data["d_walk"] / self._walk_speed
+                self._stop_profiles[target_neighbor] = NodeProfile(walk_duration)
 
     def _run(self):
         # if source node in s1:
@@ -124,7 +127,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
                 arrival_time + self._transfer_margin
             )
             earliest_arrival_time_via_same_trip = self.__trip_min_arrival_time[trip_id]
-            earliest_arrival_time_via_walking_to_target = arrival_time + self._get_walk_time_to_target(arrival_stop)
+            earliest_arrival_time_via_walking_to_target = arrival_time + arrival_profile.get_walk_to_target_duration()
 
             min_arrival_time = min(earliest_arrival_time_via_same_trip,
                                    earliest_arrival_time_via_transfer,
@@ -149,18 +152,12 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             pt = ParetoTuple(departure_time=neighbor_dep_time, arrival_time_target=arrival_time_target)
             self._stop_profiles[neighbor].update_pareto_optimal_tuples(pt)
 
-    def _get_walk_time_to_target(self, arrival_stop):
-        if self._walk_network.has_edge(arrival_stop, self._target):
-            return self._walk_network[arrival_stop][self._target]["d_walk"] / self._walk_speed
-        else:
-            return float("inf")
-
     @property
     def stop_profiles(self):
         """
         Returns
         -------
-        _stop_profiles : dict[int, AbstractNodeProfile]
+        _stop_profiles : dict[int, NodeProfile]
             The pareto tuples necessary.
         """
         assert self._has_run

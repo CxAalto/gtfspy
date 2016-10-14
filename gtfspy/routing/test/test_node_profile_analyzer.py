@@ -8,7 +8,6 @@ from gtfspy.routing.node_profile import NodeProfile
 from routing.node_profile_analyzer import NodeProfileAnalyzer
 
 
-
 class TestNodeProfileAnalyzer(TestCase):
 
     def test_trip_duration_statistics_empty_profile(self):
@@ -49,6 +48,21 @@ class TestNodeProfileAnalyzer(TestCase):
         self.assertAlmostEqual(1, analyzer.min_temporal_distance())
         self.assertAlmostEqual((1.5 * 1 + 2.5 * 1 + 2.5 * 1) / 3., analyzer.mean_temporal_distance())
         self.assertAlmostEqual(2.25, analyzer.median_temporal_distance())
+
+    def test_temporal_distance_statistics_with_walk(self):
+        pairs = [
+            ParetoTuple(departure_time=1, arrival_time_target=2),
+            ParetoTuple(departure_time=2, arrival_time_target=4),
+            ParetoTuple(departure_time=4, arrival_time_target=5)
+        ]
+        profile = NodeProfile(1.5)
+        for pair in pairs:
+            profile.update_pareto_optimal_tuples(pair)
+        analyzer = NodeProfileAnalyzer(profile, 0, 3)
+        self.assertAlmostEqual(1.5, analyzer.max_temporal_distance())  # 1 -wait-> 2 -travel->4
+        self.assertAlmostEqual(1, analyzer.min_temporal_distance())
+        self.assertAlmostEqual((2.5 * 1.5 + 0.5 * 1.25) / 3., analyzer.mean_temporal_distance())
+        self.assertAlmostEqual(1.5, analyzer.median_temporal_distance())
 
     @unittest.skip("Skipping a test for plotting")
     def test_all_plots(self):

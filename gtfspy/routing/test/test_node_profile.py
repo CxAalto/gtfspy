@@ -39,10 +39,15 @@ class TestNodeProfile(TestCase):
         self.assertFalse(node_profile.update_pareto_optimal_tuples(pt1))
         self.assertEquals(len(node_profile.get_pareto_tuples()), 1)
 
-
     def test_identity_profile(self):
-        identity_profile = IdentityNodeProfile()
+        identity_profile = NodeProfile(0)
         self.assertFalse(identity_profile.update_pareto_optimal_tuples(ParetoTuple(10, 10)))
         self.assertEqual(10, identity_profile.get_earliest_arrival_time_at_target(10))
 
-
+    def test_walk_duration(self):
+        node_profile = NodeProfile(walk_to_target_duration=27)
+        self.assertEqual(27, node_profile.get_walk_to_target_duration())
+        pt1 = ParetoTuple(departure_time=5, arrival_time_target=35)
+        self.assertFalse(node_profile.update_pareto_optimal_tuples(pt1))
+        pt2 = ParetoTuple(departure_time=10, arrival_time_target=35)
+        self.assertTrue(node_profile.update_pareto_optimal_tuples(pt2))

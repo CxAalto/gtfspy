@@ -9,6 +9,7 @@ from gtfspy.routing.models import ParetoTuple
 
 
 class NodeProfileAnalyzer:
+
     def __init__(self, node_profile, start_time_dep, end_time_dep):
         """
         Initialize the data structures required by
@@ -44,6 +45,17 @@ class NodeProfileAnalyzer:
         self._virtual_waiting_times = numpy.array(_virtual_waiting_times)
         self._virtual_arrival_times = numpy.array(_virtual_arrival_times)
         self.trip_durations = self._virtual_durations[:-1]
+        self._walk_time_to_target = node_profile.get_walk_to_target_duration()
+
+    def n_pareto_optimal_trips(self):
+        """
+        Get number of pareto-optimal trips
+
+        Returns
+        -------
+        n_trips: float
+        """
+        return float(len(self.trip_durations))
 
     def min_trip_duration(self):
         """
@@ -111,8 +123,19 @@ class NodeProfileAnalyzer:
         """
         total_width = self.end_time_dep - self.start_time_dep
         total_area = 0
+        walk_duration = self._walk_time_to_target
         for waiting_time, duration in zip(self._virtual_waiting_times, self._virtual_durations):
-            total_area += duration * waiting_time + (waiting_time * waiting_time) / 2.
+            if walk_duration != float('inf'):
+                assert(walk_duration >= duration)
+                time_saved_wrt_walk = walk_duration - duration
+                waiting_time_walk = max(waiting_time - time_saved_wrt_walk, 0)
+                waiting_time_trip = waiting_time - waiting_time_walk
+                walk_area = waiting_time_walk * walk_duration
+                trip_area = duration * waiting_time_trip + (waiting_time_trip * waiting_time_trip) / 2.
+                total_area += walk_area
+                total_area += trip_area
+            else:
+                total_area += duration * waiting_time + (waiting_time * waiting_time) / 2.
         return total_area / total_width
 
     def median_temporal_distance(self):
@@ -143,7 +166,7 @@ class NodeProfileAnalyzer:
         -------
         min_temporal_distance: float
         """
-        return self.min_trip_duration()
+        return min(self._walk_time_to_target, self.min_trip_duration())
 
     def max_temporal_distance(self):
         """
@@ -153,7 +176,8 @@ class NodeProfileAnalyzer:
         -------
         max_temporal_distance : float
         """
-        return (numpy.array(self._virtual_durations) + numpy.array(self._virtual_waiting_times)).max()
+        trip_durations_max = (numpy.array(self._virtual_durations) + numpy.array(self._virtual_waiting_times)).max()
+        return min(trip_durations_max, self._walk_time_to_target)\
 
     def plot_temporal_distance_cdf(self):
         """
@@ -318,7 +342,6 @@ class NodeProfileAnalyzer:
         assert (unnormalized_cdf[-1] == (self.end_time_dep - self.start_time_dep - infinity_waiting_time))
         norm_cdf = unnormalized_cdf / (unnormalized_cdf[-1] + infinity_waiting_time)
         return temporal_distance_split_points_ordered, norm_cdf
-
 
     def _temporal_distance_pdf(self):
         """
