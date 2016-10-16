@@ -71,29 +71,3 @@ class NodeProfile:
 
     def get_pareto_tuples(self):
         return copy.deepcopy(self._pareto_tuples)
-
-# from abc import ABCMeta, abstractmethod
-#
-#  class AbstractNodeProfile:
-#     """ Defines the NodeProfile interface """
-#
-#     __metaclass__ = ABCMeta
-#
-#     def __init__(self):
-#         pass
-#
-#     @abstractmethod
-#     def update_pareto_optimal_tuples(self, new_pareto_tuple):
-#         pass
-#
-#     @abstractmethod
-#     def get_earliest_arrival_time_at_target(self, dep_time):
-#         pass
-#
-#     @abstractmethod
-#     def get_pareto_tuples(self):
-#         pass
-#
-#     @abstractmethod
-#     def get_walk_to_target_duration(self):
-#         pass
