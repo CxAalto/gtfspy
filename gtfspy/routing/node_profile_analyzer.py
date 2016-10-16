@@ -1,11 +1,24 @@
 import datetime
+from collections import namedtuple
+
 import numpy
 import pytz
 
 from matplotlib import dates as md
 import matplotlib.pyplot as plt
 
-from gtfspy.routing.models import ParetoTuple
+_profile_block = namedtuple('ProfileBlock',
+                          ['departure_time',
+                           'waiting_time',
+                           'duration_start',
+                           'duration_end',
+                           'is_public_transport_trip_within_range'])
+
+
+class _ProfileBlock(_profile_block):
+
+    def area(self):
+        return self.waiting_time * 0.5 * (self.duration_start + self.duration_end)
 
 
 class NodeProfileAnalyzer:
@@ -22,30 +35,59 @@ class NodeProfileAnalyzer:
         self.end_time_dep = end_time_dep
 
         # used for computing temporal distances:
-        pareto_tuples = [pt for pt in node_profile.get_pareto_tuples() if
-                         (start_time_dep <= pt.departure_time <= end_time_dep)]
-        pareto_tuples = sorted(pareto_tuples, key=lambda ptuple: ptuple.departure_time)
-        pareto_tuples.append(
-            ParetoTuple(departure_time=end_time_dep,
-                        arrival_time_target=node_profile.get_earliest_arrival_time_at_target(end_time_dep))
-        )
-        _virtual_waiting_times = []
-        _virtual_durations = []
-        _virtual_dep_times = []
-        _virtual_arrival_times = []
-        previous_departure_time = start_time_dep
-        for pareto_tuple in pareto_tuples:
-            _virtual_waiting_times.append(pareto_tuple.departure_time - previous_departure_time)
-            _virtual_durations.append(pareto_tuple.duration())
-            _virtual_dep_times.append(pareto_tuple.departure_time)
-            _virtual_arrival_times.append(pareto_tuple.arrival_time_target)
-            previous_departure_time = pareto_tuple.departure_time
-        self._virtual_dep_times = numpy.array(_virtual_dep_times)
-        self._virtual_durations = numpy.array(_virtual_durations)
-        self._virtual_waiting_times = numpy.array(_virtual_waiting_times)
-        self._virtual_arrival_times = numpy.array(_virtual_arrival_times)
-        self.trip_durations = self._virtual_durations[:-1]
+        trip_pareto_tuples = [pt for pt in node_profile.get_pareto_tuples() if
+                                (start_time_dep <= pt.departure_time <= end_time_dep)]
+        trip_pareto_tuples = sorted(trip_pareto_tuples, key=lambda ptuple: ptuple.departure_time)
         self._walk_time_to_target = node_profile.get_walk_to_target_duration()
+        self._profile_blocks = []
+        previous_departure_time = start_time_dep
+        for trip_pareto_tuple in trip_pareto_tuples:
+            effective_trip_previous_departure_time = max(
+                previous_departure_time,
+                trip_pareto_tuple.departure_time - (self._walk_time_to_target - trip_pareto_tuple.duration())
+            )
+            walk_waiting_time = effective_trip_previous_departure_time - previous_departure_time
+            if walk_waiting_time > 0:
+                walk_block = _ProfileBlock(departure_time=effective_trip_previous_departure_time,
+                                           waiting_time=walk_waiting_time,
+                                           duration_start=self._walk_time_to_target,
+                                           duration_end=self._walk_time_to_target,
+                                           is_public_transport_trip_within_range=False
+                                           )
+                self._profile_blocks.append(walk_block)
+            trip_waiting_time = trip_pareto_tuple.departure_time - effective_trip_previous_departure_time
+            trip_block = _ProfileBlock(departure_time=trip_pareto_tuple.departure_time,
+                                       waiting_time=trip_waiting_time,
+                                       duration_start=trip_pareto_tuple.duration() + trip_waiting_time,
+                                       duration_end=trip_pareto_tuple.duration(),
+                                       is_public_transport_trip_within_range=True
+                                       )
+            self._profile_blocks.append(trip_block)
+            previous_departure_time = trip_pareto_tuple.departure_time
+
+        # deal with last
+        arrival_time_target_at_end_time = node_profile.get_earliest_arrival_time_at_target(end_time_dep)
+        if len(self._profile_blocks) > 0:
+            dep_previous = self._profile_blocks[-1].departure_time
+        else:
+            dep_previous = start_time_dep
+        last_waiting_time = end_time_dep - dep_previous
+        if arrival_time_target_at_end_time < end_time_dep + self._walk_time_to_target:
+            # real trip
+            duration_end = arrival_time_target_at_end_time - end_time_dep
+            duration_start = duration_end + last_waiting_time
+        else:
+            duration_start = self._walk_time_to_target
+            duration_end = self._walk_time_to_target
+
+        block = _ProfileBlock(departure_time=end_time_dep,
+                              waiting_time=last_waiting_time,
+                              duration_start=duration_start,
+                              duration_end=duration_end,
+                              is_public_transport_trip_within_range=False)
+        self._profile_blocks.append(block)
+        self.trip_durations = [block.duration_end for block in self._profile_blocks
+                               if block.is_public_transport_trip_within_range]
 
     def n_pareto_optimal_trips(self):
         """
@@ -122,20 +164,7 @@ class NodeProfileAnalyzer:
         mean_temporal_distance : float
         """
         total_width = self.end_time_dep - self.start_time_dep
-        total_area = 0
-        walk_duration = self._walk_time_to_target
-        for waiting_time, duration in zip(self._virtual_waiting_times, self._virtual_durations):
-            if walk_duration != float('inf'):
-                assert(walk_duration >= duration)
-                time_saved_wrt_walk = walk_duration - duration
-                waiting_time_walk = max(waiting_time - time_saved_wrt_walk, 0)
-                waiting_time_trip = waiting_time - waiting_time_walk
-                walk_area = waiting_time_walk * walk_duration
-                trip_area = duration * waiting_time_trip + (waiting_time_trip * waiting_time_trip) / 2.
-                total_area += walk_area
-                total_area += trip_area
-            else:
-                total_area += duration * waiting_time + (waiting_time * waiting_time) / 2.
+        total_area = sum([block.area() for block in self._profile_blocks])
         return total_area / total_width
 
     def median_temporal_distance(self):
@@ -166,7 +195,7 @@ class NodeProfileAnalyzer:
         -------
         min_temporal_distance: float
         """
-        return min(self._walk_time_to_target, self.min_trip_duration())
+        return min([block.duration_end for block in self._profile_blocks])
 
     def max_temporal_distance(self):
         """
@@ -176,8 +205,8 @@ class NodeProfileAnalyzer:
         -------
         max_temporal_distance : float
         """
-        trip_durations_max = (numpy.array(self._virtual_durations) + numpy.array(self._virtual_waiting_times)).max()
-        return min(trip_durations_max, self._walk_time_to_target)\
+        block_start_durations = [block.duration_start for block in self._profile_blocks]
+        return max(block_start_durations)
 
     def plot_temporal_distance_cdf(self):
         """
@@ -238,34 +267,22 @@ class NodeProfileAnalyzer:
         vertical_lines = []
         slopes = []
 
-        for i, (departure_time, duration, waiting_time) in enumerate(zip(
-                self._virtual_dep_times,
-                self._virtual_durations,
-                self._virtual_waiting_times)):
-            if i == len(self._virtual_dep_times) - 1:
-                # do not do anything for the last as it is a virtual observation (i.e. inserted)
-                continue
+        for i, block in enumerate(self._profile_blocks):
+            previous_dep_time = block.departure_time - block.waiting_time
 
-            if i == 0:
-                previous_dep_time = self.start_time_dep
-            else:
-                previous_dep_time = self._virtual_dep_times[i - 1]
+            duration_end_minutes = block.duration_end / 60.0
+            duration_start_minutes = block.duration_start / 60.0
 
-            duration_minutes = duration / 60.0
-            waiting_time_minutes = waiting_time / 60.
-
-            duration_after_previous_departure_minutes = duration_minutes + waiting_time_minutes
-
-            slope = dict(x=[previous_dep_time, departure_time],
-                         y=[duration_after_previous_departure_minutes, duration_minutes])
+            slope = dict(x=[previous_dep_time, block.departure_time],
+                         y=[duration_start_minutes, duration_end_minutes])
             slopes.append(slope)
 
             if i != 0:
                 # no vertical line for the first observation
-                previous_duration_minutes = self._virtual_durations[i - 1] / 60.0
+                previous_duration_minutes = self._profile_blocks[i - 1].duration_end / 60.0
                 vertical_lines.append(dict(x=[previous_dep_time, previous_dep_time],
-                                           y=[previous_duration_minutes, duration_after_previous_departure_minutes]))
-
+                                           y=[previous_duration_minutes, duration_start_minutes]))
+        print(vertical_lines, self._profile_blocks)
         if timezone is None:
             print("Warning: No timezone specified, defaulting to UTC")
             timezone = pytz.timezone("Etc/UTC")
@@ -320,26 +337,37 @@ class NodeProfileAnalyzer:
             cdf values
         """
         temporal_distance_split_points = set()
-        for waiting_time, duration in zip(self._virtual_waiting_times, self._virtual_durations):
-            if duration != float("inf"):
-                temporal_distance_split_points.add(duration)
-                temporal_distance_split_points.add(duration + waiting_time)
+        for block in self._profile_blocks:
+            if block.duration_start != float('inf'):
+                temporal_distance_split_points.add(block.duration_end)
+                temporal_distance_split_points.add(block.duration_start)
+
         temporal_distance_split_points_ordered = numpy.array(sorted(list(temporal_distance_split_points)))
         temporal_distance_split_widths = temporal_distance_split_points_ordered[1:] - \
                                          temporal_distance_split_points_ordered[:-1]
-
-        counts = numpy.zeros(len(temporal_distance_split_widths))
+        walk_total_time = 0
         infinity_waiting_time = 0
-        for waiting_time, duration in zip(self._virtual_waiting_times, self._virtual_durations):
-            if duration == float("inf"):
-                infinity_waiting_time += waiting_time
-            else:
-                start_index = numpy.searchsorted(temporal_distance_split_points_ordered, duration)
-                end_index = numpy.searchsorted(temporal_distance_split_points_ordered, duration + waiting_time)
-                counts[start_index:end_index] += 1
+        trip_counts = numpy.zeros(len(temporal_distance_split_widths))
 
-        unnormalized_cdf = numpy.array([0] + list(numpy.cumsum(temporal_distance_split_widths * counts)))
-        assert (unnormalized_cdf[-1] == (self.end_time_dep - self.start_time_dep - infinity_waiting_time))
+        for block in self._profile_blocks:
+            if block.duration_start == float('inf'):
+                infinity_waiting_time += block.waiting_time
+            elif block.duration_start == block.duration_end == self._walk_time_to_target:
+                walk_total_time += block.waiting_time
+            else:
+                start_index = numpy.searchsorted(temporal_distance_split_points_ordered, block.duration_end)
+                end_index = numpy.searchsorted(temporal_distance_split_points_ordered, block.duration_start)
+                trip_counts[start_index:end_index] += 1
+
+        unnormalized_cdf = numpy.array([0] + list(numpy.cumsum(temporal_distance_split_widths * trip_counts)))
+        assert (unnormalized_cdf[-1] == (self.end_time_dep - self.start_time_dep - infinity_waiting_time - walk_total_time))
+        if walk_total_time > 0:
+            index = numpy.nonzero(temporal_distance_split_points_ordered == self._walk_time_to_target)[0][0]
+            unnormalized_cdf = numpy.insert(unnormalized_cdf, index, unnormalized_cdf[index])
+            temporal_distance_split_points_ordered = numpy.insert(temporal_distance_split_points_ordered, index, temporal_distance_split_points_ordered[index])
+            walk_waiting_time_fraction = walk_total_time / (self.end_time_dep - self.start_time_dep)
+            unnormalized_cdf[(index + 1):] = unnormalized_cdf[(index + 1):] + walk_waiting_time_fraction
+
         norm_cdf = unnormalized_cdf / (unnormalized_cdf[-1] + infinity_waiting_time)
         return temporal_distance_split_points_ordered, norm_cdf
 
@@ -353,9 +381,10 @@ class NodeProfileAnalyzer:
         density: numpy.array
             len(density) == len(temporal_distance_split_points_ordered) -1
         """
-        temporal_distance_split_points_ordered, norm_cdf = self._temporal_distance_cdf()
-        temporal_distance_split_widths = temporal_distance_split_points_ordered[1:] - \
-                                         temporal_distance_split_points_ordered[:-1]
-        densities = (norm_cdf[1:] - norm_cdf[:-1]) / temporal_distance_split_widths
-        assert (len(densities) == len(temporal_distance_split_points_ordered) - 1)
-        return temporal_distance_split_points_ordered, densities
+        raise NotImplementedError("One should figure out, how to deal with delta functions due to walk times")
+        # temporal_distance_split_points_ordered, norm_cdf = self._temporal_distance_cdf()
+        # temporal_distance_split_widths = temporal_distance_split_points_ordered[1:] - \
+        #                                  temporal_distance_split_points_ordered[:-1]
+        # densities = (norm_cdf[1:] - norm_cdf[:-1]) / temporal_distance_split_widths
+        # assert (len(densities) == len(temporal_distance_split_points_ordered) - 1)
+        # return temporal_distance_split_points_ordered, densities

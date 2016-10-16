@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from gtfspy.routing.node_profile import NodeProfile
-from routing.node_profile_analyzer import NodeProfileAnalyzer
+from gtfspy.routing.node_profile_analyzer import NodeProfileAnalyzer
 
 
 def plot_temporal_distance_variation(profile, start_time=None, end_time=None, show=False, timezone=None):

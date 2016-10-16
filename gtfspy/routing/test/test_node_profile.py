@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from gtfspy.routing.models import ParetoTuple
-from gtfspy.routing.node_profile import NodeProfile, IdentityNodeProfile
+from gtfspy.routing.node_profile import NodeProfile
 
 
 class TestNodeProfile(TestCase):
