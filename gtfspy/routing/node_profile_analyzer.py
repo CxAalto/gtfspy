@@ -1,4 +1,5 @@
 import datetime
+import warnings
 from collections import namedtuple
 
 import numpy
@@ -282,9 +283,8 @@ class NodeProfileAnalyzer:
                 previous_duration_minutes = self._profile_blocks[i - 1].duration_end / 60.0
                 vertical_lines.append(dict(x=[previous_dep_time, previous_dep_time],
                                            y=[previous_duration_minutes, duration_start_minutes]))
-        print(vertical_lines, self._profile_blocks)
         if timezone is None:
-            print("Warning: No timezone specified, defaulting to UTC")
+            warnings.warn("Warning: No timezone specified, defaulting to UTC")
             timezone = pytz.timezone("Etc/UTC")
 
         def _ut_to_unloc_datetime(ut):
