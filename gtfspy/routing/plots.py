@@ -10,6 +10,7 @@ from gtfspy.routing.node_profile_analyzer import NodeProfileAnalyzer
 def plot_temporal_distance_variation(profile, start_time=None, end_time=None, show=False, timezone=None):
     """
     Plot the temporal distance variation profile.
+    (This is really just a wrapper of NodeProfileAnalyzer.plot_temporal_distance_variation)
 
     Parameters
     ----------
