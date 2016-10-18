@@ -5,6 +5,8 @@ from abc import ABCMeta, abstractmethod
 
 import time
 
+from gtfspy.util import timeit
+
 
 class AbstractRoutingAlgorithm:
     __metaclass__ = ABCMeta
@@ -17,6 +19,7 @@ class AbstractRoutingAlgorithm:
     def _run(self):
         pass
 
+    @timeit
     def run(self):
         if self._has_run:
             raise RuntimeError("Algorithm has already run, please initialize a new algorithm")
