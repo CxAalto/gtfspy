@@ -11,15 +11,15 @@ import matplotlib.pyplot as plt
 _profile_block = namedtuple('ProfileBlock',
                           ['departure_time',
                            'waiting_time',
-                           'duration_start',
-                           'duration_end',
+                           'distance_start',
+                           'distance_end',
                            'is_public_transport_trip_within_range'])
 
 
 class _ProfileBlock(_profile_block):
 
     def area(self):
-        return self.waiting_time * 0.5 * (self.duration_start + self.duration_end)
+        return self.waiting_time * 0.5 * (self.distance_start + self.distance_end)
 
 
 class NodeProfileAnalyzer:
@@ -37,7 +37,7 @@ class NodeProfileAnalyzer:
 
         # used for computing temporal distances:
         trip_pareto_tuples = [pt for pt in node_profile.get_pareto_tuples() if
-                                (start_time_dep <= pt.departure_time <= end_time_dep)]
+                                (start_time_dep < pt.departure_time < end_time_dep)]
         trip_pareto_tuples = sorted(trip_pareto_tuples, key=lambda ptuple: ptuple.departure_time)
         self._walk_time_to_target = node_profile.get_walk_to_target_duration()
         self._profile_blocks = []
@@ -51,16 +51,16 @@ class NodeProfileAnalyzer:
             if walk_waiting_time > 0:
                 walk_block = _ProfileBlock(departure_time=effective_trip_previous_departure_time,
                                            waiting_time=walk_waiting_time,
-                                           duration_start=self._walk_time_to_target,
-                                           duration_end=self._walk_time_to_target,
+                                           distance_start=self._walk_time_to_target,
+                                           distance_end=self._walk_time_to_target,
                                            is_public_transport_trip_within_range=False
                                            )
                 self._profile_blocks.append(walk_block)
             trip_waiting_time = trip_pareto_tuple.departure_time - effective_trip_previous_departure_time
             trip_block = _ProfileBlock(departure_time=trip_pareto_tuple.departure_time,
                                        waiting_time=trip_waiting_time,
-                                       duration_start=trip_pareto_tuple.duration() + trip_waiting_time,
-                                       duration_end=trip_pareto_tuple.duration(),
+                                       distance_start=trip_pareto_tuple.duration() + trip_waiting_time,
+                                       distance_end=trip_pareto_tuple.duration(),
                                        is_public_transport_trip_within_range=True
                                        )
             self._profile_blocks.append(trip_block)
@@ -75,19 +75,19 @@ class NodeProfileAnalyzer:
         last_waiting_time = end_time_dep - dep_previous
         if arrival_time_target_at_end_time < end_time_dep + self._walk_time_to_target:
             # real trip
-            duration_end = arrival_time_target_at_end_time - end_time_dep
-            duration_start = duration_end + last_waiting_time
+            distance_end = arrival_time_target_at_end_time - end_time_dep
+            distance_start = distance_end + last_waiting_time
         else:
-            duration_start = self._walk_time_to_target
-            duration_end = self._walk_time_to_target
+            distance_start = self._walk_time_to_target
+            distance_end = self._walk_time_to_target
 
         block = _ProfileBlock(departure_time=end_time_dep,
                               waiting_time=last_waiting_time,
-                              duration_start=duration_start,
-                              duration_end=duration_end,
+                              distance_start=distance_start,
+                              distance_end=distance_end,
                               is_public_transport_trip_within_range=False)
         self._profile_blocks.append(block)
-        self.trip_durations = [block.duration_end for block in self._profile_blocks
+        self.trip_durations = [block.distance_end for block in self._profile_blocks
                                if block.is_public_transport_trip_within_range]
 
     def n_pareto_optimal_trips(self):
@@ -175,15 +175,20 @@ class NodeProfileAnalyzer:
         median_temporal_distance : float
         """
         temporal_distance_split_points_ordered, norm_cdf = self._temporal_distance_cdf()
-        left = numpy.searchsorted(norm_cdf, 0.5, side="right")
-        right = numpy.searchsorted(norm_cdf, 0.5, side="left")
-        if left == right:
-            left_cdf_val = norm_cdf[left - 1]
-            right_cdf_val = norm_cdf[left]
+        if len(temporal_distance_split_points_ordered) == 0:
+            return float('inf')
+
+        left = numpy.searchsorted(norm_cdf, 0.5, side="left")
+        right = numpy.searchsorted(norm_cdf, 0.5, side="right")
+        if left == len(norm_cdf):
+            return float('inf')
+        elif left == right:
+            left_cdf_val = norm_cdf[right -1]
+            right_cdf_val = norm_cdf[right]
             delta_y = right_cdf_val - left_cdf_val
             assert (delta_y > 0)
-            delta_x = (temporal_distance_split_points_ordered[left] - temporal_distance_split_points_ordered[left - 1])
-            median = (0.5 - left_cdf_val) / delta_y * delta_x + temporal_distance_split_points_ordered[left - 1]
+            delta_x = (temporal_distance_split_points_ordered[right] - temporal_distance_split_points_ordered[right - 1])
+            median = (0.5 - left_cdf_val) / delta_y * delta_x + temporal_distance_split_points_ordered[right - 1]
             return median
         else:
             return temporal_distance_split_points_ordered[left]
@@ -196,7 +201,7 @@ class NodeProfileAnalyzer:
         -------
         min_temporal_distance: float
         """
-        return min([block.duration_end for block in self._profile_blocks])
+        return min([block.distance_end for block in self._profile_blocks])
 
     def max_temporal_distance(self):
         """
@@ -206,7 +211,7 @@ class NodeProfileAnalyzer:
         -------
         max_temporal_distance : float
         """
-        block_start_durations = [block.duration_start for block in self._profile_blocks]
+        block_start_durations = [block.distance_start for block in self._profile_blocks]
         return max(block_start_durations)
 
     def plot_temporal_distance_cdf(self):
@@ -271,18 +276,18 @@ class NodeProfileAnalyzer:
         for i, block in enumerate(self._profile_blocks):
             previous_dep_time = block.departure_time - block.waiting_time
 
-            duration_end_minutes = block.duration_end / 60.0
-            duration_start_minutes = block.duration_start / 60.0
+            distance_end_minutes = block.distance_end / 60.0
+            distance_start_minutes = block.distance_start / 60.0
 
             slope = dict(x=[previous_dep_time, block.departure_time],
-                         y=[duration_start_minutes, duration_end_minutes])
+                         y=[distance_start_minutes, distance_end_minutes])
             slopes.append(slope)
 
             if i != 0:
                 # no vertical line for the first observation
-                previous_duration_minutes = self._profile_blocks[i - 1].duration_end / 60.0
+                previous_duration_minutes = self._profile_blocks[i - 1].distance_end / 60.0
                 vertical_lines.append(dict(x=[previous_dep_time, previous_dep_time],
-                                           y=[previous_duration_minutes, duration_start_minutes]))
+                                           y=[previous_duration_minutes, distance_start_minutes]))
         if timezone is None:
             warnings.warn("Warning: No timezone specified, defaulting to UTC")
             timezone = pytz.timezone("Etc/UTC")
@@ -338,9 +343,9 @@ class NodeProfileAnalyzer:
         """
         temporal_distance_split_points = set()
         for block in self._profile_blocks:
-            if block.duration_start != float('inf'):
-                temporal_distance_split_points.add(block.duration_end)
-                temporal_distance_split_points.add(block.duration_start)
+            if block.distance_start != float('inf'):
+                temporal_distance_split_points.add(block.distance_end)
+                temporal_distance_split_points.add(block.distance_start)
 
         temporal_distance_split_points_ordered = numpy.array(sorted(list(temporal_distance_split_points)))
         temporal_distance_split_widths = temporal_distance_split_points_ordered[1:] - \
@@ -350,13 +355,13 @@ class NodeProfileAnalyzer:
         trip_counts = numpy.zeros(len(temporal_distance_split_widths))
 
         for block in self._profile_blocks:
-            if block.duration_start == float('inf'):
+            if block.distance_start == float('inf'):
                 infinity_waiting_time += block.waiting_time
-            elif block.duration_start == block.duration_end == self._walk_time_to_target:
+            elif block.distance_start == block.distance_end == self._walk_time_to_target:
                 walk_total_time += block.waiting_time
             else:
-                start_index = numpy.searchsorted(temporal_distance_split_points_ordered, block.duration_end)
-                end_index = numpy.searchsorted(temporal_distance_split_points_ordered, block.duration_start)
+                start_index = numpy.searchsorted(temporal_distance_split_points_ordered, block.distance_end)
+                end_index = numpy.searchsorted(temporal_distance_split_points_ordered, block.distance_start)
                 trip_counts[start_index:end_index] += 1
 
         unnormalized_cdf = numpy.array([0] + list(numpy.cumsum(temporal_distance_split_widths * trip_counts)))
@@ -388,3 +393,31 @@ class NodeProfileAnalyzer:
         # densities = (norm_cdf[1:] - norm_cdf[:-1]) / temporal_distance_split_widths
         # assert (len(densities) == len(temporal_distance_split_points_ordered) - 1)
         # return temporal_distance_split_points_ordered, densities
+
+    @staticmethod
+    def all_measures_and_names_as_lists():
+        NPA = NodeProfileAnalyzer
+        profile_summary_methods = [
+            NPA.max_trip_duration,
+            NPA.mean_trip_duration,
+            NPA.median_trip_duration,
+            NPA.min_trip_duration,
+            NPA.max_temporal_distance,
+            NPA.mean_temporal_distance,
+            NPA.median_temporal_distance,
+            NPA.min_temporal_distance,
+            NPA.n_pareto_optimal_trips
+        ]
+        profile_observable_names = [
+            "max_trip_duration",
+            "mean_trip_duration",
+            "median_trip_duration",
+            "min_trip_duration",
+            "max_temporal_distance",
+            "mean_temporal_distance",
+            "median_temporal_distance",
+            "min_temporal_distance",
+            "n_pareto_optimal_trips"
+        ]
+        assert(len(profile_summary_methods) == len(profile_observable_names))
+        return profile_summary_methods, profile_observable_names

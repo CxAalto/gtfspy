@@ -18,6 +18,11 @@ class TestNodeProfileAnalyzer(TestCase):
         self.assertEqual(float('inf'), analyzer.mean_trip_duration())
         self.assertEqual(float('inf'), analyzer.median_trip_duration())
 
+        self.assertEqual(float('inf'), analyzer.max_temporal_distance())
+        self.assertEqual(float('inf'), analyzer.min_temporal_distance())
+        self.assertEqual(float('inf'), analyzer.mean_temporal_distance())
+        self.assertEqual(float('inf'), analyzer.median_temporal_distance())
+
     def test_trip_duration_statistics_simple(self):
         pairs = [
             ParetoTuple(departure_time=1, arrival_time_target=2),
