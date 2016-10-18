@@ -1,6 +1,6 @@
 import copy
 
-from gtfspy.routing.models import ParetoTuple
+from gtfspy.routing.pareto_tuple import ParetoTuple
 
 
 class NodeProfile:

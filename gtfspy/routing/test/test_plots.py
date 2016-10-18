@@ -1,6 +1,6 @@
 from gtfspy.routing.plots import plot_temporal_distance_variation
 from gtfspy.routing.node_profile import NodeProfile
-from gtfspy.routing.models import ParetoTuple
+from gtfspy.routing.pareto_tuple import ParetoTuple
 
 if __name__ == "__main__":
     profile = NodeProfile()

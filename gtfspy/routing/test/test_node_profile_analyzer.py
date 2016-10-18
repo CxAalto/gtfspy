@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from matplotlib import pyplot as plt
 
-from gtfspy.routing.models import ParetoTuple
+from gtfspy.routing.pareto_tuple import ParetoTuple
 from gtfspy.routing.node_profile import NodeProfile
 from gtfspy.routing.node_profile_analyzer import NodeProfileAnalyzer
 

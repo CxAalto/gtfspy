@@ -3,7 +3,9 @@ import unittest
 import networkx
 
 from gtfspy.routing.connection_scan_profile import ConnectionScanProfiler
-from gtfspy.routing.models import ParetoTuple, Connection
+from gtfspy.routing.models import Connection
+from gtfspy.routing.pareto_tuple import ParetoTuple
+
 
 # noinspection PyAttributeOutsideInit
 
