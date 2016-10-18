@@ -31,11 +31,11 @@ class TestNodeProfile(TestCase):
         pair4 = ParetoTuple(departure_time=1, arrival_time_target=2)
         self.assertFalse(node_profile.update_pareto_optimal_tuples(pair4))
 
-    def test_pareto_optimality(self):
-        pt1 = ParetoTuple(departure_time=5, arrival_time_target=35)
-        pt2 = ParetoTuple(departure_time=10, arrival_time_target=35)
+    def test_pareto_optimality2(self):
         node_profile = NodeProfile()
+        pt2 = ParetoTuple(departure_time=10, arrival_time_target=35)
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt2))
+        pt1 = ParetoTuple(departure_time=5, arrival_time_target=35)
         self.assertFalse(node_profile.update_pareto_optimal_tuples(pt1))
         self.assertEquals(len(node_profile.get_pareto_tuples()), 1)
 

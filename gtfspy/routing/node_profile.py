@@ -12,7 +12,7 @@ class NodeProfile:
 
     def __init__(self, walk_to_target_duration=float('inf')):
         # super(NodeProfile, self).__init__()
-        self._pareto_tuples = set()  # set[ParetoTuple]
+        self._pareto_tuples = []  # list[ParetoTuple] # always ordered by decreasing departure_time
         self._walk_to_target_duration = walk_to_target_duration
 
     def get_walk_to_target_duration(self):
@@ -33,21 +33,43 @@ class NodeProfile:
         """
         if new_pareto_tuple.duration() >= self._walk_to_target_duration:
             return False
-        new_is_dominated_by_old_tuples = False
-        old_tuples_dominated_by_new = set()
-        for old_pareto_tuple in self._pareto_tuples:
-            if old_pareto_tuple.dominates(new_pareto_tuple):
-                new_is_dominated_by_old_tuples = True
-                break
-            if new_pareto_tuple.dominates(old_pareto_tuple):
-                old_tuples_dominated_by_new.add(old_pareto_tuple)
-        if new_is_dominated_by_old_tuples:
-            assert (len(old_tuples_dominated_by_new) == 0)
+
+        if self._new_paretotuple_is_dominated_by_old_tuples(new_pareto_tuple):
             return False
         else:
-            self._pareto_tuples.difference_update(old_tuples_dominated_by_new)
-            self._pareto_tuples.add(new_pareto_tuple)
+            self._remove_old_tuples_dominated_by_new_and_insert_new_paretotuple(new_pareto_tuple)
             return True
+
+    def _remove_old_tuples_dominated_by_new_and_insert_new_paretotuple(self, new_pareto_tuple):
+        indices_to_remove = []
+        n = len(self._pareto_tuples)
+        insert_location = 0  # default for the case where len(self._pareto_tuples) == 0
+        for i in range(n - 1, -1, -1):
+            old_tuple = self._pareto_tuples[i]
+            if old_tuple.departure_time > new_pareto_tuple.departure_time:
+                insert_location = i + 1
+                break
+            else:
+                if new_pareto_tuple.dominates(old_tuple):
+                    indices_to_remove.append(i)
+        for ix in indices_to_remove:
+            del self._pareto_tuples[ix]
+        self._pareto_tuples.insert(insert_location, new_pareto_tuple)
+
+    def _new_paretotuple_is_dominated_by_old_tuples(self, new_pareto_tuple):
+        # self._pareto_tuples is guaranteed to be ordered in decreasing dep_time
+        # new_pareto_tuple can only be dominated by those elements, which have
+        # larger or equal dep_time than new_pareto_tuple.
+        for old_tuple in self._pareto_tuples[::-1]:
+            if old_tuple.departure_time >= new_pareto_tuple.arrival_time_target:
+                # all following arrival times are necessarily larger
+                # than new_pareto_tuple's arrival time
+                # This is just a heuristic.
+                break
+            else:
+                if old_tuple.dominates(new_pareto_tuple):
+                    return True
+        return False
 
     def get_earliest_arrival_time_at_target(self, dep_time):
         """
@@ -71,3 +93,4 @@ class NodeProfile:
 
     def get_pareto_tuples(self):
         return copy.deepcopy(self._pareto_tuples)
+
