@@ -9,13 +9,10 @@ class NodeProfile:
     that stores information on the Pareto-Optimal (departure_time_this_node, arrival_time_target_node) tuples.
     """
 
-    def __init__(self, walk_to_target_duration=float('inf'), count_transfers=False):
+    def __init__(self, walk_to_target_duration=float('inf')):
         self._pareto_tuples = []  # list[ParetoTuple] # always ordered by decreasing departure_time
         self._walk_to_target_duration = walk_to_target_duration
-        if count_transfers:
-            self._paretoTupleClass = ParetoTupleWithTransfers
-        else:
-            self._paretoTupleClass = ParetoTuple
+        self._paretoTupleClass = ParetoTuple
 
     def get_walk_to_target_duration(self):
         return self._walk_to_target_duration
