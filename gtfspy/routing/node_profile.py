@@ -1,19 +1,21 @@
 import copy
 
-from gtfspy.routing.pareto_tuple import ParetoTuple
+from gtfspy.routing.pareto_tuple import ParetoTuple, ParetoTupleWithTransfers
 
 
 class NodeProfile:
     """
     In the connection scan algorithm, each stop has a profile entry
-    that stores information on the Pareto-Optimal
-    (departure_time_this_node, arrival_time_target_node) tuples.
+    that stores information on the Pareto-Optimal (departure_time_this_node, arrival_time_target_node) tuples.
     """
 
-    def __init__(self, walk_to_target_duration=float('inf')):
-        # super(NodeProfile, self).__init__()
+    def __init__(self, walk_to_target_duration=float('inf'), count_transfers=False):
         self._pareto_tuples = []  # list[ParetoTuple] # always ordered by decreasing departure_time
         self._walk_to_target_duration = walk_to_target_duration
+        if count_transfers:
+            self._paretoTupleClass = ParetoTupleWithTransfers
+        else:
+            self._paretoTupleClass = ParetoTuple
 
     def get_walk_to_target_duration(self):
         return self._walk_to_target_duration
@@ -24,7 +26,7 @@ class NodeProfile:
 
         Parameters
         ----------
-        new_pareto_tuple: ParetoTuple
+        new_pareto_tuple: ParetoTuple or ParetoTupleWithTransfers
 
         Returns
         -------
@@ -64,14 +66,13 @@ class NodeProfile:
             if old_tuple.departure_time >= new_pareto_tuple.arrival_time_target:
                 # all following arrival times are necessarily larger
                 # than new_pareto_tuple's arrival time
-                # This is just a heuristic.
                 break
             else:
                 if old_tuple.dominates(new_pareto_tuple):
                     return True
         return False
 
-    def get_earliest_arrival_time_at_target(self, dep_time):
+    def get_earliest_arrival_time_at_target(self, dep_time, transfer_margin):
         """
         Get the earliest arrival time at the target, given a departure time.
 
@@ -79,6 +80,8 @@ class NodeProfile:
         ----------
         dep_time : float, int
             time in unix seconds
+        transfer_margin: float, int
+            transfer margin in seconds
 
         Returns
         -------
@@ -86,8 +89,9 @@ class NodeProfile:
             Arrival time in the given time unit (seconds after unix epoch).
         """
         minimum = dep_time + self._walk_to_target_duration
+        dep_time_plus_transfer_margin = dep_time + transfer_margin
         for pt in self._pareto_tuples:
-            if pt.departure_time >= dep_time and pt.arrival_time_target < minimum:
+            if pt.departure_time >= dep_time_plus_transfer_margin and pt.arrival_time_target < minimum:
                 minimum = pt.arrival_time_target
         return float(minimum)
 

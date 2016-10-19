@@ -51,7 +51,8 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
                  transfer_margin=0,
                  walk_network=None,
                  walk_speed=1.5,
-                 verbose=False):
+                 verbose=False,
+                 count_trips=False):
         """
         Parameters
         ----------
@@ -106,43 +107,54 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
 
     def _run(self):
         # if source node in s1:
-        latest_dep_time = float("inf")
+        previous_departure_time = float("inf")
         connections = self._connections  # list[Connection]
         n_connections = len(connections)
         for i, connection in enumerate(connections):
+            # basic checking + printing progress:
             if self._verbose and i % 1000 == 0:
                 print(i, "/", n_connections)
-            assert(isinstance(connection, Connection))
-            departure_time = connection.departure_time
-            assert(departure_time <= latest_dep_time)
-            latest_dep_time = departure_time
-            arrival_time = connection.arrival_time
-            departure_stop = connection.departure_stop
-            arrival_stop = connection.arrival_stop
-            trip_id = connection.trip_id
+            assert (isinstance(connection, Connection))
+            assert (connection.departure_time <= previous_departure_time)
+            previous_departure_time = connection.departure_time
 
-            arrival_profile = self._stop_profiles[arrival_stop]  # NodeProfile
-            dep_stop_profile = self._stop_profiles[departure_stop]
+            # get all different "accessible" / arrival times (Pareto-optimal sets)
+            arrival_profile = self._stop_profiles[connection.arrival_stop]  # NodeProfile
 
+            # Three possibilities:
+
+            # 1. earliest arrival time (Profiles) via transfer
             earliest_arrival_time_via_transfer = arrival_profile.get_earliest_arrival_time_at_target(
-                arrival_time + self._transfer_margin
+                connection.arrival_time, self._transfer_margin
             )
-            earliest_arrival_time_via_same_trip = self.__trip_min_arrival_time[trip_id]
-            earliest_arrival_time_via_walking_to_target = arrival_time + arrival_profile.get_walk_to_target_duration()
 
+            # 2. earliest arrival time within same trip (equals float('inf') if not reachable)
+            earliest_arrival_time_via_same_trip = self.__trip_min_arrival_time[connection.trip_id]
+
+            # then, take the minimum (or the Pareto-optimal set) of these three alternatives.
             min_arrival_time = min(earliest_arrival_time_via_same_trip,
-                                   earliest_arrival_time_via_transfer,
-                                   earliest_arrival_time_via_walking_to_target)
+                                   earliest_arrival_time_via_transfer)
+
+            # If there are no 'labels' to progress, nothing needs to be done.
             if min_arrival_time == float("inf"):
                 continue
-            if earliest_arrival_time_via_same_trip > min_arrival_time:
-                self.__trip_min_arrival_time[trip_id] = earliest_arrival_time_via_transfer
 
-            pareto_tuple = ParetoTuple(departure_time, min_arrival_time)
+            # Update information for the trip
+            if earliest_arrival_time_via_same_trip > min_arrival_time:
+                self.__trip_min_arrival_time[connection.trip_id] = earliest_arrival_time_via_transfer
+
+            # Compute the new "best" pareto_tuple possible (later: merge the sets of pareto-optimal labels)
+            pareto_tuple = ParetoTuple(connection.departure_time, min_arrival_time)
+
+            # update departure stop profile (later: with the sets of pareto-optimal labels)
+            dep_stop_profile = self._stop_profiles[connection.departure_stop]
             updated_dep_stop = dep_stop_profile.update_pareto_optimal_tuples(pareto_tuple)
 
+            # if the departure stop is updated, one also needs to scan the footpaths from the departure stop
             if updated_dep_stop:
-                self._scan_footpaths_to_departure_stop(departure_stop, departure_time, min_arrival_time)
+                self._scan_footpaths_to_departure_stop(connection.departure_stop,
+                                                       connection.departure_time,
+                                                       min_arrival_time)
 
     def _scan_footpaths_to_departure_stop(self, connection_dep_stop, connection_dep_time, arrival_time_target):
         """ A helper method for scanning the footpaths. Updates self._stop_profiles accordingly"""
@@ -163,7 +175,3 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         """
         assert self._has_run
         return self._stop_profiles
-
-
-
-

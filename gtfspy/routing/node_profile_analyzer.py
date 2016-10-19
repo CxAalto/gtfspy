@@ -67,7 +67,7 @@ class NodeProfileAnalyzer:
             previous_departure_time = trip_pareto_tuple.departure_time
 
         # deal with last
-        arrival_time_target_at_end_time = node_profile.get_earliest_arrival_time_at_target(end_time_dep)
+        arrival_time_target_at_end_time = node_profile.get_earliest_arrival_time_at_target(end_time_dep, 0)
         if len(self._profile_blocks) > 0:
             dep_previous = self._profile_blocks[-1].departure_time
         else:
@@ -183,7 +183,7 @@ class NodeProfileAnalyzer:
         if left == len(norm_cdf):
             return float('inf')
         elif left == right:
-            left_cdf_val = norm_cdf[right -1]
+            left_cdf_val = norm_cdf[right - 1]
             right_cdf_val = norm_cdf[right]
             delta_y = right_cdf_val - left_cdf_val
             assert (delta_y > 0)
