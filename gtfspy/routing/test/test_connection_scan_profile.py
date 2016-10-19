@@ -4,7 +4,7 @@ import networkx
 
 from gtfspy.routing.connection_scan_profile import ConnectionScanProfiler
 from gtfspy.routing.models import Connection
-from gtfspy.routing.pareto_tuple import ParetoTuple
+from gtfspy.routing.label import Label
 
 
 # noinspection PyAttributeOutsideInit
@@ -40,20 +40,20 @@ class ConnectionScanProfileTest(unittest.TestCase):
 
         stop_3_pareto_tuples = csa_profile.stop_profiles[3].get_pareto_tuples()
         self.assertEqual(len(stop_3_pareto_tuples), 1)
-        self.assertIn(ParetoTuple(32, 35), stop_3_pareto_tuples)
+        self.assertIn(Label(32, 35), stop_3_pareto_tuples)
 
         stop_2_pareto_tuples = csa_profile.stop_profiles[2].get_pareto_tuples()
         self.assertEqual(len(stop_2_pareto_tuples), 2)
-        self.assertIn(ParetoTuple(40, 50), stop_2_pareto_tuples)
-        self.assertIn(ParetoTuple(25, 35), stop_2_pareto_tuples)
+        self.assertIn(Label(40, 50), stop_2_pareto_tuples)
+        self.assertIn(Label(25, 35), stop_2_pareto_tuples)
 
         source_stop_profile = csa_profile.stop_profiles[self.source_stop]
         source_stop_pareto_optimal_tuples = source_stop_profile.get_pareto_tuples()
 
         pareto_tuples = set()
-        pareto_tuples.add(ParetoTuple(departure_time=10, arrival_time_target=35))
-        pareto_tuples.add(ParetoTuple(departure_time=20, arrival_time_target=50))
-        pareto_tuples.add(ParetoTuple(departure_time=32, arrival_time_target=55))
+        pareto_tuples.add(Label(departure_time=10, arrival_time_target=35))
+        pareto_tuples.add(Label(departure_time=20, arrival_time_target=50))
+        pareto_tuples.add(Label(departure_time=32, arrival_time_target=55))
 
         self._assert_pareto_tuple_sets_equal(
             pareto_tuples,
@@ -90,7 +90,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
         end_time = 50
 
         pareto_tuples = set()
-        pareto_tuples.add(ParetoTuple(departure_time=20, arrival_time_target=50))
+        pareto_tuples.add(Label(departure_time=20, arrival_time_target=50))
 
         csa_profile = ConnectionScanProfiler(transit_connections, target_stop,
                                              start_time, end_time, transfer_margin,
@@ -119,7 +119,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
         start_time = 0
         end_time = 50
         pareto_tuples = set()
-        pareto_tuples.add(ParetoTuple(departure_time=0, arrival_time_target=30))
+        pareto_tuples.add(Label(departure_time=0, arrival_time_target=30))
 
         csa_profile = ConnectionScanProfiler(transit_connections, target_stop,
                                              start_time, end_time, transfer_margin,

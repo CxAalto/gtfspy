@@ -3,23 +3,22 @@ import copy
 from gtfspy.routing.label import Label, LabelWithTransfers
 
 
-class NodeProfile:
+class NodeProfileMultiObjective:
     """
-    In the connection scan algorithm, each stop has a profile entry
-    that stores information on the Pareto-Optimal (departure_time_this_node, arrival_time_target_node) tuples.
+    In the multiobjective connection scan algorithm,
+    each stop has a profile entry containing all Pareto-optimal entries.
     """
 
     def __init__(self, walk_to_target_duration=float('inf')):
         self._pareto_tuples = []  # list[ParetoTuple] # always ordered by decreasing departure_time
         self._walk_to_target_duration = walk_to_target_duration
-        self._paretoTupleClass = Label
 
     def get_walk_to_target_duration(self):
         return self._walk_to_target_duration
 
     def update_pareto_optimal_tuples(self, new_pareto_tuple):
         """
-        # this function should be optimized
+        # This function should be optimized
 
         Parameters
         ----------
@@ -30,6 +29,8 @@ class NodeProfile:
         added: bool
             whether new_pareto_tuple was added to the set of pareto-optimal tuples
         """
+        # Implicit assumption: walking to target dominates all other trips,
+        # if the walk_duration just is longer.
         if new_pareto_tuple.duration() >= self._walk_to_target_duration:
             return False
 
@@ -69,9 +70,9 @@ class NodeProfile:
                     return True
         return False
 
-    def get_earliest_arrival_time_at_target(self, dep_time, transfer_margin):
+    def get_pareto_optimal_tuples(self, dep_time, transfer_margin):
         """
-        Get the earliest arrival time at the target, given a departure time.
+        Get the pareto_optimal arrival times at target, given a departure time.
 
         Parameters
         ----------
@@ -82,15 +83,21 @@ class NodeProfile:
 
         Returns
         -------
-        arrival_time : float
-            Arrival time in the given time unit (seconds after unix epoch).
+        pareto_optimal_labels : set[Label]
+            Set of ParetoTuples
         """
-        minimum = dep_time + self._walk_to_target_duration
+        pareto_optimal_labels = set()
+        if self._walk_to_target_duration != float('inf'):
+            walk_pareto_tuple = LabelWithTransfers(departure_time=dep_time,
+                                                   arrival_time_target=dep_time + self._walk_to_target_duration,
+                                                   n_transfers=0)
+            pareto_optimal_labels.add(walk_pareto_tuple)
         dep_time_plus_transfer_margin = dep_time + transfer_margin
         for pt in self._pareto_tuples:
             if pt.departure_time >= dep_time_plus_transfer_margin and pt.arrival_time_target < minimum:
+
                 minimum = pt.arrival_time_target
-        return float(minimum)
+        return labels
 
     def get_pareto_tuples(self):
         return copy.deepcopy(self._pareto_tuples)

@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from matplotlib import pyplot as plt
 
-from gtfspy.routing.pareto_tuple import ParetoTuple
+from gtfspy.routing.label import Label
 from gtfspy.routing.node_profile import NodeProfile
 from gtfspy.routing.node_profile_analyzer import NodeProfileAnalyzer
 
@@ -25,9 +25,9 @@ class TestNodeProfileAnalyzer(TestCase):
 
     def test_trip_duration_statistics_simple(self):
         pairs = [
-            ParetoTuple(departure_time=1, arrival_time_target=2),
-            ParetoTuple(departure_time=2, arrival_time_target=4),
-            ParetoTuple(departure_time=4, arrival_time_target=5)
+            Label(departure_time=1, arrival_time_target=2),
+            Label(departure_time=2, arrival_time_target=4),
+            Label(departure_time=4, arrival_time_target=5)
         ]
         profile = NodeProfile()
         for pair in pairs:
@@ -40,9 +40,9 @@ class TestNodeProfileAnalyzer(TestCase):
 
     def test_temporal_distance_statistics(self):
         pairs = [
-            ParetoTuple(departure_time=1, arrival_time_target=2),
-            ParetoTuple(departure_time=2, arrival_time_target=4),
-            ParetoTuple(departure_time=4, arrival_time_target=5)
+            Label(departure_time=1, arrival_time_target=2),
+            Label(departure_time=2, arrival_time_target=4),
+            Label(departure_time=4, arrival_time_target=5)
         ]
         profile = NodeProfile()
         for pair in pairs:
@@ -55,10 +55,10 @@ class TestNodeProfileAnalyzer(TestCase):
         self.assertAlmostEqual(2.25, analyzer.median_temporal_distance())
 
     def test_temporal_distance_statistics_with_walk(self):
-        pt1 = ParetoTuple(departure_time=1, arrival_time_target=2)
-        pt2 = ParetoTuple(departure_time=4, arrival_time_target=5)   # not taken into account by the analyzer
+        pt1 = Label(departure_time=1, arrival_time_target=2)
+        pt2 = Label(departure_time=4, arrival_time_target=5)   # not taken into account by the analyzer
         profile = NodeProfile(1.5)
-        assert isinstance(pt1, ParetoTuple), type(pt1)
+        assert isinstance(pt1, Label), type(pt1)
         profile.update_pareto_optimal_tuples(pt1)
         profile.update_pareto_optimal_tuples(pt2)
         analyzer = NodeProfileAnalyzer(profile, 0, 3)
@@ -70,24 +70,24 @@ class TestNodeProfileAnalyzer(TestCase):
     @unittest.skip("Skipping plotting test")
     def test_all_plots(self):
         profile = NodeProfile()
-        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=2 * 60, arrival_time_target=11 * 60))
-        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=20 * 60, arrival_time_target=25 * 60))
-        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=40 * 60, arrival_time_target=45 * 60))
+        profile.update_pareto_optimal_tuples(Label(departure_time=2 * 60, arrival_time_target=11 * 60))
+        profile.update_pareto_optimal_tuples(Label(departure_time=20 * 60, arrival_time_target=25 * 60))
+        profile.update_pareto_optimal_tuples(Label(departure_time=40 * 60, arrival_time_target=45 * 60))
         analyzer = NodeProfileAnalyzer(profile, 0, 60 * 60)
         analyzer.plot_temporal_distance_variation()
         analyzer.plot_temporal_distance_cdf()
         # analyzer.plot_temporal_distance_pdf()
 
         profile = NodeProfile()
-        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=2 * 60, arrival_time_target=3 * 60))
-        profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=4 * 60, arrival_time_target=25 * 60))
+        profile.update_pareto_optimal_tuples(Label(departure_time=2 * 60, arrival_time_target=3 * 60))
+        profile.update_pareto_optimal_tuples(Label(departure_time=4 * 60, arrival_time_target=25 * 60))
         analyzer = NodeProfileAnalyzer(profile, 0, 5 * 60)
         analyzer.plot_temporal_distance_variation()
         analyzer.plot_temporal_distance_cdf()
         # analyzer.plot_temporal_distance_pdf()
 
-        pt1 = ParetoTuple(departure_time=1, arrival_time_target=2)
-        pt2 = ParetoTuple(departure_time=4, arrival_time_target=5)   # not taken into account by the analyzer
+        pt1 = Label(departure_time=1, arrival_time_target=2)
+        pt2 = Label(departure_time=4, arrival_time_target=5)   # not taken into account by the analyzer
         profile = NodeProfile(1.5)
         profile.update_pareto_optimal_tuples(pt1)
         profile.update_pareto_optimal_tuples(pt2)

@@ -31,7 +31,7 @@ from collections import defaultdict
 import networkx
 
 from gtfspy.routing.models import Connection
-from gtfspy.routing.pareto_tuple import ParetoTuple
+from gtfspy.routing.label import Label
 from gtfspy.routing.node_profile import NodeProfile
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 
@@ -144,7 +144,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
                 self.__trip_min_arrival_time[connection.trip_id] = earliest_arrival_time_via_transfer
 
             # Compute the new "best" pareto_tuple possible (later: merge the sets of pareto-optimal labels)
-            pareto_tuple = ParetoTuple(connection.departure_time, min_arrival_time)
+            pareto_tuple = Label(connection.departure_time, min_arrival_time)
 
             # update departure stop profile (later: with the sets of pareto-optimal labels)
             dep_stop_profile = self._stop_profiles[connection.departure_stop]
@@ -162,7 +162,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
                                                                data=True):
             d_walk = data['d_walk']
             neighbor_dep_time = connection_dep_time - d_walk / self._walk_speed
-            pt = ParetoTuple(departure_time=neighbor_dep_time, arrival_time_target=arrival_time_target)
+            pt = Label(departure_time=neighbor_dep_time, arrival_time_target=arrival_time_target)
             self._stop_profiles[neighbor].update_pareto_optimal_tuples(pt)
 
     @property
