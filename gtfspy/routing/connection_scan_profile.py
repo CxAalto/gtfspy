@@ -124,7 +124,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             # Three possibilities:
 
             # 1. earliest arrival time (Profiles) via transfer
-            earliest_arrival_time_via_transfer = arrival_profile.get_earliest_arrival_time_at_target(
+            earliest_arrival_time_via_transfer = arrival_profile.evaluate_earliest_arrival_time_at_target(
                 connection.arrival_time, self._transfer_margin
             )
 

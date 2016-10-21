@@ -8,13 +8,13 @@ class TestNodeProfile(TestCase):
 
     def test_earliest_arrival_time(self):
         node_profile = NodeProfile()
-        self.assertEquals(float("inf"), node_profile.get_earliest_arrival_time_at_target(0, 0))
+        self.assertEquals(float("inf"), node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
 
         node_profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=1, arrival_time_target=1))
-        self.assertEquals(1, node_profile.get_earliest_arrival_time_at_target(0, 0))
+        self.assertEquals(1, node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
 
         node_profile.update_pareto_optimal_tuples(ParetoTuple(departure_time=3, arrival_time_target=4))
-        self.assertEquals(4, node_profile.get_earliest_arrival_time_at_target(2, 0))
+        self.assertEquals(4, node_profile.evaluate_earliest_arrival_time_at_target(2, 0))
 
     def test_pareto_optimality(self):
         node_profile = NodeProfile()
@@ -45,7 +45,7 @@ class TestNodeProfile(TestCase):
     def test_identity_profile(self):
         identity_profile = NodeProfile(0)
         self.assertFalse(identity_profile.update_pareto_optimal_tuples(ParetoTuple(10, 10)))
-        self.assertEqual(10, identity_profile.get_earliest_arrival_time_at_target(10, 0))
+        self.assertEqual(10, identity_profile.evaluate_earliest_arrival_time_at_target(10, 0))
 
     def test_walk_duration(self):
         node_profile = NodeProfile(walk_to_target_duration=27)
