@@ -70,7 +70,7 @@ class NodeProfileMultiObjective:
                     return True
         return False
 
-    def get_pareto_optimal_tuples(self, dep_time, transfer_margin):
+    def evaluate(self, dep_time, transfer_margin):
         """
         Get the pareto_optimal arrival times at target, given a departure time.
 
@@ -86,6 +86,7 @@ class NodeProfileMultiObjective:
         pareto_optimal_labels : set[Label]
             Set of ParetoTuples
         """
+        raise NotImplementedError("This is ongoing progress... now working well yet.")
         pareto_optimal_labels = set()
         if self._walk_to_target_duration != float('inf'):
             walk_pareto_tuple = LabelWithTransfers(departure_time=dep_time,
@@ -94,10 +95,10 @@ class NodeProfileMultiObjective:
             pareto_optimal_labels.add(walk_pareto_tuple)
         dep_time_plus_transfer_margin = dep_time + transfer_margin
         for pt in self._pareto_tuples:
-            if pt.departure_time >= dep_time_plus_transfer_margin and pt.arrival_time_target < minimum:
+            if pt.departure_time >= dep_time_plus_transfer_margin:
 
-                minimum = pt.arrival_time_target
-        return labels
+
+        return pareto_optimal_labels
 
     def get_pareto_tuples(self):
         return copy.deepcopy(self._pareto_tuples)
