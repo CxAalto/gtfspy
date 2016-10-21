@@ -67,7 +67,7 @@ class NodeProfileAnalyzer:
             previous_departure_time = trip_pareto_tuple.departure_time
 
         # deal with last
-        arrival_time_target_at_end_time = node_profile.get_earliest_arrival_time_at_target(end_time_dep, 0)
+        arrival_time_target_at_end_time = node_profile.evaluate_earliest_arrival_time_at_target(end_time_dep, 0)
         if len(self._profile_blocks) > 0:
             dep_previous = self._profile_blocks[-1].departure_time
         else:

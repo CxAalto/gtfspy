@@ -147,7 +147,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
                                              walk_network, walk_speed)
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
-        self.assertEqual(source_profile.get_earliest_arrival_time_at_target(0, 0), 0.5)
+        self.assertEqual(source_profile.evaluate_earliest_arrival_time_at_target(0, 0), 0.5)
         found_tuples = source_profile.get_pareto_tuples()
         self.assertEqual(len(found_tuples), 0)
 
@@ -169,7 +169,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
                                              walk_network, walk_speed)
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
-        self.assertEqual(source_profile.get_earliest_arrival_time_at_target(0, 0), 10)
+        self.assertEqual(source_profile.evaluate_earliest_arrival_time_at_target(0, 0), 10)
         found_tuples = source_profile.get_pareto_tuples()
         self.assertEqual(len(found_tuples), 1)
 
