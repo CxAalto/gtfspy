@@ -36,8 +36,8 @@ class NodeProfileAnalyzer:
         self.end_time_dep = end_time_dep
 
         # used for computing temporal distances:
-        trip_pareto_tuples = [pt for pt in node_profile.get_pareto_tuples() if
-                                (start_time_dep < pt.departure_time < end_time_dep)]
+        trip_pareto_tuples = [pt for pt in node_profile.get_pareto_optimal_tuples() if
+                              (start_time_dep < pt.departure_time < end_time_dep)]
         trip_pareto_tuples = sorted(trip_pareto_tuples, key=lambda ptuple: ptuple.departure_time)
         self._walk_time_to_target = node_profile.get_walk_to_target_duration()
         self._profile_blocks = []
@@ -67,7 +67,7 @@ class NodeProfileAnalyzer:
             previous_departure_time = trip_pareto_tuple.departure_time
 
         # deal with last
-        arrival_time_target_at_end_time = node_profile.get_earliest_arrival_time_at_target(end_time_dep, 0)
+        arrival_time_target_at_end_time = node_profile.evaluate_earliest_arrival_time_at_target(end_time_dep, 0)
         if len(self._profile_blocks) > 0:
             dep_previous = self._profile_blocks[-1].departure_time
         else:

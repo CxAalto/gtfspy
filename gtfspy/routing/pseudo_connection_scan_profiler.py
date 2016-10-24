@@ -31,12 +31,14 @@ from collections import defaultdict
 import networkx
 
 from gtfspy.routing.models import Connection
-from gtfspy.routing.label import Label
+from gtfspy.routing.pareto_tuple import ParetoTuple
 from gtfspy.routing.node_profile import NodeProfile
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
+from gtfspy.routing.pseudo_connections import compute_pseudo_connections
+from gtfspy.routing.node_profile_c import NodeProfileC
 
 
-class ConnectionScanProfiler(AbstractRoutingAlgorithm):
+class PseudoConnectionScanProfiler(AbstractRoutingAlgorithm):
     """
     Implementation of the profile connection scan algorithm presented in
 
@@ -75,7 +77,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         AbstractRoutingAlgorithm.__init__(self)
 
         self._target = target_stop
-        self._connections = transit_events
+        self._transit_connections = transit_events
         if start_time is None:
             start_time = transit_events[-1].departure_time
         if end_time is None:
@@ -95,24 +97,30 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         self.__trip_min_arrival_time = defaultdict(lambda: float("inf"))
 
         # initialize stop_profiles
-        self._stop_profiles = defaultdict(lambda: NodeProfile())
+        self._stop_profiles = defaultdict(lambda: NodeProfileC())
         # initialize stop_profiles for target stop, and its neighbors
-        self._stop_profiles[self._target] = NodeProfile(0)
+        self._stop_profiles[self._target] = NodeProfileC(0)
         if target_stop in walk_network.nodes():
             for target_neighbor in walk_network.neighbors(target_stop):
                 edge_data = walk_network.get_edge_data(target_neighbor, target_stop)
                 walk_duration = edge_data["d_walk"] / self._walk_speed
-                self._stop_profiles[target_neighbor] = NodeProfile(walk_duration)
+                self._stop_profiles[target_neighbor] = NodeProfileC(walk_duration)
+        pseudo_connection_set = compute_pseudo_connections(transit_events, self._start_time, self._end_time,
+                                                           self._transfer_margin, self._walk_network,
+                                                           self._walk_speed)
+        self._pseudo_connections = list(pseudo_connection_set)
+        self._all_connections = self._pseudo_connections + self._transit_connections
+        self._all_connections.sort(key=lambda connection: -connection.departure_time)
 
     def _run(self):
         # if source node in s1:
         previous_departure_time = float("inf")
-        connections = self._connections  # list[Connection]
-        n_connections = len(connections)
+        connections = self._all_connections # list[Connection]
+        n_connections_tot = len(connections)
         for i, connection in enumerate(connections):
             # basic checking + printing progress:
             if self._verbose and i % 1000 == 0:
-                print(i, "/", n_connections)
+                print(i, "/", n_connections_tot)
             assert (isinstance(connection, Connection))
             assert (connection.departure_time <= previous_departure_time)
             previous_departure_time = connection.departure_time
@@ -139,30 +147,14 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
                 continue
 
             # Update information for the trip
-            if earliest_arrival_time_via_same_trip > min_arrival_time:
+            if (not connection.is_walk) and (earliest_arrival_time_via_same_trip > min_arrival_time):
                 self.__trip_min_arrival_time[connection.trip_id] = earliest_arrival_time_via_transfer
 
             # Compute the new "best" pareto_tuple possible (later: merge the sets of pareto-optimal labels)
-            pareto_tuple = Label(connection.departure_time, min_arrival_time)
+            pareto_tuple = ParetoTuple(connection.departure_time, min_arrival_time)
 
             # update departure stop profile (later: with the sets of pareto-optimal labels)
-            dep_stop_profile = self._stop_profiles[connection.departure_stop]
-            updated_dep_stop = dep_stop_profile.update_pareto_optimal_tuples(pareto_tuple)
-
-            # if the departure stop is updated, one also needs to scan the footpaths from the departure stop
-            if updated_dep_stop:
-                self._scan_footpaths_to_departure_stop(connection.departure_stop,
-                                                       connection.departure_time,
-                                                       min_arrival_time)
-
-    def _scan_footpaths_to_departure_stop(self, connection_dep_stop, connection_dep_time, arrival_time_target):
-        """ A helper method for scanning the footpaths. Updates self._stop_profiles accordingly"""
-        for _, neighbor, data in self._walk_network.edges_iter(nbunch=[connection_dep_stop],
-                                                               data=True):
-            d_walk = data['d_walk']
-            neighbor_dep_time = connection_dep_time - d_walk / self._walk_speed
-            pt = Label(departure_time=neighbor_dep_time, arrival_time_target=arrival_time_target)
-            self._stop_profiles[neighbor].update_pareto_optimal_tuples(pt)
+            self._stop_profiles[connection.departure_stop].update_pareto_optimal_tuples(pareto_tuple)
 
     @property
     def stop_profiles(self):
