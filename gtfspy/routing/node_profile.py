@@ -95,6 +95,6 @@ class NodeProfile:
                 minimum = pt.arrival_time_target
         return float(minimum)
 
-    def get_pareto_tuples(self):
+    def get_pareto_optimal_tuples(self):
         return copy.deepcopy(self._pareto_tuples)
 

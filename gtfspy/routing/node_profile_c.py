@@ -22,20 +22,31 @@ class NodeProfileC:
         Parameters
         ----------
         new_pareto_tuple: ParetoTuple
+
+        Returns
+        -------
+        updated: bool
         """
-        assert(isinstance(new_pareto_tuple, ParetoTuple))
+        assert (isinstance(new_pareto_tuple, ParetoTuple))
         if self._pareto_tuples:
-            assert(new_pareto_tuple.departure_time <= self._pareto_tuples[-1].departure_time)
-        walk_to_target_arrival_time = new_pareto_tuple.departure_time + self._walk_to_target_duration
-        if self._pareto_tuples:
+            assert (new_pareto_tuple.departure_time <= self._pareto_tuples[-1].departure_time)
             best_later_departing_arrival_time = self._pareto_tuples[-1].arrival_time_target
         else:
             best_later_departing_arrival_time = float('inf')
+
+        walk_to_target_arrival_time = new_pareto_tuple.departure_time + self._walk_to_target_duration
+
         best_arrival_time = min(walk_to_target_arrival_time,
                                 best_later_departing_arrival_time,
                                 new_pareto_tuple.arrival_time_target)
-        print
-        self._pareto_tuples.append(ParetoTuple(new_pareto_tuple.departure_time, best_arrival_time))
+        # this should be changed to get constant time insertions / additions
+        # (with time-indexing)
+        if (new_pareto_tuple.arrival_time_target < walk_to_target_arrival_time and
+                    new_pareto_tuple.arrival_time_target < best_later_departing_arrival_time):
+            self._pareto_tuples.append(ParetoTuple(new_pareto_tuple.departure_time, best_arrival_time))
+            return True
+        else:
+            return False
 
     def evaluate_earliest_arrival_time_at_target(self, dep_time, transfer_margin):
         """
@@ -56,17 +67,14 @@ class NodeProfileC:
         """
         minimum = dep_time + self._walk_to_target_duration
         for pt in self._pareto_tuples[::-1]:
-            print(minimum, pt)
             if pt.departure_time >= dep_time + transfer_margin:
                 minimum = min(minimum, pt.arrival_time_target)
                 break
         return float(minimum)
 
-    def get_pareto_tuples_for_analysis(self):
+    def get_pareto_optimal_tuples(self):
         non_walk_valid_pareto_tuples = []
         for pt in self._pareto_tuples:
             if pt.duration() < self._walk_to_target_duration:
                 non_walk_valid_pareto_tuples.append(pt)
         return copy.deepcopy(compute_pareto_front(non_walk_valid_pareto_tuples))
-
-

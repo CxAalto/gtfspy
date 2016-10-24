@@ -51,8 +51,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
                  transfer_margin=0,
                  walk_network=None,
                  walk_speed=1.5,
-                 verbose=False,
-                 count_trips=False):
+                 verbose=False):
         """
         Parameters
         ----------

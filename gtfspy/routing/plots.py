@@ -26,7 +26,7 @@ def plot_temporal_distance_variation(profile, start_time=None, end_time=None, sh
     -------
     fig: matplotlib.pyplot.Figure
     """
-    pareto_tuples = list(profile.get_pareto_tuples())
+    pareto_tuples = list(profile.get_pareto_optimal_tuples())
     pareto_tuples.sort(key=lambda pt: pt.departure_time)  # , reverse=True)
     departure_times = np.array(map(lambda pt: pt.departure_time, pareto_tuples))
     if start_time is None:
