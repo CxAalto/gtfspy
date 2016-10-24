@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from gtfspy.routing.pareto_tuple import ParetoTuple, ParetoTupleWithTransfers
+from gtfspy.routing.pareto_tuple import ParetoTuple
 from gtfspy.routing.node_profile_c import NodeProfileC
 
 

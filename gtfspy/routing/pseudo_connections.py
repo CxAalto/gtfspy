@@ -27,18 +27,18 @@ def compute_pseudo_connections(transit_connections, start_time_dep,
 
     Returns
     -------
-    pseudo_connections: list[Connection]
+    pseudo_connections: set[Connection]
     """
     # A pseudo-connection should be created after (each) arrival to a transit_connection's arrival stop.
     pseudo_connection_set = set()  # use a set to ignore possible duplicates
     for c in transit_connections:
         if start_time_dep <= c.departure_time <= end_time_dep:
-            walk_dep_stop = c.arrival_stop
-            walk_dep_time = c.arrival_time
-            if walk_dep_time > end_time_dep:
-                continue
-            for _, walk_arr_stop, data in walk_network.edges(nbunch=[walk_dep_stop], data=True):
-                walk_arr_time = walk_dep_time + data['d_walk'] / float(walk_speed)
+            walk_arr_stop = c.departure_stop
+            walk_arr_time = c.departure_time - transfer_margin
+            for _, walk_dep_stop, data in walk_network.edges(nbunch=[walk_arr_stop], data=True):
+                walk_dep_time = walk_arr_time - data['d_walk'] / float(walk_speed)
+                if walk_dep_time > end_time_dep or walk_dep_time < start_time_dep:
+                    continue
                 pseudo_connection = Connection(departure_stop=walk_dep_stop,
                                                arrival_stop=walk_arr_stop,
                                                departure_time=walk_dep_time,
@@ -46,7 +46,7 @@ def compute_pseudo_connections(transit_connections, start_time_dep,
                                                trip_id=None,
                                                is_walk=True)
                 pseudo_connection_set.add(pseudo_connection)
-    return list(pseudo_connection_set)
+    return pseudo_connection_set
 
 
 

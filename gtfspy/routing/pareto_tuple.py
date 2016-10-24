@@ -5,6 +5,7 @@ _pareto_tuple = namedtuple('ParetoTuple',
 
 
 class ParetoTuple(_pareto_tuple):
+
     def dominates(self, other):
         """
         Compute whether this ParetoTuple dominates the other ParetoTuple
