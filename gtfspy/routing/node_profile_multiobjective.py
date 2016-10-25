@@ -65,7 +65,7 @@ class NodeProfileMultiObjective:
             self._label_bags.append(new_frontier)
         return True
 
-    def evaluate(self, dep_time, transfer_margin, allow_walk=True):
+    def evaluate(self, dep_time, transfer_margin, allow_walk_to_target=True):
         """
         Get the pareto_optimal set of Labels, given a departure time.
 
@@ -75,6 +75,10 @@ class NodeProfileMultiObjective:
             time in unix seconds
         transfer_margin: float, int
             transfer margin in seconds
+        allow_walk_to_target : bool, optional
+            whether to allow walking to target to be included into the profile
+            (I.e. whether this function is called when scanning a pseudo-connection:
+            "double" walks are not allowed.)
 
         Returns
         -------
@@ -82,7 +86,7 @@ class NodeProfileMultiObjective:
             Set of Labels
         """
         pareto_optimal_labels = set()
-        if self._walk_to_target_duration != float('inf') and allow_walk:
+        if self._walk_to_target_duration != float('inf') and allow_walk_to_target:
             walk_pareto_tuple = LabelWithTransfers(departure_time=dep_time,
                                                    arrival_time_target=dep_time + self._walk_to_target_duration,
                                                    n_transfers=0)

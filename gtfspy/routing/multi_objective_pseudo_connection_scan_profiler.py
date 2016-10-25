@@ -104,9 +104,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             # Two possibilities:
 
             # "best labels at the arrival node", double walks are not allowed
-            arrival_node_labels_orig = arrival_profile.evaluate(connection.arrival_time,
-                                                                self._transfer_margin,
-                                                                allow_walk=not connection.is_walk)
+            arrival_node_labels_orig = arrival_profile.evaluate(connection.arrival_time, self._transfer_margin,
+                                                                allow_walk_to_target=not connection.is_walk)
             arrival_node_labels = _copy_and_modify_labels(arrival_node_labels_orig,
                                                           connection.departure_time,
                                                           increment_n_transfers=not connection.is_walk)
