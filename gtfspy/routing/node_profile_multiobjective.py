@@ -1,6 +1,7 @@
 import copy
+from collections import OrderedDict
 
-from gtfspy.routing.label import Label, LabelWithTransfers
+from gtfspy.routing.label import Label, LabelWithTransfers, merge_pareto_frontiers, compute_pareto_front
 
 
 class NodeProfileMultiObjective:
@@ -9,70 +10,63 @@ class NodeProfileMultiObjective:
     each stop has a profile entry containing all Pareto-optimal entries.
     """
 
-    def __init__(self, walk_to_target_duration=float('inf')):
-        self._pareto_tuples = []  # list[ParetoTuple] # always ordered by decreasing departure_time
+    def __init__(self, walk_to_target_duration=float('inf'), label_class=Label):
+        self._dep_time_to_index = OrderedDict()
+        self._label_bags = []
         self._walk_to_target_duration = walk_to_target_duration
+        self._min_dep_time = float('inf')
+        self._label_class=label_class
+
+    def _update_min_dep_time(self, dep_time):
+        assert(dep_time <= self._min_dep_time, "Labels should be entered in increasing order of departure time.")
+        self._min_dep_time = dep_time
 
     def get_walk_to_target_duration(self):
         return self._walk_to_target_duration
 
-    def update_pareto_optimal_tuples(self, new_pareto_tuple):
+    def update(self, new_labels):
         """
-        # This function should be optimized
+        This function could most likely be optimized.
 
         Parameters
         ----------
-        new_pareto_tuple: Label or LabelWithTransfers
+        new_labels: Label, set[Label]
 
         Returns
         -------
         added: bool
             whether new_pareto_tuple was added to the set of pareto-optimal tuples
         """
-        # Implicit assumption: walking to target dominates all other trips,
-        # if the walk_duration just is longer.
-        if new_pareto_tuple.duration() >= self._walk_to_target_duration:
+        if not isinstance(new_labels, set):
+            new_labels = {new_labels}
+
+        if not new_labels:
             return False
 
-        if self._new_paretotuple_is_dominated_by_old_tuples(new_pareto_tuple):
-            return False
+        departure_time = next(iter(new_labels)).departure_time
+        self._update_min_dep_time(departure_time)
+
+        if self._label_bags:
+            previous_labels = self._label_bags[-1]
         else:
-            self._remove_old_tuples_dominated_by_new_and_insert_new_paretotuple(new_pareto_tuple)
-            return True
+            previous_labels = set()
 
-    def _remove_old_tuples_dominated_by_new_and_insert_new_paretotuple(self, new_pareto_tuple):
-        indices_to_remove = []
-        n = len(self._pareto_tuples)
-        insert_location = 0  # default for the case where len(self._pareto_tuples) == 0
-        for i in range(n - 1, -1, -1):
-            old_tuple = self._pareto_tuples[i]
-            if old_tuple.departure_time > new_pareto_tuple.departure_time:
-                insert_location = i + 1
-                break
-            else:
-                if new_pareto_tuple.dominates(old_tuple):
-                    indices_to_remove.append(i)
-        for ix in indices_to_remove:
-            del self._pareto_tuples[ix]
-        self._pareto_tuples.insert(insert_location, new_pareto_tuple)
+        mod_prev_labels = {label.get_copy_with_specified_departure_time(departure_time) for label
+                           in previous_labels}
+        if self._walk_to_target_duration != float('inf'):
+            mod_prev_labels.add(self._label_class.direct_walk_label(departure_time, self._walk_to_target_duration))
 
-    def _new_paretotuple_is_dominated_by_old_tuples(self, new_pareto_tuple):
-        # self._pareto_tuples is guaranteed to be ordered in decreasing dep_time
-        # new_pareto_tuple can only be dominated by those elements, which have
-        # larger or equal dep_time than new_pareto_tuple.
-        for old_tuple in self._pareto_tuples[::-1]:
-            if old_tuple.departure_time >= new_pareto_tuple.arrival_time_target:
-                # all following arrival times are necessarily larger
-                # than new_pareto_tuple's arrival time
-                break
-            else:
-                if old_tuple.dominates(new_pareto_tuple):
-                    return True
-        return False
+        new_frontier = merge_pareto_frontiers(new_labels, mod_prev_labels)
+        if departure_time in self._dep_time_to_index:
+            self._label_bags[-1] = new_frontier
+        else:
+            self._dep_time_to_index[departure_time] = len(self._label_bags)
+            self._label_bags.append(new_frontier)
+        return True
 
     def evaluate(self, dep_time, transfer_margin):
         """
-        Get the pareto_optimal arrival times at target, given a departure time.
+        Get the pareto_optimal set of Labels, given a departure time.
 
         Parameters
         ----------
@@ -83,23 +77,26 @@ class NodeProfileMultiObjective:
 
         Returns
         -------
-        pareto_optimal_labels : set[Label]
-            Set of ParetoTuples
+        pareto_optimal_labels : set
+            Set of Labels
         """
-        raise NotImplementedError("This is ongoing progress... now working well yet.")
         pareto_optimal_labels = set()
         if self._walk_to_target_duration != float('inf'):
             walk_pareto_tuple = LabelWithTransfers(departure_time=dep_time,
                                                    arrival_time_target=dep_time + self._walk_to_target_duration,
                                                    n_transfers=0)
             pareto_optimal_labels.add(walk_pareto_tuple)
+
         dep_time_plus_transfer_margin = dep_time + transfer_margin
-        for pt in self._pareto_tuples:
-            if pt.departure_time >= dep_time_plus_transfer_margin:
+        # self._pareto_tuples is ordered in increasing departure time
+        for dep_time, index in reversed(self._dep_time_to_index.items()):
+            if dep_time >= dep_time_plus_transfer_margin:
+                return self._label_bags[index]
+        return set()
 
-
-        return pareto_optimal_labels
-
-    def get_pareto_tuples(self):
-        return copy.deepcopy(self._pareto_tuples)
+    def get_pareto_optimal_tuples(self):
+        pareto_optimal_tuples = list()
+        for bag in self._label_bags:
+            pareto_optimal_tuples.extend(bag)
+        return copy.deepcopy(compute_pareto_front(pareto_optimal_tuples))
 

@@ -9,6 +9,7 @@ class Label(_label):
     Label describes the entries in a Profile.
     """
 
+
     def dominates(self, other):
         """
         Compute whether this ParetoTuple dominates the other ParetoTuple
@@ -37,6 +38,14 @@ class Label(_label):
 
         """
         return self.arrival_time_target - self.departure_time
+
+    def get_copy_with_specified_departure_time(self, departure_time):
+        return Label(departure_time, self.arrival_time_target)
+
+    @staticmethod
+    def direct_walk_label(departure_time, walk_duration):
+        return Label(departure_time, departure_time + walk_duration)
+
 
 
 _label_with_tranfers = namedtuple('ParetoTuple',
@@ -75,6 +84,13 @@ class LabelWithTransfers(_label_with_tranfers):
 
         """
         return self.arrival_time_target - self.departure_time
+
+    def get_copy_with_specified_departure_time(self, departure_time):
+        return LabelWithTransfers(departure_time, self.arrival_time_target, self.n_transfers)
+
+    @staticmethod
+    def direct_walk_label(departure_time, walk_duration):
+        return LabelWithTransfers(departure_time, departure_time + walk_duration, 0)
 
 
 def compute_pareto_front(label_list):
@@ -128,16 +144,16 @@ def merge_pareto_frontiers(labels, labels_other):
 
     Parameters
     ----------
-    labels: List[Label]
-    labels_other: List[Label]
+    labels: set[Label]
+    labels_other: set[Label]
 
     Returns
     -------
-    pareto_front_merged: List[Label]
+    pareto_front_merged: set[Label]
     """
 
-    labels_survived = []
-    labels_other_survived = []
+    labels_survived = set()
+    labels_other_survived = set()
 
     for label_other in labels_other:
         is_dominated = False
@@ -146,7 +162,7 @@ def merge_pareto_frontiers(labels, labels_other):
                 is_dominated = True
                 break
         if not is_dominated:
-            labels_other_survived.append(label_other)
+            labels_other_survived.add(label_other)
 
     for label in labels:
         is_dominated = False
@@ -155,6 +171,20 @@ def merge_pareto_frontiers(labels, labels_other):
                 is_dominated = True
                 break
         if not is_dominated:
-            labels_survived.append(label)
+            labels_survived.add(label)
 
-    return labels_survived + labels_other_survived
+    return set.union(labels_survived, labels_other_survived)
+
+
+def min_arrival_time_target(label_set):
+    if len(label_set) > 0:
+        return min(label_set, key=lambda label: label.arrival_time_target).arrival_time_target
+    else:
+        return float('inf')
+
+
+def min_n_transfers(label_set):
+    if len(label_set) > 0:
+        return min(label_set, key=lambda label: label.n_transfers).n_transfers
+    else:
+        return None
