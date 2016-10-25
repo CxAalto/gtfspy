@@ -155,6 +155,64 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         found_tuples = source_profile.get_pareto_optimal_labels()
         self.assertEqual(len(found_tuples), 1)
 
+    def test_pareto_optimality(self):
+        event_list_raw_data = [
+            (0, 2, 0, 10, "trip_1"),
+            (0, 1, 2, 5, "trip_2"),
+            (1, 2, 5, 8, "trip_3")
+        ]
+        transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
+        walk_speed = 2
+        source_stop = 0
+        target_stop = 2
+        transfer_margin = 0
+        start_time = 0
+        end_time = 20
+        walk_network = networkx.Graph()
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      walk_network, walk_speed)
+        csa_profile.run()
+        source_profile = csa_profile.stop_profiles[source_stop]
+        self.assertEqual(min_arrival_time_target(source_profile.evaluate(0, 0)), 8)
+        found_labels = source_profile.get_pareto_optimal_labels()
+        labels_should_be = set()
+        labels_should_be.add(LabelWithNumberVehicles(0, 10, n_vehicle_legs=1))
+        labels_should_be.add(LabelWithNumberVehicles(2, 8, n_vehicle_legs=2))
+        self._assert_label_sets_equal(found_labels, labels_should_be)
+
+    def test_transfer_margin(self):
+        walk_speed = 1
+        target_stop = 2
+        start_time = 0
+        end_time = 60
+        transit_connections = [
+            Connection(0, 1, 40, 50, "trip_1"),
+            Connection(1, 2, 50, 60, "trip_1"),
+            Connection(3, 1, 40, 50, "trip_2"),
+        ]
+        # case without any transfer margin
+        transfer_margin = 0
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      networkx.Graph(), walk_speed)
+        csa_profile.run()
+        stop_profile_1 = csa_profile.stop_profiles[1]
+        stop_profile_3 = csa_profile.stop_profiles[3]
+        self.assertEqual(1, len(stop_profile_1.get_pareto_optimal_labels()))
+        self.assertEqual(1, len(stop_profile_3.get_pareto_optimal_labels()))
+
+        # case with transfer margin
+        transfer_margin = 1
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      networkx.Graph(), walk_speed)
+        csa_profile.run()
+        stop_profile_3 = csa_profile.stop_profiles[3]
+        stop_profile_1 = csa_profile.stop_profiles[1]
+        self.assertEqual(0, len(stop_profile_3.get_pareto_optimal_labels()))
+        self.assertEqual(1, len(stop_profile_1.get_pareto_optimal_labels()))
+
     def _assert_label_sets_equal(self, found_tuples, should_be_tuples):
         self.assertEqual(len(found_tuples), len(should_be_tuples))
         for found_tuple in found_tuples:

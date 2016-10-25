@@ -54,7 +54,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
         pareto_tuples.add(Label(departure_time=20, arrival_time_target=50))
         pareto_tuples.add(Label(departure_time=32, arrival_time_target=55))
 
-        self._assert_pareto_tuple_sets_equal(
+        self._assert_pareto_labels_equal(
             pareto_tuples,
             source_stop_pareto_optimal_tuples
         )
@@ -98,7 +98,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
         source_stop_profile = csa_profile.stop_profiles[source_stop]
         source_stop_pareto_tuples = source_stop_profile.get_pareto_optimal_labels()
 
-        self._assert_pareto_tuple_sets_equal(
+        self._assert_pareto_labels_equal(
             pareto_tuples,
             source_stop_pareto_tuples
         )
@@ -125,7 +125,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
                                              walk_network, walk_speed)
         csa_profile.run()
         found_tuples = csa_profile.stop_profiles[source_stop].get_pareto_optimal_labels()
-        self._assert_pareto_tuple_sets_equal(found_tuples, pareto_tuples)
+        self._assert_pareto_labels_equal(found_tuples, pareto_tuples)
 
     def test_walk_is_faster_than_by_trip(self):
         event_list_raw_data = [
@@ -172,7 +172,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
         found_tuples = source_profile.get_pareto_optimal_labels()
         self.assertEqual(len(found_tuples), 1)
 
-    def _assert_pareto_tuple_sets_equal(self, found_tuples, should_be_tuples):
+
+    def _assert_pareto_labels_equal(self, found_tuples, should_be_tuples):
         for found_tuple in found_tuples:
             self.assertIn(found_tuple, should_be_tuples)
         for should_be_tuple in should_be_tuples:
