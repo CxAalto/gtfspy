@@ -8,7 +8,7 @@ from gtfspy.routing.node_profile import NodeProfile
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.pseudo_connections import compute_pseudo_connections
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from routing.label import merge_pareto_frontiers
+from gtfspy.routing.label import merge_pareto_frontiers
 
 
 class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):

@@ -96,7 +96,7 @@ class NodeProfileMultiObjective:
 
         # self._pareto_tuples is ordered in increasing departure time
         for dep_time, index in reversed(self._dep_time_to_index.items()):
-            # TODO! Improve this!
+            # TODO! Improve this! Use bisection search?
             if dep_time >= dep_time_plus_transfer_margin:
                 pareto_optimal_labels = merge_pareto_frontiers(self._label_bags[index], pareto_optimal_labels)
                 break

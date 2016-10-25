@@ -31,7 +31,7 @@ from collections import defaultdict
 import networkx
 
 from gtfspy.routing.models import Connection
-from gtfspy.routing.pareto_tuple import ParetoTuple
+from gtfspy.routing.label import Label
 from gtfspy.routing.node_profile import NodeProfile
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.pseudo_connections import compute_pseudo_connections
@@ -151,7 +151,7 @@ class PseudoConnectionScanProfiler(AbstractRoutingAlgorithm):
                 self.__trip_min_arrival_time[connection.trip_id] = earliest_arrival_time_via_transfer
 
             # Compute the new "best" pareto_tuple possible (later: merge the sets of pareto-optimal labels)
-            pareto_tuple = ParetoTuple(connection.departure_time, min_arrival_time)
+            pareto_tuple = Label(connection.departure_time, min_arrival_time)
 
             # update departure stop profile (later: with the sets of pareto-optimal labels)
             self._stop_profiles[connection.departure_stop].update_pareto_optimal_tuples(pareto_tuple)

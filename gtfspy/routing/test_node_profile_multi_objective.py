@@ -5,7 +5,6 @@ from routing.label import Label, min_arrival_time_target, LabelWithTransfers
 
 
 class TestNodeProfileMultiObjective(TestCase):
-
     def test_earliest_arrival_time(self):
         node_profile = NodeProfileMultiObjective()
         self.assertEquals(float("inf"), min_arrival_time_target(node_profile.evaluate(0, 0)))
@@ -46,6 +45,3 @@ class TestNodeProfileMultiObjective(TestCase):
         self.assertTrue(node_profile.update(pt2))
         self.assertTrue(node_profile.update(pt3))
         self.assertEqual(1, len(node_profile.get_pareto_optimal_tuples()))
-
-
-

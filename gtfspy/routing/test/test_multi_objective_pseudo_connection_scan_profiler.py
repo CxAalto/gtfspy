@@ -4,10 +4,10 @@ import networkx
 
 from gtfspy.routing.models import Connection
 from gtfspy.routing.label import Label
-from gtfspy.routing.pseudo_connection_scan_profiler import PseudoConnectionScanProfiler
+from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
 
 
-class TestPseudoPseudoConnectionScanProfiler(TestCase):
+class TestMultiObjectivePseudoCSAProfiler(TestCase):
     # noinspection PyAttributeOutsideInit
 
     def setUp(self):
@@ -31,30 +31,30 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         self.end_time = 50
 
     def test_basics(self):
-        csa_profile = PseudoConnectionScanProfiler(self.transit_connections, self.target_stop,
+        csa_profile = MultiObjectivePseudoCSAProfiler(self.transit_connections, self.target_stop,
                                                    self.start_time, self.end_time, self.transfer_margin,
                                                    self.walk_network, self.walk_speed)
         csa_profile.run()
 
-        stop_3_labels = csa_profile.stop_profiles[3].get_pareto_optimal_tuples()
-        self.assertEqual(len(stop_3_labels), 1)
-        self.assertIn(Label(32, 35), stop_3_labels)
+        stop_3_pareto_tuples = csa_profile.stop_profiles[3].get_pareto_optimal_tuples()
+        self.assertEqual(len(stop_3_pareto_tuples), 1)
+        self.assertIn(Label(32, 35), stop_3_pareto_tuples)
 
-        stop_2_labels = csa_profile.stop_profiles[2].get_pareto_optimal_tuples()
-        self.assertEqual(len(stop_2_labels), 2)
-        self.assertIn(Label(40, 50), stop_2_labels)
-        self.assertIn(Label(25, 35), stop_2_labels)
+        stop_2_pareto_tuples = csa_profile.stop_profiles[2].get_pareto_optimal_tuples()
+        self.assertEqual(len(stop_2_pareto_tuples), 2)
+        self.assertIn(Label(40, 50), stop_2_pareto_tuples)
+        self.assertIn(Label(25, 35), stop_2_pareto_tuples)
 
         source_stop_profile = csa_profile.stop_profiles[self.source_stop]
         source_stop_pareto_optimal_tuples = source_stop_profile.get_pareto_optimal_tuples()
 
-        labels = set()
-        labels.add(Label(departure_time=10, arrival_time_target=35))
-        labels.add(Label(departure_time=20, arrival_time_target=50))
-        labels.add(Label(departure_time=32, arrival_time_target=55))
+        pareto_tuples = set()
+        pareto_tuples.add(Label(departure_time=10, arrival_time_target=35))
+        pareto_tuples.add(Label(departure_time=20, arrival_time_target=50))
+        pareto_tuples.add(Label(departure_time=32, arrival_time_target=55))
 
         self._assert_pareto_tuple_sets_equal(
-            labels,
+            pareto_tuples,
             source_stop_pareto_optimal_tuples
         )
 
@@ -73,19 +73,19 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         start_time = 0
         end_time = 50
 
-        labels = set()
-        labels.add(Label(departure_time=20, arrival_time_target=50))
+        pareto_tuples = set()
+        pareto_tuples.add(Label(departure_time=20, arrival_time_target=50))
 
-        csa_profile = PseudoConnectionScanProfiler(transit_connections, target_stop,
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                    start_time, end_time, transfer_margin,
                                                    walk_network, walk_speed)
         csa_profile.run()
         source_stop_profile = csa_profile.stop_profiles[source_stop]
-        source_stop_labels = source_stop_profile.get_pareto_optimal_tuples()
+        source_stop_pareto_tuples = source_stop_profile.get_pareto_optimal_tuples()
 
         self._assert_pareto_tuple_sets_equal(
-            labels,
-            source_stop_labels
+            pareto_tuples,
+            source_stop_pareto_tuples
         )
 
     def test_last_leg_is_walk(self):
@@ -102,15 +102,15 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         transfer_margin = 0
         start_time = 0
         end_time = 50
-        labels = set()
-        labels.add(Label(departure_time=0, arrival_time_target=30))
+        pareto_tuples = set()
+        pareto_tuples.add(Label(departure_time=0, arrival_time_target=30))
 
-        csa_profile = PseudoConnectionScanProfiler(transit_connections, target_stop,
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                    start_time, end_time, transfer_margin,
                                                    walk_network, walk_speed)
         csa_profile.run()
         found_tuples = csa_profile.stop_profiles[source_stop].get_pareto_optimal_tuples()
-        self._assert_pareto_tuple_sets_equal(found_tuples, labels)
+        self._assert_pareto_tuple_sets_equal(found_tuples, pareto_tuples)
 
     def test_walk_is_faster_than_by_trip(self):
         event_list_raw_data = [
@@ -126,12 +126,12 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
 
         walk_network = networkx.Graph()
         walk_network.add_edge(0, 1, {"d_walk": 1})
-        csa_profile = PseudoConnectionScanProfiler(transit_connections, target_stop,
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                    start_time, end_time, transfer_margin,
                                                    walk_network, walk_speed)
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
-        self.assertEqual(source_profile.evaluate_earliest_arrival_time_at_target(0, 0), 0.5)
+        self.assertEqual(source_profile.evaluate(0, 0), 0.5)
         found_tuples = source_profile.get_pareto_optimal_tuples()
         self.assertEqual(len(found_tuples), 0)
 
@@ -148,12 +148,12 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         end_time = 50
 
         walk_network = networkx.Graph()
-        csa_profile = PseudoConnectionScanProfiler(transit_connections, target_stop,
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                    start_time, end_time, transfer_margin,
                                                    walk_network, walk_speed)
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
-        self.assertEqual(source_profile.evaluate_earliest_arrival_time_at_target(0, 0), 10)
+        self.assertEqual(source_profile.evaluate(0, 0), 10)
         found_tuples = source_profile.get_pareto_optimal_tuples()
         self.assertEqual(len(found_tuples), 1)
 
