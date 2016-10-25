@@ -3,7 +3,7 @@ from __future__ import print_function
 import numpy as np
 from matplotlib import pyplot as plt
 
-from gtfspy.routing.node_profile import NodeProfile
+from gtfspy.routing.node_profile_naive import NodeProfileNaive
 from gtfspy.routing.node_profile_analyzer import NodeProfileAnalyzer
 
 
@@ -14,7 +14,7 @@ def plot_temporal_distance_variation(profile, start_time=None, end_time=None, sh
 
     Parameters
     ----------
-    profile: NodeProfile
+    profile: NodeProfileNaive
     start_time: int, optional
     end_time: int, optional
     show: bool, optional

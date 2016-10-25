@@ -1,5 +1,6 @@
 from collections import namedtuple
 
+
 class Label:
     """
     Label describes the entries in a Profile.
@@ -19,6 +20,11 @@ class Label:
             return self.__dict__ == other.__dict__
         else:
             return False
+
+    def __str__(self):
+        string = "Label(departure_time=" + str(self.departure_time) + \
+                 ", arrival_time_target=" + str(self.arrival_time_target) + ")"
+        return string
 
     def __hash__(self):
         """Override the default hash behavior (that returns the id or the object)"""
@@ -61,15 +67,15 @@ class Label:
         return Label(departure_time, departure_time + walk_duration)
 
 
-class LabelWithTransfers:
+class LabelWithNumberVehicles:
     """
     Label describes the entries in a Profile.
     """
 
-    def __init__(self, departure_time=None, arrival_time_target=None, n_transfers=None):
+    def __init__(self, departure_time=None, arrival_time_target=None, n_vehicle_legs=None):
         self.departure_time = departure_time
         self.arrival_time_target = arrival_time_target
-        self.n_transfers = n_transfers
+        self.n_vehicle_legs = n_vehicle_legs
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -87,13 +93,19 @@ class LabelWithTransfers:
         """Override the default hash behavior (that returns the id or the object)"""
         return hash(tuple(sorted(self.__dict__.items())))
 
+    def __str__(self):
+        string = "Label(departure_time=" + str(self.departure_time) + \
+                 ", arrival_time_target=" + str(self.arrival_time_target) + \
+                 ", n_vehicle_legs=" + str(self.n_vehicle_legs)
+        return string
+
     def dominates(self, other):
         """
-        Compute whether this ParetoTuple dominates the other ParetoTuple
+        Compute whether this LabelWithNumberVehicles dominates the other LabelWithNumberVehicles
 
         Parameters
         ----------
-        other: LabelWithTransfers
+        other: LabelWithNumberVehicles
 
         Returns
         -------
@@ -103,7 +115,7 @@ class LabelWithTransfers:
         dominates = (
             self.departure_time >= other.departure_time and
             self.arrival_time_target <= other.arrival_time_target and
-            self.n_transfers <= other.n_transfers
+            self.n_vehicle_legs <= other.n_vehicle_legs
         )
         return dominates
 
@@ -119,11 +131,11 @@ class LabelWithTransfers:
         return self.arrival_time_target - self.departure_time
 
     def get_copy_with_specified_departure_time(self, departure_time):
-        return LabelWithTransfers(departure_time, self.arrival_time_target, self.n_transfers)
+        return LabelWithNumberVehicles(departure_time, self.arrival_time_target, self.n_vehicle_legs)
 
     @staticmethod
     def direct_walk_label(departure_time, walk_duration):
-        return LabelWithTransfers(departure_time, departure_time + walk_duration, 0)
+        return LabelWithNumberVehicles(departure_time, departure_time + walk_duration, 0)
 
 
 def compute_pareto_front(label_list):
@@ -216,8 +228,8 @@ def min_arrival_time_target(label_set):
         return float('inf')
 
 
-def min_n_transfers(label_set):
+def min_n_vehicle_trips(label_set):
     if len(label_set) > 0:
-        return min(label_set, key=lambda label: label.n_transfers).n_transfers
+        return min(label_set, key=lambda label: label.n_vehicle_trips).n_vehicle_trips
     else:
         return None

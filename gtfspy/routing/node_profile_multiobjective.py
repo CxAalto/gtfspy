@@ -1,7 +1,7 @@
 import copy
 from collections import OrderedDict
 
-from gtfspy.routing.label import Label, LabelWithTransfers, merge_pareto_frontiers, compute_pareto_front
+from gtfspy.routing.label import Label, LabelWithNumberVehicles, merge_pareto_frontiers, compute_pareto_front
 
 
 class NodeProfileMultiObjective:
@@ -10,7 +10,7 @@ class NodeProfileMultiObjective:
     each stop has a profile entry containing all Pareto-optimal entries.
     """
 
-    def __init__(self, walk_to_target_duration=float('inf'), label_class=Label):
+    def __init__(self, walk_to_target_duration=float('inf'), label_class=LabelWithNumberVehicles):
         self._dep_time_to_index = OrderedDict()
         self._label_bags = []
         self._walk_to_target_duration = walk_to_target_duration
@@ -18,7 +18,7 @@ class NodeProfileMultiObjective:
         self._label_class=label_class
 
     def _update_min_dep_time(self, dep_time):
-        assert(dep_time <= self._min_dep_time, "Labels should be entered in increasing order of departure time.")
+        assert dep_time <= self._min_dep_time, "Labels should be entered in increasing order of departure time."
         self._min_dep_time = dep_time
 
     def get_walk_to_target_duration(self):
@@ -87,9 +87,9 @@ class NodeProfileMultiObjective:
         """
         pareto_optimal_labels = set()
         if self._walk_to_target_duration != float('inf') and allow_walk_to_target:
-            walk_pareto_tuple = LabelWithTransfers(departure_time=dep_time,
-                                                   arrival_time_target=dep_time + self._walk_to_target_duration,
-                                                   n_transfers=0)
+            walk_pareto_tuple = LabelWithNumberVehicles(departure_time=dep_time,
+                                                        arrival_time_target=dep_time + self._walk_to_target_duration,
+                                                        n_vehicle_legs=0)
             pareto_optimal_labels.add(walk_pareto_tuple)
 
         dep_time_plus_transfer_margin = dep_time + transfer_margin
@@ -102,9 +102,9 @@ class NodeProfileMultiObjective:
                 break
         return pareto_optimal_labels
 
-    def get_pareto_optimal_tuples(self):
-        pareto_optimal_tuples = list()
+    def get_pareto_optimal_labels(self):
+        pareto_optimal_labels = list()
         for bag in self._label_bags:
-            pareto_optimal_tuples.extend(bag)
-        return copy.deepcopy(compute_pareto_front(pareto_optimal_tuples))
+            pareto_optimal_labels.extend(bag)
+        return copy.deepcopy(compute_pareto_front(pareto_optimal_labels))
 

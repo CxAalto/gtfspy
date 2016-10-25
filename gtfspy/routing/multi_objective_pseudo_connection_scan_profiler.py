@@ -4,7 +4,7 @@ import copy
 import networkx
 
 from gtfspy.routing.models import Connection
-from gtfspy.routing.node_profile import NodeProfile
+from gtfspy.routing.node_profile_naive import NodeProfileNaive
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.pseudo_connections import compute_pseudo_connections
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
@@ -132,7 +132,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         """
         Returns
         -------
-        _stop_profiles : dict[int, NodeProfile]
+        _stop_profiles : dict[int, NodeProfileMultiObjective]
             The pareto tuples necessary.
         """
         assert self._has_run
@@ -144,5 +144,5 @@ def _copy_and_modify_labels(labels, departure_time, increment_n_transfers=False)
     for label in labels_copy:
         label.departure_time = departure_time
         if increment_n_transfers:
-            label.n_transfers += 1
+            label.n_vehicle_legs += 1
     return labels_copy

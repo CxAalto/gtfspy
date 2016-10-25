@@ -32,7 +32,7 @@ import networkx
 
 from gtfspy.routing.models import Connection
 from gtfspy.routing.label import Label
-from gtfspy.routing.node_profile import NodeProfile
+from gtfspy.routing.node_profile_naive import NodeProfileNaive
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 
 
@@ -95,14 +95,14 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         self.__trip_min_arrival_time = defaultdict(lambda: float("inf"))
 
         # initialize stop_profiles
-        self._stop_profiles = defaultdict(lambda: NodeProfile())
+        self._stop_profiles = defaultdict(lambda: NodeProfileNaive())
         # initialize stop_profiles for target stop, and its neighbors
-        self._stop_profiles[self._target] = NodeProfile(0)
+        self._stop_profiles[self._target] = NodeProfileNaive(0)
         if target_stop in walk_network.nodes():
             for target_neighbor in walk_network.neighbors(target_stop):
                 edge_data = walk_network.get_edge_data(target_neighbor, target_stop)
                 walk_duration = edge_data["d_walk"] / self._walk_speed
-                self._stop_profiles[target_neighbor] = NodeProfile(walk_duration)
+                self._stop_profiles[target_neighbor] = NodeProfileNaive(walk_duration)
 
     def _run(self):
         # if source node in s1:
@@ -118,7 +118,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             previous_departure_time = connection.departure_time
 
             # get all different "accessible" / arrival times (Pareto-optimal sets)
-            arrival_profile = self._stop_profiles[connection.arrival_stop]  # NodeProfile
+            arrival_profile = self._stop_profiles[connection.arrival_stop]  # NodeProfileNaive
 
             # Three possibilities:
 
@@ -169,7 +169,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         """
         Returns
         -------
-        _stop_profiles : dict[int, NodeProfile]
+        _stop_profiles : dict[int, NodeProfileNaive]
             The pareto tuples necessary.
         """
         assert self._has_run

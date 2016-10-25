@@ -1,16 +1,16 @@
 import copy
 
-from gtfspy.routing.label import Label, LabelWithTransfers
+from gtfspy.routing.label import Label, LabelWithNumberVehicles
 
 
-class NodeProfile:
+class NodeProfileNaive:
     """
     In the connection scan algorithm, each stop has a profile entry
     that stores information on the Pareto-Optimal (departure_time_this_node, arrival_time_target_node) tuples.
     """
 
     def __init__(self, walk_to_target_duration=float('inf')):
-        self._pareto_tuples = []  # list[ParetoTuple] # always ordered by decreasing departure_time
+        self._labels = []  # list[ParetoTuple] # always ordered by decreasing departure_time
         self._walk_to_target_duration = walk_to_target_duration
         self._paretoTupleClass = Label
 
@@ -23,7 +23,7 @@ class NodeProfile:
 
         Parameters
         ----------
-        new_pareto_tuple: Label or LabelWithTransfers
+        new_pareto_tuple: Label or LabelWithNumberVehicles
 
         Returns
         -------
@@ -41,10 +41,10 @@ class NodeProfile:
 
     def _remove_old_tuples_dominated_by_new_and_insert_new_paretotuple(self, new_pareto_tuple):
         indices_to_remove = []
-        n = len(self._pareto_tuples)
+        n = len(self._labels)
         insert_location = 0  # default for the case where len(self._pareto_tuples) == 0
         for i in range(n - 1, -1, -1):
-            old_tuple = self._pareto_tuples[i]
+            old_tuple = self._labels[i]
             if old_tuple.departure_time > new_pareto_tuple.departure_time:
                 insert_location = i + 1
                 break
@@ -52,14 +52,14 @@ class NodeProfile:
                 if new_pareto_tuple.dominates(old_tuple):
                     indices_to_remove.append(i)
         for ix in indices_to_remove:
-            del self._pareto_tuples[ix]
-        self._pareto_tuples.insert(insert_location, new_pareto_tuple)
+            del self._labels[ix]
+        self._labels.insert(insert_location, new_pareto_tuple)
 
     def _new_paretotuple_is_dominated_by_old_tuples(self, new_pareto_tuple):
         # self._pareto_tuples is guaranteed to be ordered in decreasing dep_time
         # new_pareto_tuple can only be dominated by those elements, which have
         # larger or equal dep_time than new_pareto_tuple.
-        for old_tuple in self._pareto_tuples[::-1]:
+        for old_tuple in self._labels[::-1]:
             if old_tuple.departure_time >= new_pareto_tuple.arrival_time_target:
                 # all following arrival times are necessarily larger
                 # than new_pareto_tuple's arrival time
@@ -87,11 +87,11 @@ class NodeProfile:
         """
         minimum = dep_time + self._walk_to_target_duration
         dep_time_plus_transfer_margin = dep_time + transfer_margin
-        for pt in self._pareto_tuples:
+        for pt in self._labels:
             if pt.departure_time >= dep_time_plus_transfer_margin and pt.arrival_time_target < minimum:
                 minimum = pt.arrival_time_target
         return float(minimum)
 
-    def get_pareto_optimal_tuples(self):
-        return copy.deepcopy(self._pareto_tuples)
+    def get_pareto_optimal_labels(self):
+        return copy.deepcopy(self._labels)
 
