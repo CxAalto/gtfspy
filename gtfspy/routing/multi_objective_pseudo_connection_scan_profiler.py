@@ -4,11 +4,10 @@ import copy
 import networkx
 
 from gtfspy.routing.models import Connection
-from gtfspy.routing.node_profile_naive import NodeProfileNaive
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.pseudo_connections import compute_pseudo_connections
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.label import merge_pareto_frontiers
+from gtfspy.routing.label import merge_pareto_frontiers, LabelWithVehicleCount, Label
 
 
 class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
@@ -26,7 +25,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                  transfer_margin=0,
                  walk_network=None,
                  walk_speed=1.5,
-                 verbose=False):
+                 verbose=False,
+                 count_transfers=True):
         """
         Parameters
         ----------
@@ -70,14 +70,20 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         self.__trip_labels = defaultdict(lambda: set())
 
         # initialize stop_profiles
-        self._stop_profiles = defaultdict(lambda: NodeProfileMultiObjective())
+        self._count_transfers = count_transfers
+        if count_transfers:
+            self._label_class = LabelWithVehicleCount
+        else:
+            self._label_class = Label
+        self._stop_profiles = defaultdict(lambda: NodeProfileMultiObjective(label_class=self._label_class))
         # initialize stop_profiles for target stop, and its neighbors
-        self._stop_profiles[self._target] = NodeProfileMultiObjective(0)
+        self._stop_profiles[self._target] = NodeProfileMultiObjective(0, label_class=self._label_class)
         if target_stop in walk_network.nodes():
             for target_neighbor in walk_network.neighbors(target_stop):
                 edge_data = walk_network.get_edge_data(target_neighbor, target_stop)
                 walk_duration = edge_data["d_walk"] / self._walk_speed
-                self._stop_profiles[target_neighbor] = NodeProfileMultiObjective(walk_duration)
+                self._stop_profiles[target_neighbor] = NodeProfileMultiObjective(walk_duration,
+                                                                                 label_class=self._label_class)
         pseudo_connection_set = compute_pseudo_connections(transit_events, self._start_time, self._end_time,
                                                            self._transfer_margin, self._walk_network,
                                                            self._walk_speed)
@@ -106,9 +112,11 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             # "best labels at the arrival node", double walks are not allowed
             arrival_node_labels_orig = arrival_profile.evaluate(connection.arrival_time, self._transfer_margin,
                                                                 allow_walk_to_target=not connection.is_walk)
+
+            increment_vehicle_count = (self._count_transfers and not connection.is_walk)
             arrival_node_labels = _copy_and_modify_labels(arrival_node_labels_orig,
                                                           connection.departure_time,
-                                                          increment_n_transfers=not connection.is_walk)
+                                                          increment_vehicle_count=increment_vehicle_count)
 
             # best labels from this current trip
             if not connection.is_walk:
@@ -139,10 +147,10 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         return self._stop_profiles
 
 
-def _copy_and_modify_labels(labels, departure_time, increment_n_transfers=False):
+def _copy_and_modify_labels(labels, departure_time, increment_vehicle_count=False):
     labels_copy = copy.deepcopy(labels)
     for label in labels_copy:
         label.departure_time = departure_time
-        if increment_n_transfers:
+        if increment_vehicle_count:
             label.n_vehicle_legs += 1
     return labels_copy

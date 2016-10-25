@@ -62,7 +62,7 @@ class Label:
 
     def get_copy_with_specified_departure_time(self, departure_time):
         label_copy = copy.deepcopy(self)
-        label_copy.dparture_time = departure_time
+        label_copy.departure_time = departure_time
         return label_copy
 
     @staticmethod
@@ -75,7 +75,7 @@ class LabelWithVehicleCount(Label):
     Label describes the entries in a Profile.
     """
 
-    def __init__(self, departure_time=None, arrival_time_target=None, n_vehicle_legs=None):
+    def __init__(self, departure_time=None, arrival_time_target=None, n_vehicle_legs=0):
         super().__init__(departure_time, arrival_time_target)
         self.n_vehicle_legs = n_vehicle_legs
 

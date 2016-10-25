@@ -1,12 +1,12 @@
 import copy
 from collections import OrderedDict
 
-from gtfspy.routing.label import Label, LabelWithVehicleCount, merge_pareto_frontiers, compute_pareto_front
+from gtfspy.routing.label import LabelWithVehicleCount, merge_pareto_frontiers, compute_pareto_front
 
 
 class NodeProfileMultiObjective:
     """
-    In the multiobjective connection scan algorithm,
+    In the multi-objective connection scan algorithm,
     each stop has a profile entry containing all Pareto-optimal entries.
     """
 
@@ -15,7 +15,7 @@ class NodeProfileMultiObjective:
         self._label_bags = []
         self._walk_to_target_duration = walk_to_target_duration
         self._min_dep_time = float('inf')
-        self._label_class=label_class
+        self._label_class = label_class
 
     def _update_min_dep_time(self, dep_time):
         assert dep_time <= self._min_dep_time, "Labels should be entered in increasing order of departure time."
@@ -26,7 +26,8 @@ class NodeProfileMultiObjective:
 
     def update(self, new_labels):
         """
-        This function could most likely be optimized.
+        Update the profile with the new labels.
+        Each new label should have the same departure_time.
 
         Parameters
         ----------
@@ -44,6 +45,8 @@ class NodeProfileMultiObjective:
             return False
 
         departure_time = next(iter(new_labels)).departure_time
+        for new_label in new_labels:
+            assert(new_label.departure_time == departure_time)
         self._update_min_dep_time(departure_time)
 
         if self._label_bags:
@@ -87,16 +90,15 @@ class NodeProfileMultiObjective:
         """
         pareto_optimal_labels = set()
         if self._walk_to_target_duration != float('inf') and allow_walk_to_target:
-            walk_pareto_tuple = LabelWithVehicleCount(departure_time=dep_time,
-                                                      arrival_time_target=dep_time + self._walk_to_target_duration,
-                                                      n_vehicle_legs=0)
+            walk_pareto_tuple = self._label_class(departure_time=dep_time,
+                                                  arrival_time_target=dep_time + self._walk_to_target_duration)
             pareto_optimal_labels.add(walk_pareto_tuple)
 
         dep_time_plus_transfer_margin = dep_time + transfer_margin
 
         # self._pareto_tuples is ordered in increasing departure time
         for dep_time, index in reversed(self._dep_time_to_index.items()):
-            # TODO! Improve this! Use bisection search?
+            # TODO! Optimize this, if necessary (e.g. using bisection search (or time indexing))
             if dep_time >= dep_time_plus_transfer_margin:
                 pareto_optimal_labels = merge_pareto_frontiers(self._label_bags[index], pareto_optimal_labels)
                 break

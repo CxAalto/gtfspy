@@ -3,7 +3,7 @@ from unittest import TestCase
 import networkx
 
 from gtfspy.routing.models import Connection
-from gtfspy.routing.label import min_arrival_time_target, LabelWithVehicleCount
+from gtfspy.routing.label import min_arrival_time_target, LabelWithVehicleCount, Label
 from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
 
 
@@ -212,6 +212,36 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         stop_profile_1 = csa_profile.stop_profiles[1]
         self.assertEqual(0, len(stop_profile_3.get_pareto_optimal_labels()))
         self.assertEqual(1, len(stop_profile_1.get_pareto_optimal_labels()))
+
+    def test_basics_no_transfer_tracking(self):
+        csa_profile = MultiObjectivePseudoCSAProfiler(
+                                                self.transit_connections, self.target_stop,
+                                                self.start_time, self.end_time, self.transfer_margin,
+                                                self.walk_network, self.walk_speed, count_transfers=False)
+        csa_profile.run()
+
+        stop_3_pareto_tuples = csa_profile.stop_profiles[3].get_pareto_optimal_labels()
+        self.assertEqual(len(stop_3_pareto_tuples), 1)
+        self.assertIn(Label(32, 35), stop_3_pareto_tuples)
+
+        stop_2_pareto_tuples = csa_profile.stop_profiles[2].get_pareto_optimal_labels()
+        self.assertEqual(len(stop_2_pareto_tuples), 2)
+        self.assertIn(Label(40, 50), stop_2_pareto_tuples)
+        self.assertIn(Label(25, 35), stop_2_pareto_tuples)
+
+        source_stop_profile = csa_profile.stop_profiles[self.stop_one]
+        source_stop_pareto_optimal_tuples = source_stop_profile.get_pareto_optimal_labels()
+
+        pareto_tuples = set()
+        pareto_tuples.add(Label(departure_time=10, arrival_time_target=35))
+        pareto_tuples.add(Label(departure_time=20, arrival_time_target=50))
+        pareto_tuples.add(Label(departure_time=32, arrival_time_target=55))
+
+        self._assert_label_sets_equal(
+            pareto_tuples,
+            source_stop_pareto_optimal_tuples
+        )
+
 
     def _assert_label_sets_equal(self, found_tuples, should_be_tuples):
         self.assertEqual(len(found_tuples), len(should_be_tuples))
