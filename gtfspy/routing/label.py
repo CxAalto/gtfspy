@@ -1,9 +1,8 @@
-from collections import namedtuple
-
+import copy
 
 class Label:
     """
-    Label describes the entries in a Profile.
+    Label describes entries in a Profile.
     """
     def __init__(self, departure_time=-float("inf"), arrival_time_target=float('inf')):
         self.departure_time = departure_time
@@ -60,14 +59,16 @@ class Label:
         return self.arrival_time_target - self.departure_time
 
     def get_copy_with_specified_departure_time(self, departure_time):
-        return Label(departure_time, self.arrival_time_target)
+        label_copy = copy.deepcopy(self)
+        label_copy.dparture_time = departure_time
+        return label_copy
 
     @staticmethod
     def direct_walk_label(departure_time, walk_duration):
         return Label(departure_time, departure_time + walk_duration)
 
 
-class LabelWithNumberVehicles:
+class LabelWithNumberVehicles(Label):
     """
     Label describes the entries in a Profile.
     """
@@ -77,24 +78,8 @@ class LabelWithNumberVehicles:
         self.arrival_time_target = arrival_time_target
         self.n_vehicle_legs = n_vehicle_legs
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
-        else:
-            return False
-
-    def __ne__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
-        else:
-            return False
-
-    def __hash__(self):
-        """Override the default hash behavior (that returns the id or the object)"""
-        return hash(tuple(sorted(self.__dict__.items())))
-
     def __str__(self):
-        string = "Label(departure_time=" + str(self.departure_time) + \
+        string = "LabelWithNumberOfVehicles(departure_time=" + str(self.departure_time) + \
                  ", arrival_time_target=" + str(self.arrival_time_target) + \
                  ", n_vehicle_legs=" + str(self.n_vehicle_legs)
         return string
@@ -113,25 +98,10 @@ class LabelWithNumberVehicles:
             True if this ParetoTuple dominates the other, otherwise False
         """
         dominates = (
-            self.departure_time >= other.departure_time and
-            self.arrival_time_target <= other.arrival_time_target and
+            super(LabelWithNumberVehicles, self).dominates(other) and
             self.n_vehicle_legs <= other.n_vehicle_legs
         )
         return dominates
-
-    def duration(self):
-        """
-        Get trip duration.
-
-        Returns
-        -------
-        duration: float
-
-        """
-        return self.arrival_time_target - self.departure_time
-
-    def get_copy_with_specified_departure_time(self, departure_time):
-        return LabelWithNumberVehicles(departure_time, self.arrival_time_target, self.n_vehicle_legs)
 
     @staticmethod
     def direct_walk_label(departure_time, walk_duration):
