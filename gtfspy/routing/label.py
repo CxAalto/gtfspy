@@ -1,14 +1,28 @@
 from collections import namedtuple
 
-_label = namedtuple('Label',
-                    ['departure_time', 'arrival_time_target'])
-
-
-class Label(_label):
+class Label:
     """
     Label describes the entries in a Profile.
     """
+    def __init__(self, departure_time=-float("inf"), arrival_time_target=float('inf')):
+        self.departure_time = departure_time
+        self.arrival_time_target = arrival_time_target
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
+    def __ne__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
+    def __hash__(self):
+        """Override the default hash behavior (that returns the id or the object)"""
+        return hash(tuple(sorted(self.__dict__.items())))
 
     def dominates(self, other):
         """
@@ -47,12 +61,31 @@ class Label(_label):
         return Label(departure_time, departure_time + walk_duration)
 
 
+class LabelWithTransfers:
+    """
+    Label describes the entries in a Profile.
+    """
 
-_label_with_tranfers = namedtuple('ParetoTuple',
-                                  ['departure_time', 'arrival_time_target', "n_transfers"])
+    def __init__(self, departure_time=None, arrival_time_target=None, n_transfers=None):
+        self.departure_time = departure_time
+        self.arrival_time_target = arrival_time_target
+        self.n_transfers = n_transfers
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
 
-class LabelWithTransfers(_label_with_tranfers):
+    def __ne__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
+    def __hash__(self):
+        """Override the default hash behavior (that returns the id or the object)"""
+        return hash(tuple(sorted(self.__dict__.items())))
 
     def dominates(self, other):
         """
