@@ -1,6 +1,6 @@
 import copy
 
-from gtfspy.routing.label import Label, LabelWithNumberVehicles
+from gtfspy.routing.label import Label, LabelWithVehicleCount
 
 
 class NodeProfileNaive:
@@ -23,7 +23,7 @@ class NodeProfileNaive:
 
         Parameters
         ----------
-        new_pareto_tuple: Label or LabelWithNumberVehicles
+        new_pareto_tuple: Label or LabelWithVehicleCount
 
         Returns
         -------

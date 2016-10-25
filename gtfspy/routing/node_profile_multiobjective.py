@@ -1,7 +1,7 @@
 import copy
 from collections import OrderedDict
 
-from gtfspy.routing.label import Label, LabelWithNumberVehicles, merge_pareto_frontiers, compute_pareto_front
+from gtfspy.routing.label import Label, LabelWithVehicleCount, merge_pareto_frontiers, compute_pareto_front
 
 
 class NodeProfileMultiObjective:
@@ -10,7 +10,7 @@ class NodeProfileMultiObjective:
     each stop has a profile entry containing all Pareto-optimal entries.
     """
 
-    def __init__(self, walk_to_target_duration=float('inf'), label_class=LabelWithNumberVehicles):
+    def __init__(self, walk_to_target_duration=float('inf'), label_class=LabelWithVehicleCount):
         self._dep_time_to_index = OrderedDict()
         self._label_bags = []
         self._walk_to_target_duration = walk_to_target_duration
@@ -87,9 +87,9 @@ class NodeProfileMultiObjective:
         """
         pareto_optimal_labels = set()
         if self._walk_to_target_duration != float('inf') and allow_walk_to_target:
-            walk_pareto_tuple = LabelWithNumberVehicles(departure_time=dep_time,
-                                                        arrival_time_target=dep_time + self._walk_to_target_duration,
-                                                        n_vehicle_legs=0)
+            walk_pareto_tuple = LabelWithVehicleCount(departure_time=dep_time,
+                                                      arrival_time_target=dep_time + self._walk_to_target_duration,
+                                                      n_vehicle_legs=0)
             pareto_optimal_labels.add(walk_pareto_tuple)
 
         dep_time_plus_transfer_margin = dep_time + transfer_margin

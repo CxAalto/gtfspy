@@ -1,5 +1,6 @@
 import copy
 
+
 class Label:
     """
     Label describes entries in a Profile.
@@ -43,7 +44,8 @@ class Label:
             True if this ParetoTuple dominates the other, otherwise False
         """
         dominates = (
-            (self.departure_time >= other.departure_time and self.arrival_time_target <= other.arrival_time_target)
+            (self.departure_time >= other.departure_time and
+             self.arrival_time_target <= other.arrival_time_target)
         )
         return dominates
 
@@ -68,18 +70,17 @@ class Label:
         return Label(departure_time, departure_time + walk_duration)
 
 
-class LabelWithNumberVehicles(Label):
+class LabelWithVehicleCount(Label):
     """
     Label describes the entries in a Profile.
     """
 
     def __init__(self, departure_time=None, arrival_time_target=None, n_vehicle_legs=None):
-        self.departure_time = departure_time
-        self.arrival_time_target = arrival_time_target
+        super().__init__(departure_time, arrival_time_target)
         self.n_vehicle_legs = n_vehicle_legs
 
     def __str__(self):
-        string = "LabelWithNumberOfVehicles(departure_time=" + str(self.departure_time) + \
+        string = "(departure_time=" + str(self.departure_time) + \
                  ", arrival_time_target=" + str(self.arrival_time_target) + \
                  ", n_vehicle_legs=" + str(self.n_vehicle_legs)
         return string
@@ -90,7 +91,7 @@ class LabelWithNumberVehicles(Label):
 
         Parameters
         ----------
-        other: LabelWithNumberVehicles
+        other: LabelWithVehicleCount
 
         Returns
         -------
@@ -98,14 +99,14 @@ class LabelWithNumberVehicles(Label):
             True if this ParetoTuple dominates the other, otherwise False
         """
         dominates = (
-            super(LabelWithNumberVehicles, self).dominates(other) and
+            super(LabelWithVehicleCount, self).dominates(other) and
             self.n_vehicle_legs <= other.n_vehicle_legs
         )
         return dominates
 
     @staticmethod
     def direct_walk_label(departure_time, walk_duration):
-        return LabelWithNumberVehicles(departure_time, departure_time + walk_duration, 0)
+        return LabelWithVehicleCount(departure_time, departure_time + walk_duration, 0)
 
 
 def compute_pareto_front(label_list):

@@ -3,7 +3,7 @@ from unittest import TestCase
 import networkx
 
 from gtfspy.routing.models import Connection
-from gtfspy.routing.label import min_arrival_time_target, LabelWithNumberVehicles
+from gtfspy.routing.label import min_arrival_time_target, LabelWithVehicleCount
 from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
 
 
@@ -38,19 +38,19 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
 
         stop_3_labels = csa_profile.stop_profiles[3].get_pareto_optimal_labels()
         self.assertEqual(len(stop_3_labels), 2)
-        self.assertIn(LabelWithNumberVehicles(32, 35, n_vehicle_legs=1), stop_3_labels)
+        self.assertIn(LabelWithVehicleCount(32, 35, n_vehicle_legs=1), stop_3_labels)
 
         stop_2_labels = csa_profile.stop_profiles[2].get_pareto_optimal_labels()
-        self.assertIn(LabelWithNumberVehicles(40, 50, n_vehicle_legs=1), stop_2_labels)
-        self.assertIn(LabelWithNumberVehicles(25, 35, n_vehicle_legs=2), stop_2_labels)
+        self.assertIn(LabelWithVehicleCount(40, 50, n_vehicle_legs=1), stop_2_labels)
+        self.assertIn(LabelWithVehicleCount(25, 35, n_vehicle_legs=2), stop_2_labels)
 
         stop_one_profile = csa_profile.stop_profiles[self.stop_one]
         stop_one_pareto_labels = stop_one_profile.get_pareto_optimal_labels()
 
         labels = set()
-        labels.add(LabelWithNumberVehicles(departure_time=10, arrival_time_target=35, n_vehicle_legs=3))
-        labels.add(LabelWithNumberVehicles(departure_time=20, arrival_time_target=50, n_vehicle_legs=1))
-        labels.add(LabelWithNumberVehicles(departure_time=32, arrival_time_target=55, n_vehicle_legs=1))
+        labels.add(LabelWithVehicleCount(departure_time=10, arrival_time_target=35, n_vehicle_legs=3))
+        labels.add(LabelWithVehicleCount(departure_time=20, arrival_time_target=50, n_vehicle_legs=1))
+        labels.add(LabelWithVehicleCount(departure_time=32, arrival_time_target=55, n_vehicle_legs=1))
 
         for label in labels:
             self.assertIn(label, stop_one_pareto_labels)
@@ -71,7 +71,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         end_time = 50
 
         labels = set()
-        labels.add(LabelWithNumberVehicles(departure_time=20, arrival_time_target=50, n_vehicle_legs=1))
+        labels.add(LabelWithVehicleCount(departure_time=20, arrival_time_target=50, n_vehicle_legs=1))
 
         csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                       start_time, end_time, transfer_margin,
@@ -100,7 +100,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         start_time = 0
         end_time = 50
         labels = set()
-        labels.add(LabelWithNumberVehicles(departure_time=0, arrival_time_target=30, n_vehicle_legs=1))
+        labels.add(LabelWithVehicleCount(departure_time=0, arrival_time_target=30, n_vehicle_legs=1))
 
         csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                       start_time, end_time, transfer_margin,
@@ -177,8 +177,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         self.assertEqual(min_arrival_time_target(source_profile.evaluate(0, 0)), 8)
         found_labels = source_profile.get_pareto_optimal_labels()
         labels_should_be = set()
-        labels_should_be.add(LabelWithNumberVehicles(0, 10, n_vehicle_legs=1))
-        labels_should_be.add(LabelWithNumberVehicles(2, 8, n_vehicle_legs=2))
+        labels_should_be.add(LabelWithVehicleCount(0, 10, n_vehicle_legs=1))
+        labels_should_be.add(LabelWithVehicleCount(2, 8, n_vehicle_legs=2))
         self._assert_label_sets_equal(found_labels, labels_should_be)
 
     def test_transfer_margin(self):

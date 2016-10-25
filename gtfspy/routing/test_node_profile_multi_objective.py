@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from routing.label import Label, min_arrival_time_target, LabelWithNumberVehicles
+from routing.label import Label, min_arrival_time_target, LabelWithVehicleCount
 
 
 class TestNodeProfileMultiObjective(TestCase):
@@ -38,9 +38,9 @@ class TestNodeProfileMultiObjective(TestCase):
 
     def test_pareto_optimality_with_transfers(self):
         node_profile = NodeProfileMultiObjective()
-        pt3 = LabelWithNumberVehicles(departure_time=5, arrival_time_target=35, n_vehicle_legs=0)
-        pt2 = LabelWithNumberVehicles(departure_time=5, arrival_time_target=35, n_vehicle_legs=1)
-        pt1 = LabelWithNumberVehicles(departure_time=5, arrival_time_target=35, n_vehicle_legs=2)
+        pt3 = LabelWithVehicleCount(departure_time=5, arrival_time_target=35, n_vehicle_legs=0)
+        pt2 = LabelWithVehicleCount(departure_time=5, arrival_time_target=35, n_vehicle_legs=1)
+        pt1 = LabelWithVehicleCount(departure_time=5, arrival_time_target=35, n_vehicle_legs=2)
         self.assertTrue(node_profile.update(pt1))
         self.assertTrue(node_profile.update(pt2))
         self.assertTrue(node_profile.update(pt3))
