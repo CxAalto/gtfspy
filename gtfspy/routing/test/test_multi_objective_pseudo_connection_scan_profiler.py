@@ -215,9 +215,10 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
 
     def test_basics_no_transfer_tracking(self):
         csa_profile = MultiObjectivePseudoCSAProfiler(
-                                                self.transit_connections, self.target_stop,
-                                                self.start_time, self.end_time, self.transfer_margin,
-                                                self.walk_network, self.walk_speed, count_transfers=False)
+            self.transit_connections, self.target_stop,
+            self.start_time, self.end_time, self.transfer_margin,
+            self.walk_network, self.walk_speed, count_transfers=False
+        )
         csa_profile.run()
 
         stop_3_pareto_tuples = csa_profile.stop_profiles[3].get_pareto_optimal_labels()
@@ -241,7 +242,6 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             pareto_tuples,
             source_stop_pareto_optimal_tuples
         )
-
 
     def _assert_label_sets_equal(self, found_tuples, should_be_tuples):
         self.assertEqual(len(found_tuples), len(should_be_tuples))
