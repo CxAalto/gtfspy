@@ -25,7 +25,7 @@ class TestNodeProfileMultiObjective(TestCase):
 
     def test_identity_profile(self):
         identity_profile = NodeProfileMultiObjective(0)
-        identity_profile.update({Label(10, 10)})
+        identity_profile.update({LabelWithVehicleCount(10, 10)})
         self.assertEqual(10, min_arrival_time_target(identity_profile.evaluate(10, 0)))
 
     def test_walk_duration(self):

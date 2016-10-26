@@ -176,30 +176,22 @@ def merge_pareto_frontiers(labels, labels_other):
     pareto_front_merged: set[Label]
     """
 
-    labels_survived = set()
-    labels_other_survived = set()
+    def _get_non_dominated_entries(candidates, possible_dominators, survivor_set=None):
+        if survivor_set is None:
+            survivor_set = set()
+        for candidate in candidates:
+            candidate_is_dominated = False
+            for dominator in list(possible_dominators):
+                if dominator.dominates(candidate):
+                    candidate_is_dominated = True
+                    break
+            if not candidate_is_dominated:
+                survivor_set.add(candidate)
+        return survivor_set
 
-    for label_other in labels_other:
-        is_dominated = False
-        for label in labels:
-            if label.dominates(label_other):
-                is_dominated = True
-                break
-        if not is_dominated:
-            labels_other_survived.add(label_other)
-
-    for label in labels:
-        is_dominated = False
-        for label_other_survived in labels_other_survived:
-            if label_other_survived.dominates(label):
-                is_dominated = True
-                break
-        if not is_dominated:
-            labels_survived.add(label)
-    result = set.union(labels_survived, labels_other_survived)
-    if len(result) > 1:
-        b = result
-    return result
+    survived = _get_non_dominated_entries(labels, labels_other)
+    survived = _get_non_dominated_entries(labels_other, survived, survivor_set=survived)
+    return survived
 
 
 def min_arrival_time_target(label_set):
