@@ -7,7 +7,8 @@ from gtfspy.routing.models import Connection
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.pseudo_connections import compute_pseudo_connections
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.label import merge_pareto_frontiers, LabelWithVehicleCount, Label
+from gtfspy.routing.label import merge_pareto_frontiers, LabelWithVehicleCount, Label, compute_pareto_front
+from gtfspy.util import timeit
 
 
 class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
@@ -48,7 +49,6 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             whether to print out progress
         """
         AbstractRoutingAlgorithm.__init__(self)
-
         self._target = target_stop
         self._transit_connections = transit_events
         if start_time is None:
@@ -84,12 +84,18 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                 walk_duration = edge_data["d_walk"] / self._walk_speed
                 self._stop_profiles[target_neighbor] = NodeProfileMultiObjective(walk_duration,
                                                                                  label_class=self._label_class)
-        pseudo_connection_set = compute_pseudo_connections(transit_events, self._start_time, self._end_time,
+        self._compute_pseudo_connections()
+
+    @timeit
+    def _compute_pseudo_connections(self):
+        print("Started computing pseudoconnections")
+        pseudo_connection_set = compute_pseudo_connections(self._transit_connections, self._start_time, self._end_time,
                                                            self._transfer_margin, self._walk_network,
                                                            self._walk_speed)
         self._pseudo_connections = list(pseudo_connection_set)
         self._all_connections = self._pseudo_connections + self._transit_connections
         self._all_connections.sort(key=lambda connection: -connection.departure_time)
+        print("Computed pseudoconnections")
 
     def _run(self):
         # if source node in s1:
@@ -117,11 +123,13 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             arrival_node_labels = _copy_and_modify_labels(arrival_node_labels_orig,
                                                           connection.departure_time,
                                                           increment_vehicle_count=increment_vehicle_count)
+            arrival_node_labels = set(compute_pareto_front(list(arrival_node_labels)))
 
             # best labels from this current trip
             if not connection.is_walk:
                 trip_labels = _copy_and_modify_labels(self.__trip_labels[connection.trip_id],
-                                                      connection.departure_time)
+                                                      connection.departure_time,
+                                                      increment_vehicle_count=False)
             else:
                 trip_labels = set()
 
@@ -148,7 +156,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
 
 def _copy_and_modify_labels(labels, departure_time, increment_vehicle_count=False):
-    labels_copy = copy.deepcopy(labels)
+    labels_copy = [label.get_copy() for label in labels]
     for label in labels_copy:
         label.departure_time = departure_time
         if increment_vehicle_count:

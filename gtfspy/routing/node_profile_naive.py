@@ -93,5 +93,5 @@ class NodeProfileNaive:
         return float(minimum)
 
     def get_pareto_optimal_labels(self):
-        return copy.deepcopy(self._labels)
+        return [label.get_copy() for label in self._labels]
 

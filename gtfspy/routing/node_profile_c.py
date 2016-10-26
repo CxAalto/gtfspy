@@ -76,4 +76,4 @@ class NodeProfileC:
         for label in self._labels:
             if label.duration() < self._walk_to_target_duration:
                 non_walk_valid_labels.append(label)
-        return copy.deepcopy(compute_pareto_front(non_walk_valid_labels))
+        return [label.get_copy() for label in compute_pareto_front(non_walk_valid_labels)]

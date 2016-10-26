@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from routing.label import Label, min_arrival_time_target, LabelWithVehicleCount
+from gtfspy.routing.label import Label, min_arrival_time_target, LabelWithVehicleCount
 
 
 class TestNodeProfileMultiObjective(TestCase):
@@ -29,12 +29,12 @@ class TestNodeProfileMultiObjective(TestCase):
         self.assertEqual(10, min_arrival_time_target(identity_profile.evaluate(10, 0)))
 
     def test_walk_duration(self):
-        node_profile = NodeProfileMultiObjective(walk_to_target_duration=27)
+        node_profile = NodeProfileMultiObjective(walk_to_target_duration=27, label_class=Label)
         self.assertEqual(27, node_profile.get_walk_to_target_duration())
-        pt1 = Label(departure_time=5, arrival_time_target=35)
-        node_profile.update(pt1)
         pt2 = Label(departure_time=10, arrival_time_target=35)
-        self.assertTrue(node_profile.update(pt2))
+        pt1 = Label(departure_time=5, arrival_time_target=35)
+        node_profile.update(pt2)
+        node_profile.update(pt1)
 
     def test_pareto_optimality_with_transfers(self):
         node_profile = NodeProfileMultiObjective()

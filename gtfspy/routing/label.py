@@ -60,8 +60,11 @@ class Label:
         """
         return self.arrival_time_target - self.departure_time
 
+    def get_copy(self):
+        return Label(self.departure_time, self.arrival_time_target)
+
     def get_copy_with_specified_departure_time(self, departure_time):
-        label_copy = copy.deepcopy(self)
+        label_copy = self.get_copy()
         label_copy.departure_time = departure_time
         return label_copy
 
@@ -104,6 +107,9 @@ class LabelWithVehicleCount(Label):
         )
         return dominates
 
+    def get_copy(self):
+        return LabelWithVehicleCount(self.departure_time, self.arrival_time_target, self.n_vehicle_legs)
+
     @staticmethod
     def direct_walk_label(departure_time, walk_duration):
         return LabelWithVehicleCount(departure_time, departure_time + walk_duration, 0)
@@ -128,6 +134,8 @@ def compute_pareto_front(label_list):
     Code adapted from:
     http://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
     """
+    if isinstance(label_list, set):
+        label_list = list(label_list)
     dominated = []
     pareto_front = []
     remaining = label_list
@@ -188,8 +196,10 @@ def merge_pareto_frontiers(labels, labels_other):
                 break
         if not is_dominated:
             labels_survived.add(label)
-
-    return set.union(labels_survived, labels_other_survived)
+    result = set.union(labels_survived, labels_other_survived)
+    if len(result) > 1:
+        b = result
+    return result
 
 
 def min_arrival_time_target(label_set):

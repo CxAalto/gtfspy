@@ -56,11 +56,13 @@ class NodeProfileMultiObjective:
 
         mod_prev_labels = {label.get_copy_with_specified_departure_time(departure_time) for label
                            in previous_labels}
+        mod_prev_labels = set(compute_pareto_front(mod_prev_labels))
 
         if self._walk_to_target_duration != float('inf'):
             mod_prev_labels.add(self._label_class.direct_walk_label(departure_time, self._walk_to_target_duration))
 
         new_frontier = merge_pareto_frontiers(new_labels, mod_prev_labels)
+
         if departure_time in self._dep_time_to_index:
             self._label_bags[-1] = new_frontier
         else:
@@ -108,5 +110,5 @@ class NodeProfileMultiObjective:
         pareto_optimal_labels = list()
         for bag in self._label_bags:
             pareto_optimal_labels.extend(bag)
-        return copy.deepcopy(compute_pareto_front(pareto_optimal_labels))
+        return [label.get_copy() for label in compute_pareto_front(pareto_optimal_labels)]
 
