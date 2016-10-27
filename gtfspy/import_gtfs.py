@@ -98,6 +98,7 @@ class TableLoader(object):
         self.gtfs_sources = []
         # map sources to "real"
         for source in _gtfs_sources:
+            print(source)
             # Deal with the case that gtfspath is actually a dict.
             if isinstance(source, dict):
                 self.gtfs_sources.append(source)
@@ -1586,6 +1587,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     G.meta['import_seconds'] = time.time() - time_import_start
     G.meta['download_date'] = ''
     G.meta['location_name'] = ''
+    G.meta['n_gtfs_sources'] = len(gtfs_sources)
     # Extract things from GTFS
     for i, source in enumerate(gtfs_sources):
         if len(gtfs_sources) == 1:
