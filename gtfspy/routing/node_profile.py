@@ -72,7 +72,7 @@ class NodeProfile:
                     return True
         return False
 
-    def get_earliest_arrival_time_at_target(self, dep_time, transfer_margin):
+    def evaluate_earliest_arrival_time_at_target(self, dep_time, transfer_margin):
         """
         Get the earliest arrival time at the target, given a departure time.
 
@@ -95,6 +95,6 @@ class NodeProfile:
                 minimum = pt.arrival_time_target
         return float(minimum)
 
-    def get_pareto_tuples(self):
+    def get_pareto_optimal_tuples(self):
         return copy.deepcopy(self._pareto_tuples)
 
