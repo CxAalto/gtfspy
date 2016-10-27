@@ -10,10 +10,10 @@ class TestNodeProfileMultiObjective(TestCase):
         node_profile = NodeProfileMultiObjective()
         self.assertEquals(float("inf"), min_arrival_time_target(node_profile.evaluate(0, 0)))
 
-        node_profile.update({LabelTime(departure_time=3, arrival_time_target=4)})
+        node_profile.update([LabelTime(departure_time=3, arrival_time_target=4)])
         self.assertEquals(4, min_arrival_time_target(node_profile.evaluate(2, 0)))
 
-        node_profile.update({LabelTime(departure_time=1, arrival_time_target=1)})
+        node_profile.update([LabelTime(departure_time=1, arrival_time_target=1)])
         self.assertEquals(1, min_arrival_time_target(node_profile.evaluate(0, 0)))
 
     def test_pareto_optimality2(self):
@@ -26,7 +26,7 @@ class TestNodeProfileMultiObjective(TestCase):
 
     def test_identity_profile(self):
         identity_profile = NodeProfileMultiObjective(0)
-        identity_profile.update({LabelTimeAndVehLegCount(10, 10)})
+        identity_profile.update(LabelTimeAndVehLegCount(10, 10))
         self.assertEqual(10, min_arrival_time_target(identity_profile.evaluate(10, 0)))
 
     def test_walk_duration(self):

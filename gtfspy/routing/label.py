@@ -132,8 +132,6 @@ def compute_pareto_front(label_list):
     Code adapted from:
     http://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
     """
-    if isinstance(label_list, set):
-        label_list = list(label_list)
     dominated = []
     pareto_front = []
     remaining = label_list
@@ -159,23 +157,24 @@ def compute_pareto_front(label_list):
         #
     return pareto_front
 
+
 def merge_pareto_frontiers(labels, labels_other):
     """
     Merge two pareto frontiers by removing dominated entries.
 
     Parameters
     ----------
-    labels: set[LabelTime]
-    labels_other: set[LabelTime]
+    labels: list[LabelTime]
+    labels_other: list[LabelTime]
 
     Returns
     -------
-    pareto_front_merged: set[LabelTime]
+    pareto_front_merged: list[LabelTime]
     """
-    @profile
-    def _get_non_dominated_entries(candidates, possible_dominators, survivor_set=None):
-        if survivor_set is None:
-            survivor_set = set()
+    # @profile
+    def _get_non_dominated_entries(candidates, possible_dominators, survivor_list=None):
+        if survivor_list is None:
+            survivor_list = list()
         for candidate in candidates:
             candidate_is_dominated = False
             for dominator in possible_dominators:
@@ -183,23 +182,23 @@ def merge_pareto_frontiers(labels, labels_other):
                     candidate_is_dominated = True
                     break
             if not candidate_is_dominated:
-                survivor_set.add(candidate)
-        return survivor_set
+                survivor_list.append(candidate)
+        return survivor_list
 
     survived = _get_non_dominated_entries(labels, labels_other)
-    survived = _get_non_dominated_entries(labels_other, survived, survivor_set=survived)
+    survived = _get_non_dominated_entries(labels_other, survived, survivor_list=survived)
     return survived
 
 
-def min_arrival_time_target(label_set):
-    if len(label_set) > 0:
-        return min(label_set, key=lambda label: label.arrival_time_target).arrival_time_target
+def min_arrival_time_target(label_list):
+    if len(label_list) > 0:
+        return min(label_list, key=lambda label: label.arrival_time_target).arrival_time_target
     else:
         return float('inf')
 
 
-def min_n_vehicle_trips(label_set):
-    if len(label_set) > 0:
-        return min(label_set, key=lambda label: label.n_vehicle_trips).n_vehicle_trips
+def min_n_vehicle_trips(label_list):
+    if len(label_list) > 0:
+        return min(label_list, key=lambda label: label.n_vehicle_trips).n_vehicle_trips
     else:
         return None

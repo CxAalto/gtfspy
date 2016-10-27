@@ -38,8 +38,8 @@ class NodeProfileMultiObjective:
         added: bool
             whether new_pareto_tuple was added to the set of pareto-optimal tuples
         """
-        if not isinstance(new_labels, set):
-            new_labels = {new_labels}
+        if not isinstance(new_labels, list):
+            new_labels = [new_labels]
 
         if not new_labels:
             return False
@@ -51,14 +51,13 @@ class NodeProfileMultiObjective:
         if self._label_bags:
             previous_labels = self._label_bags[-1]
         else:
-            previous_labels = set()
+            previous_labels = list()
 
-        mod_prev_labels = {label.get_copy_with_specified_departure_time(departure_time) for label
-                           in previous_labels}
-        mod_prev_labels = set(compute_pareto_front(mod_prev_labels))
+        mod_prev_labels = [label.get_copy_with_specified_departure_time(departure_time) for label
+                           in previous_labels]
 
         if self._walk_to_target_duration != float('inf'):
-            mod_prev_labels.add(self._label_class.direct_walk_label(departure_time, self._walk_to_target_duration))
+            mod_prev_labels.append(self._label_class.direct_walk_label(departure_time, self._walk_to_target_duration))
 
         new_frontier = merge_pareto_frontiers(new_labels, mod_prev_labels)
 
@@ -91,11 +90,11 @@ class NodeProfileMultiObjective:
         pareto_optimal_labels : set
             Set of Labels
         """
-        pareto_optimal_labels = set()
+        pareto_optimal_labels = list()
         if self._walk_to_target_duration != float('inf') and allow_walk_to_target:
             walk_pareto_tuple = self._label_class(departure_time=dep_time,
                                                   arrival_time_target=dep_time + self._walk_to_target_duration)
-            pareto_optimal_labels.add(walk_pareto_tuple)
+            pareto_optimal_labels.append(walk_pareto_tuple)
 
         # for dep_time, index in enumerate(reversed(self._departure_times)): #_dep_time_to_index.items()):
 
