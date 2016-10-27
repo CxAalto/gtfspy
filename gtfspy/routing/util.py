@@ -4,12 +4,12 @@ def compute_pareto_front(label_list):
 
     Parameters
     ----------
-    label_list: list[Label]
+    label_list: list[LabelTime]
         (Or any list of objects, for which a function label.dominates(other) is defined.
 
     Returns
     -------
-    pareto_front: list[Label]
+    pareto_front: list[LabelTime]
         List of labels that belong to the Pareto front.
 
     Notes

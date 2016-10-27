@@ -1,7 +1,7 @@
 import copy
 
 from gtfspy.routing.util import compute_pareto_front
-from gtfspy.routing.label import Label
+from gtfspy.routing.label import LabelTime
 
 
 class NodeProfileC:
@@ -11,7 +11,7 @@ class NodeProfileC:
     """
 
     def __init__(self, walk_to_target_duration=float('inf')):
-        self._labels = []  # list[Label] # always ordered by decreasing departure_time
+        self._labels = []  # list[LabelTime] # always ordered by decreasing departure_time
         self._walk_to_target_duration = walk_to_target_duration
 
     def get_walk_to_target_duration(self):
@@ -21,13 +21,13 @@ class NodeProfileC:
         """
         Parameters
         ----------
-        new_label: Label
+        new_label: LabelTime
 
         Returns
         -------
         updated: bool
         """
-        assert (isinstance(new_label, Label))
+        assert (isinstance(new_label, LabelTime))
         if self._labels:
             assert (new_label.departure_time <= self._labels[-1].departure_time)
             best_later_departing_arrival_time = self._labels[-1].arrival_time_target
@@ -43,7 +43,7 @@ class NodeProfileC:
         # (with time-indexing)
         if (new_label.arrival_time_target < walk_to_target_arrival_time and
                 new_label.arrival_time_target < best_later_departing_arrival_time):
-            self._labels.append(Label(new_label.departure_time, best_arrival_time))
+            self._labels.append(LabelTime(new_label.departure_time, best_arrival_time))
             return True
         else:
             return False

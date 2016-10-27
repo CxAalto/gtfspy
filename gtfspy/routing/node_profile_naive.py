@@ -1,6 +1,8 @@
 import copy
 
-from gtfspy.routing.label import Label, LabelWithVehicleCount
+import line_profiler
+
+from gtfspy.routing.label import LabelTime, LabelTimeAndVehLegCount
 
 
 class NodeProfileNaive:
@@ -10,9 +12,9 @@ class NodeProfileNaive:
     """
 
     def __init__(self, walk_to_target_duration=float('inf')):
-        self._labels = []  # list[ParetoTuple] # always ordered by decreasing departure_time
+        self._labels = []  # list[LabelTime] # always ordered by decreasing departure_time
         self._walk_to_target_duration = walk_to_target_duration
-        self._paretoTupleClass = Label
+        self._paretoTupleClass = LabelTime
 
     def get_walk_to_target_duration(self):
         return self._walk_to_target_duration
@@ -23,14 +25,15 @@ class NodeProfileNaive:
 
         Parameters
         ----------
-        new_pareto_tuple: Label or LabelWithVehicleCount
+        new_pareto_tuple: LabelTime or LabelTimeAndVehLegCount
 
         Returns
         -------
         added: bool
             whether new_pareto_tuple was added to the set of pareto-optimal tuples
         """
-        if new_pareto_tuple.duration() >= self._walk_to_target_duration:
+        if LabelTime.direct_walk_label(new_pareto_tuple.departure_time, self._walk_to_target_duration)\
+                .dominates(new_pareto_tuple):
             return False
 
         if self._new_paretotuple_is_dominated_by_old_tuples(new_pareto_tuple):

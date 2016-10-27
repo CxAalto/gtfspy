@@ -7,7 +7,8 @@ from gtfspy.routing.models import Connection
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.pseudo_connections import compute_pseudo_connections
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.label import merge_pareto_frontiers, LabelWithVehicleCount, Label, compute_pareto_front
+from gtfspy.routing.label import merge_pareto_frontiers, LabelTimeAndVehLegCount, LabelTime, compute_pareto_front, \
+    LabelVehLegCount
 from gtfspy.util import timeit
 
 
@@ -27,7 +28,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                  walk_network=None,
                  walk_speed=1.5,
                  verbose=False,
-                 count_transfers=True):
+                 consider_vehicle_legs=True,
+                 consider_time=True):
         """
         Parameters
         ----------
@@ -47,6 +49,10 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         verbose: boolean, optional
             whether to print out progress
+        consider_vehicle_legs: boolean, optional
+            whether to consider the nubmer of vehicle legs
+        consider_time: boolean, optional
+            whether to consider time in the set of pareto_optimal
         """
         AbstractRoutingAlgorithm.__init__(self)
         self._target = target_stop
@@ -70,11 +76,18 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         self.__trip_labels = defaultdict(lambda: set())
 
         # initialize stop_profiles
-        self._count_transfers = count_transfers
-        if count_transfers:
-            self._label_class = LabelWithVehicleCount
+        self._count_vehicle_legs = consider_vehicle_legs
+        self._consider_time = consider_time
+
+        assert(consider_time or consider_vehicle_legs)
+        if consider_vehicle_legs:
+            if consider_time:
+                self._label_class = LabelTimeAndVehLegCount
+            else:
+                self._label_class = LabelVehLegCount
         else:
-            self._label_class = Label
+            self._label_class = LabelTime
+
         self._stop_profiles = defaultdict(lambda: NodeProfileMultiObjective(label_class=self._label_class))
         # initialize stop_profiles for target stop, and its neighbors
         self._stop_profiles[self._target] = NodeProfileMultiObjective(0, label_class=self._label_class)
@@ -112,24 +125,26 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
             # get all different "accessible" / arrival times (Pareto-optimal sets)
             arrival_profile = self._stop_profiles[connection.arrival_stop]  # NodeProfileMultiObjective
+            assert(isinstance(arrival_profile, NodeProfileMultiObjective))
 
             # Two possibilities:
 
             # "best labels at the arrival node", double walks are not allowed
+
             arrival_node_labels_orig = arrival_profile.evaluate(connection.arrival_time, self._transfer_margin,
                                                                 allow_walk_to_target=not connection.is_walk)
 
-            increment_vehicle_count = (self._count_transfers and not connection.is_walk)
-            arrival_node_labels = _copy_and_modify_labels(arrival_node_labels_orig,
-                                                          connection.departure_time,
-                                                          increment_vehicle_count=increment_vehicle_count)
+            increment_vehicle_count = (self._count_vehicle_legs and not connection.is_walk)
+            arrival_node_labels = self._copy_and_modify_labels(arrival_node_labels_orig,
+                                                               connection.departure_time,
+                                                               increment_vehicle_count=increment_vehicle_count)
             arrival_node_labels = set(compute_pareto_front(list(arrival_node_labels)))
 
             # best labels from this current trip
             if not connection.is_walk:
-                trip_labels = _copy_and_modify_labels(self.__trip_labels[connection.trip_id],
-                                                      connection.departure_time,
-                                                      increment_vehicle_count=False)
+                trip_labels = self._copy_and_modify_labels(self.__trip_labels[connection.trip_id],
+                                                           connection.departure_time,
+                                                           increment_vehicle_count=False)
             else:
                 trip_labels = set()
 
@@ -154,11 +169,10 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         assert self._has_run
         return self._stop_profiles
 
-
-def _copy_and_modify_labels(labels, departure_time, increment_vehicle_count=False):
-    labels_copy = [label.get_copy() for label in labels]
-    for label in labels_copy:
-        label.departure_time = departure_time
-        if increment_vehicle_count:
-            label.n_vehicle_legs += 1
-    return labels_copy
+    def _copy_and_modify_labels(self, labels, departure_time, increment_vehicle_count=False):
+        labels_copy = [label.get_copy() for label in labels]
+        for label in labels_copy:
+            label.departure_time = departure_time
+            if increment_vehicle_count:
+                label.n_vehicle_legs += 1
+        return labels_copy
