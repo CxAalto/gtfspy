@@ -54,11 +54,11 @@ class TestLabelWithTransfers(TestCase):
         self.assertEqual(20, label1.duration())
 
 
-class TestLabelTransfersOnly(TestCase):
+class TestLabelVehLegCount(TestCase):
 
     def test_dominates_simple(self):
-        label1 = LabelVehLegCount(departure_time=0, n_vehicle_legs=1)
-        label2 = LabelVehLegCount(departure_time=-1, n_vehicle_legs=0)
+        label1 = LabelVehLegCount(n_vehicle_legs=1)
+        label2 = LabelVehLegCount(n_vehicle_legs=0)
         self.assertTrue(label2.dominates(label1))
 
 

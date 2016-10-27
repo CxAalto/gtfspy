@@ -1,5 +1,4 @@
 from collections import defaultdict
-import copy
 
 import networkx
 
@@ -9,7 +8,6 @@ from gtfspy.routing.pseudo_connections import compute_pseudo_connections
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.routing.label import merge_pareto_frontiers, LabelTimeAndVehLegCount, LabelTime, compute_pareto_front, \
     LabelVehLegCount
-from gtfspy.util import timeit
 
 
 class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
@@ -28,8 +26,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                  walk_network=None,
                  walk_speed=1.5,
                  verbose=False,
-                 consider_vehicle_legs=True,
-                 consider_time=True):
+                 track_vehicle_legs=True,
+                 track_time=True):
         """
         Parameters
         ----------
@@ -49,9 +47,9 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         verbose: boolean, optional
             whether to print out progress
-        consider_vehicle_legs: boolean, optional
+        track_vehicle_legs: boolean, optional
             whether to consider the nubmer of vehicle legs
-        consider_time: boolean, optional
+        track_time: boolean, optional
             whether to consider time in the set of pareto_optimal
         """
         AbstractRoutingAlgorithm.__init__(self)
@@ -76,12 +74,12 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         self.__trip_labels = defaultdict(lambda: set())
 
         # initialize stop_profiles
-        self._count_vehicle_legs = consider_vehicle_legs
-        self._consider_time = consider_time
+        self._count_vehicle_legs = track_vehicle_legs
+        self._consider_time = track_time
 
-        assert(consider_time or consider_vehicle_legs)
-        if consider_vehicle_legs:
-            if consider_time:
+        assert(track_time or track_vehicle_legs)
+        if track_vehicle_legs:
+            if track_time:
                 self._label_class = LabelTimeAndVehLegCount
             else:
                 self._label_class = LabelVehLegCount
@@ -99,7 +97,6 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                                                                                  label_class=self._label_class)
         self._compute_pseudo_connections()
 
-    @timeit
     def _compute_pseudo_connections(self):
         print("Started computing pseudoconnections")
         pseudo_connection_set = compute_pseudo_connections(self._transit_connections, self._start_time, self._end_time,

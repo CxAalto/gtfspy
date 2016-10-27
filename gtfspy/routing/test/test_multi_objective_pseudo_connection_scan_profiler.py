@@ -3,7 +3,7 @@ from unittest import TestCase
 import networkx
 
 from gtfspy.routing.models import Connection
-from gtfspy.routing.label import min_arrival_time_target, LabelTimeAndVehLegCount, LabelTime
+from gtfspy.routing.label import min_arrival_time_target, LabelTimeAndVehLegCount, LabelTime, LabelVehLegCount
 from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
 
 
@@ -217,7 +217,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         csa_profile = MultiObjectivePseudoCSAProfiler(
             self.transit_connections, self.target_stop,
             self.start_time, self.end_time, self.transfer_margin,
-            self.walk_network, self.walk_speed, consider_vehicle_legs=False
+            self.walk_network, self.walk_speed, track_vehicle_legs=False
         )
         csa_profile.run()
 
@@ -242,6 +242,40 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             pareto_tuples,
             source_stop_pareto_optimal_tuples
         )
+
+    def test_transfers_only(self):
+        event_list_raw_data = [
+            (7, 2, 20, 30, "trip_6"),
+            (2, 4, 40, 50, "trip_5"),
+        ]
+        transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
+        walk_network = networkx.Graph()
+        walk_network.add_edge(1, 2, {"d_walk": 20})
+        walk_network.add_edge(3, 4, {"d_walk": 15})
+        walk_speed = 1
+        target_stop = 4
+        transfer_margin = 0
+        start_time = 0
+        end_time = 50
+
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      walk_network, walk_speed, track_time=False)
+        csa_profile.run()
+
+        stop_to_n_vehicle_legs = {
+            2: 1,
+            7: 2,
+            3: 0
+        }
+
+        for stop, n_veh_legs in stop_to_n_vehicle_legs.items():
+            labels = csa_profile.stop_profiles[stop].get_pareto_optimal_labels()
+            print(stop, n_veh_legs, labels[0])
+            self._assert_label_sets_equal(
+                [LabelVehLegCount(n_vehicle_legs=n_veh_legs)],
+                labels
+            )
 
     def _assert_label_sets_equal(self, found_tuples, should_be_tuples):
         self.assertEqual(len(found_tuples), len(should_be_tuples))

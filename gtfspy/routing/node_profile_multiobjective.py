@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from gtfspy.routing.label import LabelTimeAndVehLegCount, merge_pareto_frontiers, compute_pareto_front
+from gtfspy.routing.label import LabelTimeAndVehLegCount, merge_pareto_frontiers, compute_pareto_front, LabelVehLegCount
 
 
 class NodeProfileMultiObjective:
@@ -112,8 +112,10 @@ class NodeProfileMultiObjective:
 
     def get_pareto_optimal_labels(self):
         # there is some room for optimization here
-        pareto_optimal_labels = list()
+        pareto_optimal_labels = []
         for bag in self._label_bags:
             pareto_optimal_labels.extend(bag)
+        if self._label_class == LabelVehLegCount and self._walk_to_target_duration < float('inf'):
+            pareto_optimal_labels.append(LabelVehLegCount(0))
         return [label.get_copy() for label in compute_pareto_front(pareto_optimal_labels)]
 
