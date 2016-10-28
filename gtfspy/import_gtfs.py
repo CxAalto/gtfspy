@@ -457,6 +457,7 @@ class RouteLoader(TableLoader):
     # route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url
     # 1001,HSL,1,Kauppatori - Käpylä,,0,http://aikataulut.hsl.fi/linjat/fi/h1_1a.html
     def gen_rows(self, readers, prefixes):
+        from gtfspy import extended_route_types
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
                 #print row
@@ -466,7 +467,7 @@ class RouteLoader(TableLoader):
                     name          = row['route_short_name'].decode('utf-8'),
                     long_name     = row['route_long_name'].decode('utf-8'),
                     desc          = row['route_desc'].decode('utf-8') if 'route_desc' in row else None,
-                    type          = int(row['route_type']),
+                    type          = extended_route_types.ROUTE_TYPE_CONVERSION[int(row['route_type'])],
                     url           = row['route_url'].decode('utf-8') if 'route_url' in row else None,
                     color         = row['route_color'].decode('utf-8') if 'route_color' in row else None,
                     text_color    = row['route_text_color'].decode('utf-8') if 'route_text_color' in row else None,
