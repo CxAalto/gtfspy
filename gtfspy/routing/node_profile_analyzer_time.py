@@ -22,7 +22,7 @@ class _ProfileBlock(_profile_block):
         return self.waiting_time * 0.5 * (self.distance_start + self.distance_end)
 
 
-class NodeProfileAnalyzer:
+class NodeProfileAnalyzerTime:
 
     def __init__(self, node_profile, start_time_dep, end_time_dep):
         """
@@ -30,7 +30,7 @@ class NodeProfileAnalyzer:
 
         Parameters
         ----------
-        node_profile: NodeProfileNaive
+        node_profile: NodeProfileSimple
         """
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
@@ -263,13 +263,7 @@ class NodeProfileAnalyzer:
         ax.set_ylim(bottom=0)
         return fig
 
-    def plot_temporal_distance_variation(self, timezone=None):
-        """
-        See plots.py: plot_temporal_distance_variation for more documentation.
-        """
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-
+    def _get_vlines_and_slopes_temporal_distance_variation(self):
         vertical_lines = []
         slopes = []
 
@@ -288,6 +282,16 @@ class NodeProfileAnalyzer:
                 previous_duration_minutes = self._profile_blocks[i - 1].distance_end / 60.0
                 vertical_lines.append(dict(x=[previous_dep_time, previous_dep_time],
                                            y=[previous_duration_minutes, distance_start_minutes]))
+        return vertical_lines, slopes
+
+    def plot_temporal_distance_variation(self, timezone=None, color="red", ax=None):
+        """
+        See plots.py: plot_temporal_distance_variation for more documentation.
+        """
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+
         if timezone is None:
             warnings.warn("Warning: No timezone specified, defaulting to UTC")
             timezone = pytz.timezone("Etc/UTC")
@@ -300,6 +304,7 @@ class NodeProfileAnalyzer:
         x_axis_formatter = md.DateFormatter(format_string)
         ax.xaxis.set_major_formatter(x_axis_formatter)
 
+        vertical_lines, slopes = self._get_vlines_and_slopes_temporal_distance_variation()
         for line in slopes:
             xs = [_ut_to_unloc_datetime(x) for x in line['x']]
             ax.plot(xs, line['y'], "-", color="black")
@@ -316,7 +321,7 @@ class NodeProfileAnalyzer:
             fill_between_x.extend(xs)
             fill_between_y.extend(line["y"])
 
-        ax.fill_between(fill_between_x, y1=fill_between_y, color="red", alpha=0.2)
+        ax.fill_between(fill_between_x, y1=fill_between_y, color=color, alpha=0.2)
 
         ax.set_ylim(bottom=0)
         ax.set_xlim(
@@ -325,10 +330,10 @@ class NodeProfileAnalyzer:
         )
         ax.set_xlabel("Departure time")
         ax.set_ylabel("Duration to destination (min)")
-        fig.tight_layout()
+        ax.figure.tight_layout()
         plt.xticks(rotation=45)
-        fig.subplots_adjust(bottom=0.3)
-        return fig
+        ax.figure.subplots_adjust(bottom=0.3)
+        return ax.figure
 
     def _temporal_distance_cdf(self):
         """
@@ -396,7 +401,7 @@ class NodeProfileAnalyzer:
 
     @staticmethod
     def all_measures_and_names_as_lists():
-        NPA = NodeProfileAnalyzer
+        NPA = NodeProfileAnalyzerTime
         profile_summary_methods = [
             NPA.max_trip_duration,
             NPA.mean_trip_duration,

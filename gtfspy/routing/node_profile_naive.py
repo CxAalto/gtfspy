@@ -1,7 +1,7 @@
 from gtfspy.routing.label import LabelTime, LabelTimeAndVehLegCount
 
 
-class NodeProfileNaive:
+class NodeProfileSimple:
     """
     In the connection scan algorithm, each stop has a profile entry
     that stores information on the Pareto-Optimal (departure_time_this_node, arrival_time_target_node) tuples.

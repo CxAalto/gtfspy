@@ -1,9 +1,9 @@
 from gtfspy.routing.plots import plot_temporal_distance_variation
-from gtfspy.routing.node_profile_naive import NodeProfileNaive
+from gtfspy.routing.node_profile_naive import NodeProfileSimple
 from gtfspy.routing.label import LabelTime
 
 if __name__ == "__main__":
-    profile = NodeProfileNaive()
+    profile = NodeProfileSimple()
     profile.update_pareto_optimal_tuples(LabelTime(departure_time=2 * 60, arrival_time_target=11 * 60))
     profile.update_pareto_optimal_tuples(LabelTime(departure_time=20 * 60, arrival_time_target=25 * 60))
     profile.update_pareto_optimal_tuples(LabelTime(departure_time=40 * 60, arrival_time_target=45 * 60))

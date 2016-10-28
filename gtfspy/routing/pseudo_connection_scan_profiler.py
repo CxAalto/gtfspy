@@ -32,7 +32,7 @@ import networkx
 
 from gtfspy.routing.models import Connection
 from gtfspy.routing.label import LabelTime
-from gtfspy.routing.node_profile_naive import NodeProfileNaive
+from gtfspy.routing.node_profile_naive import NodeProfileSimple
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.pseudo_connections import compute_pseudo_connections
 from gtfspy.routing.node_profile_c import NodeProfileC
@@ -126,7 +126,7 @@ class PseudoConnectionScanProfiler(AbstractRoutingAlgorithm):
             previous_departure_time = connection.departure_time
 
             # get all different "accessible" / arrival times (Pareto-optimal sets)
-            arrival_profile = self._stop_profiles[connection.arrival_stop]  # NodeProfileNaive
+            arrival_profile = self._stop_profiles[connection.arrival_stop]  # NodeProfileSimple
 
             # Three possibilities:
 
@@ -161,7 +161,7 @@ class PseudoConnectionScanProfiler(AbstractRoutingAlgorithm):
         """
         Returns
         -------
-        _stop_profiles : dict[int, NodeProfileNaive]
+        _stop_profiles : dict[int, NodeProfileSimple]
             The pareto tuples necessary.
         """
         assert self._has_run

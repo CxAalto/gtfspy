@@ -83,8 +83,9 @@ class LabelTimeAndVehLegCount(_LabelBase):
 
 class LabelVehLegCount(_LabelBase):
 
-    def __init__(self, n_vehicle_legs=0, **kwargs):
+    def __init__(self, n_vehicle_legs=0, departure_time=-float('inf'), **kwargs):
         self.n_vehicle_legs = n_vehicle_legs
+        self.departure_time = departure_time
 
     def dominates(self, other):
         """
@@ -105,11 +106,11 @@ class LabelVehLegCount(_LabelBase):
         return LabelVehLegCount(self.n_vehicle_legs)
 
     def get_copy_with_specified_departure_time(self, departure_time):
-        return self.get_copy()
+        return LabelVehLegCount(self.n_vehicle_legs, departure_time)
 
     @staticmethod
     def direct_walk_label(departure_time, walk_duration):
-        return LabelVehLegCount(0)
+        return LabelVehLegCount(0, departure_time)
 
 
 def compute_pareto_front(label_list):

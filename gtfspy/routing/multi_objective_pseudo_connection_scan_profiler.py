@@ -110,9 +110,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
     def _run(self):
         # if source node in s1:
         previous_departure_time = float("inf")
-        connections = self._all_connections  # list[Connection]
-        n_connections_tot = len(connections)
-        for i, connection in enumerate(connections):
+        n_connections_tot = len(self._all_connections)
+        for i, connection in enumerate(self._all_connections):
             # basic checking + printing progress:
             if self._verbose and i % 1000 == 0:
                 print(i, "/", n_connections_tot)

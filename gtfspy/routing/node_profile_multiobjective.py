@@ -15,7 +15,7 @@ class NodeProfileMultiObjective:
         self._label_bags = []
         self._walk_to_target_duration = walk_to_target_duration
         self._min_dep_time = float('inf')
-        self._label_class = label_class
+        self.label_class = label_class
 
     def _update_min_dep_time(self, dep_time):
         assert dep_time <= self._min_dep_time, "Labels should be entered in increasing order of departure time."
@@ -57,7 +57,7 @@ class NodeProfileMultiObjective:
                            in previous_labels]
 
         if self._walk_to_target_duration != float('inf'):
-            mod_prev_labels.append(self._label_class.direct_walk_label(departure_time, self._walk_to_target_duration))
+            mod_prev_labels.append(self.label_class.direct_walk_label(departure_time, self._walk_to_target_duration))
 
         new_frontier = merge_pareto_frontiers(new_labels, mod_prev_labels)
 
@@ -70,7 +70,7 @@ class NodeProfileMultiObjective:
         self._update_min_dep_time(departure_time)
         return True
 
-    def evaluate(self, dep_time, transfer_margin, allow_walk_to_target=True):
+    def evaluate(self, dep_time, transfer_margin=0, allow_walk_to_target=True):
         """
         Get the pareto_optimal set of Labels, given a departure time.
 
@@ -92,17 +92,12 @@ class NodeProfileMultiObjective:
         """
         pareto_optimal_labels = list()
         if self._walk_to_target_duration != float('inf') and allow_walk_to_target:
-            walk_pareto_tuple = self._label_class(departure_time=dep_time,
-                                                  arrival_time_target=dep_time + self._walk_to_target_duration)
+            walk_pareto_tuple = self.label_class(departure_time=dep_time,
+                                                 arrival_time_target=dep_time + self._walk_to_target_duration)
             pareto_optimal_labels.append(walk_pareto_tuple)
-
-        # for dep_time, index in enumerate(reversed(self._departure_times)): #_dep_time_to_index.items()):
 
         dep_time_plus_transfer_margin = dep_time + transfer_margin
 
-        # self._pareto_tuples is ordered in increasing departure time
-        #print(list(self._dep_time_to_index.items()))
-        #print(self._departure_times)
         for dep_time, index in reversed(self._dep_time_to_index.items()):
             # TODO! Optimize this, if really needed
             if dep_time >= dep_time_plus_transfer_margin:
@@ -111,11 +106,11 @@ class NodeProfileMultiObjective:
         return pareto_optimal_labels
 
     def get_pareto_optimal_labels(self):
-        # there is some room for optimization here
+        # there may be some room for optimization here
         pareto_optimal_labels = []
         for bag in self._label_bags:
             pareto_optimal_labels.extend(bag)
-        if self._label_class == LabelVehLegCount and self._walk_to_target_duration < float('inf'):
+        if self.label_class == LabelVehLegCount and self._walk_to_target_duration < float('inf'):
             pareto_optimal_labels.append(LabelVehLegCount(0))
         return [label.get_copy() for label in compute_pareto_front(pareto_optimal_labels)]
 
