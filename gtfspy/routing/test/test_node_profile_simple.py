@@ -1,10 +1,10 @@
 from unittest import TestCase
 
 from gtfspy.routing.label import LabelTime, LabelTimeAndVehLegCount
-from gtfspy.routing.node_profile_naive import NodeProfileSimple
+from gtfspy.routing.node_profile_simple import NodeProfileSimple
 
 
-class TestNodeProfile(TestCase):
+class TestNodeProfileSimple(TestCase):
 
     def test_earliest_arrival_time(self):
         node_profile = NodeProfileSimple()
@@ -29,7 +29,7 @@ class TestNodeProfile(TestCase):
 
         pair3 = LabelTime(departure_time=1, arrival_time_target=1)
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pair3))
-        self.assertEquals(2, len(node_profile._labels), msg=str(node_profile.get_pareto_optimal_labels()))
+        self.assertEquals(2, len(node_profile._labels), msg=str(node_profile.get_final_optimal_labels()))
 
         pair4 = LabelTime(departure_time=1, arrival_time_target=2)
         self.assertFalse(node_profile.update_pareto_optimal_tuples(pair4))
@@ -40,7 +40,7 @@ class TestNodeProfile(TestCase):
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt2))
         pt1 = LabelTime(departure_time=5, arrival_time_target=35)
         self.assertFalse(node_profile.update_pareto_optimal_tuples(pt1))
-        self.assertEquals(len(node_profile.get_pareto_optimal_labels()), 1)
+        self.assertEquals(len(node_profile.get_final_optimal_labels()), 1)
 
     def test_identity_profile(self):
         identity_profile = NodeProfileSimple(0)
@@ -63,5 +63,5 @@ class TestNodeProfile(TestCase):
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt1))
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt2))
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt3))
-        self.assertEqual(1, len(node_profile.get_pareto_optimal_labels()))
+        self.assertEqual(1, len(node_profile.get_final_optimal_labels()))
 

@@ -25,7 +25,7 @@ class TestNodeProfileC(TestCase):
         node_profile.update_pareto_optimal_tuples(pair2)
         pair1 = LabelTime(departure_time=1, arrival_time_target=1)
         node_profile.update_pareto_optimal_tuples(pair1)
-        self.assertEqual(2, len(node_profile.get_pareto_optimal_tuples()))
+        self.assertEqual(2, len(node_profile.get_final_optimal_labels()))
 
     def test_pareto_optimality2(self):
         node_profile = NodeProfileC()
@@ -34,7 +34,7 @@ class TestNodeProfileC(TestCase):
         pt1 = LabelTime(departure_time=5, arrival_time_target=35)
         node_profile.update_pareto_optimal_tuples(pt1)
         print(node_profile._labels)
-        self.assertEquals(len(node_profile.get_pareto_optimal_tuples()), 1)
+        self.assertEquals(len(node_profile.get_final_optimal_labels()), 1)
 
     def test_identity_profile(self):
         identity_profile = NodeProfileC(0)
@@ -48,7 +48,7 @@ class TestNodeProfileC(TestCase):
         pt1 = LabelTime(departure_time=5, arrival_time_target=35)
         node_profile.update_pareto_optimal_tuples(pt2)
         node_profile.update_pareto_optimal_tuples(pt1)
-        self.assertEqual(1, len(node_profile.get_pareto_optimal_tuples()))
+        self.assertEqual(1, len(node_profile.get_final_optimal_labels()))
 
     def test_assert_raises_wrong_order(self):
         node_profile = NodeProfileC()

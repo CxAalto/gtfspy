@@ -1,5 +1,5 @@
 from gtfspy.routing.plots import plot_temporal_distance_variation
-from gtfspy.routing.node_profile_naive import NodeProfileSimple
+from gtfspy.routing.node_profile_simple import NodeProfileSimple
 from gtfspy.routing.label import LabelTime
 
 if __name__ == "__main__":

@@ -71,7 +71,7 @@ class NodeProfileC:
                 break
         return float(minimum)
 
-    def get_pareto_optimal_tuples(self):
+    def get_final_optimal_labels(self):
         non_walk_valid_labels = []
         for label in self._labels:
             if label.duration() < self._walk_to_target_duration:

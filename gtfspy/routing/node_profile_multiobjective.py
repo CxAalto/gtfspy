@@ -1,5 +1,3 @@
-from collections import OrderedDict
-
 from gtfspy.routing.label import LabelTimeAndVehLegCount, merge_pareto_frontiers, compute_pareto_front, LabelVehLegCount
 
 
@@ -9,47 +7,89 @@ class NodeProfileMultiObjective:
     each stop has a profile entry containing all Pareto-optimal entries.
     """
 
-    def __init__(self, walk_to_target_duration=float('inf'), label_class=LabelTimeAndVehLegCount):
-        self._dep_time_to_index = OrderedDict()
-        self._departure_times = []
-        self._label_bags = []
+    def __init__(self,
+                 dep_times=None,
+                 walk_to_target_duration=float('inf'),
+                 label_class=LabelTimeAndVehLegCount,
+                 connection_dep_times=None):
+        """
+
+        Parameters
+        ----------
+        dep_times
+        walk_to_target_duration
+        label_class: label class to be used
+        connection_dep_times:
+            if not given, all connections are assumed to be real connections
+        """
+        if dep_times is None:
+            dep_times = []
+        self._departure_times = list(reversed(sorted(dep_times)))
+        self.dep_times_to_index = dict(zip(self._departure_times, range(len(self._departure_times))))
+        self._label_bags = [[]] * len(self._departure_times)
         self._walk_to_target_duration = walk_to_target_duration
         self._min_dep_time = float('inf')
         self.label_class = label_class
+        if connection_dep_times is not None:
+            self._connection_dep_times  = connection_dep_times
+        else:
+            self._connection_dep_times = dep_times
+        self._closed = False
+        self._finalized = False
+        self._final_pareto_optimal_labels = None
+        self._real_connection_labels = None
 
     def _update_min_dep_time(self, dep_time):
+        """
+        A simple checker, that connections are coming in descending order of departure time.
+
+        Parameters
+        ----------
+        dep_time
+
+        Returns
+        -------
+        None
+        """
         assert dep_time <= self._min_dep_time, "Labels should be entered in increasing order of departure time."
         self._min_dep_time = dep_time
 
     def get_walk_to_target_duration(self):
+        """
+        Get walking distance to target node.
+
+        Returns
+        -------
+        walk_to_target_duration: float
+        """
         return self._walk_to_target_duration
 
-    def update(self, new_labels):
+    def update(self, new_labels, departure_time_backup=None):
         """
         Update the profile with the new labels.
         Each new label should have the same departure_time.
 
         Parameters
         ----------
-        new_labels: LabelTime, set[LabelTime]
+        new_labels: list[LabelTime]
 
         Returns
         -------
         added: bool
             whether new_pareto_tuple was added to the set of pareto-optimal tuples
         """
-        if not isinstance(new_labels, list):
-            new_labels = [new_labels]
+        if self._closed:
+            raise RuntimeError("Profile is closed, no updates can be made")
 
-        if not new_labels:
-            return False
-
-        departure_time = next(iter(new_labels)).departure_time
+        try:
+            departure_time = next(iter(new_labels)).departure_time
+        except StopIteration:
+            departure_time = departure_time_backup
         for new_label in new_labels:
             assert(new_label.departure_time == departure_time)
-
-        if self._label_bags:
-            previous_labels = self._label_bags[-1]
+        dep_time_index = self.dep_times_to_index[departure_time]
+        if dep_time_index > 0:
+            previous_labels = self._label_bags[dep_time_index-1]
         else:
             previous_labels = list()
 
@@ -61,16 +101,11 @@ class NodeProfileMultiObjective:
 
         new_frontier = merge_pareto_frontiers(new_labels, mod_prev_labels)
 
-        if self._min_dep_time == departure_time:
-            self._label_bags[-1] = new_frontier
-        else:
-            self._dep_time_to_index[departure_time] = len(self._label_bags)
-            self._label_bags.append(new_frontier)
-            self._departure_times.append(departure_time)
+        self._label_bags[dep_time_index] = new_frontier
         self._update_min_dep_time(departure_time)
         return True
 
-    def evaluate(self, dep_time, transfer_margin=0, allow_walk_to_target=True):
+    def evaluate(self, dep_time, allow_walk_to_target=True, connection_arrival_time=None):
         """
         Get the pareto_optimal set of Labels, given a departure time.
 
@@ -78,12 +113,12 @@ class NodeProfileMultiObjective:
         ----------
         dep_time : float, int
             time in unix seconds
-        transfer_margin: float, int
-            transfer margin in seconds
         allow_walk_to_target : bool, optional
             whether to allow walking to target to be included into the profile
             (I.e. whether this function is called when scanning a pseudo-connection:
             "double" walks are not allowed.)
+        connection_arrival_time: float, int, optional
+            if dep_time is float('inf') or the
 
         Returns
         -------
@@ -92,25 +127,74 @@ class NodeProfileMultiObjective:
         """
         pareto_optimal_labels = list()
         if self._walk_to_target_duration != float('inf') and allow_walk_to_target:
-            walk_pareto_tuple = self.label_class(departure_time=dep_time,
-                                                 arrival_time_target=dep_time + self._walk_to_target_duration)
+            if dep_time == float('inf'):
+                walk_pareto_tuple = self.label_class(departure_time=connection_arrival_time,
+                                                     arrival_time_target=connection_arrival_time + self._walk_to_target_duration)
+            else:
+                walk_pareto_tuple = self.label_class(departure_time=dep_time,
+                                                     arrival_time_target=dep_time + self._walk_to_target_duration)
             pareto_optimal_labels.append(walk_pareto_tuple)
 
-        dep_time_plus_transfer_margin = dep_time + transfer_margin
-
-        for dep_time, index in reversed(self._dep_time_to_index.items()):
-            # TODO! Optimize this, if really needed
-            if dep_time >= dep_time_plus_transfer_margin:
-                pareto_optimal_labels = merge_pareto_frontiers(self._label_bags[index], pareto_optimal_labels)
-                break
+        # if dep time is larger than the largest dep time -> only walk labels are possible
+        if dep_time in self.dep_times_to_index:
+            index = self.dep_times_to_index[dep_time]
+            pareto_optimal_labels = merge_pareto_frontiers(self._label_bags[index], pareto_optimal_labels)
         return pareto_optimal_labels
 
-    def get_pareto_optimal_labels(self):
-        # there may be some room for optimization here
+    def get_labels_for_real_connections(self):
+        self._closed = True
+        if self._real_connection_labels is None:
+            self._compute_real_connection_labels()
+        return self._real_connection_labels
+
+    def get_final_optimal_labels(self):
+        """
+        Get pareto-optimal labels.
+
+        Returns
+        -------
+        """
+        assert self._finalized, "finalize() first!"
+        return self._final_pareto_optimal_labels
+
+    def finalize(self, neighbor_label_bags=None, walk_durations=None):
+        """
+
+        Parameters
+        ----------
+        neighbor_label_bags: list
+            each list element is a list of labels corresponding to a neighboring node
+             (note: only labels with first connection being a departure should be included)
+        walk_durations: list
+
+        Returns
+        -------
+        None
+        """
+        assert(not self._finalized)
+        if self._final_pareto_optimal_labels is None:
+            self._compute_real_connection_labels()
+        if neighbor_label_bags is not None:
+            assert(len(walk_durations) == len(neighbor_label_bags))
+            self._update_final_pareto_optimal_label_set(neighbor_label_bags, walk_durations)
+        else:
+            self._final_pareto_optimal_labels = self._real_connection_labels
+        self._finalized = True
+        self._closed = True
+
+    def _compute_real_connection_labels(self):
         pareto_optimal_labels = []
-        for bag in self._label_bags:
-            pareto_optimal_labels.extend(bag)
+        for dep_time in self._connection_dep_times:  # do not take those bags with first event being a pseudo-connection
+            index = self.dep_times_to_index[dep_time]
+            pareto_optimal_labels.extend(self._label_bags[index])
         if self.label_class == LabelVehLegCount and self._walk_to_target_duration < float('inf'):
             pareto_optimal_labels.append(LabelVehLegCount(0))
-        return [label.get_copy() for label in compute_pareto_front(pareto_optimal_labels)]
+        self._real_connection_labels = [label.get_copy() for label in compute_pareto_front(pareto_optimal_labels)]
 
+    def _update_final_pareto_optimal_label_set(self, neighbor_label_bags, walk_durations):
+        labels_from_neighbors = []
+        for label_bag, walk_duration in zip(neighbor_label_bags, walk_durations):
+            for label in label_bag:
+                labels_from_neighbors.append(label.get_copy_with_walk_added(walk_duration))
+        self._final_pareto_optimal_labels = compute_pareto_front(self._real_connection_labels +
+                                                                 labels_from_neighbors)

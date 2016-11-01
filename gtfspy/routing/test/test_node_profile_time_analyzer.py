@@ -4,7 +4,7 @@ from unittest import TestCase
 from matplotlib import pyplot as plt
 
 from gtfspy.routing.label import LabelTime
-from gtfspy.routing.node_profile_naive import NodeProfileSimple
+from gtfspy.routing.node_profile_simple import NodeProfileSimple
 from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
 
 

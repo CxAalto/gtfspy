@@ -32,7 +32,7 @@ import networkx
 
 from gtfspy.routing.models import Connection
 from gtfspy.routing.label import LabelTime
-from gtfspy.routing.node_profile_naive import NodeProfileSimple
+from gtfspy.routing.node_profile_simple import NodeProfileSimple
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 
 

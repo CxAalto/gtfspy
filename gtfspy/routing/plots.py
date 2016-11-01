@@ -3,7 +3,7 @@ from __future__ import print_function
 import numpy as np
 from matplotlib import pyplot as plt
 
-from gtfspy.routing.node_profile_naive import NodeProfileSimple
+from gtfspy.routing.node_profile_simple import NodeProfileSimple
 from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
 
 

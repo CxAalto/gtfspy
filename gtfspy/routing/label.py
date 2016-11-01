@@ -42,6 +42,9 @@ class LabelTime(_LabelBase):
     def duration(self):
         return self.arrival_time_target - self.departure_time
 
+    def get_copy_with_walk_added(self, walk_duration):
+        return LabelTime(self.departure_time - walk_duration, self.arrival_time_target)
+
 
 class LabelTimeAndVehLegCount(_LabelBase):
 
@@ -80,6 +83,9 @@ class LabelTimeAndVehLegCount(_LabelBase):
     def direct_walk_label(departure_time, walk_duration):
         return LabelTimeAndVehLegCount(departure_time, departure_time + walk_duration, 0)
 
+    def get_copy_with_walk_added(self, walk_duration):
+        return LabelTimeAndVehLegCount(self.departure_time - walk_duration, self.arrival_time_target, self.n_vehicle_legs)
+
 
 class LabelVehLegCount(_LabelBase):
 
@@ -107,6 +113,9 @@ class LabelVehLegCount(_LabelBase):
 
     def get_copy_with_specified_departure_time(self, departure_time):
         return LabelVehLegCount(self.n_vehicle_legs, departure_time)
+
+    def get_copy_with_walk_added(self, walk_duration):
+        return LabelVehLegCount(self.n_vehicle_legs, departure_time=self.departure_time - walk_duration)
 
     @staticmethod
     def direct_walk_label(departure_time, walk_duration):
@@ -171,7 +180,6 @@ def merge_pareto_frontiers(labels, labels_other):
     -------
     pareto_front_merged: list[LabelTime]
     """
-    # @profile
     def _get_non_dominated_entries(candidates, possible_dominators, survivor_list=None):
         if survivor_list is None:
             survivor_list = list()

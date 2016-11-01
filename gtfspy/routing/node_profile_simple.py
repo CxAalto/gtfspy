@@ -91,6 +91,6 @@ class NodeProfileSimple:
                 minimum = pt.arrival_time_target
         return float(minimum)
 
-    def get_pareto_optimal_labels(self):
+    def get_final_optimal_labels(self):
         return [label.get_copy() for label in self._labels]
 

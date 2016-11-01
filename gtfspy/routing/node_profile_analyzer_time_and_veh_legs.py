@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.routing.label import LabelTimeAndVehLegCount, compute_pareto_front, LabelTime
 from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
-from gtfspy.routing.node_profile_naive import NodeProfileSimple
+from gtfspy.routing.node_profile_simple import NodeProfileSimple
 
 
 def _if_no_labels_return_none(func):
@@ -33,7 +33,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         assert(self.node_profile.label_class == LabelTimeAndVehLegCount)
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
-        self.all_labels = [label for label in node_profile.get_pareto_optimal_labels() if
+        self.all_labels = [label for label in node_profile.get_final_optimal_labels() if
                            (start_time_dep <= label.departure_time < end_time_dep)]
         self.all_labels.extend(self.node_profile.evaluate(end_time_dep, 0))
         self._labels_within_time_frame = self.all_labels[::-1]
