@@ -1,4 +1,5 @@
 # used for converting extended route types to simple route types
+# based on codes found here: https://developers.google.com/transit/gtfs/reference/extended-route-types
 
 ROUTE_TYPE_CONVERSION = {
                             0: 0,
