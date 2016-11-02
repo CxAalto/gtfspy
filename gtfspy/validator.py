@@ -149,6 +149,7 @@ class Validator(object):
                                               'FROM stop_times '
                                               'ORDER BY trip_I, dep_time_ds, seq').fetchall()
 
+        old_trip_id = None
         for row in rows:
             new_trip_id = row[0]
             new_seq = row[2]
@@ -172,6 +173,7 @@ class ValidationWarningsContainer(object):
         self._warnings_records[row].append(error)
 
     def print_summary(self):
+        print('The feed produced the following warnings:')
         for key in self._warnings_counter.keys():
             print key + ": " + str(self._warnings_counter[key])
 

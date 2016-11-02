@@ -15,7 +15,7 @@ ALL_ROUTE_TYPES = {WALK, TRAM, SUBWAY, RAIL, BUS, FERRY, CABLE_CAR, GONDOLA, FUN
 TRANSIT_ROUTE_TYPES = ALL_ROUTE_TYPES.difference({WALK})
 
 ROUTE_TYPE_TO_DESCRIPTION = {
-    WALK: "Walk, pedestrian travle",
+    WALK: "Walk, pedestrian travel",
     SUBWAY: "Subway, Metro. Any underground rail system within a metropolitan area.",
     RAIL: "Rail. Used for intercity or long - distance travel.",
     BUS: "Bus. Used for short- and long-distance bus routes.",
@@ -64,3 +64,4 @@ ROUTE_TYPE_TO_APPROXIMATE_CAPACITY = {
     GONDOLA: 20,
     FUNICULAR: 20
 }
+

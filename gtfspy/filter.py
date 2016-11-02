@@ -234,11 +234,13 @@ def _filter_by_area(copy_db_conn, buffer_lat, buffer_lon, buffer_distance):
     :param copy_db_conn:
     :param buffer_lat:
     :param buffer_lon:
-    :param buffer_distance:
+    :param buffer_distance: in kilometers
     :return:
     """
 
     if (buffer_lat is not None) and (buffer_lon is not None) and (buffer_distance is not None):
+        print("Making spatial extract")
+        _buffer_distance = buffer_distance * 1000
         logging.info("Making spatial extract")
         copy_db_conn.create_function("find_distance", 4, wgs84_distance)
         copy_db_conn.execute('DELETE FROM stops '
@@ -252,7 +254,7 @@ def _filter_by_area(copy_db_conn, buffer_lat, buffer_lon, buffer_distance):
                              'AND stop_times.trip_I = q1.trip_I '
                              'AND seq >= min_seq '
                              'AND seq <= max_seq '
-                             ')', (buffer_lat, buffer_lon, buffer_distance))
+                             ')', (buffer_lat, buffer_lon, _buffer_distance))
 
         copy_db_conn.execute('DELETE FROM stop_times WHERE '
                              'stop_I NOT IN (SELECT stop_I FROM stops)')
@@ -283,6 +285,7 @@ def _filter_by_area(copy_db_conn, buffer_lat, buffer_lon, buffer_distance):
 def _update_metadata(copy_db_conn, G_orig, update_metadata, orig_db_path):
     # Update metadata
     if update_metadata:
+        print("Updating metadata")
         logging.info("Updating metadata")
         G_copy = gtfs.GTFS(copy_db_conn)
         G_copy.meta['copied_from'] = orig_db_path
@@ -290,11 +293,21 @@ def _update_metadata(copy_db_conn, G_orig, update_metadata, orig_db_path):
         G_copy.meta['copy_time'] = time.ctime()
 
         # Copy some keys directly.
-        for key in ['original_gtfs',
-                    'download_date',
-                    'location_name',
-                    'timezone', ]:
-            G_copy.meta[key] = G_orig.meta[key]
+        try:
+            for key in ['original_gtfs',
+                        'download_date',
+                        'location_name',
+                        'timezone', ]:
+
+                G_copy.meta[key] = G_orig.meta[key]
+        # This part is for gtfs objects with multiple sources
+        except:
+            for k, v in G_copy.meta.items():
+                if 'feed_' in k:
+                    G_copy.meta[k] = G_orig.meta[k]
+            for key in ['location_name',
+                        'timezone', ]:
+                G_copy.meta[key] = G_orig.meta[key]
         # Update *all* original metadata under orig_ namespace.
         G_copy.meta.update(('orig_' + k, v) for k, v in G_orig.meta.items())
 
