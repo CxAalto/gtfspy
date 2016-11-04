@@ -508,6 +508,27 @@ class TestImport(unittest.TestCase):
 
         #self.assertIsInstance(gtfs_source2['calendar_dates.txt'], list)
 
+    def test_resequencing_stop_times(self):
+        gtfs_source = self.fdict.copy()
+        gtfs_source.pop('stop_times.txt')
+
+        gtfs_source['stop_times.txt'] = \
+            self.stopTimesText = \
+            "trip_id, arrival_time, departure_time, stop_sequence, stop_id" \
+            "\nservice1_trip1,0:06:10,0:06:10,0,SID1" \
+            "\nservice1_trip1,0:06:15,0:06:16,10,SID2" \
+            "\nfreq_trip_scheduled,0:00:00,0:00:00,1,SID1" \
+            "\nfreq_trip_scheduled,0:02:00,0:02:00,123,SID2"
+        import_gtfs(gtfs_source, self.conn, preserve_connection=True)
+
+        rows = self.conn.execute("SELECT seq FROM stop_times ORDER BY trip_I, seq").fetchall()
+        for row in rows:
+            print row
+        self.assertEqual(rows[0][0], 1)
+        self.assertEqual(rows[1][0], 2)
+        self.assertEqual(rows[2][0], 1)
+        self.assertEqual(rows[3][0], 2)
+
     def test_metaData(self):
         # TODO! untested
         pass

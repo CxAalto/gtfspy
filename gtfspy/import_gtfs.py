@@ -596,6 +596,25 @@ class StopTimesLoader(TableLoader):
         cur.execute('UPDATE stop_times SET arr_time_hour = substr(arr_time, -8, 2)')
         calculate_trip_shape_breakpoints(self._conn)
 
+        # Resequence seq value to increments of 1 starting from 1
+        rows = cur.execute('SELECT ROWID, trip_I, seq FROM stop_times ORDER BY trip_I, seq').fetchall()
+
+
+        old_trip_I = ''
+        for row in rows:
+            rowid = row[0]
+            trip_I = row[1]
+            seq = row[2]
+
+            if old_trip_I != trip_I:
+                correct_seq = 1
+            if seq != correct_seq:
+                cur.execute('UPDATE stop_times SET seq = ? WHERE ROWID = ?', (correct_seq, rowid))
+            old_trip_I = trip_I
+            correct_seq += 1
+
+
+
     @classmethod
     def index(cls, cur):
         cur.execute('CREATE INDEX IF NOT EXISTS idx_stop_times_tid_seq ON stop_times (trip_I, seq)')
@@ -816,11 +835,11 @@ class CalendarDatesLoader(TableLoader):
                     cur.execute('INSERT INTO calendar '
                                 '(service_id, m,t,w,th,f,s,su, start_date,end_date)'
                                 'VALUES (?, 0,0,0,0,0,0,0, ?,?)',
-                                (service_id, date_str, date_str)
+                                (service_id.decode('utf-8'), date_str, date_str)
                                 )
                     service_I = cur.execute(
                         'SELECT service_I FROM calendar WHERE service_id=?',
-                        (service_id,)).fetchone()
+                        (service_id.decode('utf-8'),)).fetchone()
                 service_I = service_I[0]  # row tuple -> int
 
                 yield dict(
@@ -1004,7 +1023,7 @@ class FrequenciesLoader(TableLoader):
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
                     arr_time = util.day_seconds_to_str_time(arr_time_ds)
                     dep_time = util.day_seconds_to_str_time(dep_time_ds)
-                    cur.execute(query, (trip_I, stop_I, arr_time, dep_time, seq, arr_time_hour, shape_break,
+                    cur.execute(query, (trip_I, stop_I, arr_time, dep_time, seq+1, arr_time_hour, shape_break,
                                         arr_time_ds, dep_time_ds))
 
         trip_Is = frequencies_df['trip_I'].unique()
