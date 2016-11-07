@@ -179,6 +179,8 @@ def get_stats(gtfs):
     # stats['trips__wheelchair_accessible__dist'] = _distribution(gtfs, 'trips', 'wheelchair_accessible')
     # stats['trips__bikes_allowed__dist'] = _distribution(gtfs, 'trips', 'bikes_allowed')
     # stats[''] = _distribution(gtfs, '', '')
+    stats = _feed_calendar_span(gtfs, stats)
+
     return stats
 
 
@@ -281,6 +283,31 @@ def _fleet_size_estimate(gtfs, hour, date):
         fleet_size_list.append(str(key) + ':' + str(fleet_size_dict[key]))
     results["fleet_size_max_movement"] = ' '.join(fleet_size_list)
     return results
+
+def _n_gtfs_sources(gtfs):
+    n_gtfs_sources = gtfs.execute_custom_query(
+        "SELECT value FROM metadata WHERE key = 'n_gtfs_sources';").fetchone()
+    return n_gtfs_sources
+
+def _feed_calendar_span(gtfs, stats):
+    """
+    Computes the temporal coverage of each source feed
+    :param gtfs: gtfs object
+    :param stats: stats container, dict
+    :return: stats, dict
+    """
+    n_feeds = _n_gtfs_sources(gtfs)
+    if n_feeds[0] > 1:
+        for i in range(n_feeds[0]):
+            feed_key = "feed_" + str(i) + "_"
+            stats_key = feed_key + "calendar_span"
+            calendar_span = gtfs.conn.cursor().execute(
+                'SELECT min(date), max(date) FROM trips, days '
+                'WHERE trips.trip_I = days.trip_I AND trip_id LIKE ?;', (feed_key+'%',)).fetchone()
+
+            stats[stats_key] = calendar_span
+    return stats
+
 
 def update_stats(gtfs):
     """
