@@ -437,12 +437,97 @@ class TestImport(unittest.TestCase):
             import_gtfs(gtfs_sources, self.conn, preserve_connection=True)
         except ValueError:
             error_raised = True
-        assert error_raised, "different timezones should raise an error"
+        assert error_raised, "different timezones in multiple feeds should raise an error"
 
-        mod_agencyText = \
-            'agency_id, agency_name, agency_timezone, agency_url' \
-            '\nag1, CompNet, America/Los_Angeles, www.example.com'
-        self.fdict['agency.txt'] = mod_agencyText
+
+        #mod_agencyText = \
+        #    'agency_id, agency_name, agency_timezone, agency_url' \
+         #   '\nag1, CompNet, America/Los_Angeles, www.example.com'
+        #self.fdict['agency.txt'] = mod_agencyText
+
+
+        # test that if trip_id:s (or stop_id:s etc. ) are the same in two feeds,
+        # they get different trip_Is in the database created
+
+        self.tearDown()
+        self.setUp()
+
+        # assert if importing two of the same feed will create the double number of trips
+        gtfs_source = [self.fdict]
+        import_gtfs(gtfs_source, self.conn, preserve_connection=True)
+        n_rows_ref = self.conn.execute("SELECT count(*) FROM trips").fetchone()[0]
+        self.tearDown()
+        self.setUp()
+        gtfs_sources = [self.fdict, self.fdict]
+        import_gtfs(gtfs_sources, self.conn, preserve_connection=True)
+        n_rows_double = self.conn.execute("SELECT count(*) FROM trips").fetchone()[0]
+        self.assertEqual(n_rows_double, 2*n_rows_ref)
+
+        # check for duplicate trip_I's
+        rows = self.conn.execute("SELECT count(*) FROM trips GROUP BY trip_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0],1)
+
+        # check for duplicate service_I's in calendar
+        rows = self.conn.execute("SELECT count(*) FROM calendar GROUP BY service_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
+        # check for duplicate service_I's in calendar_dates
+        rows = self.conn.execute("SELECT count(*) FROM calendar_dates GROUP BY service_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
+        # check for duplicate route_I's
+        rows = self.conn.execute("SELECT count(*) FROM routes GROUP BY route_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
+        # check for duplicate agency_I's
+        rows = self.conn.execute("SELECT count(*) FROM agencies GROUP BY agency_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
+        # check for duplicate stop_I's
+        rows = self.conn.execute("SELECT count(*) FROM stops GROUP BY stop_I").fetchall()
+        for row in rows:
+            self.assertIs(row[0], 1)
+
+
+    def test_importMultiple_with_unequal_tables(self):
+        gtfs_source1 = self.fdict.copy()
+
+        gtfs_source2 = self.fdict.copy()
+        gtfs_source2.pop('calendar.txt')
+        gtfs_source2.pop('feed_info.txt')
+        gtfs_source2.pop('agency.txt')
+        gtfs_sources = [gtfs_source2, gtfs_source1]
+        self.assertNotEqual(gtfs_source1, gtfs_source2)
+
+        import_gtfs(gtfs_sources, self.conn, preserve_connection=True)
+
+        #self.assertIsInstance(gtfs_source2['calendar_dates.txt'], list)
+
+    def test_resequencing_stop_times(self):
+        gtfs_source = self.fdict.copy()
+        gtfs_source.pop('stop_times.txt')
+
+        gtfs_source['stop_times.txt'] = \
+            self.stopTimesText = \
+            "trip_id, arrival_time, departure_time, stop_sequence, stop_id" \
+            "\nservice1_trip1,0:06:10,0:06:10,0,SID1" \
+            "\nservice1_trip1,0:06:15,0:06:16,10,SID2" \
+            "\nfreq_trip_scheduled,0:00:00,0:00:00,1,SID1" \
+            "\nfreq_trip_scheduled,0:02:00,0:02:00,123,SID2"
+        import_gtfs(gtfs_source, self.conn, preserve_connection=True)
+
+        rows = self.conn.execute("SELECT seq FROM stop_times ORDER BY trip_I, seq").fetchall()
+        for row in rows:
+            print row
+        self.assertEqual(rows[0][0], 1)
+        self.assertEqual(rows[1][0], 2)
+        self.assertEqual(rows[2][0], 1)
+        self.assertEqual(rows[3][0], 2)
 
     def test_metaData(self):
         # TODO! untested

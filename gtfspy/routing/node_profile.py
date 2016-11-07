@@ -1,37 +1,24 @@
-from abc import ABCMeta, abstractmethod
+import copy
+
+from gtfspy.routing.pareto_tuple import ParetoTuple, ParetoTupleWithTransfers
 
 
-class AbstractNodeProfile:
-    """ Defines the NodeProfile interface """
-
-    __metaclass__ = ABCMeta
-
-    def __init__(self):
-        pass
-
-    @abstractmethod
-    def update_pareto_optimal_tuples(self, new_pareto_tuple):
-        pass
-
-    @abstractmethod
-    def get_earliest_arrival_time_at_target(self, dep_time):
-        pass
-
-    @abstractmethod
-    def get_pareto_tuples(self):
-        pass
-
-
-class NodeProfile(AbstractNodeProfile):
+class NodeProfile:
     """
     In the connection scan algorithm, each stop has a profile entry
-    that stores information on the Pareto-Optimal
-    (departure_time_this_node, arrival_time_target_node) tuples.
+    that stores information on the Pareto-Optimal (departure_time_this_node, arrival_time_target_node) tuples.
     """
 
-    def __init__(self):
-        super(NodeProfile, self).__init__()
-        self._pareto_tuples = set()  # set[ParetoTuple]
+    def __init__(self, walk_to_target_duration=float('inf'), count_transfers=False):
+        self._pareto_tuples = []  # list[ParetoTuple] # always ordered by decreasing departure_time
+        self._walk_to_target_duration = walk_to_target_duration
+        if count_transfers:
+            self._paretoTupleClass = ParetoTupleWithTransfers
+        else:
+            self._paretoTupleClass = ParetoTuple
+
+    def get_walk_to_target_duration(self):
+        return self._walk_to_target_duration
 
     def update_pareto_optimal_tuples(self, new_pareto_tuple):
         """
@@ -39,51 +26,75 @@ class NodeProfile(AbstractNodeProfile):
 
         Parameters
         ----------
-        new_pareto_tuple: ParetoTuple
+        new_pareto_tuple: ParetoTuple or ParetoTupleWithTransfers
 
         Returns
         -------
         added: bool
-            whether pareto_tuple was
+            whether new_pareto_tuple was added to the set of pareto-optimal tuples
         """
-        new_is_dominated_by_old_tuples = False
-        old_tuples_dominated_by_new = set()
-        for old_pareto_tuple in self._pareto_tuples:
-            if old_pareto_tuple.dominates(new_pareto_tuple):
-                new_is_dominated_by_old_tuples = True
-                break
-            if new_pareto_tuple.dominates(old_pareto_tuple):
-                old_tuples_dominated_by_new.add(old_pareto_tuple)
-        if not new_is_dominated_by_old_tuples:
-            self._pareto_tuples.difference_update(old_tuples_dominated_by_new)
-            self._pareto_tuples.add(new_pareto_tuple)
-            return True
-        else:
-            assert(len(old_tuples_dominated_by_new) == 0)
+        if new_pareto_tuple.duration() >= self._walk_to_target_duration:
             return False
 
-    def get_earliest_arrival_time_at_target(self, dep_time):
-        minimum = float('inf')
-        for pt in self._pareto_tuples:
-            if pt.departure_time > dep_time and pt.arrival_time_target < minimum:
-                minimum = pt.arrival_time_target
-        return minimum
+        if self._new_paretotuple_is_dominated_by_old_tuples(new_pareto_tuple):
+            return False
+        else:
+            self._remove_old_tuples_dominated_by_new_and_insert_new_paretotuple(new_pareto_tuple)
+            return True
 
-    def get_pareto_tuples(self):
-        return self._pareto_tuples
+    def _remove_old_tuples_dominated_by_new_and_insert_new_paretotuple(self, new_pareto_tuple):
+        indices_to_remove = []
+        n = len(self._pareto_tuples)
+        insert_location = 0  # default for the case where len(self._pareto_tuples) == 0
+        for i in range(n - 1, -1, -1):
+            old_tuple = self._pareto_tuples[i]
+            if old_tuple.departure_time > new_pareto_tuple.departure_time:
+                insert_location = i + 1
+                break
+            else:
+                if new_pareto_tuple.dominates(old_tuple):
+                    indices_to_remove.append(i)
+        for ix in indices_to_remove:
+            del self._pareto_tuples[ix]
+        self._pareto_tuples.insert(insert_location, new_pareto_tuple)
 
-
-class IdentityNodeProfile(AbstractNodeProfile):
-
-    def __init__(self):
-        super(IdentityNodeProfile, self).__init__()
-
-    def update_pareto_optimal_tuples(self, new_pareto_tuple):
+    def _new_paretotuple_is_dominated_by_old_tuples(self, new_pareto_tuple):
+        # self._pareto_tuples is guaranteed to be ordered in decreasing dep_time
+        # new_pareto_tuple can only be dominated by those elements, which have
+        # larger or equal dep_time than new_pareto_tuple.
+        for old_tuple in self._pareto_tuples[::-1]:
+            if old_tuple.departure_time >= new_pareto_tuple.arrival_time_target:
+                # all following arrival times are necessarily larger
+                # than new_pareto_tuple's arrival time
+                break
+            else:
+                if old_tuple.dominates(new_pareto_tuple):
+                    return True
         return False
 
-    def get_earliest_arrival_time_at_target(self, dep_time):
-        return dep_time
+    def evaluate_earliest_arrival_time_at_target(self, dep_time, transfer_margin):
+        """
+        Get the earliest arrival time at the target, given a departure time.
 
-    def get_pareto_tuples(self):
-        return None
+        Parameters
+        ----------
+        dep_time : float, int
+            time in unix seconds
+        transfer_margin: float, int
+            transfer margin in seconds
+
+        Returns
+        -------
+        arrival_time : float
+            Arrival time in the given time unit (seconds after unix epoch).
+        """
+        minimum = dep_time + self._walk_to_target_duration
+        dep_time_plus_transfer_margin = dep_time + transfer_margin
+        for pt in self._pareto_tuples:
+            if pt.departure_time >= dep_time_plus_transfer_margin and pt.arrival_time_target < minimum:
+                minimum = pt.arrival_time_target
+        return float(minimum)
+
+    def get_pareto_optimal_tuples(self):
+        return copy.deepcopy(self._pareto_tuples)
 

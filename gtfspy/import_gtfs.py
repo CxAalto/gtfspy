@@ -98,6 +98,7 @@ class TableLoader(object):
         self.gtfs_sources = []
         # map sources to "real"
         for source in _gtfs_sources:
+            print(source)
             # Deal with the case that gtfspath is actually a dict.
             if isinstance(source, dict):
                 self.gtfs_sources.append(source)
@@ -209,17 +210,20 @@ class TableLoader(object):
         csv_readers = [csv.DictReader(iter_file(f)) for f in fs]
         csv_reader_generators = []
         for csv_reader in csv_readers:
-            csv_reader.fieldnames = [x.strip() for x in csv_reader.fieldnames]
-            # Make a generator that strips the values in all fields before
-            # passing it on.  GTFS standard requires that there be no
-            # spare whitespace, but not all do it.  The csv module has a
-            # `skipinitialspace` option, but let's make sure that we strip
-            # it from both sides.
-            # The following results in a generator, the complicated
-            csv_reader_stripped = (dict((k, (v.strip() if v is not None else None))  # v is not always a string
-                                        for k, v in row.items())
-                                   for row in csv_reader)
-            csv_reader_generators.append(csv_reader_stripped)
+            try:
+                csv_reader.fieldnames = [x.strip() for x in csv_reader.fieldnames]
+                # Make a generator that strips the values in all fields before
+                # passing it on.  GTFS standard requires that there be no
+                # spare whitespace, but not all do it.  The csv module has a
+                # `skipinitialspace` option, but let's make sure that we strip
+                # it from both sides.
+                # The following results in a generator, the complicated
+                csv_reader_stripped = (dict((k, (v.strip() if v is not None else None))  # v is not always a string
+                                            for k, v in row.items())
+                                       for row in csv_reader)
+                csv_reader_generators.append(csv_reader_stripped)
+            except:
+                print("file missing")
         prefixes = ["feed_" + str(i) + "_" for i in range(len(csv_reader_generators))]
         if len(prefixes) == 1:
             # no prefix for a single source feed
@@ -453,6 +457,7 @@ class RouteLoader(TableLoader):
     # route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url
     # 1001,HSL,1,Kauppatori - Käpylä,,0,http://aikataulut.hsl.fi/linjat/fi/h1_1a.html
     def gen_rows(self, readers, prefixes):
+        from gtfspy import extended_route_types
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
                 #print row
@@ -462,7 +467,7 @@ class RouteLoader(TableLoader):
                     name          = row['route_short_name'].decode('utf-8'),
                     long_name     = row['route_long_name'].decode('utf-8'),
                     desc          = row['route_desc'].decode('utf-8') if 'route_desc' in row else None,
-                    type          = int(row['route_type']),
+                    type          = extended_route_types.ROUTE_TYPE_CONVERSION[int(row['route_type'])],
                     url           = row['route_url'].decode('utf-8') if 'route_url' in row else None,
                     color         = row['route_color'].decode('utf-8') if 'route_color' in row else None,
                     text_color    = row['route_text_color'].decode('utf-8') if 'route_text_color' in row else None,
@@ -590,6 +595,25 @@ class StopTimesLoader(TableLoader):
         # declared to be INT.
         cur.execute('UPDATE stop_times SET arr_time_hour = substr(arr_time, -8, 2)')
         calculate_trip_shape_breakpoints(self._conn)
+
+        # Resequence seq value to increments of 1 starting from 1
+        rows = cur.execute('SELECT ROWID, trip_I, seq FROM stop_times ORDER BY trip_I, seq').fetchall()
+
+
+        old_trip_I = ''
+        for row in rows:
+            rowid = row[0]
+            trip_I = row[1]
+            seq = row[2]
+
+            if old_trip_I != trip_I:
+                correct_seq = 1
+            if seq != correct_seq:
+                cur.execute('UPDATE stop_times SET seq = ? WHERE ROWID = ?', (correct_seq, rowid))
+            old_trip_I = trip_I
+            correct_seq += 1
+
+
 
     @classmethod
     def index(cls, cur):
@@ -811,11 +835,11 @@ class CalendarDatesLoader(TableLoader):
                     cur.execute('INSERT INTO calendar '
                                 '(service_id, m,t,w,th,f,s,su, start_date,end_date)'
                                 'VALUES (?, 0,0,0,0,0,0,0, ?,?)',
-                                (service_id, date_str, date_str)
+                                (service_id.decode('utf-8'), date_str, date_str)
                                 )
                     service_I = cur.execute(
                         'SELECT service_I FROM calendar WHERE service_id=?',
-                        (service_id,)).fetchone()
+                        (service_id.decode('utf-8'),)).fetchone()
                 service_I = service_I[0]  # row tuple -> int
 
                 yield dict(
@@ -999,7 +1023,7 @@ class FrequenciesLoader(TableLoader):
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
                     arr_time = util.day_seconds_to_str_time(arr_time_ds)
                     dep_time = util.day_seconds_to_str_time(dep_time_ds)
-                    cur.execute(query, (trip_I, stop_I, arr_time, dep_time, seq, arr_time_hour, shape_break,
+                    cur.execute(query, (trip_I, stop_I, arr_time, dep_time, seq+1, arr_time_hour, shape_break,
                                         arr_time_ds, dep_time_ds))
 
         trip_Is = frequencies_df['trip_I'].unique()
@@ -1512,7 +1536,7 @@ ignore_tables = set()
 
 
 def import_gtfs(gtfs_sources, output, preserve_connection=False,
-                print_progress=True, **kwargs):
+                print_progress=True, location_name=None, **kwargs):
     """Import a GTFS database
 
     gtfs_sources: str or dict
@@ -1583,6 +1607,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     G.meta['import_seconds'] = time.time() - time_import_start
     G.meta['download_date'] = ''
     G.meta['location_name'] = ''
+    G.meta['n_gtfs_sources'] = len(gtfs_sources)
     # Extract things from GTFS
     for i, source in enumerate(gtfs_sources):
         if len(gtfs_sources) == 1:
@@ -1595,11 +1620,14 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
             filename_date_list = re.findall(r'\d{4}-\d{2}-\d{2}', source)
             if filename_date_list:
                 G.meta[prefix + 'download_date'] = filename_date_list[-1]
-            location_name_list = re.findall(r'/([^/]+)/\d{4}-\d{2}-\d{2}', source)
-            if location_name_list:
-                G.meta[prefix + 'location_name'] = location_name_list[-1]
+            if location_name:
+                G.meta['location_name'] = location_name
             else:
-                G.meta[prefix + 'location_name'] = source.split("/")[-4]
+                location_name_list = re.findall(r'/([^/]+)/\d{4}-\d{2}-\d{2}', source)
+                if location_name_list:
+                    G.meta[prefix + 'location_name'] = location_name_list[-1]
+                else:
+                    G.meta[prefix + 'location_name'] = source.split("/")[-4]
 
     G.meta['timezone'] = cur.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()[0]
     stats.update_stats(G)

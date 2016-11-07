@@ -104,7 +104,7 @@ class TestGTFSfilter(unittest.TestCase):
             os.remove(fname_copy)
 
             # test that the db is split by a given spatial boundary
-            filter_extract(G, fname_copy, buffer_lat=36.914893, buffer_lon=-116.76821, buffer_distance=50000)
+            filter_extract(G, fname_copy, buffer_lat=36.914893, buffer_lon=-116.76821, buffer_distance=50)
             G_copy = GTFS(fname_copy)
 
             stops_table = G_copy.get_table("stops")

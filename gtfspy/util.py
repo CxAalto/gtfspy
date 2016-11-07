@@ -1,4 +1,5 @@
 """Various utility functions"""
+from __future__ import print_function
 
 import contextlib
 import math
@@ -7,6 +8,7 @@ import datetime
 import os
 import shutil
 import tempfile
+import time
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -125,7 +127,7 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
         yield fname_tmp
     except Exception as e:
         if save_tmpfile:
-            print "Temporary file is '%s'" % fname_tmp
+            print("Temporary file is '%s'" % fname_tmp)
         else:
             os.unlink(fname_tmp)
         raise
@@ -163,7 +165,7 @@ def execute(cur, *args):
     stmt = args[0]
     if len(args) > 1:
         stmt = stmt.replace('%', '%%').replace('?', '%r')
-        print stmt % (args[1])
+        print(stmt % (args[1]))
     return cur.execute(*args)
 
 
@@ -212,3 +214,20 @@ def day_seconds_to_str_time(ds):
     seconds = ds % 60
     return "%02d:%02d:%02d" % (hours, minutes, seconds)
 
+
+def timeit(method):
+    """
+    A Python decorator for printing out the execution time for a function.
+
+    Adapted from:
+    www.andreas-jung.com/contents/a-python-decorator-for-measuring-the-execution-time-of-methods
+    """
+    def timed(*args, **kw):
+        time_start = time.time()
+        result = method(*args, **kw)
+        time_end = time.time()
+
+        print('timeit: %r (%r, %r) %2.2f sec' % (method.__name__, args, kw, time_end-time_start))
+        return result
+
+    return timed
