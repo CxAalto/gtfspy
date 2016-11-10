@@ -11,7 +11,6 @@ import tempfile
 import time
 
 import networkx as nx
-import matplotlib.pyplot as plt
 
 # Below is a race condition, so do it only on import.  Is there a
 # portable way to do this?
@@ -198,6 +197,7 @@ def draw_net_using_node_coords(net):
     fig : matplotlib.figure
         the figure object where the network is plotted
     """
+    import matplotlib.pyplot as plt
     fig = plt.figure()
     node_coords = {}
     for node, data in net.nodes(data=True):
