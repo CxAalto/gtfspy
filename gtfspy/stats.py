@@ -297,15 +297,33 @@ def _feed_calendar_span(gtfs, stats):
     :return: stats, dict
     """
     n_feeds = _n_gtfs_sources(gtfs)
+    max_start = None
+    min_end = None
     if n_feeds[0] > 1:
         for i in range(n_feeds[0]):
             feed_key = "feed_" + str(i) + "_"
-            stats_key = feed_key + "calendar_span"
+            start_key = feed_key + "calendar_start"
+            end_key = feed_key + "calendar_end"
             calendar_span = gtfs.conn.cursor().execute(
                 'SELECT min(date), max(date) FROM trips, days '
                 'WHERE trips.trip_I = days.trip_I AND trip_id LIKE ?;', (feed_key+'%',)).fetchone()
 
-            stats[stats_key] = calendar_span
+            stats[start_key] = calendar_span[0]
+            stats[end_key] = calendar_span[1]
+
+            if not max_start and not min_end:
+                max_start = calendar_span[0]
+                min_end = calendar_span[1]
+            else:
+                if gtfs.get_day_start_ut(calendar_span[0]) > gtfs.get_day_start_ut(max_start):
+                    max_start = calendar_span[0]
+                if gtfs.get_day_start_ut(calendar_span[1]) < gtfs.get_day_start_ut(min_end):
+                    min_end = calendar_span[1]
+        stats["latest_start_date"] = max_start
+        stats["earliest_end_date"] = min_end
+    else:
+        stats["latest_start_date"] = stats["start_date"]
+        stats["earliest_end_date"] = stats["end_date"]
     return stats
 
 
