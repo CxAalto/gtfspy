@@ -226,8 +226,7 @@ def timeit(method):
         time_start = time.time()
         result = method(*args, **kw)
         time_end = time.time()
-
-        print('timeit: %r (%r, %r) %2.2f sec' % (method.__name__, args, kw, time_end-time_start))
+        print('timeit: %r %2.2f sec (%r, %r) ' % (method.__name__, time_end-time_start, args, kw))
         return result
 
     return timed
