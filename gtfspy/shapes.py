@@ -27,6 +27,7 @@ corresponding to each stop.  The last one is empty.
 
 
 """
+from __future__ import print_function
 from __future__ import absolute_import
 
 import numpy as np
@@ -40,9 +41,9 @@ def print_coords(rows, prefix=''):
     pasted into Python for visualization."""
     lat = [row['lat'] for row in rows]
     lon = [row['lon'] for row in rows]
-    print 'COORDS'+'-'*5
-    print "%slat, %slon = %r, %r" % (prefix, prefix, lat, lon)
-    print '-'*5
+    print('COORDS'+'-' * 5)
+    print("%slat, %slon = %r, %r" % (prefix, prefix, lat, lon))
+    print('-'*5)
 
 
 def find_segments(stops, shape):
@@ -83,7 +84,7 @@ def find_segments(stops, shape):
         # print stop
         if badness > 500 and badness > 30 * len(break_points):
             return [], badness
-        for i in xrange(last_i, len(shape)):
+        for i in range(last_i, len(shape)):
             d = wgs84_distance(stlat, stlon, shape[i]['lat'], shape[i]['lon'])
             if lstlat:
                 d_last_stop = wgs84_distance(lstlat, lstlon, shape[i]['lat'], shape[i]['lon'])
@@ -148,7 +149,7 @@ def find_best_segments(cur, stops, shape_ids, route_id=None,
         # route and re-use existing breakpoints.
         cache_key = (route_id, tuple(x['stop_I'] for x in stops))
         if cache_key in breakpoints_cache:
-            print 'found in cache'
+            print('found in cache')
             return breakpoints_cache[cache_key]
 
     if route_id is not None:
@@ -162,7 +163,7 @@ def find_best_segments(cur, stops, shape_ids, route_id=None,
         # If not data, then route_id didn't match anything, or there
         # were no shapes defined.  We have to exit in this case.
         if not data:
-            print "No data for route_id=%s" % route_id
+            print("No data for route_id=%s" % route_id)
             return [], None, None, None
         #
         shape_ids = zip(*data)[0]
@@ -182,7 +183,7 @@ def find_best_segments(cur, stops, shape_ids, route_id=None,
     shape = results[best][2]
     shape_id = results[best][3]
     if breakpoints_cache is not None:
-        print "storing in cache", cache_key[0], hash(cache_key[1:])
+        print("storing in cache", cache_key[0], hash(cache_key[1:]))
         breakpoints_cache[cache_key] = breakpoints, badness, shape, shape_id
     return breakpoints, badness, shape, shape_id
 
