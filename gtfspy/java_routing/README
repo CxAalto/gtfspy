@@ -1,0 +1,20 @@
+Code for computing walking times between stops.
+
+Simple how-to
+-------------
+
+1. Install maven (https://maven.apache.org/), to have the mvn executable.
+2. Compile with
+
+	mvn package
+
+3. Optional: for getting sources of dependencies for development
+
+	mvn dependency:sources
+
+4. Run with something like:
+	
+	java -jar transit_osm_routing-1.0-SNAPSHOT-jar-with-dependencies.jar -db ../data/main.day.sqlite -osm /tmp/helsinki_finland.osm.pbf -n 1000
+
+This projects uses JAVA8. If there are problems, make first sure you use java8 and not e.g java7.
+(Find this out e.g. with command "which java" and see where it points (recursively).
