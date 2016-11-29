@@ -1,6 +1,9 @@
+from __future__ import print_function
+
 import os
 import sqlite3
 import unittest
+
 
 from gtfspy.gtfs import GTFS
 from gtfspy.import_gtfs import import_gtfs
@@ -28,7 +31,7 @@ class TestImport(unittest.TestCase):
         self.conn = sqlite3.connect(':memory:')
         self.agencyText = \
             'agency_id, agency_name, agency_timezone, agency_url' \
-            '\nag1, CompNet, Europe/Zurich, www.example.com'
+            '\n ag1, CompNet, Europe/Zurich, www.example.com'
         self.stopsText = \
             'stop_id, stop_name, stop_lat, stop_lon, parent_station' \
             '\nSID1, "Parent-Stop-Name", 1.0, 2.0, ' \
@@ -133,16 +136,16 @@ class TestImport(unittest.TestCase):
             name of the table
         """
         prev_row_factory = self.setRowConn()
-        print ""
-        print "table " + table_name
-        print "-------------------"
+        print("")
+        print("table " + table_name)
+        print("-------------------")
         cur = self.conn.execute("SELECT * FROM %s" % table_name)
         names = [d[0] for d in cur.description]
         for name in names:
-            print name + ', ',
-        print ""
+            print(name + ', ', end="")
+        print("")
         for row in cur:
-            print row
+            print(row)
         self.conn.row_factory = prev_row_factory
 
     def tearDown(self):
@@ -192,7 +195,6 @@ class TestImport(unittest.TestCase):
             self.agencyText + \
             "\n123, AgencyFromDifferentTZ, Europe/Helsinki, www.buahaha.com"
         fdict = {'agency.txt': newagencytext}
-        print newagencytext
         with self.assertRaises(ValueError):
             import_gtfs(fdict, self.conn, preserve_connection=True)
 
@@ -225,7 +227,7 @@ class TestImport(unittest.TestCase):
     def test_tripLoader(self):
         import_gtfs(self.fdict, self.conn, preserve_connection=True)
         rows = self.conn.execute("SELECT * FROM trips").fetchall()
-        assert rows >= 1
+        self.assertGreaterEqual(len(rows), 1)
 
     def test_dayLoader(self):
         import_gtfs(self.fdict, self.conn, preserve_connection=True)
@@ -243,7 +245,7 @@ class TestImport(unittest.TestCase):
         res = self.conn.execute(query1).fetchall()
         assert len(res) == 1
         trip_I_service_1 = res[0]['trip_I']
-        print trip_I_service_1
+        print(trip_I_service_1)
         query2 = "SELECT * FROM days WHERE trip_I=%s" % trip_I_service_1
         self.assertEqual(len(self.conn.execute(query2).fetchall()), 6,
                          "There should be 6 days with the trip_I "
@@ -312,7 +314,7 @@ class TestImport(unittest.TestCase):
         rows = self.conn.execute(query).fetchall()
         assert len(rows) > 0
         for row in rows:
-            print row
+            print(row)
             assert row['d'] >= 0, "distance should be defined for all pairs in the stop_distances table"
 
     def test_metaDataLoader(self):
@@ -334,7 +336,7 @@ class TestImport(unittest.TestCase):
             assert key in row
         for row in rows:
             if row["start_time_ds"] == 14 * 3600:
-                assert row["exact_times"] == 1
+                self.assertEqual(row["exact_times"], 1)
         # there should be twelve trips with service_I freq
         count = self.conn.execute("SELECT count(*) AS count FROM trips JOIN calendar "
                                   "USING(service_I) WHERE service_id='freq_service'").fetchone()['count']
@@ -347,8 +349,8 @@ class TestImport(unittest.TestCase):
             assert len(res) > 1, res
         self.setRowConn()
         g = GTFS(self.conn)
-        print "Stop times: \n\n ", g.get_table("stop_times")
-        print "Frequencies: \n\n ", g.get_table("frequencies")
+        print("Stop times: \n\n ", g.get_table("stop_times"))
+        print("Frequencies: \n\n ", g.get_table("frequencies"))
         # should there be more tests?
         # check that the original trip_id does not exist in frequencies, trips, or stop_times?
 
@@ -418,7 +420,7 @@ class TestImport(unittest.TestCase):
     def test_stopRtreeLoader(self):
         # TODO!
         import_gtfs(self.fdict, self.conn, preserve_connection=True)
-        pass
+        self.fail("stopRtreeNotYetTested")
 
     def test_testDataImport(self):
         gtfs_source_dir = os.path.join(os.path.dirname(__file__), "test_data")
@@ -523,7 +525,7 @@ class TestImport(unittest.TestCase):
 
         rows = self.conn.execute("SELECT seq FROM stop_times ORDER BY trip_I, seq").fetchall()
         for row in rows:
-            print row
+            print(row)
         self.assertEqual(rows[0][0], 1)
         self.assertEqual(rows[1][0], 2)
         self.assertEqual(rows[2][0], 1)

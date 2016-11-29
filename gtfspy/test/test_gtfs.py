@@ -2,6 +2,8 @@ import datetime
 import os
 import sqlite3
 import unittest
+from six import string_types
+
 
 import networkx
 import pandas
@@ -82,9 +84,9 @@ class TestGTFS(unittest.TestCase):
         for key in keys:
             assert key in el
         for el in res:
-            assert isinstance(el["name"], (str, unicode))
+            assert isinstance(el["name"], string_types)
             assert isinstance(el["type"], int)
-            assert isinstance(el["agency"], (str, unicode))
+            assert isinstance(el["agency"], string_types)
             assert isinstance(el["lats"], list), type(el['lats'])
             assert isinstance(el["lons"], list)
             assert isinstance(el['lats'][0], float)
@@ -146,7 +148,7 @@ class TestGTFS(unittest.TestCase):
             if c in ["lat", "lon"]:
                 assert isinstance(el, float)
             if c in ["name"]:
-                assert isinstance(el, (str, unicode)), type(el)
+                assert isinstance(el, string_types), type(el)
         assert (df['count'].values > 0).any()
 
     def test_get_segment_count_data(self):
@@ -157,7 +159,7 @@ class TestGTFS(unittest.TestCase):
 
     def test_get_tripIs_active_in_range(self):
         dt_start_query = datetime.datetime(2007, 1, 1, 7, 59, 59)
-        dt_end_query = datetime.datetime(2007, 1, 1, 8, 2, 01)
+        dt_end_query = datetime.datetime(2007, 1, 1, 8, 2, 1)
         dt_start_real = datetime.datetime(2007, 1, 1, 8, 0, 00)
         dt_end_real = datetime.datetime(2007, 1, 1, 8, 10, 00)
         start_query = self.gtfs.unlocalized_datetime_to_ut_seconds(dt_start_query)
@@ -191,7 +193,7 @@ class TestGTFS(unittest.TestCase):
         for c in columns:
             assert c in df.columns
         el = df.iloc[0]
-        assert isinstance(el["dates"], (str, unicode))
+        assert isinstance(el["dates"], string_types)
         assert isinstance(el["trip_counts"], int)
 
     def test_get_spreading_trips(self):
@@ -216,7 +218,7 @@ class TestGTFS(unittest.TestCase):
         # just a simple random test:
         trip_I = 1
         name, type_ = self.gtfs.get_route_name_and_type_of_tripI(trip_I)
-        assert isinstance(name, unicode)
+        assert isinstance(name, string_types)
         assert isinstance(type_, int)
 
     def get_trip_stop_time_data(self):
@@ -258,5 +260,5 @@ class TestGTFS(unittest.TestCase):
     def test_get_location_name(self):
         location_name = self.G.get_location_name()
         self.assertEqual(location_name, "test_data")
-        self.assertTrue(isinstance(location_name, (str, unicode)), type(location_name))
+        self.assertTrue(isinstance(location_name, string_types), type(location_name))
         self.assertGreater(len(location_name), 0)

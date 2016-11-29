@@ -18,6 +18,8 @@ from gtfspy.util import wgs84_distance
 from gtfspy.route_types import WALK
 from gtfspy.route_types import ALL_ROUTE_TYPES
 
+from six import string_types
+
 # py2/3 compatibility (copied from six)
 if sys.version_info[0] == 3:
     binary_type = bytes
@@ -35,7 +37,7 @@ class GTFS(object):
         fname: str | sqlite3.Connection
             path to the preprocessed gtfs database or a connection to a gtfs database
         """
-        if isinstance(fname, (str, unicode)):
+        if isinstance(fname, string_types):
             self.conn = sqlite3.connect(fname)
             self.fname = fname
             # memory-mapped IO size, in bytes
@@ -282,7 +284,7 @@ class GTFS(object):
         day_start_ut : int
             start time of the day in unixtime
         """
-        if isinstance(date, (str, unicode)):
+        if isinstance(date, string_types):
             date = datetime.datetime.strptime(date, '%Y-%m-%d')
         date_noon = datetime.datetime(date.year, date.month, date.day,
                                       12, 0, 0)
@@ -740,7 +742,7 @@ class GTFS(object):
         cur = self.conn.cursor()
         results = cur.execute("SELECT name, type FROM routes JOIN trips USING(route_I) WHERE trip_I=(?)", (trip_I,))
         name, rtype = results.fetchone()
-        return unicode(name), int(rtype)
+        return u"%s" % str(name), int(rtype)
 
     def get_route_name_and_type(self, route_I):
         """

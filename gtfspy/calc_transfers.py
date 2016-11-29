@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import math
 import sqlite3
 
@@ -147,7 +149,7 @@ def calc_transfers(conn, threshold=1000):
                       #(threshold, threshold, threshold, threshold, threshold, ),
                       )
     for row in cur:
-        print row
+        print(row)
     cur.execute('INSERT INTO stop_distances (from_stop_I, to_stop_I, d)'
                 #'explain query plan '
                 'SELECT from_stop_I, to_stop_I, '

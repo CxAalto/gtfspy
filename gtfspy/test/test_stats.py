@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import unittest
 import tempfile as temp
@@ -25,7 +27,7 @@ class StatsTest(unittest.TestCase):
 
         stats.write_stats_as_csv(self.gtfs, testfile.name)
         df = pd.read_csv(testfile.name)
-        print 'len is ' + str(len(df))
+        print('len is ' + str(len(df)))
         self.assertTrue(len(df) == 1)
 
         stats.write_stats_as_csv(self.gtfs, testfile.name)
