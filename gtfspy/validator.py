@@ -8,6 +8,8 @@ if __name__ == '__main__' and __package__ is None:
     # import gtfspy
     __package__ = 'gtfspy'
 
+from __future__ import print_function
+
 from . import route_types
 from .util import wgs84_distance
 from .gtfs import GTFS
@@ -175,7 +177,7 @@ class ValidationWarningsContainer(object):
     def print_summary(self):
         print('The feed produced the following warnings:')
         for key in self._warnings_counter.keys():
-            print key + ": " + str(self._warnings_counter[key])
+            print(key + ": " + str(self._warnings_counter[key]))
 
     def get_warning_counts(self):
         """

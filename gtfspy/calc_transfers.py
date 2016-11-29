@@ -161,7 +161,7 @@ def calc_transfers(conn, threshold=1000):
                       #(threshold, threshold, threshold, threshold, threshold, ),
                       )
     for row in cur:
-        print row
+        print(row)
 
     cur.execute('CREATE INDEX IF NOT EXISTS idx_sd_fsid ON stop_distances (from_stop_I);')
     cur.execute('DROP TABLE stop_distances_tmp')
@@ -177,7 +177,7 @@ def export_transfers(conn, fname):
                 '  LEFT JOIN stops S2 ON (SD.to_stop_I  =S2.stop_I)')
     f = open(fname, 'w')
     for row in cur:
-        print >> f, ' '.join(str(x) for x in row)
+        print(' '.join(str(x) for x in row), file=f)
 
 
 def main():
