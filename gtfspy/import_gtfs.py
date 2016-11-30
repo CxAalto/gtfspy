@@ -1,4 +1,7 @@
 # -*- encoding: utf-8 -*-
+from __future__ import unicode_literals
+from __future__ import absolute_import
+from __future__ import print_function
 
 """
 Importing GTFS into a database.
@@ -9,10 +12,9 @@ to-do:
 - importing multiple GTFSs into the same database
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
 
 import codecs
+import sys
 import csv
 from datetime import datetime, timedelta
 import os
@@ -20,13 +22,20 @@ import re
 import sqlite3
 import time
 import zipfile
-
 import pandas
 
 from gtfspy import stats
 from gtfspy import util
 from gtfspy.gtfs import GTFS
 from gtfspy import calc_transfers
+
+def decode_six(string):
+    version = sys.version_info[0]
+    if version == 2:
+        return string.decode('utf-8')
+    else:
+        assert(isinstance(string, str))
+        return string
 
 
 class TableLoader(object):
@@ -175,12 +184,19 @@ class TableLoader(object):
         # to make it easier to add more fields in the future.
         def iter_file(file_obj):
             # Python2 csv reading is stupid when it comes to UTF8.
-            # The input has to be strings.  But some files have
+            # The input has to be strings. But some files have
             # the UTF8 byte order mark, which needs to be removed.
             # This hack removes the BOM from the start of any
             # line.
+            version = sys.version_info[0]
             for line in file_obj:
-                yield line.lstrip(codecs.BOM_UTF8)
+                if isinstance(line, bytes):
+                    yield line.decode("utf-8")
+                elif version == 2:  # python2.x
+                    yield line.lstrip(codecs.BOM_UTF8)
+                else:
+                    assert(isinstance(line, str))
+                    yield line
 
         fs = []
         for source in self.gtfs_sources:
@@ -261,7 +277,7 @@ class TableLoader(object):
         cur = conn.cursor()
         # This is a bit hackish.  It is annoying to have to write the
         # INSERT statement yourself and keep it up to date with the
-        # table rows.  This gets the first row, figurs out the field
+        # table rows.  This gets the first row, figures out the field
         # names from that, and then makes an INSERT statement like
         # "INSERT INTO table (col1, col2, ...) VALUES (:col1, :col2,
         # ...)".  The ":col1" is sqlite syntax for named value.
@@ -387,13 +403,13 @@ class StopLoader(TableLoader):
                 # dictionary, which is yielded.  There can be different
                 # transformations on here, as needed.
                 yield dict(
-                    stop_id       = prefix + row['stop_id'].decode('utf-8'),
-                    code          = row['stop_code'].decode('utf-8') if 'stop_code' in row else None,
-                    name          = row['stop_name'].decode('utf-8'),
-                    desc          = row['stop_desc'].decode('utf-8') if 'stop_desc' in row else None,
+                    stop_id       = prefix + decode_six(row['stop_id']),
+                    code          = decode_six(row['stop_code']) if 'stop_code' in row else None,
+                    name          = decode_six(row['stop_name']),
+                    desc          = decode_six(row['stop_desc']) if 'stop_desc' in row else None,
                     lat           = float(row['stop_lat']),
                     lon           = float(row['stop_lon']),
-                    _parent_id    = prefix + row['parent_station'].decode('utf-8') if row.get('parent_station','') else None,
+                    _parent_id    = prefix + decode_six(row['parent_station']) if row.get('parent_station','') else None,
                     location_type = int(row['location_type']) if row.get('location_type') else None,
                     wheelchair_boarding = int(row['wheelchair_boarding']) if row.get('wheelchair_boarding','') else None,
                 )
@@ -462,15 +478,15 @@ class RouteLoader(TableLoader):
             for row in reader:
                 #print row
                 yield dict(
-                    route_id      = prefix + row['route_id'].decode('utf-8'),
-                    _agency_id    = prefix + row['agency_id'].decode('utf-8') if 'agency_id' in row else None,
-                    name          = row['route_short_name'].decode('utf-8'),
-                    long_name     = row['route_long_name'].decode('utf-8'),
-                    desc          = row['route_desc'].decode('utf-8') if 'route_desc' in row else None,
+                    route_id      = prefix + decode_six(row['route_id']),
+                    _agency_id    = prefix + decode_six(row['agency_id']) if 'agency_id' in row else None,
+                    name          = decode_six(row['route_short_name']),
+                    long_name     = decode_six(row['route_long_name']),
+                    desc          = decode_six(row['route_desc']) if 'route_desc' in row else None,
                     type          = extended_route_types.ROUTE_TYPE_CONVERSION[int(row['route_type'])],
-                    url           = row['route_url'].decode('utf-8') if 'route_url' in row else None,
-                    color         = row['route_color'].decode('utf-8') if 'route_color' in row else None,
-                    text_color    = row['route_text_color'].decode('utf-8') if 'route_text_color' in row else None,
+                    url           = decode_six(row['route_url']) if 'route_url' in row else None,
+                    color         = decode_six(row['route_color']) if 'route_color' in row else None,
+                    text_color    = decode_six(row['route_text_color']) if 'route_text_color' in row else None,
                 )
 
     @classmethod
@@ -500,12 +516,12 @@ class TripLoader(TableLoader):
             for row in reader:
                 #print row
                 yield dict(
-                    _route_id     = prefix + row['route_id'].decode('utf-8'),
-                    _service_id   = prefix + row['service_id'].decode('utf-8'),
-                    trip_id       = prefix + row['trip_id'].decode('utf-8'),
-                    direction_id  = row['direction_id'].decode('utf-8') if row.get('direction_id','') else None,
-                    shape_id      = prefix + row['shape_id'].decode('utf-8') if row.get('shape_id','') else None,
-                    headsign      = row['trip_headsign'].decode('utf-8') if 'trip_headsign' in row else None,
+                    _route_id     = prefix + decode_six(row['route_id']),
+                    _service_id   = prefix + decode_six(row['service_id']),
+                    trip_id       = prefix + decode_six(row['trip_id']),
+                    direction_id  = decode_six(row['direction_id']) if row.get('direction_id','') else None,
+                    shape_id      = prefix + decode_six(row['shape_id']) if row.get('shape_id','') else None,
+                    headsign      = decode_six(row['trip_headsign']) if 'trip_headsign' in row else None,
                 )
 
     @classmethod
@@ -581,8 +597,8 @@ class StopTimesLoader(TableLoader):
             for row in reader:
                 #print row
                 yield dict(
-                    _stop_id      = prefix + row['stop_id'].decode('utf-8'),
-                    _trip_id      = prefix + row['trip_id'].decode('utf-8'),
+                    _stop_id      = prefix + decode_six(row['stop_id']),
+                    _trip_id      = prefix + decode_six(row['trip_id']),
                     arr_time      = row['arrival_time'],
                     dep_time      = row['departure_time'],
                     seq           = int(row['stop_sequence']),
@@ -725,7 +741,7 @@ class ShapeLoader(TableLoader):
             for row in reader:
                 #print row
                 yield dict(
-                    shape_id      = prefix + row['shape_id'].decode('utf-8'),
+                    shape_id      = prefix + decode_six(row['shape_id']),
                     lat           = float(row['shape_pt_lat']),
                     lon           = float(row['shape_pt_lon']),
                     seq           = int(row['shape_pt_sequence'])
@@ -782,7 +798,7 @@ class CalendarLoader(TableLoader):
                 start = row['start_date']
                 end = row['end_date']
                 yield dict(
-                    service_id    = prefix + row['service_id'].decode('utf-8'),
+                    service_id    = prefix + decode_six(row['service_id']),
                     m             = int(row['monday']),
                     t             = int(row['tuesday']),
                     w             = int(row['wednesday']),
@@ -827,7 +843,7 @@ class CalendarDatesLoader(TableLoader):
                 # that) is the absolute list of service_ids.
                 service_I = cur.execute(
                     'SELECT service_I FROM calendar WHERE service_id=?',
-                    (service_id.decode('utf-8'),)).fetchone()
+                    (decode_six(service_id),)).fetchone()
                 if service_I is None:
                     # We have to add a new fake row in order to get a
                     # service_I.  calendar is *the* authoritative source
@@ -835,11 +851,11 @@ class CalendarDatesLoader(TableLoader):
                     cur.execute('INSERT INTO calendar '
                                 '(service_id, m,t,w,th,f,s,su, start_date,end_date)'
                                 'VALUES (?, 0,0,0,0,0,0,0, ?,?)',
-                                (service_id.decode('utf-8'), date_str, date_str)
+                                (decode_six(service_id), date_str, date_str)
                                 )
                     service_I = cur.execute(
                         'SELECT service_I FROM calendar WHERE service_id=?',
-                        (service_id.decode('utf-8'),)).fetchone()
+                        (decode_six(service_id),)).fetchone()
                 service_I = service_I[0]  # row tuple -> int
 
                 yield dict(
@@ -861,20 +877,20 @@ class AgencyLoader(TableLoader):
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
                 yield dict(
-                    agency_id     = prefix + row.get('agency_id', '1').decode('utf-8'),
-                    name          = row['agency_name'].decode('utf-8'),
-                    timezone      = row['agency_timezone'].decode('utf-8'),
-                    url           = row['agency_url'].decode('utf-8'),
-                    lang          = row['agency_lang'].decode('utf-8') if 'agency_lang' in row else None,
-                    phone         = row['agency_phone'].decode('utf-8') if 'agency_phone' in row else None,
+                    agency_id     =prefix + decode_six(row.get('agency_id', '1')),
+                    name          = decode_six(row['agency_name']),
+                    timezone      = decode_six(row['agency_timezone']),
+                    url           = decode_six(row['agency_url']),
+                    lang          = decode_six(row['agency_lang']) if 'agency_lang' in row else None,
+                    phone         = decode_six(row['agency_phone']) if 'agency_phone' in row else None,
                 )
 
     def post_import(self, cur):
         TZs = cur.execute('SELECT DISTINCT timezone FROM agencies').fetchall()
         if len(TZs) == 0:
             print("Error: no timezones in this database: %s" % self.gtfs_sources)
-            raise ValueError("Multiple timezones in DB: %s" % TZs)
-        elif len(TZs) != 1:
+            raise ValueError("No timezones in DB: %s" % TZs)
+        elif len(TZs) > 1:
             print("Error: multiple timezones in this database: %s" % self.gtfs_sources)
             raise ValueError("Multiple timezones in DB: %s" % TZs)
         TZ = TZs[0][0]
@@ -918,8 +934,8 @@ class TransfersLoader(TableLoader):
             for row in reader:
                 #print row
                 yield dict(
-                    _from_stop_id     = prefix + row['from_stop_id'].decode('utf-8').strip(),
-                    _to_stop_id       = prefix + row['to_stop_id'].decode('utf-8').strip(),
+                    _from_stop_id     = prefix + decode_six(row['from_stop_id']).strip(),
+                    _to_stop_id       = prefix + decode_six(row['to_stop_id']).strip(),
                     transfer_type     = int(row['transfer_type']),
                     min_transfer_time = int(row['min_transfer_time'])
                                         if ('min_transfer_time' in row
@@ -936,19 +952,19 @@ class FrequenciesLoader(TableLoader):
     fname = 'frequencies.txt'
     table = 'frequencies'
     # TODO: this is copy-pasted from calc_transfers.
-    tabledef = ('(trip_I INT, '
-                'start_time TEXT, '
-                'end_time TEXT, '
-                'headway_secs INT,'
-                'exact_times INT, '
-                'start_time_ds INT, '
-                'end_time_ds INT'
-                ')')
-    extra_keys = ['trip_I',
-                  'start_time_ds',
-                  'end_time_ds',
+    tabledef = (u'(trip_I INT, '
+                u'start_time TEXT, '
+                u'end_time TEXT, '
+                u'headway_secs INT,'
+                u'exact_times INT, '
+                u'start_time_ds INT, '
+                u'end_time_ds INT'
+                u')')
+    extra_keys = [u'trip_I',
+                  u'start_time_ds',
+                  u'end_time_ds',
                   ]
-    extra_values = ['(SELECT trip_I FROM trips WHERE trip_id=:_trip_id )',
+    extra_values = [u'(SELECT trip_I FROM trips WHERE trip_id=:_trip_id )',
                     '(substr(:start_time,-8,2)*3600 + substr(:start_time,-5,2)*60 + substr(:start_time,-2))',
                     '(substr(:end_time,-8,2)*3600 + substr(:end_time,-5,2)*60 + substr(:end_time,-2))',
                     ]
@@ -957,7 +973,7 @@ class FrequenciesLoader(TableLoader):
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
                 yield dict(
-                    _trip_id = prefix + row['trip_id'],
+                    _trip_id = prefix + decode_six(row['trip_id']),
                     start_time = row['start_time'],
                     end_time = row['end_time'],
                     headway_secs = int(row['headway_secs']),
@@ -987,7 +1003,7 @@ class FrequenciesLoader(TableLoader):
 
             start_times_ds = range(freq_start_time_ds, freq_end_time_ds, headway)
             for i, start_time in enumerate(start_times_ds):
-                trip_id = trip_data.trip_id + "_freq_" + str(start_time)
+                trip_id = trip_data.trip_id + u"_freq_" + str(start_time)
                 route_I = trip_data.route_I
                 service_I = trip_data.service_I
                 shape_id = trip_data.shape_id
@@ -1023,7 +1039,7 @@ class FrequenciesLoader(TableLoader):
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
                     arr_time = util.day_seconds_to_str_time(arr_time_ds)
                     dep_time = util.day_seconds_to_str_time(dep_time_ds)
-                    cur.execute(query, (trip_I, stop_I, arr_time, dep_time, seq+1, arr_time_hour, shape_break,
+                    cur.execute(query, (trip_I, stop_I, arr_time, dep_time, seq + 1, arr_time_hour, shape_break,
                                         arr_time_ds, dep_time_ds))
 
         trip_Is = frequencies_df['trip_I'].unique()
@@ -1052,12 +1068,12 @@ class FeedInfoLoader(TableLoader):
                 start = row['feed_start_date'] if 'feed_start_date' in row else None
                 end   = row['feed_end_date']   if 'feed_end_date'   in row else None
                 yield dict(
-                    feed_publisher_name = row['feed_publisher_name'].decode('utf-8') if 'feed_publisher_name' in row else None,
-                    feed_publisher_url  = row['feed_publisher_url'].decode('utf-8')  if 'feed_publisher_url'  in row else None,
-                    feed_lang           = row['feed_lang'].decode('utf-8')           if 'feed_lang'           in row else None,
+                    feed_publisher_name = decode_six(row['feed_publisher_name']) if 'feed_publisher_name' in row else None,
+                    feed_publisher_url  = decode_six(row['feed_publisher_url'])  if 'feed_publisher_url'  in row else None,
+                    feed_lang           = decode_six(row['feed_lang'])           if 'feed_lang'           in row else None,
                     feed_start_date     = '%s-%s-%s'%(start[:4], start[4:6], start[6:8])  if start else None,
                     feed_end_date       = '%s-%s-%s'%(end[:4], end[4:6], end[6:8])        if end   else None,
-                    feed_version        = row['feed_version'].decode('utf-8')        if 'feed_version'        in row else None,
+                    feed_version        = decode_six(row['feed_version'])        if 'feed_version'        in row else None,
                     feed_id             = prefix[:-1] if len(prefix) > 0 else prefix
                 )
 
@@ -1615,7 +1631,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
         else:
             prefix = "feed_" + str(i) + "_"
         if isinstance(source, str):
-            G.meta[prefix + 'original_gtfs'] = source.decode('utf-8') if source else None
+            G.meta[prefix + 'original_gtfs'] = decode_six(source) if source else None
             # Extract GTFS date.  Last date pattern in filename.
             filename_date_list = re.findall(r'\d{4}-\d{2}-\d{2}', source)
             if filename_date_list:

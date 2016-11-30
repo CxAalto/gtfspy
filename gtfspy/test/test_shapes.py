@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import unittest
 
 import numpy as np
@@ -6,10 +8,10 @@ from gtfspy.gtfs import GTFS
 from gtfspy import shapes
 
 
+
 class ShapesTest(unittest.TestCase):
 
-    @staticmethod
-    def test_shape_break_order():
+    def test_shape_break_order(self):
         for trip_I in [
                 # These trip IDs require the hsl-2015-07-12 DB.
                 73775,  # Route 18 Eira -> Munkkivuori
@@ -23,12 +25,12 @@ class ShapesTest(unittest.TestCase):
                 270813, # P20
                 270849, # P21
                 ]:
-            yield test_shape_break_order_1, trip_I
+            yield self.test_shape_break_order_1, trip_I
             pass
         #yield test_shape_break_order_1, 83734
 
-    @unittest.skip("skipping test_shape_brea_order_1")
-    def test_shape_break_order_1(trip_I=73775):
+    @unittest.skip("skipping test_shape_break_order_1")
+    def test_shape_break_order_1(self, trip_I=73775):
         """This is to a bug related to shape alignment."""
         conn = GTFS('../scratch/db/hsl-2015-07-12.sqlite').conn
         cur = conn.cursor()
@@ -50,13 +52,13 @@ class ShapesTest(unittest.TestCase):
         shape_points = shapes.get_shape_points(cur, shape_id)
         breakpoints, badness \
               = shapes.find_segments(stop_points, shape_points)
-        print badness
+        print(badness)
         if badness > 30:
-            print "bad shape fit: %s (%s, %s)"%(badness, trip_I, shape_id)
+            print("bad shape fit: %s (%s, %s)" % (badness, trip_I, shape_id))
 
-        print breakpoints
-        print sorted(breakpoints)
-        assert_equal(breakpoints, sorted(breakpoints))
+
+        for b1, b2 in zip(breakpoints, sorted(breakpoints)):
+            self.assertEqual(b1, b2)
 
     @staticmethod
     def test_interpolate_shape_times():

@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import numpy
 import pandas as pd
@@ -64,7 +64,7 @@ class Spreader(object):
         start_stop_I = self.gtfs.get_closest_stop(self.lat, self.lon)
         end_time_ut = self.start_time_ut + self.max_duration_ut
 
-        print "Computing/fetching events"
+        print("Computing/fetching events")
         events_df = self.gtfs.get_transit_events(self.start_time_ut, end_time_ut)
         all_stops = set(self.gtfs.stops()['stop_I'])
 
@@ -81,7 +81,7 @@ class Spreader(object):
             self._stop_I_to_spreading_stop[stop] = SpreadingStop(stop, self.min_transfer_time)
 
         # get for each stop their
-        print "intializing heap"
+        print("intializing heap")
         self.event_heap = EventHeap(events_df)
 
         start_event = Event(self.start_time_ut - 1,
@@ -127,7 +127,7 @@ class Spreader(object):
 
                 if not already_visited:
                     self._uninfected_stops.remove(event.to_stop_I)
-                    print i, self.event_heap.size()
+                    print(i, self.event_heap.size())
                     transfer_distances = self.gtfs.get_straight_line_transfer_distances(event.to_stop_I)
                     self.event_heap.add_walk_events_to_heap(transfer_distances, event, self.start_time_ut,
                                                             self.walk_speed, self._uninfected_stops,
@@ -160,7 +160,7 @@ class Spreader(object):
         combined = inf_time_data.merge(stop_data, how='inner', on='stop_I', suffixes=('_infs', '_stops'), copy=True)
 
         trips = []
-        for stop_I, dest_stop_obj in self._stop_I_to_spreading_stop.iteritems():
+        for stop_I, dest_stop_obj in self._stop_I_to_spreading_stop.items():
             inf_event = dest_stop_obj.get_min_event()
             if inf_event is None:
                 continue
