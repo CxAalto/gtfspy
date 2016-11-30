@@ -193,7 +193,10 @@ class TableLoader(object):
                 if isinstance(line, bytes):
                     yield line.decode("utf-8")
                 elif version == 2:  # python2.x
-                    yield line.lstrip(codecs.BOM_UTF8)
+                    if isinstance(line, unicode):
+                        yield line
+                    else:
+                        yield line.lstrip(codecs.BOM_UTF8)
                 else:
                     assert(isinstance(line, str))
                     yield line
@@ -227,6 +230,7 @@ class TableLoader(object):
         csv_reader_generators = []
         for csv_reader in csv_readers:
             try:
+                print(csv_reader.fieldnames)
                 csv_reader.fieldnames = [x.strip() for x in csv_reader.fieldnames]
                 # Make a generator that strips the values in all fields before
                 # passing it on.  GTFS standard requires that there be no
@@ -238,12 +242,16 @@ class TableLoader(object):
                                             for k, v in row.items())
                                        for row in csv_reader)
                 csv_reader_generators.append(csv_reader_stripped)
-            except:
-                print("file missing")
-        prefixes = ["feed_" + str(i) + "_" for i in range(len(csv_reader_generators))]
+            except TypeError as e:
+                if "NoneType" in str(e):
+                    print("file missing", self.fname)
+                    raise e
+                else:
+                    raise e
+        prefixes = [u"feed_{i}_".format(i=i) for i in range(len(csv_reader_generators))]
         if len(prefixes) == 1:
             # no prefix for a single source feed
-            prefixes = [""]
+            prefixes = [u""]
         return csv_reader_generators, prefixes
 
     def gen_rows(self, csv_readers, prefixes):
@@ -542,12 +550,12 @@ class TripLoader(TableLoader):
             for row in cur0:
                 if row[1]:
                     st = row[1].split(':')
-                    start_time_ds = int(st[0])*3600 + int(st[1])*60 + int(st[2])
+                    start_time_ds = int(st[0]) * 3600 + int(st[1]) * 60 + int(st[2])
                 else:
                     start_time_ds = None
                 if row[2]:
                     et = row[2].split(':')
-                    end_time_ds   = int(et[0])*3600 + int(et[1])*60 + int(et[2])
+                    end_time_ds   = int(et[0]) * 3600 + int(et[1]) * 60 + int(et[2])
                 else:
                     end_time_ds = None
                 yield start_time_ds, end_time_ds, row[0]
@@ -859,7 +867,7 @@ class CalendarDatesLoader(TableLoader):
                 service_I = service_I[0]  # row tuple -> int
 
                 yield dict(
-                    service_I     = service_I,
+                    service_I     = int(service_I),
                     date          = date_str,
                     exception_type= int(row['exception_type']),
                 )
@@ -951,6 +959,7 @@ class FrequenciesLoader(TableLoader):
     # too.  We put a tabledef here so that copy() will work.
     fname = 'frequencies.txt'
     table = 'frequencies'
+
     # TODO: this is copy-pasted from calc_transfers.
     tabledef = (u'(trip_I INT, '
                 u'start_time TEXT, '
@@ -977,13 +986,19 @@ class FrequenciesLoader(TableLoader):
                     start_time = row['start_time'],
                     end_time = row['end_time'],
                     headway_secs = int(row['headway_secs']),
-                    exact_times = int(row['exact_times']) if 'exact_times' in row else 0,
+                    exact_times = int(row['exact_times']) if 'exact_times' in row else 0
                 )
 
     def post_import(self, cur):
         # For each (start_time_dependent) trip_I in frequencies.txt
         conn = self._conn
+        import pandas
         frequencies_df = pandas.read_sql("SELECT * FROM " + self.table, conn)
+        trips_df = pandas.read_sql("SELECT * FROM " + "trips", conn)
+        calendar_df = pandas.read_sql("SELECT * FROM " + "calendar", conn)
+        print(trips_df)
+        print(calendar_df)
+
         for freq_tuple in frequencies_df.itertuples():
             trip_data = pandas.read_sql_query("SELECT * FROM trips WHERE trip_I= " + str(int(freq_tuple.trip_I)), conn)
             assert len(trip_data) == 1
@@ -1006,6 +1021,7 @@ class FrequenciesLoader(TableLoader):
                 trip_id = trip_data.trip_id + u"_freq_" + str(start_time)
                 route_I = trip_data.route_I
                 service_I = trip_data.service_I
+
                 shape_id = trip_data.shape_id
                 direction_id = trip_data.direction_id
                 headsign = trip_data.headsign
@@ -1015,7 +1031,8 @@ class FrequenciesLoader(TableLoader):
                 query = "INSERT INTO trips (trip_id, route_I, service_I, shape_id, direction_id, " \
                             "headsign, start_time_ds, end_time_ds)" \
                         " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-                params = [trip_id, route_I, service_I, shape_id, direction_id, headsign, start_time, end_time_ds]
+
+                params = [trip_id, route_I, int(service_I), shape_id, direction_id, headsign, int(start_time), int(end_time_ds)]
                 cur.execute(query, params)
 
                 query = "SELECT trip_I FROM trips WHERE trip_id='{trip_id}'".format(trip_id=trip_id)
@@ -1039,8 +1056,8 @@ class FrequenciesLoader(TableLoader):
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
                     arr_time = util.day_seconds_to_str_time(arr_time_ds)
                     dep_time = util.day_seconds_to_str_time(dep_time_ds)
-                    cur.execute(query, (trip_I, stop_I, arr_time, dep_time, seq + 1, arr_time_hour, shape_break,
-                                        arr_time_ds, dep_time_ds))
+                    cur.execute(query, (int(trip_I), int(stop_I), arr_time, dep_time, int(seq + 1),
+                                        int(arr_time_hour), shape_break, int(arr_time_ds), int(dep_time_ds)))
 
         trip_Is = frequencies_df['trip_I'].unique()
         for trip_I in trip_Is:
@@ -1127,7 +1144,7 @@ class DayLoader(TableLoader):
         # For every row in the calendar...
         for row in cur:
             row = make_dict(row)
-            service_I = row['service_I']
+            service_I = int(row['service_I'])
             # EXCEPTIONS (calendar_dates): Get a set of all
             # exceptional days.  exception_type=2 means that service
             # removed on that day.  Below, we will exclude all dates
