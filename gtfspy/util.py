@@ -230,3 +230,16 @@ def timeit(method):
         return result
 
     return timed
+
+
+def corrupted_zip(zip_path):
+    import zipfile
+    try:
+        zip_to_test = zipfile.ZipFile(zip_path)
+        #warning = zip_to_test.testzip()
+        #if warning is not None:
+        #    return str(warning)
+        #else:
+        return "ok"
+    except:
+        return "error"
