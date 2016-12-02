@@ -4,7 +4,7 @@ An abstract class defining some requirements for the algorithms inherited by thi
 from abc import ABCMeta, abstractmethod
 
 import time
-from routing.util import timeit
+from gtfspy.routing.util import timeit
 
 
 class AbstractRoutingAlgorithm:

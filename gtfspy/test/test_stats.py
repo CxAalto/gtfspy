@@ -1,4 +1,5 @@
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 import unittest
@@ -28,11 +29,11 @@ class StatsTest(unittest.TestCase):
         stats.write_stats_as_csv(self.gtfs, testfile.name)
         df = pd.read_csv(testfile.name)
         print('len is ' + str(len(df)))
-        self.assertTrue(len(df) == 1)
+        self.assertEqual(len(df), 1)
 
         stats.write_stats_as_csv(self.gtfs, testfile.name)
         df = pd.read_csv(testfile.name)
-        self.assertTrue(len(df) == 2)
+        self.assertEqual(len(df), 2)
         testfile.close()
 
     def test_get_stats(self):

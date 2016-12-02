@@ -14,17 +14,15 @@ from gtfspy import gtfs
 
 
 def filter_extract(gtfs,
-                    copy_db_path,
-                    buffer_distance=None,
-                    buffer_lat=None,
-                    buffer_lon=None,
-                    update_metadata=True,
-                    start_date=None,
-                    end_date=None,
-                    agency_ids_to_preserve=None,
-                    agency_distance=None):
-
-
+                   copy_db_path,
+                   buffer_distance=None,
+                   buffer_lat=None,
+                   buffer_lon=None,
+                   update_metadata=True,
+                   start_date=None,
+                   end_date=None,
+                   agency_ids_to_preserve=None,
+                   agency_distance=None):
     """
     Copy a database, and then based on various filters.
     Only copy_and_filter method is provided as of now because we do not want to take the risk of
@@ -89,6 +87,7 @@ def filter_extract(gtfs,
 
     return
 
+
 def _filter_by_start_and_end_date(gtfs, copy_db_conn, start_date, end_date):
     """
     Removes rows from the sqlite database copy that are out of the time span defined by start_date and end_date
@@ -127,13 +126,14 @@ def _filter_by_start_and_end_date(gtfs, copy_db_conn, start_date, end_date):
                     ")"
         }
         # remove the 'source' entries from tables
-        for table, query_template in table_to_remove_map.iteritems():
+        for table, query_template in table_to_remove_map.items():
             param_dict = {"start_ut": str(start_date_ut),
                           "end_ut": str(end_date_ut)}
             query = "DELETE FROM " + table + " " + \
                     query_template.format(**param_dict)
             copy_db_conn.execute(query)
     return
+
 
 def _filter_by_calendar(copy_db_conn, start_date, end_date):
     """
@@ -184,6 +184,7 @@ def _filter_by_calendar(copy_db_conn, start_date, end_date):
         copy_db_conn.commit()
     return
 
+
 def _filter_by_agency(copy_db_conn, agency_ids_to_preserve):
     """
     filter by agency ids
@@ -222,6 +223,7 @@ def _filter_by_agency(copy_db_conn, agency_ids_to_preserve):
                              'trip_I NOT IN (SELECT trip_I FROM trips)')
         copy_db_conn.commit()
     return
+
 
 def _filter_by_area(copy_db_conn, buffer_lat, buffer_lon, buffer_distance):
     """
@@ -298,7 +300,6 @@ def _update_metadata(copy_db_conn, G_orig, update_metadata, orig_db_path):
                         'download_date',
                         'location_name',
                         'timezone', ]:
-
                 G_copy.meta[key] = G_orig.meta[key]
         # This part is for gtfs objects with multiple sources
         except:

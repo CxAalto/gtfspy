@@ -4,14 +4,15 @@ import os
 import unittest
 import shutil
 
-import network_extracts
 import networkx
+import numpy
 import pandas
 
 from gtfspy.gtfs import GTFS
 from gtfspy import networks
 from gtfspy.route_types import BUS
 from gtfspy.calc_transfers import calc_transfers
+from gtfspy import network_extracts
 
 
 class NetworkExtractsTest(unittest.TestCase):
@@ -43,12 +44,12 @@ class NetworkExtractsTest(unittest.TestCase):
 
     def test_write_stop_to_stop_networks(self):
         network_extracts.write_stop_to_stop_networks(self.gtfs, self.extract_output_dir)
-        self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "walk.edg")))
-        self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "bus.edg")))
+        self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "walk_with_data.edg")))
+        self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "bus_with_data.edg")))
 
     def test_write_combined_stop_to_stop_networks(self):
-        networks.write_combined_transit_stop_to_stop_network(self.gtfs, self.extract_output_dir)
-        combined_file_name = os.path.join(self.extract_output_dir + "combined.edg")
+        network_extracts.write_combined_transit_stop_to_stop_network(self.gtfs, self.extract_output_dir)
+        combined_file_name = os.path.join(self.extract_output_dir + "combined_with_data.edg")
         self.assertTrue(os.path.exists(combined_file_name))
 
     def test_stop_to_stop_network_by_route_type(self):
@@ -60,7 +61,7 @@ class NetworkExtractsTest(unittest.TestCase):
         for node in nodes:
             node_attributes = node[1]
             node_id = node[0]
-            self.assertTrue(isinstance(node_id, int))
+            self.assertTrue(isinstance(node_id, (int, numpy.int_)))
             self.assertTrue("lat" in node_attributes)
             self.assertTrue("lon" in node_attributes)
             self.assertTrue("name" in node_attributes)
@@ -85,7 +86,7 @@ class NetworkExtractsTest(unittest.TestCase):
                                "straight line distance should be always greater than 0 (?)")
             n_veh = linkData["n_vehicles"]
             route_ids = linkData["route_ids"]
-            route_ids_sum = sum([count for route_type, count in route_ids.iteritems()])
+            route_ids_sum = sum([count for route_type, count in route_ids.items()])
             self.assertTrue(n_veh, route_ids_sum)
 
         self.assertTrue(at_least_one_shape_distance, "at least one shape distance should exist")
@@ -102,17 +103,16 @@ class NetworkExtractsTest(unittest.TestCase):
 
     def test_write_temporal_network(self):
         path = os.path.join(self.extract_output_dir, "combined.tnet")
-        networks.write_temporal_network(self.gtfs, path, None, None)
+        network_extracts.write_temporal_network(self.gtfs, path, None, None)
         self.assertTrue(os.path.exists(path))
         df = pandas.read_csv(path)
         columns_should_exist = ["dep_time_ut", "arr_time_ut", "from_stop_I", "to_stop_I",
                                 "route_type", "route_id", "trip_I"]
         for col in columns_should_exist:
             self.assertIn(col, df.columns.values)
-        print(df)
 
     def test_write_temporal_networks_by_route_type(self):
-        networks.write_temporal_networks_by_route_type(self.gtfs, self.extract_output_dir)
+        network_extracts.write_temporal_networks_by_route_type(self.gtfs, self.extract_output_dir)
         self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "bus.tnet")))
 
 
