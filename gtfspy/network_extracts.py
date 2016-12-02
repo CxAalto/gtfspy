@@ -19,7 +19,6 @@ def write_walk_transfer_edges(gtfs, output):
     output: str
     """
     transfers = gtfs.get_table("stop_distances")
-    print(transfers.columns)
     transfers.drop([u"min_transfer_time", u"timed_transfer"], 1, inplace=True)
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
         transfers.to_csv(tmpfile, encoding='utf-8', index=False)
@@ -63,7 +62,7 @@ def write_stop_to_stop_networks(gtfs, output_dir):
     """
     single_layer_networks = stop_to_stop_networks_by_type(gtfs)
     util.makedirs(output_dir)
-    for route_type, net in single_layer_networks.iteritems():
+    for route_type, net in single_layer_networks.items():
         tag = route_types.ROUTE_TYPE_TO_LOWERCASE_TAG[route_type]
         base_name = os.path.join(output_dir, tag)
         _write_stop_to_stop_network(net, base_name)

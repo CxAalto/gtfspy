@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import csv
 import pandas as pd
 
@@ -61,20 +63,20 @@ def write_stats_as_csv(gtfs, path_to_csv):
         is_new = True
     else:
         is_new = False"""
-    try:
-        with open(path_to_csv, 'rb') as csvfile:
-            if list(csv.reader(csvfile))[0]:
+    is_new = True
+    with open(path_to_csv, 'r') as csvfile:
+        for line in csvfile:
+            if line:
                 is_new = False
             else:
                 is_new = True
-    except Exception as e:
-        is_new = True
 
-    with open(path_to_csv, 'ab') as csvfile:
+    with open(path_to_csv, 'a') as csvfile:
         statswriter = csv.writer(csvfile, delimiter=',')
-        # write column names if new file
+        # write column names if
         if is_new:
-            statswriter.writerow(sorted(stats_dict.keys()))
+            statswriter.writerow([key for key in sorted(stats_dict.keys())])
+
         row_to_write = []
         # write stats row sorted by column name
         for key in sorted(stats_dict.keys()):

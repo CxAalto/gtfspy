@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import print_function
 
+
 """
 Importing GTFS into a database.
 
@@ -23,6 +24,7 @@ import sqlite3
 import time
 import zipfile
 import pandas
+from six import string_types
 
 from gtfspy import stats
 from gtfspy import util
@@ -95,7 +97,7 @@ class TableLoader(object):
             whether to print progress of the
         """
         # TODO: add support for sqlite3.Connection?
-        if isinstance(gtfssource, (str, dict)):
+        if isinstance(gtfssource, string_types + (dict,)):
             _gtfs_sources = [gtfssource]
         else:
             assert isinstance(gtfssource, list)
@@ -107,7 +109,7 @@ class TableLoader(object):
         self.gtfs_sources = []
         # map sources to "real"
         for source in _gtfs_sources:
-            print(source)
+            # print(source)
             # Deal with the case that gtfspath is actually a dict.
             if isinstance(source, dict):
                 self.gtfs_sources.append(source)
@@ -115,7 +117,7 @@ class TableLoader(object):
             # Warning: this keeps an open file handle as
             # long as this object exists, and it is duplicated across all
             # loaders. Maybe open it in the caller?
-            elif isinstance(source, str):
+            elif isinstance(source, string_types):
                 if os.path.isdir(source):
                     self.gtfs_sources.append(source)
                 else:
@@ -155,7 +157,7 @@ class TableLoader(object):
                     print(self.fname)
                     continue
             # Normal filename
-            if isinstance(source, str):
+            if isinstance(source, string_types):
                 if os.path.exists(os.path.join(source, self.fname)):
                     return True
         # the "file" was not found in any of the sources, return false
@@ -209,7 +211,7 @@ class TableLoader(object):
                 # source can now be either a dict or a zipfile
                 if self.fname in source:
                     data_obj = source[self.fname]
-                    if isinstance(data_obj, str):
+                    if isinstance(data_obj, string_types):
                         f = data_obj.split("\n")
                     elif hasattr(data_obj, "read"):
                         # file-like object: use it as-is.
@@ -221,7 +223,7 @@ class TableLoader(object):
                     # File does not exist in the zip archive
                     except KeyError:
                         pass
-            elif isinstance(source, str):
+            elif isinstance(source, string_types):
                 # now source is a directory
                 f = open(os.path.join(source, self.fname))
             fs.append(f)
@@ -230,7 +232,6 @@ class TableLoader(object):
         csv_reader_generators = []
         for csv_reader in csv_readers:
             try:
-                print(csv_reader.fieldnames)
                 csv_reader.fieldnames = [x.strip() for x in csv_reader.fieldnames]
                 # Make a generator that strips the values in all fields before
                 # passing it on.  GTFS standard requires that there be no
@@ -382,7 +383,7 @@ class TableLoader(object):
         cur = conn.cursor()
         if where and cls.copy_where:
             copy_where = cls.copy_where.format(**where)
-            print(copy_where)
+            # print(copy_where)
         else:
             copy_where = ''
         cur.execute('INSERT INTO %s '
@@ -510,8 +511,7 @@ class TripLoader(TableLoader):
                 'route_I INT, service_I INT, direction_id TEXT, shape_id TEXT, '
                 'headsign TEXT, '
                 'start_time_ds INT, end_time_ds INT)')
-    extra_keys = ['route_I', 'service_I', #'shape_I'
-                  ]
+    extra_keys = ['route_I', 'service_I' ] #'shape_I']
     extra_values = ['(SELECT route_I FROM routes WHERE route_id=:_route_id )',
                     '(SELECT service_I FROM calendar WHERE service_id=:_service_id )',
                     #'(SELECT shape_I FROM shapes WHERE shape_id=:_shape_id )'
@@ -896,11 +896,9 @@ class AgencyLoader(TableLoader):
     def post_import(self, cur):
         TZs = cur.execute('SELECT DISTINCT timezone FROM agencies').fetchall()
         if len(TZs) == 0:
-            print("Error: no timezones in this database: %s" % self.gtfs_sources)
-            raise ValueError("No timezones in DB: %s" % TZs)
+            raise ValueError("Error: no timezones defined in sources: %s" % self.gtfs_sources)
         elif len(TZs) > 1:
-            print("Error: multiple timezones in this database: %s" % self.gtfs_sources)
-            raise ValueError("Multiple timezones in DB: %s" % TZs)
+            raise ValueError("Error: multiple timezones defined in sources:: %s" % self.gtfs_sources)
         TZ = TZs[0][0]
         os.environ['TZ'] = TZ
         #time.tzset()  # Cause C-library functions to notice the update.
@@ -992,12 +990,9 @@ class FrequenciesLoader(TableLoader):
     def post_import(self, cur):
         # For each (start_time_dependent) trip_I in frequencies.txt
         conn = self._conn
-        import pandas
         frequencies_df = pandas.read_sql("SELECT * FROM " + self.table, conn)
         trips_df = pandas.read_sql("SELECT * FROM " + "trips", conn)
         calendar_df = pandas.read_sql("SELECT * FROM " + "calendar", conn)
-        print(trips_df)
-        print(calendar_df)
 
         for freq_tuple in frequencies_df.itertuples():
             trip_data = pandas.read_sql_query("SELECT * FROM trips WHERE trip_I= " + str(int(freq_tuple.trip_I)), conn)
@@ -1032,7 +1027,7 @@ class FrequenciesLoader(TableLoader):
                             "headsign, start_time_ds, end_time_ds)" \
                         " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 
-                params = [trip_id, route_I, int(service_I), shape_id, direction_id, headsign, int(start_time), int(end_time_ds)]
+                params = [trip_id, int(route_I), int(service_I), shape_id, direction_id, headsign, int(start_time), int(end_time_ds)]
                 cur.execute(query, params)
 
                 query = "SELECT trip_I FROM trips WHERE trip_id='{trip_id}'".format(trip_id=trip_id)
@@ -1647,7 +1642,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
             prefix = ""
         else:
             prefix = "feed_" + str(i) + "_"
-        if isinstance(source, str):
+        if isinstance(source, string_types):
             G.meta[prefix + 'original_gtfs'] = decode_six(source) if source else None
             # Extract GTFS date.  Last date pattern in filename.
             filename_date_list = re.findall(r'\d{4}-\d{2}-\d{2}', source)
@@ -1751,7 +1746,7 @@ def main():
             import_gtfs(gtfs, output=tmpfile)
     elif args.cmd == "import-multiple":
         zipfiles = args.zipfiles
-        print(zipfiles)
+        # print(zipfiles)
     elif args.cmd == 'make-views':
         main_make_views(args.gtfs)
     # This is now implemented in gtfs.py, please remove the commented code

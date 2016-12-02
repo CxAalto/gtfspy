@@ -1,4 +1,6 @@
 from __future__ import print_function
+from __future__ import unicode_literals
+
 
 import calendar
 import datetime
@@ -88,19 +90,17 @@ class GTFS(object):
 
         Returns
         -------
-        path : str
+        path : unicode
             path to the database, empty string for in-memory databases
         """
         cur = self.conn.cursor()
         cur.execute("PRAGMA database_list")
         rows = cur.fetchall()
         for row in rows:
-            print(row)
             if row[1] == str("main"):
                 return row[2]
 
     def get_location_name(self):
-
         return self.meta.get('location_name', "location_unknown")
 
     def get_shape_distance_between_stops(self, trip_I, from_stop_seq, to_stop_seq):
@@ -332,7 +332,7 @@ class GTFS(object):
 
             name, route_type = self.get_route_name_and_type_of_tripI(trip_I)
             trip['route_type'] = int(route_type)
-            trip['name'] = unicode(name)
+            trip['name'] = str(name)
 
             if filter_name and (name != filter_name):
                 continue
@@ -462,12 +462,12 @@ class GTFS(object):
                     segment_counts[seg] += 1
                     if seg not in seg_to_info:
                         seg_to_info[seg] = {
-                            "trip_I": row.trip_I,
-                            "lats": [s_lat, s_lat_n],
-                            "lons": [s_lon, s_lon_n],
-                            "shape_id": row.shape_id,
-                            "stop_seqs": [s_seq, s_seq_n],
-                            "shape_breaks": [shape_break, shape_break_n]
+                            u"trip_I": row.trip_I,
+                            u"lats": [s_lat, s_lat_n],
+                            u"lons": [s_lon, s_lon_n],
+                            u"shape_id": row.shape_id,
+                            u"stop_seqs": [s_seq, s_seq_n],
+                            u"shape_breaks": [shape_break, shape_break_n]
                         }
                         tripI_to_seq[row.trip_I].append(seg)
 
@@ -475,27 +475,26 @@ class GTFS(object):
         for (stop_I, stop_J) in segment_counts.keys():
             for s in [stop_I, stop_J]:
                 if s not in stop_names:
-                    pdframe = self.stop(s)
-                    stop_names[s] = pdframe['name'].values[0]
+                    stop_names[s] = self.stop(s)[u'name'].values[0]
 
         seg_data = []
         for seg, count in segment_counts.items():
             segInfo = seg_to_info[seg]
-            shape_breaks = segInfo["shape_breaks"]
+            shape_breaks = segInfo[u"shape_breaks"]
             seg_el = {}
             if use_shapes and shape_breaks and shape_breaks[0] and shape_breaks[1]:
                 shape = shapes.get_shape_between_stops(
                     cur,
-                    segInfo['trip_I'],
+                    segInfo[u'trip_I'],
                     shape_breaks=shape_breaks
                 )
-                seg_el['lats'] = segInfo['lats'][:1] + shape['lat'] + segInfo['lats'][1:]
-                seg_el['lons'] = segInfo['lons'][:1] + shape['lon'] + segInfo['lons'][1:]
+                seg_el[u'lats'] = segInfo[u'lats'][:1] + shape[u'lat'] + segInfo[u'lats'][1:]
+                seg_el[u'lons'] = segInfo[u'lons'][:1] + shape[u'lon'] + segInfo[u'lons'][1:]
             else:
-                seg_el['lats'] = segInfo['lats']
-                seg_el['lons'] = segInfo['lons']
-            seg_el['name'] = stop_names[seg[0]] + "-" + stop_names[seg[1]]
-            seg_el['count'] = count
+                seg_el[u'lats'] = segInfo[u'lats']
+                seg_el[u'lons'] = segInfo[u'lons']
+            seg_el[u'name'] = stop_names[seg[0]] + u"-" + stop_names[seg[1]]
+            seg_el[u'count'] = count
             seg_data.append(seg_el)
         return seg_data
 
@@ -531,6 +530,11 @@ class GTFS(object):
                 "USING(agency_I) " \
                 "GROUP BY routes.route_I"
         data = pd.read_sql_query(query, self.conn)
+
+        print(pd.read_sql_query("select * from agencies", self.conn))
+        print(pd.read_sql_query("select * from routes", self.conn))
+        print(pd.read_sql_query("select * from trips", self.conn))
+
         routeShapes = []
         n_rows = len(data)
         for i, row in enumerate(data.itertuples()):
@@ -740,7 +744,8 @@ class GTFS(object):
             route_type according to the GTFS standard
         """
         cur = self.conn.cursor()
-        results = cur.execute("SELECT name, type FROM routes JOIN trips USING(route_I) WHERE trip_I=(?)", (trip_I,))
+        results = cur.execute("SELECT name, type FROM routes JOIN trips USING(route_I) WHERE trip_I={trip_I}"
+                              .format(trip_I=trip_I))
         name, rtype = results.fetchone()
         return u"%s" % str(name), int(rtype)
 
@@ -1134,7 +1139,7 @@ class GTFS(object):
         -------
         stop: pandas.DataFrame
         """
-        return pd.read_sql_query("SELECT * FROM stops WHERE stop_I=?", self.conn, params=(stop_I,))
+        return pd.read_sql_query("SELECT * FROM stops WHERE stop_I={stop_I}".format(stop_I=stop_I), self.conn)
 
     def get_stops_for_route_type(self, route_type):
         """
@@ -1263,12 +1268,12 @@ class GTFS(object):
                 d: float or int #distance in meters
         """
         if stop_I is not None:
-            query = """ SELECT from_stop_I, to_stop_I, d
+            query = u""" SELECT from_stop_I, to_stop_I, d
                         FROM stop_distances
                             WHERE
                                 from_stop_I=?
                     """
-            params = (stop_I,)
+            params = (u"{stop_I}".format(stop_I=stop_I),)
         else:
             query = """ SELECT from_stop_I, to_stop_I, d
                         FROM stop_distances
@@ -1339,7 +1344,6 @@ class GTFS(object):
 
     def _get_day_trips_table_name(self):
         cur = self.conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='day_trips2'")
-        print(self.get_table("day_trips2"))
         if len(cur.fetchall()) > 0:
             table_name = "day_trips2"
         else:

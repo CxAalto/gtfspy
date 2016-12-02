@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from collections import defaultdict, Counter
 
 import sys
@@ -8,11 +10,10 @@ if __name__ == '__main__' and __package__ is None:
     # import gtfspy
     __package__ = 'gtfspy'
 
-from __future__ import print_function
 
-from . import route_types
+from gtfspy import route_types
 from .util import wgs84_distance
-from .gtfs import GTFS
+from gtfspy.gtfs import GTFS
 
 WARNING_LONG_STOP_SPACING = "Long Stop Spacing"
 WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "5 Or More Consecutive Stop Times With Same Time"
