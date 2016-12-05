@@ -54,19 +54,25 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         self._n_veh_legs_to_simple_time_analyzers = {}
 
     @_check_for_no_labels_for_n_veh_counts
-    def max_trip_n_veh_legs(self):
+    def max_trip_n_boardings(self):
         return numpy.max([label.n_vehicle_legs for label in self._labels_within_time_frame])
 
     @_check_for_no_labels_for_n_veh_counts
-    def min_trip_n_veh_legs(self):
+    def min_trip_n_boardings(self):
         return numpy.min([label.n_vehicle_legs for label in self._labels_within_time_frame])
 
     @_check_for_no_labels_for_n_veh_counts
-    def mean_trip_n_veh_legs(self):
+    def mean_trip_n_boardings(self):
         return numpy.mean([label.n_vehicle_legs for label in self._labels_within_time_frame])
 
     @_check_for_no_labels_for_n_veh_counts
-    def median_trip_n_veh_legs(self):
+    def median_trip_n_boardings(self):
+        return numpy.median([label.n_vehicle_legs for label in self._labels_within_time_frame])
+
+    @_check_for_no_labels_for_n_veh_counts
+    def temporal_mean_n_boardings(self):
+
+
         return numpy.median([label.n_vehicle_legs for label in self._labels_within_time_frame])
 
     @_if_no_labels_return_inf
@@ -113,7 +119,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             min_n_veh_legs = 0
 
         if max_n_veh_legs is None:
-            max_n_veh_legs = self.max_trip_n_veh_legs()
+            max_n_veh_legs = self.max_trip_n_boardings()
             if max_n_veh_legs is None:
                 max_n_veh_legs = 0
 
@@ -134,7 +140,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         analyzer: NodeProfileAnalyzerTime
         """
         if n_vehicle_legs is None:
-            n_vehicle_legs = self.max_trip_n_veh_legs()
+            n_vehicle_legs = self.max_trip_n_boardings()
         # compute only if not yet computed
         if not n_vehicle_legs in self._n_veh_legs_to_simple_time_analyzers:
             if n_vehicle_legs == 0:
@@ -162,8 +168,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         fig: matplotlib.Figure or None
             returns None, if there essentially is no profile to plot
         """
-        max_n = self.max_trip_n_veh_legs()
-        min_n = self.min_trip_n_veh_legs()
+        max_n = self.max_trip_n_boardings()
+        min_n = self.min_trip_n_boardings()
         if max_n is None:
             return None
         fig = plt.figure()
@@ -217,10 +223,10 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             NPA.median_temporal_distance,
             NPA.min_temporal_distance,
             NPA.n_pareto_optimal_trips,
-            NPA.min_trip_n_veh_legs,
-            NPA.max_trip_n_veh_legs,
-            NPA.mean_trip_n_veh_legs,
-            NPA.median_trip_n_veh_legs
+            NPA.min_trip_n_boardings,
+            NPA.max_trip_n_boardings,
+            NPA.mean_trip_n_boardings,
+            NPA.median_trip_n_boardings
         ]
         profile_observable_names = [
             "max_trip_duration",

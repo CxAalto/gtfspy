@@ -26,10 +26,10 @@ class TestNodeProfileAnalyzerTimeAndVehLegs(TestCase):
     def test_trip_duration_statistics_empty_profile(self):
         analyzer = self._get_analyzer([], 0, 10)
 
-        self.assertTrue(isnan(analyzer.max_trip_n_veh_legs()))
-        self.assertTrue(isnan(analyzer.min_trip_n_veh_legs()))
-        self.assertTrue(isnan(analyzer.mean_trip_n_veh_legs()))
-        self.assertTrue(isnan(analyzer.median_trip_n_veh_legs()))
+        self.assertTrue(isnan(analyzer.max_trip_n_boardings()))
+        self.assertTrue(isnan(analyzer.min_trip_n_boardings()))
+        self.assertTrue(isnan(analyzer.mean_trip_n_boardings()))
+        self.assertTrue(isnan(analyzer.median_trip_n_boardings()))
 
     def test_temporal_distances_by_n_vehicles(self):
         labels = [
