@@ -13,17 +13,17 @@ cdef class LabelTimeSimple:
     def __richcmp__(LabelTimeSimple self, LabelTimeSimple other, int op):
         self_tuple = self.departure_time, -self.arrival_time_target
         other_tuple = other.departure_time, -other.arrival_time_target
-        if op == 2: # ==
+        if op == 2:  # ==
             return self_tuple == other_tuple
-        if op == 3: # !=
+        if op == 3:  # !=
             return self_tuple != other_tuple
-        if op == 0: # less than
+        if op == 0:  # less than
             return self_tuple < other_tuple
-        elif op == 4: # greater than
+        elif op == 4:  # greater than
             return self_tuple > other_tuple
-        elif op == 1: # <=
+        elif op == 1:  # <=
             return self_tuple <= other_tuple
-        elif op == 5: # >=
+        elif op == 5:  # >=
             return self_tuple >= other_tuple
 
     # __getstate__ and __setstate__ : for pickling
@@ -70,17 +70,17 @@ cdef class LabelTime:
     def __richcmp__(LabelTime self, LabelTime other, int op):
         self_tuple = self._tuple_for_ordering()
         other_tuple = other._tuple_for_ordering()
-        if op == 2: # ==
+        if op == 2:  # ==
             return self_tuple == other_tuple
-        if op == 3: # !=
+        if op == 3:  # !=
             return self_tuple != other_tuple
-        if op == 0: # less than
+        if op == 0:  # less than
             return self_tuple < other_tuple
-        elif op == 4: # greater than
+        elif op == 4:  # greater than
             return self_tuple > other_tuple
-        elif op == 1: # <=
+        elif op == 1:  # <=
             return self_tuple <= other_tuple
-        elif op == 5: # >=
+        elif op == 5:  # >=
             return self_tuple >= other_tuple
 
     # __getstate__ and __setstate__ : for pickling
@@ -93,7 +93,7 @@ cdef class LabelTime:
     cpdef int dominates(LabelTime self, LabelTime other) except *:
         self_tuple = self._tuple_for_ordering()
         other_tuple = other._tuple_for_ordering()
-        return all([(s >= o) for s, o in zip(self_tuple,other_tuple)])
+        return all([(s >= o) for s, o in zip(self_tuple, other_tuple)])
 
     cpdef int dominates_ignoring_dep_time(LabelTime self, LabelTime other):
         return self.arrival_time_target <= other.arrival_time_target and self.first_leg_is_walk <= other.first_leg_is_walk
@@ -117,54 +117,53 @@ cdef class LabelTime:
     cpdef LabelTime get_copy_with_walk_added(self, walk_duration):
         return LabelTime(self.departure_time - walk_duration, self.arrival_time_target, self.first_leg_is_walk)
 
-
-cdef class LabelTimeAndVehLegCount:
+cdef class LabelTimeWithBoardingsCount:
     cdef:
         public double departure_time
         public double arrival_time_target
-        public int n_vehicle_legs
+        public int n_boardings
         public bint first_leg_is_walk
 
 
     def __init__(self, float departure_time, float arrival_time_target,
-                 int n_vehicle_legs, bint first_leg_is_walk):
+                 int n_boardings, bint first_leg_is_walk):
         self.departure_time = departure_time
         self.arrival_time_target = arrival_time_target
-        self.n_vehicle_legs = n_vehicle_legs
+        self.n_boardings = n_boardings
         self.first_leg_is_walk = first_leg_is_walk
 
     def __getstate__(self):
-        return self.departure_time, self.arrival_time_target, self.n_vehicle_legs
+        return self.departure_time, self.arrival_time_target, self.n_boardings
 
     def __setstate__(self, state):
-        self.departure_time, self.arrival_time_target, self.n_vehicle_legs = state
+        self.departure_time, self.arrival_time_target, self.n_boardings = state
 
     def _tuple_for_ordering(self):
-        return self.departure_time, -self.arrival_time_target, -self.n_vehicle_legs, not self.first_leg_is_walk
+        return self.departure_time, -self.arrival_time_target, -self.n_boardings, not self.first_leg_is_walk
 
-    def __richcmp__(LabelTimeAndVehLegCount self, LabelTimeAndVehLegCount other, int op):
+    def __richcmp__(LabelTimeWithBoardingsCount self, LabelTimeWithBoardingsCount other, int op):
         self_tuple = self._tuple_for_ordering()
         other_tuple = other._tuple_for_ordering()
-        if op == 2: # ==
+        if op == 2:  # ==
             return self_tuple == other_tuple
-        if op == 3: # !=
+        if op == 3:  # !=
             return self_tuple != other_tuple
-        if op == 0: # less than
+        if op == 0:  # less than
             return self_tuple < other_tuple
-        elif op == 4: # greater than
+        elif op == 4:  # greater than
             return self_tuple > other_tuple
-        elif op == 1: # <=
+        elif op == 1:  # <=
             return self_tuple <= other_tuple
-        elif op == 5: # >=
+        elif op == 5:  # >=
             return self_tuple >= other_tuple
 
-    cpdef int dominates(self, LabelTimeAndVehLegCount other):
+    cpdef int dominates(self, LabelTimeWithBoardingsCount other):
         """
         Compute whether this LabelWithNumberVehicles dominates the other LabelWithNumberVehicles
 
         Parameters
         ----------
-        other: LabelTimeAndVehLegCount
+        other: LabelTimeWithBoardingsCount
 
         Returns
         -------
@@ -173,68 +172,84 @@ cdef class LabelTimeAndVehLegCount:
         """
         self_tuple = self._tuple_for_ordering()
         other_tuple = other._tuple_for_ordering()
-        return all([(s >= o) for s, o in zip(self_tuple,other_tuple)])
+        return all([(s >= o) for s, o in zip(self_tuple, other_tuple)])
 
-    cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeAndVehLegCount other):
+    cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeWithBoardingsCount other):
         dominates = (
             self.arrival_time_target <= other.arrival_time_target and
-            self.n_vehicle_legs <= other.n_vehicle_legs
+            self.n_boardings <= other.n_boardings
         )
         return dominates
 
-    cpdef int dominates_ignoring_dep_time(self, LabelTimeAndVehLegCount other):
+    cpdef int dominates_ignoring_dep_time(self, LabelTimeWithBoardingsCount other):
         cdef:
             int dominates
         dominates = (
             self.arrival_time_target <= other.arrival_time_target and
-            self.n_vehicle_legs <= other.n_vehicle_legs and
+            self.n_boardings <= other.n_boardings and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_time(self, LabelTimeWithBoardingsCount other):
+        cdef:
+            int dominates
+        dominates = (
+            self.n_boardings <= other.n_boardings and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_dep_time_and_n_boardings(self, LabelTimeWithBoardingsCount other):
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target and
             self.first_leg_is_walk <= other.first_leg_is_walk
         )
         return dominates
 
     cpdef get_copy(self):
-        return LabelTimeAndVehLegCount(self.departure_time, self.arrival_time_target,
-                                       self.n_vehicle_legs, self.first_leg_is_walk)
+        return LabelTimeWithBoardingsCount(self.departure_time, self.arrival_time_target,
+                                           self.n_boardings, self.first_leg_is_walk)
 
     cpdef get_copy_with_specified_departure_time(self, departure_time):
-        return LabelTimeAndVehLegCount(departure_time, self.arrival_time_target,
-                                       self.n_vehicle_legs, self.first_leg_is_walk)
+        return LabelTimeWithBoardingsCount(departure_time, self.arrival_time_target,
+                                           self.n_boardings, self.first_leg_is_walk)
 
     cpdef float duration(self):
         return self.arrival_time_target - self.departure_time
 
     @staticmethod
     def direct_walk_label(departure_time, walk_duration):
-        return LabelTimeAndVehLegCount(departure_time, departure_time + walk_duration, 0, True)
+        return LabelTimeWithBoardingsCount(departure_time, departure_time + walk_duration, 0, True)
 
-    cpdef LabelTimeAndVehLegCount get_copy_with_walk_added(self, float walk_duration):
-        return LabelTimeAndVehLegCount(self.departure_time - walk_duration,
-                                       self.arrival_time_target, self.n_vehicle_legs, True)
+    cpdef LabelTimeWithBoardingsCount get_copy_with_walk_added(self, float walk_duration):
+        return LabelTimeWithBoardingsCount(self.departure_time - walk_duration,
+                                           self.arrival_time_target, self.n_boardings, True)
 
     def __str__(self):
-        return str((self.departure_time, self.arrival_time_target, self.n_vehicle_legs, self.first_leg_is_walk))
-
-
+        return str((self.departure_time, self.arrival_time_target, self.n_boardings, self.first_leg_is_walk))
 
 cdef class LabelVehLegCount:
     cdef:
         public double departure_time
-        public int n_vehicle_legs
+        public int n_boardings
         public bint first_leg_is_walk
 
-    def __init__(self, n_vehicle_legs=0, departure_time=-float('inf'), first_leg_is_walk=False, **kwargs):
-        self.n_vehicle_legs = n_vehicle_legs
+    def __init__(self, n_boardings=0, departure_time=-float('inf'), first_leg_is_walk=False, **kwargs):
+        self.n_boardings = n_boardings
         self.departure_time = departure_time
         self.first_leg_is_walk = first_leg_is_walk
 
     def __getstate__(self):
-        return self.departure_time, self.n_vehicle_legs, self.first_leg_is_walk
+        return self.departure_time, self.n_boardings, self.first_leg_is_walk
 
     def __setstate__(self, state):
-        self.departure_time, self.n_vehicle_legs, self.first_leg_is_walk = state
+        self.departure_time, self.n_boardings, self.first_leg_is_walk = state
 
     def _tuple_for_ordering(self):
-        return -self.n_vehicle_legs, self.departure_time, not self.first_leg_is_walk
+        return -self.n_boardings, self.departure_time, not self.first_leg_is_walk
 
     def __richcmp__(LabelVehLegCount self, LabelVehLegCount other, int op):
         self_tuple = self._tuple_for_ordering()
@@ -243,13 +258,13 @@ cdef class LabelVehLegCount:
             return self_tuple == other_tuple
         if op == 3:
             return self_tuple != other_tuple
-        if op == 0: # less than
+        if op == 0:  # less than
             return self_tuple < other_tuple
-        elif op == 4: # greater than
+        elif op == 4:  # greater than
             return self_tuple > other_tuple
-        elif op == 1: # <=
+        elif op == 1:  # <=
             return self_tuple <= other_tuple
-        elif op == 5: # >=
+        elif op == 5:  # >=
             return self_tuple >= other_tuple
 
     cpdef int dominates(self, LabelVehLegCount other) except *:
@@ -258,29 +273,29 @@ cdef class LabelVehLegCount:
 
         Parameters
         ----------
-        other: LabelTimeAndVehLegCount
+        other: LabelTimeWithBoardingsCount
 
         Returns
         -------
         dominates: bint
             True if this ParetoTuple dominates the other, otherwise False
         """
-        return self.n_vehicle_legs <= other.n_vehicle_legs and self.first_leg_is_walk <= other.first_leg_is_walk
+        return self.n_boardings <= other.n_boardings and self.first_leg_is_walk <= other.first_leg_is_walk
 
     cpdef int dominates_ignoring_dep_time(self, LabelVehLegCount other):
         return self.dominates(other)
 
     cpdef int dominates_ignoring_dep_time_finalization(self, LabelVehLegCount other):
-        return self.n_vehicle_legs <= other.n_vehicle_legs
+        return self.n_boardings <= other.n_boardings
 
     def get_copy(self):
-        return LabelVehLegCount(self.n_vehicle_legs, first_leg_is_walk=self.first_leg_is_walk)
+        return LabelVehLegCount(self.n_boardings, first_leg_is_walk=self.first_leg_is_walk)
 
     def get_copy_with_specified_departure_time(self, departure_time):
-        return LabelVehLegCount(self.n_vehicle_legs, departure_time, self.first_leg_is_walk)
+        return LabelVehLegCount(self.n_boardings, departure_time, self.first_leg_is_walk)
 
     def get_copy_with_walk_added(self, walk_duration):
-        return LabelVehLegCount(self.n_vehicle_legs, departure_time=self.departure_time - walk_duration,
+        return LabelVehLegCount(self.n_boardings, departure_time=self.departure_time - walk_duration,
                                 first_leg_is_walk=True)
 
     @staticmethod
@@ -289,7 +304,7 @@ cdef class LabelVehLegCount:
 
 # ctypedef fused label:
 #     LabelTime
-#     LabelTimeAndVehLegCount
+#     LabelTimeWithBoardingsCount
 #     LabelVehLegCount
 #
 # cpdef int dominates(label first, label other):
@@ -298,22 +313,26 @@ cdef class LabelVehLegCount:
 def compute_pareto_front_smart(list label_list):
     return compute_pareto_front(label_list)
 
-def compute_pareto_front(list label_list, finalization=False):
+def compute_pareto_front(list label_list, finalization=False, ignore_n_boardings=False):
     pareto_front = []
     if len(label_list) == 0:
         return pareto_front
 
+    assert(not (finalization and ignore_n_boardings))
     # determine function used for domination:
     label = next(iter(label_list))
     if finalization:
         dominates = label.__class__.dominates_ignoring_dep_time_finalization
+    elif ignore_n_boardings:
+        dominates = label.__class__.dominates_ignoring_dep_time_and_n_boardings
     else:
         dominates = label.__class__.dominates_ignoring_dep_time
 
-    label_list = list(reversed(sorted(label_list))) # n log(n)
+
+    label_list = list(reversed(sorted(label_list)))  # n log(n)
     # assume only that label_list is sorted by departure time (best last)
     current_best_labels_wo_deptime = []
-    for new_label in label_list: # n times
+    for new_label in label_list:  # n times
         is_dominated = False
         for best_label in current_best_labels_wo_deptime:
             # the size of current_best_labels_wo_deptime should remain small
@@ -323,7 +342,7 @@ def compute_pareto_front(list label_list, finalization=False):
                 is_dominated = True
                 break
         if is_dominated:
-            continue # do nothing
+            continue  # do nothing
         else:
             pareto_front.append(new_label)
             new_best = []
@@ -333,7 +352,6 @@ def compute_pareto_front(list label_list, finalization=False):
             new_best.append(new_label)
             current_best_labels_wo_deptime = new_best
     return pareto_front
-
 
 def compute_pareto_front_naive(list label_list):
     """
@@ -385,8 +403,6 @@ def compute_pareto_front_naive(list label_list):
         #   dominated contains Labels that are dominated by some other LabelTime
     return pareto_front
 
-#
-
 def merge_pareto_frontiers(labels, labels_other):
     """
     Merge two pareto frontiers by removing dominated entries.
@@ -418,13 +434,11 @@ def merge_pareto_frontiers(labels, labels_other):
     survived = _get_non_dominated_entries(labels_other, survived, survivor_list=survived)
     return survived
 
-
 def min_arrival_time_target(label_list):
     if len(label_list) > 0:
         return min(label_list, key=lambda label: label.arrival_time_target).arrival_time_target
     else:
         return float('inf')
-
 
 def min_n_vehicle_trips(label_list):
     if len(label_list) > 0:

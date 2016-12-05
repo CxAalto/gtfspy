@@ -3,7 +3,7 @@ from unittest import TestCase
 import networkx
 
 from gtfspy.routing.models import Connection
-from gtfspy.routing.label import min_arrival_time_target, LabelTimeAndVehLegCount, LabelTime
+from gtfspy.routing.label import min_arrival_time_target, LabelTimeWithBoardingsCount, LabelTime
 from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 
@@ -89,13 +89,13 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
 
         stop_3_labels = csa_profile.stop_profiles[3].get_final_optimal_labels()
         self.assertEqual(len(stop_3_labels), 1)
-        self.assertIn(LabelTimeAndVehLegCount(32, 35, n_vehicle_legs=1, first_leg_is_walk=False), stop_3_labels)
+        self.assertIn(LabelTimeWithBoardingsCount(32, 35, n_boardings=1, first_leg_is_walk=False), stop_3_labels)
 
         stop_2_labels = csa_profile.stop_profiles[2].get_final_optimal_labels()
         self.assertEqual(len(stop_2_labels), 3)
-        self.assertIn(LabelTimeAndVehLegCount(40, 50, n_vehicle_legs=1, first_leg_is_walk=False), stop_2_labels)
-        self.assertIn(LabelTimeAndVehLegCount(25, 35, n_vehicle_legs=2, first_leg_is_walk=False), stop_2_labels)
-        self.assertIn(LabelTimeAndVehLegCount(25, 45, n_vehicle_legs=1, first_leg_is_walk=False), stop_2_labels)
+        self.assertIn(LabelTimeWithBoardingsCount(40, 50, n_boardings=1, first_leg_is_walk=False), stop_2_labels)
+        self.assertIn(LabelTimeWithBoardingsCount(25, 35, n_boardings=2, first_leg_is_walk=False), stop_2_labels)
+        self.assertIn(LabelTimeWithBoardingsCount(25, 45, n_boardings=1, first_leg_is_walk=False), stop_2_labels)
 
 
         stop_one_profile = csa_profile.stop_profiles[1]
@@ -103,9 +103,9 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
 
         labels = list()
         # these should exist at least:
-        labels.append(LabelTimeAndVehLegCount(departure_time=10, arrival_time_target=35, n_vehicle_legs=3, first_leg_is_walk=False))
-        labels.append(LabelTimeAndVehLegCount(departure_time=20, arrival_time_target=50, n_vehicle_legs=1, first_leg_is_walk=False))
-        labels.append(LabelTimeAndVehLegCount(departure_time=32, arrival_time_target=55, n_vehicle_legs=1, first_leg_is_walk=False))
+        labels.append(LabelTimeWithBoardingsCount(departure_time=10, arrival_time_target=35, n_boardings=3, first_leg_is_walk=False))
+        labels.append(LabelTimeWithBoardingsCount(departure_time=20, arrival_time_target=50, n_boardings=1, first_leg_is_walk=False))
+        labels.append(LabelTimeWithBoardingsCount(departure_time=32, arrival_time_target=55, n_boardings=1, first_leg_is_walk=False))
 
     def test_multiple_targets(self):
         event_list_raw_data = [
@@ -155,8 +155,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         source_stop_labels = source_stop_profile.get_final_optimal_labels()
 
         labels = list()
-        labels.append(LabelTimeAndVehLegCount(departure_time=20, arrival_time_target=50,
-                                              n_vehicle_legs=1, first_leg_is_walk=True))
+        labels.append(LabelTimeWithBoardingsCount(departure_time=20, arrival_time_target=50,
+                                                  n_boardings=1, first_leg_is_walk=True))
 
         self._assert_label_sets_equal(
             labels,
@@ -178,7 +178,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         start_time = 0
         end_time = 50
         labels = list()
-        labels.append(LabelTimeAndVehLegCount(departure_time=0, arrival_time_target=30, n_vehicle_legs=1, first_leg_is_walk=False))
+        labels.append(LabelTimeWithBoardingsCount(departure_time=0, arrival_time_target=30, n_boardings=1, first_leg_is_walk=False))
 
         csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                       start_time, end_time, transfer_margin,
@@ -239,7 +239,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         source_profile = csa_profile.stop_profiles[0]
         print(source_profile.get_final_optimal_labels())
         for label in source_profile.get_final_optimal_labels():
-            self.assertGreater(label.n_vehicle_legs, 0)
+            self.assertGreater(label.n_boardings, 0)
 
     def test_target_node_not_in_walk_network(self):
         event_list_raw_data = [
@@ -285,8 +285,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         self.assertEqual(min_arrival_time_target(source_profile.evaluate(0, 0)), 8)
         found_labels = source_profile.get_final_optimal_labels()
         labels_should_be = list()
-        labels_should_be.append(LabelTimeAndVehLegCount(0, 10, n_vehicle_legs=1, first_leg_is_walk=False))
-        labels_should_be.append(LabelTimeAndVehLegCount(2, 8, n_vehicle_legs=2, first_leg_is_walk=False))
+        labels_should_be.append(LabelTimeWithBoardingsCount(0, 10, n_boardings=1, first_leg_is_walk=False))
+        labels_should_be.append(LabelTimeWithBoardingsCount(2, 8, n_boardings=2, first_leg_is_walk=False))
         self._assert_label_sets_equal(found_labels, labels_should_be)
 
     def test_transfer_margin(self):
@@ -371,16 +371,16 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
                                                       walk_network, walk_speed, track_time=False)
         csa_profile.run()
 
-        stop_to_n_vehicle_legs = {
+        stop_to_n_boardings = {
             2: 1,
             7: 2,
             3: 0
         }
 
-        for stop, n_veh_legs in stop_to_n_vehicle_legs.items():
+        for stop, n_veh_legs in stop_to_n_boardings.items():
             labels = csa_profile.stop_profiles[stop].get_final_optimal_labels()
             self.assertEqual(len(labels), 1)
-            self.assertEqual(labels[0].n_vehicle_legs, n_veh_legs)
+            self.assertEqual(labels[0].n_boardings, n_veh_legs)
 
     def _assert_label_sets_equal(self, found_tuples, should_be_tuples):
         self.assertEqual(len(found_tuples), len(should_be_tuples))

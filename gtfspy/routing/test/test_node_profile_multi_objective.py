@@ -4,7 +4,7 @@ pyximport.install()
 from unittest import TestCase
 
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.label import LabelTime, min_arrival_time_target, LabelTimeAndVehLegCount, LabelVehLegCount
+from gtfspy.routing.label import LabelTime, min_arrival_time_target, LabelTimeWithBoardingsCount, LabelVehLegCount
 
 
 class TestNodeProfileMultiObjective(TestCase):
@@ -28,7 +28,7 @@ class TestNodeProfileMultiObjective(TestCase):
 
     def test_identity_profile(self):
         identity_profile = NodeProfileMultiObjective(dep_times=[10])
-        identity_profile.update([LabelTimeAndVehLegCount(10, 10, 0, True)])
+        identity_profile.update([LabelTimeWithBoardingsCount(10, 10, 0, True)])
         self.assertEqual(10, min_arrival_time_target(identity_profile.evaluate(10, first_leg_can_be_walk=True)))
 
     def test_walk_duration(self):
@@ -41,9 +41,9 @@ class TestNodeProfileMultiObjective(TestCase):
 
     def test_pareto_optimality_with_transfers_and_time(self):
         node_profile = NodeProfileMultiObjective(dep_times=[5, 6, 7])
-        pt3 = LabelTimeAndVehLegCount(departure_time=5, arrival_time_target=45, n_vehicle_legs=0, first_leg_is_walk=False)
-        pt2 = LabelTimeAndVehLegCount(departure_time=6, arrival_time_target=40, n_vehicle_legs=1, first_leg_is_walk=False)
-        pt1 = LabelTimeAndVehLegCount(departure_time=7, arrival_time_target=35, n_vehicle_legs=2, first_leg_is_walk=False)
+        pt3 = LabelTimeWithBoardingsCount(departure_time=5, arrival_time_target=45, n_boardings=0, first_leg_is_walk=False)
+        pt2 = LabelTimeWithBoardingsCount(departure_time=6, arrival_time_target=40, n_boardings=1, first_leg_is_walk=False)
+        pt1 = LabelTimeWithBoardingsCount(departure_time=7, arrival_time_target=35, n_boardings=2, first_leg_is_walk=False)
         self.assertTrue(node_profile.update([pt1]))
         self.assertTrue(node_profile.update([pt2]))
         self.assertTrue(node_profile.update([pt3]))
@@ -64,10 +64,10 @@ class TestNodeProfileMultiObjective(TestCase):
 
     def test_finalize(self):
         NodeProfileMultiObjective()
-        node_profile = NodeProfileMultiObjective(label_class=LabelTimeAndVehLegCount, dep_times=[10])
-        own_label = LabelTimeAndVehLegCount(departure_time=10, arrival_time_target=20, n_vehicle_legs=0, first_leg_is_walk=False)
+        node_profile = NodeProfileMultiObjective(label_class=LabelTimeWithBoardingsCount, dep_times=[10])
+        own_label = LabelTimeWithBoardingsCount(departure_time=10, arrival_time_target=20, n_boardings=0, first_leg_is_walk=False)
         self.assertTrue(node_profile.update([own_label]))
-        neighbor_label = LabelTimeAndVehLegCount(departure_time=15, arrival_time_target=18, n_vehicle_legs=2, first_leg_is_walk=False)
+        neighbor_label = LabelTimeWithBoardingsCount(departure_time=15, arrival_time_target=18, n_boardings=2, first_leg_is_walk=False)
         assert(len(node_profile.get_labels_for_real_connections()) == 1)
         node_profile.finalize([[neighbor_label]], [3])
         assert (len(node_profile.get_final_optimal_labels()) == 2)
