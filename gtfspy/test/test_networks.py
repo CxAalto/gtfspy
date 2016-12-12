@@ -32,6 +32,10 @@ class NetworkExtractsTest(unittest.TestCase):
         if os.path.exists(self.extract_output_dir):
             shutil.rmtree(self.extract_output_dir)
 
+    def tearDown(self):
+        if os.path.exists(self.extract_output_dir):
+            shutil.rmtree(self.extract_output_dir)
+
     def test_walk_network(self):
         calc_transfers(self.gtfs.conn, 10**6)
         walk_net = networks.walk_transfer_stop_to_stop_network(self.gtfs)

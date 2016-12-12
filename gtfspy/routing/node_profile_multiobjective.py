@@ -1,6 +1,6 @@
 import numpy
 
-from gtfspy.routing.label import LabelTimeAndVehLegCount, merge_pareto_frontiers, compute_pareto_front, LabelVehLegCount, \
+from gtfspy.routing.label import LabelTimeWithBoardingsCount, merge_pareto_frontiers, compute_pareto_front, LabelVehLegCount, \
     LabelTime
 
 
@@ -13,7 +13,7 @@ class NodeProfileMultiObjective:
     def __init__(self,
                  dep_times=None,
                  walk_to_target_duration=float('inf'),
-                 label_class=LabelTimeAndVehLegCount,
+                 label_class=LabelTimeWithBoardingsCount,
                  transit_connection_dep_times=None):
         """
 
@@ -156,7 +156,7 @@ class NodeProfileMultiObjective:
             next_dep_time = next(value for value in reversed(self._connection_dep_times) if value >= time)
             labels = self.evaluate(next_dep_time)
             labels_to_return = [label.get_copy_with_specified_departure_time(time) for label in labels
-                                if allow_walk_to_target or label.n_vehicle_legs > 0]
+                                if allow_walk_to_target or label.n_boardings > 0]
             return labels_to_return
         except StopIteration as e:
             if not allow_walk_to_target:
@@ -166,7 +166,6 @@ class NodeProfileMultiObjective:
                 else:
                     return []
 
-
     def get_walk_label(self, departure_time):
         if departure_time != float('inf') and self._walk_to_target_duration != float('inf'):
             if self._walk_to_target_duration == 0:
@@ -175,7 +174,7 @@ class NodeProfileMultiObjective:
                 first_leg_is_walk = True
             return self.label_class(departure_time=departure_time,
                                     arrival_time_target=departure_time + self._walk_to_target_duration,
-                                    n_vehicle_legs=0,
+                                    n_boardings=0,
                                     first_leg_is_walk=first_leg_is_walk)
         else:
             return None
@@ -226,7 +225,7 @@ class NodeProfileMultiObjective:
         for dep_time in self._connection_dep_times:
             index = self.dep_times_to_index[dep_time]
             pareto_optimal_labels.extend([label for label in self._label_bags[index] if not label.first_leg_is_walk])
-        if self.label_class == LabelTimeAndVehLegCount or self.label_class == LabelTime:
+        if self.label_class == LabelTimeWithBoardingsCount or self.label_class == LabelTime:
             pareto_optimal_labels = [label for label in pareto_optimal_labels
                                      if label.duration() < self._walk_to_target_duration]
 

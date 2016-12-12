@@ -3,7 +3,7 @@ install()
 
 from unittest import TestCase
 
-from gtfspy.routing.label import LabelTimeSimple, LabelTimeAndVehLegCount
+from gtfspy.routing.label import LabelTimeSimple, LabelTimeWithBoardingsCount
 from gtfspy.routing.node_profile_simple import NodeProfileSimple
 
 
@@ -59,10 +59,10 @@ class TestNodeProfileSimple(TestCase):
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt2))
 
     def test_pareto_optimality_with_transfers(self):
-        node_profile = NodeProfileSimple(label_class=LabelTimeAndVehLegCount)
-        pt3 = LabelTimeAndVehLegCount(departure_time=5, arrival_time_target=35, n_vehicle_legs=0, first_leg_is_walk=True)
-        pt2 = LabelTimeAndVehLegCount(departure_time=5, arrival_time_target=35, n_vehicle_legs=1, first_leg_is_walk=True)
-        pt1 = LabelTimeAndVehLegCount(departure_time=5, arrival_time_target=35, n_vehicle_legs=2, first_leg_is_walk=True)
+        node_profile = NodeProfileSimple(label_class=LabelTimeWithBoardingsCount)
+        pt3 = LabelTimeWithBoardingsCount(departure_time=5, arrival_time_target=35, n_boardings=0, first_leg_is_walk=True)
+        pt2 = LabelTimeWithBoardingsCount(departure_time=5, arrival_time_target=35, n_boardings=1, first_leg_is_walk=True)
+        pt1 = LabelTimeWithBoardingsCount(departure_time=5, arrival_time_target=35, n_boardings=2, first_leg_is_walk=True)
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt1))
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt2))
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt3))

@@ -6,7 +6,7 @@ import numpy
 from gtfspy.routing.models import Connection
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.label import merge_pareto_frontiers, LabelTimeAndVehLegCount, LabelTime, compute_pareto_front, \
+from gtfspy.routing.label import merge_pareto_frontiers, LabelTimeWithBoardingsCount, LabelTime, compute_pareto_front, \
     LabelVehLegCount
 from gtfspy.util import timeit
 
@@ -84,7 +84,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         assert(track_time or track_vehicle_legs)
         if track_vehicle_legs:
             if track_time:
-                self._label_class = LabelTimeAndVehLegCount
+                self._label_class = LabelTimeWithBoardingsCount
             else:
                 self._label_class = LabelVehLegCount
         else:
@@ -295,6 +295,6 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         for label in labels_copy:
             label.departure_time = departure_time
             if increment_vehicle_count:
-                label.n_vehicle_legs += 1
+                label.n_boardings += 1
             label.first_leg_is_walk = first_leg_is_walk
         return labels_copy
