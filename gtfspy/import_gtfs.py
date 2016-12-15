@@ -901,7 +901,7 @@ class AgencyLoader(TableLoader):
             raise ValueError("Error: multiple timezones defined in sources:: %s" % self.gtfs_sources)
         TZ = TZs[0][0]
         os.environ['TZ'] = TZ
-        #time.tzset()  # Cause C-library functions to notice the update.
+        time.tzset()  # Cause C-library functions to notice the update.
 
     def index(self, cur):
         pass
