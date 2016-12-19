@@ -31,6 +31,10 @@ from gtfspy import util
 from gtfspy.gtfs import GTFS
 from gtfspy import calc_transfers
 
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 def decode_six(string):
     version = sys.version_info[0]
     if version == 2:
@@ -246,7 +250,7 @@ class TableLoader(object):
             except TypeError as e:
                 if "NoneType" in str(e):
                     print("file missing", self.fname)
-                    raise e
+                    #raise e here will make every multifeed download with incompatible number of tables fail
                 else:
                     raise e
         prefixes = [u"feed_{i}_".format(i=i) for i in range(len(csv_reader_generators))]
@@ -882,6 +886,7 @@ class AgencyLoader(TableLoader):
     # shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence
     # 1001_20140811_1,60.167430,24.951684,1
     def gen_rows(self, readers, prefixes):
+
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
                 yield dict(
@@ -898,7 +903,18 @@ class AgencyLoader(TableLoader):
         if len(TZs) == 0:
             raise ValueError("Error: no timezones defined in sources: %s" % self.gtfs_sources)
         elif len(TZs) > 1:
-            raise ValueError("Error: multiple timezones defined in sources:: %s" % self.gtfs_sources)
+            for tz in TZs:
+                import pytz
+                first_tz = None
+                cur_tz = None
+                generic_date = datetime(2009, 9, 1)
+                if not first_tz:
+                    first_tz = tz
+                else:
+                    ftz = pytz.timezone(first_tz).utcoffset(generic_date, is_dst=True)
+                    ctz = pytz.timezone(tz).utcoffset(generic_date, is_dst=True)
+                    if not str(ftz) == str(ctz):
+                        raise ValueError("Error: multiple timezones defined in sources:: %s" % self.gtfs_sources)
         TZ = TZs[0][0]
         os.environ['TZ'] = TZ
         time.tzset()  # Cause C-library functions to notice the update.
@@ -1090,7 +1106,7 @@ class FeedInfoLoader(TableLoader):
                 )
 
     def post_import2(self, conn):
-        # TODO! Something whould be done with this! Multiple feeds are possible
+        # TODO! Something whould be done with this! Multiple feeds are possible, currently only selects one row for all feeds
         G = GTFS(conn)
         for name in ['feed_publisher_name',
                      'feed_publisher_url',
