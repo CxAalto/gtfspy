@@ -298,11 +298,11 @@ def _feed_calendar_span(gtfs, stats):
     :param stats: stats container, dict
     :return: stats, dict
     """
-    n_feeds = _n_gtfs_sources(gtfs)
+    n_feeds = _n_gtfs_sources(gtfs)[0]
     max_start = None
     min_end = None
-    if n_feeds[0] > 1:
-        for i in range(n_feeds[0]):
+    if n_feeds > 1:
+        for i in range(n_feeds):
             feed_key = "feed_" + str(i) + "_"
             start_key = feed_key + "calendar_start"
             end_key = feed_key + "calendar_end"

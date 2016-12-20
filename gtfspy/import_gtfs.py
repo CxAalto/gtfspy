@@ -197,13 +197,14 @@ class TableLoader(object):
             version = sys.version_info[0]
             for line in file_obj:
                 if isinstance(line, bytes):
-                    yield line.decode("utf-8")
+                    yield line.decode("utf-8").lstrip(codecs.BOM_UTF8)
                 elif version == 2:  # python2.x
                     if isinstance(line, unicode):
                         yield line
                     else:
                         yield line.lstrip(codecs.BOM_UTF8)
                 else:
+                    assert False, "Not here!"
                     assert(isinstance(line, str))
                     yield line
 
