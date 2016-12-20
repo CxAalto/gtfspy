@@ -149,23 +149,6 @@ class NodeProfileMultiObjective:
             pareto_optimal_labels = [label for label in pareto_optimal_labels if not label.first_leg_is_walk]
         return pareto_optimal_labels
 
-    def evaluate_at_arbitrary_time(self, time, allow_walk_to_target=False):
-        if not hasattr(self.label_class, "n_veh_legs"):
-            allow_walk_to_target = False
-        try:
-            next_dep_time = next(value for value in reversed(self._connection_dep_times) if value >= time)
-            labels = self.evaluate(next_dep_time)
-            labels_to_return = [label.get_copy_with_specified_departure_time(time) for label in labels
-                                if allow_walk_to_target or label.n_boardings > 0]
-            return labels_to_return
-        except StopIteration as e:
-            if not allow_walk_to_target:
-                walk_label = self.get_walk_label(time)
-                if walk_label:
-                    return [self.get_walk_label(time)]
-                else:
-                    return []
-
     def get_walk_label(self, departure_time):
         if departure_time != float('inf') and self._walk_to_target_duration != float('inf'):
             if self._walk_to_target_duration == 0:

@@ -7,7 +7,7 @@ from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.routing.label import LabelTimeWithBoardingsCount, compute_pareto_front, LabelTimeSimple
 from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
 from gtfspy.routing.node_profile_simple import NodeProfileSimple
-from gtfspy.routing.profile_block_analyzer import ProfileBlock, TemporalProfileBlockAnalyzer
+from gtfspy.routing.profile_block_analyzer import ProfileBlock, ProfileBlockAnalyzer
 
 
 def _check_for_no_labels_for_n_veh_counts(func):
@@ -46,26 +46,32 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         assert(self.node_profile.label_class == LabelTimeWithBoardingsCount)
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
+        all_optimal_labels_ignoring_time_frame = node_profile.get_final_optimal_labels()
         self.all_labels = [label for label in node_profile.get_final_optimal_labels() if
                            (start_time_dep <= label.departure_time < end_time_dep)]
-        self.all_labels.extend(self.node_profile.evaluate_at_arbitrary_time(end_time_dep, allow_walk_to_target=False))
-        self._labels_within_time_frame = self.all_labels[::-1]
+        # after_labels = self.node_profile.evaluate_at_arbitrary_time(end_time_dep, allow_walk_to_target=False)
+        after_labels = compute_pareto_front([label for label in node_profile.get_final_optimal_labels() if
+                                             (label.departure_time > self.end_time_dep)], ignore_n_boardings=True)
+        self.all_labels.extend(after_labels)
+        print(len(after_labels))
+        if len(after_labels) is 0:
+            self._labels_within_time_frame = self.all_labels
+        else:
+            self._labels_within_time_frame = self.all_labels[::-len(after_labels)]
+
 
         self._walk_to_target_duration = self.node_profile.get_walk_to_target_duration()
-        self._n_veh_legs_to_simple_time_analyzers = {}
+        self._n_boardings_to_simple_time_analyzers = {}
 
-        # TODO!
-        # Find dominated set ignoring transfers.
-        # Sort these by departure time.
-        # self._transfers_along_fastest_path_analyzer = []
         self._transfers_on_fastest_paths_analyzer = self._get_transfers_along_fastest_path_analyzer()
 
+
     def _get_transfers_along_fastest_path_analyzer(self):
-        labels = list(reversed(compute_pareto_front(self._labels_within_time_frame, ignore_n_boardings=True)))
+        labels = list(reversed(compute_pareto_front(self.all_labels, ignore_n_boardings=True)))
 
         # assert ordered:
         for i in range(len(labels) - 1):
-            assert(labels[i].departure_time < labels[i + 1].departure_time)
+            assert(labels[i].departure_time <= labels[i + 1].departure_time)
 
         previous_dep_time = self.start_time_dep
         profile_blocks = []
@@ -73,6 +79,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             if previous_dep_time > self.end_time_dep:
                 break
             end_time = min(label.departure_time, self.end_time_dep)
+            assert(end_time >= previous_dep_time)
             block = ProfileBlock(start_time=previous_dep_time, end_time=end_time,
                                  distance_start=label.n_boardings, distance_end=label.n_boardings)
             profile_blocks.append(block)
@@ -80,18 +87,18 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         if previous_dep_time < self.end_time_dep:
             profile_blocks.append(ProfileBlock(start_time=previous_dep_time, end_time=self.end_time_dep,
                                   distance_start=float('inf'), distance_end=float('inf')))
-        return TemporalProfileBlockAnalyzer(profile_blocks, cutoff_distance=float('inf'))
+        return ProfileBlockAnalyzer(profile_blocks, cutoff_distance=float('inf'))
 
-    def get_min_n_boardings_along_shortest_paths(self):
+    def min_n_boardings_along_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.min()
 
-    def get_max_n_boardings_along_shortest_paths(self):
+    def max_n_boardings_along_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.max()
 
-    def get_mean_n_boardings_along_shortest_paths(self):
+    def mean_n_boardings_along_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.mean()
 
-    def get_median_n_boardings_along_shortest_paths(self):
+    def median_n_boardings_along_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.median()
 
     def _get_time_profile_analyzer(self, n_boardings=None):
@@ -107,20 +114,22 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         if n_boardings is None:
             n_boardings = self.max_trip_n_boardings()
         # compute only if not yet computed
-        if not n_boardings in self._n_veh_legs_to_simple_time_analyzers:
+        if not n_boardings in self._n_boardings_to_simple_time_analyzers:
             if n_boardings == 0:
                 valids = []
             else:
-                valids = compute_pareto_front([LabelTimeSimple(label.departure_time, label.arrival_time_target)
-                                               for label in self.all_labels
-                                               if label.n_boardings <= n_boardings])
+                candidate_labels = [LabelTimeSimple(label.departure_time, label.arrival_time_target)
+                                    for label in self.node_profile.get_final_optimal_labels() if
+                                    ((self.start_time_dep <= label.departure_time)
+                                      and label.n_boardings <= n_boardings)]
+                valids = compute_pareto_front(candidate_labels)
             valids.sort(key=lambda label: -label.departure_time)
             profile = NodeProfileSimple(self._walk_to_target_duration)
             for valid in valids:
                 profile.update_pareto_optimal_tuples(valid)
             npat = NodeProfileAnalyzerTime(profile, self.start_time_dep, self.end_time_dep)
-            self._n_veh_legs_to_simple_time_analyzers[n_boardings] = npat
-        return self._n_veh_legs_to_simple_time_analyzers[n_boardings]
+            self._n_boardings_to_simple_time_analyzers[n_boardings] = npat
+        return self._n_boardings_to_simple_time_analyzers[n_boardings]
 
     @_check_for_no_labels_for_n_veh_counts
     def max_trip_n_boardings(self):
@@ -128,7 +137,11 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
     @_check_for_no_labels_for_n_veh_counts
     def min_trip_n_boardings(self):
-        return numpy.min([label.n_boardings for label in self._labels_within_time_frame])
+        values = [label.n_boardings for label in self._labels_within_time_frame]
+        min_val = numpy.min(values)
+        if min_val not in [1, 2]:
+            min_val = min_val
+        return min_val
 
     @_check_for_no_labels_for_n_veh_counts
     def mean_trip_n_boardings(self):
@@ -140,8 +153,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
     @_check_for_no_labels_for_n_veh_counts
     def temporal_mean_n_boardings(self):
-
-
         return numpy.median([label.n_boardings for label in self._labels_within_time_frame])
 
     @_if_no_labels_return_inf
@@ -176,7 +187,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
     def mean_trip_duration(self):
         return self._get_time_profile_analyzer().mean_trip_duration()
 
-    def median_temporal_distances(self, min_n_veh_legs=None, max_n_veh_legs=None):
+    def median_temporal_distances(self, min_n_boardings=None, max_n_boardings=None):
         """
         Returns
         -------
@@ -184,21 +195,21 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             list indices encode the number of vehicle legs each element
             in the list tells gets the mean temporal distance
         """
-        if min_n_veh_legs is None:
-            min_n_veh_legs = 0
+        if min_n_boardings is None:
+            min_n_boardings = 0
 
-        if max_n_veh_legs is None:
-            max_n_veh_legs = self.max_trip_n_boardings()
-            if max_n_veh_legs is None:
-                max_n_veh_legs = 0
+        if max_n_boardings is None:
+            max_n_boardings = self.max_trip_n_boardings()
+            if max_n_boardings is None:
+                max_n_boardings = 0
 
-        median_temporal_distances = [float('inf') for _ in range(min_n_veh_legs, max_n_veh_legs + 1)]
-        for n_veh_legs in range(min_n_veh_legs, max_n_veh_legs + 1):
-            simple_analyzer = self._get_time_profile_analyzer(n_veh_legs)
-            median_temporal_distances[n_veh_legs] = simple_analyzer.median_temporal_distance()
+        median_temporal_distances = [float('inf') for _ in range(min_n_boardings, max_n_boardings + 1)]
+        for n_boardings in range(min_n_boardings, max_n_boardings + 1):
+            simple_analyzer = self._get_time_profile_analyzer(n_boardings)
+            median_temporal_distances[n_boardings] = simple_analyzer.median_temporal_distance()
         return median_temporal_distances
 
-    def plot_temporal_distance_variation(self, timezone=None):
+    def plot_temporal_distance_variation(self, timezone):
         """
         Parameters
         ----------
@@ -238,7 +249,17 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                                   lw=linewidth,
                                                   label=label)
         ax.legend(loc="best", framealpha=0.5)
-        ax.set_ylim(bottom=0, top=max_temporal_distance / 60.0)
+        ax.set_ylim(bottom=0, top=max_temporal_distance / 60.0 * 1.05)
+        return fig
+
+    def plot_fastest_temporal_distance_profile(self, timezone=None, **kwargs):
+        max_n = self.max_trip_n_boardings()
+        fig = plt.figure(figsize=(10, 6))
+        ax = fig.add_subplot(111)
+        npat = self._get_time_profile_analyzer(max_n)
+        npat.plot_temporal_distance_variation(timezone=timezone,
+                                              ax=ax,
+                                              **kwargs)
         return fig
 
     def n_pareto_optimal_trips(self):
@@ -267,7 +288,11 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             NPA.min_trip_n_boardings,
             NPA.max_trip_n_boardings,
             NPA.mean_trip_n_boardings,
-            NPA.median_trip_n_boardings
+            NPA.median_trip_n_boardings,
+            NPA.mean_n_boardings_along_shortest_paths,
+            NPA.min_n_boardings_along_shortest_paths,
+            NPA.max_n_boardings_along_shortest_paths,
+            NPA.median_n_boardings_along_shortest_paths
         ]
         profile_observable_names = [
             "max_trip_duration",
@@ -279,10 +304,14 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             "median_temporal_distance",
             "min_temporal_distance",
             "n_pareto_optimal_trips",
-            "min_trip_n_veh_legs",
-            "max_trip_n_veh_legs",
-            "mean_trip_n_veh_legs",
-            "median_trip_n_veh_legs"
+            "min_trip_n_boardings",
+            "max_trip_n_boardings",
+            "mean_trip_n_boardings",
+            "median_trip_n_boardings",
+            "mean_n_boardings_along_shortest_paths",
+            "min_n_boardings_along_shortest_paths",
+            "max_n_boardings_along_shortest_paths",
+            "median_n_boardings_along_shortest_paths"
         ]
         assert(len(profile_summary_methods) == len(profile_observable_names))
         return profile_summary_methods, profile_observable_names

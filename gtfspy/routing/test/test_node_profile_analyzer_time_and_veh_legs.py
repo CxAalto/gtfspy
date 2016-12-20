@@ -53,9 +53,9 @@ class TestNodeProfileAnalyzerTimeAndVehLegs(TestCase):
                                         first_leg_is_walk=False)
         ]
         analyzer = self._get_analyzer(labels, 0, 10, walk_to_target_duration=10)
-        self.assertEqual(analyzer.get_mean_n_boardings_along_shortest_paths(), 3)
-        self.assertEqual(analyzer.get_min_n_boardings_along_shortest_paths(), 2)
-        self.assertEqual(analyzer.get_max_n_boardings_along_shortest_paths(), 4)
+        self.assertEqual(analyzer.mean_n_boardings_along_shortest_paths(), 3)
+        self.assertEqual(analyzer.min_n_boardings_along_shortest_paths(), 2)
+        self.assertEqual(analyzer.max_n_boardings_along_shortest_paths(), 4)
 
     @unittest.skip
     def test_plot(self):
