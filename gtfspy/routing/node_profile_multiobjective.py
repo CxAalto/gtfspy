@@ -55,7 +55,7 @@ class NodeProfileMultiObjective:
         -------
         None
         """
-        assert dep_time <= self._min_dep_time, "Labels should be entered in increasing order of departure time."
+        assert dep_time <= self._min_dep_time, "Labels should be entered in decreasing order of departure time."
         self._min_dep_time = dep_time
 
     def get_walk_to_target_duration(self):

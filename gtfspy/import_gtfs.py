@@ -1,21 +1,25 @@
+# reload(sys)
+
 # -*- encoding: utf-8 -*-
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import print_function
 
+import sys
+if sys.getdefaultencoding() != "utf-8":
+    # for Python2
+    sys.reload()
+    sys.setdefaultencoding('utf-8')
+
 
 """
-Importing GTFS into a database.
+Importing GTFS into a sqlite database.
 
-As an entry point to the import pipeline, look at the import_gtfs function.
-
-to-do:
-- importing multiple GTFSs into the same database
+Entry point: see main part at the bottom and/or the import_gtfs function.
 """
 
 
 import codecs
-import sys
 import csv
 from datetime import datetime, timedelta
 import os
@@ -32,8 +36,6 @@ from gtfspy.gtfs import GTFS
 from gtfspy import calc_transfers
 
 
-reload(sys)
-sys.setdefaultencoding('utf-8')
 
 def decode_six(string):
     version = sys.version_info[0]
@@ -199,7 +201,7 @@ class TableLoader(object):
                 if isinstance(line, bytes):
                     yield line.decode("utf-8")
                 elif version == 2:  # python2.x
-                    if isinstance(line, unicode):
+                    if isinstance(line, str):
                         yield line
                     else:
                         yield line.lstrip(codecs.BOM_UTF8)
@@ -229,7 +231,10 @@ class TableLoader(object):
                         pass
             elif isinstance(source, string_types):
                 # now source is a directory
-                f = open(os.path.join(source, self.fname))
+                try:
+                    f = open(os.path.join(source, self.fname))
+                except FileNotFoundError as e:
+                    f = []
             fs.append(f)
 
         csv_readers = [csv.DictReader(iter_file(f)) for f in fs]
@@ -903,18 +908,14 @@ class AgencyLoader(TableLoader):
         if len(TZs) == 0:
             raise ValueError("Error: no timezones defined in sources: %s" % self.gtfs_sources)
         elif len(TZs) > 1:
-            for tz in TZs:
-                import pytz
-                first_tz = None
-                cur_tz = None
+            first_tz = TZs[0][0]
+            import pytz
+            for tz in TZs[1:]:
                 generic_date = datetime(2009, 9, 1)
-                if not first_tz:
-                    first_tz = tz
-                else:
-                    ftz = pytz.timezone(first_tz).utcoffset(generic_date, is_dst=True)
-                    ctz = pytz.timezone(tz).utcoffset(generic_date, is_dst=True)
-                    if not str(ftz) == str(ctz):
-                        raise ValueError("Error: multiple timezones defined in sources:: %s" % self.gtfs_sources)
+                ftz = pytz.timezone(first_tz).utcoffset(generic_date, is_dst=True)
+                ctz = pytz.timezone(tz[0]).utcoffset(generic_date, is_dst=True)
+                if not str(ftz) == str(ctz):
+                    raise ValueError("Error: multiple timezones defined in sources:: %s" % self.gtfs_sources)
         TZ = TZs[0][0]
         os.environ['TZ'] = TZ
         time.tzset()  # Cause C-library functions to notice the update.

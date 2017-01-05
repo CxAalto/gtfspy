@@ -116,22 +116,35 @@ def get_stats(gtfs):
     lons = stops['lon'].values
     percentiles = [0, 10, 50, 90, 100]
 
-    lat_min, lat_10, lat_median, lat_90, lat_max = numpy.percentile(lats, percentiles)
+
+    try:
+        lat_percentiles = numpy.percentile(lats, percentiles)
+    except IndexError:
+        lat_percentiles = [None] * 5
+    lat_min, lat_10, lat_median, lat_90, lat_max = lat_percentiles
     stats["lat_min"] = lat_min
     stats["lat_10"] = lat_10
     stats["lat_median"] = lat_median
     stats["lat_90"] = lat_90
     stats["lat_max"] = lat_max
 
-    lon_min, lon_10, lon_median, lon_90, lon_max = numpy.percentile(lons, percentiles)
+    try:
+        lon_percentiles = numpy.percentile(lons, percentiles)
+    except IndexError:
+        lon_percentiles = [None] * 5
+    lon_min, lon_10, lon_median, lon_90, lon_max = lon_percentiles
     stats["lon_min"] = lon_min
     stats["lon_10"] = lon_10
     stats["lon_median"] = lon_median
     stats["lon_90"] = lon_90
     stats["lon_max"] = lon_max
 
-    stats["height_km"] = wgs84_distance(lat_min, lon_median, lat_max, lon_median) / 1000.
-    stats["width_km"] = wgs84_distance(lon_min, lat_median, lon_max, lat_median) / 1000.
+    if len(lats) > 0:
+        stats["height_km"] = wgs84_distance(lat_min, lon_median, lat_max, lon_median) / 1000.
+        stats["width_km"] = wgs84_distance(lon_min, lat_median, lon_max, lat_median) / 1000.
+    else:
+        stats["height_km"] = None
+        stats["width_km"] = None
 
     first_day_start_ut, last_day_start_ut = gtfs.get_day_start_ut_span()
     stats["start_time_ut"] = first_day_start_ut
