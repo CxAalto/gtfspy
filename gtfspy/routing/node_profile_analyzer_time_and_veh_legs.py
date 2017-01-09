@@ -48,6 +48,7 @@ def _truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
     )
     return new_cmap
 
+
 class NodeProfileAnalyzerTimeAndVehLegs:
 
     def __init__(self, node_profile, start_time_dep, end_time_dep):
@@ -64,9 +65,18 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         self.end_time_dep = end_time_dep
         self.all_labels = [label for label in node_profile.get_final_optimal_labels() if
                            (start_time_dep <= label.departure_time <= end_time_dep)]
-        # after_labels = self.node_profile.evaluate_at_arbitrary_time(end_time_dep, allow_walk_to_target=False)
-        after_labels = compute_pareto_front([label for label in node_profile.get_final_optimal_labels() if
-                                             (label.departure_time > self.end_time_dep)], ignore_n_boardings=True)
+
+        after_label_candidates = [label for label in node_profile.get_final_optimal_labels()
+                        if (label.departure_time > self.end_time_dep)]
+        after_label_candidates.sort(key=lambda el: (el.arrival_time_target, el.n_boardings))
+        min_n_boardings_observed = float('inf')
+        after_labels = []
+        for candidate_after_label in after_label_candidates:
+            if candidate_after_label.n_boardings < min_n_boardings_observed:
+                after_labels.append(candidate_after_label)
+                min_n_boardings_observed = candidate_after_label.n_boardings
+
+
         self.all_labels.extend(after_labels)
         if len(after_labels) is 0:
             self._labels_within_time_frame = self.all_labels
@@ -93,11 +103,16 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             assert(end_time >= previous_dep_time)
             distance_start = label.duration() + (label.departure_time - previous_dep_time)
             if distance_start > self._walk_to_target_duration:
-                split_point_x = label.departure_time - (self._walk_to_target_duration - label.duration())
+                split_point_x_computed = label.departure_time - (self._walk_to_target_duration - label.duration())
+                split_point_x = min(split_point_x_computed, end_time)
                 walk_block = ProfileBlock(start_time=previous_dep_time, end_time=split_point_x, distance_start=0, distance_end=0)
+                assert (previous_dep_time <= split_point_x)
                 profile_blocks.append(walk_block)
-                trip_block = ProfileBlock(start_time=split_point_x, end_time=end_time, distance_start=label.n_boardings, distance_end=label.n_boardings)
-                profile_blocks.append(trip_block)
+                if split_point_x < end_time:
+                    assert(split_point_x <= end_time)
+                    trip_block = ProfileBlock(start_time=split_point_x, end_time=end_time,
+                                              distance_start=label.n_boardings, distance_end=label.n_boardings)
+                    profile_blocks.append(trip_block)
             else:
                 journey_block = ProfileBlock(start_time=previous_dep_time, end_time=end_time,
                                  distance_start=label.n_boardings, distance_end=label.n_boardings)
@@ -133,35 +148,35 @@ class NodeProfileAnalyzerTimeAndVehLegs:
     def median_n_boardings_on_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.median()
 
-    def _get_time_profile_analyzer(self, n_boardings=None):
+    def _get_time_profile_analyzer(self, max_n_boardings=None):
         """
         Parameters
         ----------
-        n_vehicle_legs: int
+        max_n_boardings: int
 
         Returns
         -------
         analyzer: NodeProfileAnalyzerTime
         """
-        if n_boardings is None:
-            n_boardings = self.max_trip_n_boardings()
+        if max_n_boardings is None:
+            max_n_boardings = self.max_trip_n_boardings()
         # compute only if not yet computed
-        if not n_boardings in self._n_boardings_to_simple_time_analyzers:
-            if n_boardings == 0:
+        if not max_n_boardings in self._n_boardings_to_simple_time_analyzers:
+            if max_n_boardings == 0:
                 valids = []
             else:
                 candidate_labels = [LabelTimeSimple(label.departure_time, label.arrival_time_target)
                                     for label in self.node_profile.get_final_optimal_labels() if
                                     ((self.start_time_dep <= label.departure_time)
-                                      and label.n_boardings <= n_boardings)]
+                                     and label.n_boardings <= max_n_boardings)]
                 valids = compute_pareto_front(candidate_labels)
             valids.sort(key=lambda label: -label.departure_time)
             profile = NodeProfileSimple(self._walk_to_target_duration)
             for valid in valids:
                 profile.update_pareto_optimal_tuples(valid)
             npat = NodeProfileAnalyzerTime(profile, self.start_time_dep, self.end_time_dep)
-            self._n_boardings_to_simple_time_analyzers[n_boardings] = npat
-        return self._n_boardings_to_simple_time_analyzers[n_boardings]
+            self._n_boardings_to_simple_time_analyzers[max_n_boardings] = npat
+        return self._n_boardings_to_simple_time_analyzers[max_n_boardings]
 
     @_check_for_no_labels_for_n_veh_counts
     def max_trip_n_boardings(self):
@@ -171,8 +186,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
     def min_trip_n_boardings(self):
         values = [label.n_boardings for label in self._labels_within_time_frame]
         min_val = numpy.min(values)
-        if min_val not in [1, 2]:
-            min_val = min_val
         return min_val
 
     @_check_for_no_labels_for_n_veh_counts
@@ -189,7 +202,9 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
     @_if_no_labels_return_inf
     def min_temporal_distance(self):
-        return self._get_time_profile_analyzer().min_temporal_distance()
+        result = self._get_time_profile_analyzer().min_temporal_distance()
+        assert(result >= 0), result
+        return result
 
     @_if_no_labels_return_inf
     def max_temporal_distance(self):
@@ -253,29 +268,15 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
     @classmethod
     def _get_colors_for_boardings(cls, min_n_boardings, max_n_boardings):
-        if max_n_boardings < 5:
-            cbrewer_colors_diverging = ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6']
-            cbrewer_colors_sequential = ['#ffffcc', '#a1dab4',
-                              '#41b6c4', '#2c7fb8',
-                              '#253494']
-            cbrewer_qualitative= ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33']
-            return cbrewer_qualitative[min_n_boardings:max_n_boardings]
-        from matplotlib import cm
-        # viridis = cm.get_cmap("viridis_r")
-        cmap = cm.get_cmap("viridis_r")
-        if min_n_boardings == max_n_boardings:
-            step = 0.0
-        else:
-            step = 1.0 / float(max_n_boardings - min_n_boardings)
-        values = [step * (i - min_n_boardings) for i, n in enumerate(reversed(range(min_n_boardings, max_n_boardings + 1)))]
-        colors = [cmap(value) for value in values]
-        return colors
+        cmap = NodeProfileAnalyzerTimeAndVehLegs.get_colormap_for_boardings(max_n_boardings)
+        colors = [cmap(float(n_boardings)/max_n_boardings) for n_boardings in range(int(max_n_boardings) + 1)]
+        return colors[min_n_boardings:max_n_boardings + 1]
 
     @classmethod
     def get_colormap_for_boardings(cls, max_n_boardings=None):
-        n_default = 4
-        if max_n_boardings is None:
-            max_n_boardings = 4
+        n_default = 5
+        if max_n_boardings in [float('nan'), None]:
+            max_n_boardings = n_default
         from matplotlib import cm
         cmap = cm.get_cmap("cubehelix_r")
         start = 0.15
@@ -288,8 +289,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         print(start + step * max_n_boardings)
         truncated = _truncate_colormap(cmap, start, start + step * max_n_boardings)
         return truncated
-        # colors = cls._get_colors_for_boardings(min_n_boardings, max_n_boardings)
-        # ListedColormap(colors, name="n_boardings", N=max_n_boardings-min_n_boardings + 1)
 
     def plot_temporal_distance_variation(self, timezone=None):
         """
@@ -335,9 +334,13 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                                     timezone=None,
                                                     format_string="%Y-%m-%d %H:%M:%S",
                                                     duration_divider=60.0,
-                                                    ax=None):
+                                                    ax=None,
+                                                    plot_journeys=True,
+                                                    highlight_fastest_path=True):
         max_n = self.max_trip_n_boardings()
         min_n = self.min_trip_n_boardings()
+        print(max_n, min_n)
+
         if self._walk_to_target_duration < float('inf'):
             min_n = 0
         if max_n is None:
@@ -370,12 +373,11 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
         #  get all trips ordered by departure time
 
-        deptime_ordered_labels = sorted(list(self.node_profile.get_final_optimal_labels()),
-                                        key=lambda x: x.departure_time)
+        deptime_ordered_labels = sorted(list(self.all_labels), key=lambda x: x.departure_time)
 
         n_boardings_to_labels = defaultdict(list)
-        for label in deptime_ordered_labels:
-            n_boardings_to_labels[label.n_boardings].append(label)
+        for journey_label in deptime_ordered_labels:
+            n_boardings_to_labels[journey_label.n_boardings].append(journey_label)
 
         walk_duration = self._walk_to_target_duration / duration_divider
         if walk_duration < float('inf'):
@@ -391,38 +393,47 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                 # dealt above
                 continue
             prev_analyzer = self._get_time_profile_analyzer(n_boardings - 1)
-            profile_block_analyzer = prev_analyzer.temporal_profile_analyzer
-            assert(isinstance(profile_block_analyzer, ProfileBlockAnalyzer))
+            prev_profile_block_analyzer = prev_analyzer.temporal_profile_analyzer
+            assert(isinstance(prev_profile_block_analyzer, ProfileBlockAnalyzer))
             labels = n_boardings_to_labels[n_boardings]
-            for i, label in enumerate(labels):
+            for i, journey_label in enumerate(labels):
+                if journey_label.departure_time > self.end_time_dep and journey_label.n_boardings == 3:
+                    continue
+                    # print("here")
                 prev_dep_time = self.start_time_dep
                 if i is not 0:
                     prev_dep_time = labels[i - 1].departure_time
                 # this could perhaps be made a while loop of some sort
                 # to not loop over things multiple times
-                for block in profile_block_analyzer._profile_blocks:
-                    if block.start_time > label.departure_time:
-                        break
+                for block in prev_profile_block_analyzer._profile_blocks:
                     if block.distance_end != block.distance_start:
-                        if block.distance_end < label.duration() + (label.departure_time - block.end_time):
+                        if block.distance_end < journey_label.duration() + (journey_label.departure_time - block.end_time):
                             prev_dep_time = max(prev_dep_time, block.end_time)
                     elif block.distance_end == block.distance_start:
                         # look for the time when
-                        waiting_time = (block.distance_end - label.duration())
-                        prev_dep_time = max(prev_dep_time, label.departure_time - waiting_time)
+                        waiting_time = (block.distance_end - journey_label.duration())
+                        prev_dep_time = max(prev_dep_time, journey_label.departure_time - waiting_time)
                 # prev dep time is now known
-                waiting_time = label.departure_time - prev_dep_time
+                waiting_time = journey_label.departure_time - prev_dep_time
                 color = nboardings_to_color[n_boardings]
                 lw = nboardings_to_lw[n_boardings]
-                xs = [_ut_to_unloc_datetime(prev_dep_time), _ut_to_unloc_datetime(label.departure_time)]
-                ys = numpy.array([label.duration() + waiting_time, label.duration()]) / duration_divider
+                xs = [_ut_to_unloc_datetime(prev_dep_time), _ut_to_unloc_datetime(journey_label.departure_time)]
+                ys = numpy.array([journey_label.duration() + waiting_time, journey_label.duration()]) / duration_divider
                 max_tdist = max(ys[0], max_tdist)
                 ax.plot(xs, ys,
                         color="k",
                         lw=lw)
                 ax.fill_between(xs, 0, ys, color=color)
-                ax.plot(xs[1], ys[1], "o", ms=8, color="k")
+                if plot_journeys:
+                    ax.plot(xs[1], ys[1], "o", ms=8, color="k")
 
+        if highlight_fastest_path:
+            fastest_path_time_analyzer = self._get_time_profile_analyzer()
+            vlines, slopes = fastest_path_time_analyzer.temporal_profile_analyzer.get_vlines_and_slopes_for_plotting()
+            for vline in vlines:
+                ax.plot([_ut_to_unloc_datetime(x) for x in vline['x']], numpy.array(vline['y'])/duration_divider, "--", lw=2, color="k")
+            for slope in slopes:
+                ax.plot([_ut_to_unloc_datetime(x) for x in slope['x']], numpy.array(slope['y'])/duration_divider, "-", color="k", lw=3)
 
         legend_patches = []
         for n_boardings in n_boardings_range:
@@ -435,16 +446,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                          label=text, ec="k")
             legend_patches.append(p)
 
-        fastest_path_time_analyzer = self._get_time_profile_analyzer()
-        vlines, slopes = fastest_path_time_analyzer.temporal_profile_analyzer.get_vlines_and_slopes_for_plotting()
-        for vline in vlines:
-            ax.plot([_ut_to_unloc_datetime(x) for x in vline['x']], numpy.array(vline['y'])/duration_divider, "--", lw=2, color="k")
-        for slope in slopes:
-            ax.plot([_ut_to_unloc_datetime(x) for x in slope['x']], numpy.array(slope['y'])/duration_divider, "-", color="k", lw=3)
-
-
+        print(max_tdist)
         ax.legend(handles=legend_patches, loc="best")
-
         ax.set_ylim(0, 1.1 * max_tdist)
         ax.set_xlabel("Departure time")
         ax.set_ylabel("Temporal distance")

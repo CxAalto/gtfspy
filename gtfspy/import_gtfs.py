@@ -199,7 +199,7 @@ class TableLoader(object):
             version = sys.version_info[0]
             for line in file_obj:
                 if isinstance(line, bytes):
-                    yield line.decode("utf-8").lstrip(codecs.BOM_UTF8)
+                    yield line.lstrip(codecs.BOM_UTF8).decode("utf-8")
                 elif version == 2:  # python2.x
                     if isinstance(line, str):
                         yield line
@@ -950,7 +950,6 @@ class TransfersLoader(TableLoader):
     extra_values = ['(SELECT stop_I FROM stops WHERE stop_id=:_from_stop_id)',
                     '(SELECT stop_I FROM stops WHERE stop_id=:_to_stop_id)',
                     ]
-
 
     def gen_rows(self, readers, prefixes):
         for reader, prefix in zip(readers, prefixes):

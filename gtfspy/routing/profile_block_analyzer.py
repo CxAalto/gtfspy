@@ -37,6 +37,8 @@ class ProfileBlockAnalyzer:
         profile_blocks: list[ProfileBlock]
         """
         for i, block in enumerate(profile_blocks[:-1]):
+            if (block.start_time > block.end_time):
+                continue
             assert block.start_time <= block.end_time
             assert block.end_time == profile_blocks[i + 1].start_time
             assert block.distance_start >= block.distance_end
