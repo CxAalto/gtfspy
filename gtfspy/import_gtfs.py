@@ -1584,7 +1584,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
                 print_progress=True, location_name=None, **kwargs):
     """Import a GTFS database
 
-    gtfs_sources: str or dict
+    gtfs_sources: str, dict, list
         path to the gtfs zip file or to the dir containing
         or alternatively, a dict mapping gtfs filenames
         (like 'stops.txt' and 'agencies.txt') into their
@@ -1714,9 +1714,10 @@ def main():
 
     # parsing import-multiple
     parser_import_multiple = subparsers.add_parser('import-multiple', help="GTFS import from multiple zip-files")
-    parser_import_multiple.add_argument('gtfsnames', help='Input GTFS filename zips')
     parser_import_multiple.add_argument('zipfiles', metavar='zipfiles', type=str, nargs=argparse.ONE_OR_MORE,
                                         help='zipfiles for the import')
+    parser_import_multiple.add_argument('output', help='Output .sqlite filename (must end in .sqlite)')
+
 
     # Parsing copy
     parser_copy = subparsers.add_parser('copy', help="Copy database")
@@ -1763,6 +1764,11 @@ def main():
             import_gtfs(gtfs, output=tmpfile)
     elif args.cmd == "import-multiple":
         zipfiles = args.zipfiles
+        output = args.output
+        print(args.zipfiles)
+        print(output)
+        with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
+            import_gtfs(zipfiles, output=tmpfile)
         # print(zipfiles)
     elif args.cmd == 'make-views':
         main_make_views(args.gtfs)
