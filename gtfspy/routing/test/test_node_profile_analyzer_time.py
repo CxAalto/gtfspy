@@ -112,12 +112,13 @@ class TestNodeProfileAnalyzerTime(TestCase):
         self.assertAlmostEqual((2.5 * 1.5 + 0.5 * 1.25) / 3., analyzer.mean_temporal_distance())
         self.assertAlmostEqual(1.5, analyzer.median_temporal_distance())
 
+
     def test_temporal_distance_statistics_with_walk2(self):
         pt1 = LabelTimeSimple(departure_time=10, arrival_time_target=30)
         profile = NodeProfileSimple(25)
         profile.update_pareto_optimal_tuples(pt1)
         analyzer = NodeProfileAnalyzerTime(profile, 0, 10)
-        # analyzer.plot_temporal_distance_variation()
+        # analyzer.plot_temporal_distance_profile()
         # plt.show()
 
         self.assertAlmostEqual(25, analyzer.max_temporal_distance())  # 1 -wait-> 2 -travel->4
@@ -133,7 +134,7 @@ class TestNodeProfileAnalyzerTime(TestCase):
         profile.update_pareto_optimal_tuples(LabelTimeSimple(departure_time=20 * 60, arrival_time_target=25 * 60))
         profile.update_pareto_optimal_tuples(LabelTimeSimple(departure_time=40 * 60, arrival_time_target=45 * 60))
         analyzer = NodeProfileAnalyzerTime(profile, 0, 60 * 60)
-        analyzer.plot_temporal_distance_variation()
+        analyzer.plot_temporal_distance_profile()
         analyzer.plot_temporal_distance_cdf()
         # analyzer.plot_temporal_distance_pdf()
 
@@ -141,7 +142,7 @@ class TestNodeProfileAnalyzerTime(TestCase):
         profile.update_pareto_optimal_tuples(LabelTimeSimple(departure_time=2 * 60, arrival_time_target=3 * 60))
         profile.update_pareto_optimal_tuples(LabelTimeSimple(departure_time=4 * 60, arrival_time_target=25 * 60))
         analyzer = NodeProfileAnalyzerTime(profile, 0, 5 * 60)
-        analyzer.plot_temporal_distance_variation()
+        analyzer.plot_temporal_distance_profile()
         analyzer.plot_temporal_distance_cdf()
         # analyzer.plot_temporal_distance_pdf()
 
@@ -151,7 +152,7 @@ class TestNodeProfileAnalyzerTime(TestCase):
         profile.update_pareto_optimal_tuples(pt1)
         profile.update_pareto_optimal_tuples(pt2)
         analyzer = NodeProfileAnalyzerTime(profile, 0, 3)
-        # analyzer.plot_temporal_distance_variation()
+        # analyzer.plot_temporal_distance_profile()
         analyzer.plot_temporal_distance_cdf()
 
         plt.show()

@@ -192,11 +192,10 @@ class TestImport(unittest.TestCase):
 
     def test_agencyLoaderTwoTimeZonesFail(self):
         newagencytext = \
-            self.agencyText + \
-            "\n123, AgencyFromDifferentTZ, Europe/Helsinki, www.buahaha.com"
-        fdict = {'agency.txt': newagencytext}
+            self.agencyText + "\n123, AgencyFromDifferentTZ, Europe/Helsinki, www.buahaha.com"
+        self.fdict['agency.txt'] = newagencytext
         with self.assertRaises(ValueError):
-            import_gtfs(fdict, self.conn, preserve_connection=True)
+            import_gtfs(self.fdict, self.conn, preserve_connection=True)
 
     def test_routeLoader(self):
         import_gtfs(self.fdict, self.conn, preserve_connection=True)
@@ -496,20 +495,21 @@ class TestImport(unittest.TestCase):
         for row in rows:
             self.assertIs(row[0], 1)
 
+    def test_sources_required(self):
+        self.fdict.pop("calendar.txt")
+        self.fdict.pop("calendar_dates.txt")
+        # with self.assertRaises(SomeSpecificException):
+        #   import_gtfs(self.fdict, self.conn)
+        self.fail()
 
-    # @unittest.skip("not yet tested")
-    def test_importMultiple_with_unequal_tables(self):
-        gtfs_source1 = self.fdict.copy()
-
-        gtfs_source2 = self.fdict.copy()
-        #gtfs_source2.pop('calendar.txt')
-        gtfs_source2.pop('feed_info.txt')
-        #gtfs_source2.pop('agency.txt')
-        gtfs_sources = [gtfs_source2, gtfs_source1]
-        self.assertNotEqual(gtfs_source1, gtfs_source2)
-        self.assertRaises(import_gtfs(gtfs_sources, self.conn, preserve_connection=True))
-        # self.assertIsInstance(gtfs_source2['calendar_dates.txt'], list)
-        # self.fail("Not yet tested")
+    def test_sources_required_multiple(self):
+        fdict_copy = dict(self.fdict)
+        fdict_copy.pop("calendar.txt")
+        self.fdict.pop("calendar_dates.txt")
+        # do something like this:
+        # with self.assertRaises(SomeSpecificException):
+        #    import_gtfs([self.fdict, fdict_copy], self.conn)
+        self.fail()
 
     def test_resequencing_stop_times(self):
         gtfs_source = self.fdict.copy()

@@ -4,23 +4,24 @@ import warnings
 import numpy
 import pytz
 
-from matplotlib import dates as md
+from matplotlib import dates as md, rcParams
 import matplotlib.pyplot as plt
 
 from gtfspy.routing.profile_block_analyzer import ProfileBlockAnalyzer, ProfileBlock
 from gtfspy.routing.node_profile_simple import NodeProfileSimple
 
 
-def _if_no_trips_return_nan(func):
+def _if_no_trips_return_inf(func):
     def wrapper(self):
         if self.trip_durations:
             return func(self)
         else:
-            return float('nan')
+            return float('inf')
+
     return wrapper
 
-class NodeProfileAnalyzerTime:
 
+class NodeProfileAnalyzerTime:
     def __init__(self, node_profile, start_time_dep, end_time_dep):
         """
         Initialize the data structures required by
@@ -28,6 +29,7 @@ class NodeProfileAnalyzerTime:
         Parameters
         ----------
         node_profile: NodeProfileSimple
+
         """
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
@@ -40,6 +42,7 @@ class NodeProfileAnalyzerTime:
         self._profile_blocks = []
         previous_departure_time = start_time_dep
         self.trip_durations = []
+        self.trip_departure_times = []
         for trip_pareto_tuple in trip_pareto_optimal_tuples:
             effective_trip_previous_departure_time = max(
                 previous_departure_time,
@@ -58,6 +61,7 @@ class NodeProfileAnalyzerTime:
                                       distance_start=trip_pareto_tuple.duration() + trip_waiting_time,
                                       distance_end=trip_pareto_tuple.duration())
             self.trip_durations.append(trip_pareto_tuple.duration())
+            self.trip_departure_times.append(trip_pareto_tuple.departure_time)
             self._profile_blocks.append(trip_block)
             previous_departure_time = trip_pareto_tuple.departure_time
 
@@ -103,7 +107,7 @@ class NodeProfileAnalyzerTime:
         """
         return float(len(self.trip_durations))
 
-    @_if_no_trips_return_nan
+    @_if_no_trips_return_inf
     def min_trip_duration(self):
         """
         Get minimum travel time to destination.
@@ -115,7 +119,7 @@ class NodeProfileAnalyzerTime:
         """
         return numpy.min(self.trip_durations)
 
-    @_if_no_trips_return_nan
+    @_if_no_trips_return_inf
     def max_trip_duration(self):
         """
         Get minimum travel time to destination.
@@ -127,7 +131,7 @@ class NodeProfileAnalyzerTime:
         """
         return numpy.max(self.trip_durations)
 
-    @_if_no_trips_return_nan
+    @_if_no_trips_return_inf
     def mean_trip_duration(self):
         """
         Get average travel time to destination.
@@ -139,7 +143,7 @@ class NodeProfileAnalyzerTime:
         """
         return numpy.mean(self.trip_durations)
 
-    @_if_no_trips_return_nan
+    @_if_no_trips_return_inf
     def median_trip_duration(self):
         """
         Get average travel time to destination.
@@ -250,14 +254,27 @@ class NodeProfileAnalyzerTime:
         ax.set_ylim(bottom=0)
         return fig
 
-
-    def plot_temporal_distance_variation(self, timezone=None, color="red", alpha=0.15, ax=None, lw=None,
-                                         label="",
-                                         plot_tdist_stats=False,
-                                         plot_trip_stats=False
-                                         ):
+    def plot_temporal_distance_profile(self,
+                                       timezone=None,
+                                       color="red", alpha=0.15,
+                                       ax=None,
+                                       lw=2,
+                                       label="",
+                                       plot_tdist_stats=False,
+                                       plot_trip_stats=False,
+                                       format_string="%Y-%m-%d %H:%M:%S",
+                                       plot_journeys=False,
+                                       duration_divider=60.0
+                                       ):
         """
-        See plots.py: plot_temporal_distance_variation for more documentation.
+        Parameters
+        ----------
+        timezone: str
+        color: color
+        format_string: str, None
+            if None, the original values are used
+        plot_journeys: bool, optional
+            if True, small dots are plotted at the departure times
         """
         if ax is None:
             fig = plt.figure()
@@ -271,66 +288,37 @@ class NodeProfileAnalyzerTime:
             dt = datetime.datetime.fromtimestamp(ut, timezone)
             return dt.replace(tzinfo=None)
 
-        format_string = "%Y-%m-%d %H:%M:%S"
-        x_axis_formatter = md.DateFormatter(format_string)
-        ax.xaxis.set_major_formatter(x_axis_formatter)
+        if format_string:
+            x_axis_formatter = md.DateFormatter(format_string)
+            ax.xaxis.set_major_formatter(x_axis_formatter)
+        else:
+            _ut_to_unloc_datetime = lambda x: x
 
-        vertical_lines, slopes = self.temporal_profile_analyzer.get_vlines_and_slopes_for_plotting()
-        for i, line in enumerate(slopes):
-            xs = [_ut_to_unloc_datetime(x) for x in line['x']]
-            ax.plot(xs, numpy.array(line['y']) / 60.0, "-", color="black", lw=lw)
-        for line in vertical_lines:
-            xs = [_ut_to_unloc_datetime(x) for x in line['x']]
-            ax.plot(xs, numpy.array(line['y']) / 60.0, "--", color="black") #, lw=lw)
-
-        assert (isinstance(ax, plt.Axes))
-
-        fill_between_x = []
-        fill_between_y = []
-        for line in slopes:
-            xs = [_ut_to_unloc_datetime(x) for x in line['x']]
-            fill_between_x.extend(xs)
-            fill_between_y.extend(numpy.array(line["y"]) / 60.0)
-
-        ax.fill_between(fill_between_x, y1=fill_between_y, color=color, alpha=alpha, label=label)
-
-        ax.set_ylim(bottom=0)
         ax.set_xlim(
             _ut_to_unloc_datetime(self.start_time_dep),
             _ut_to_unloc_datetime(self.end_time_dep)
         )
-        ax.set_ylim(ax.get_ylim()[0], ax.get_ylim()[1] * 1.05)
 
-        # plot
         if plot_tdist_stats:
-            line_tyles = ["-", "-.", "--"]
-            to_plot_labels = ["min temporal distance", "max temporal distance", "mean temporal distance"]
-            to_plot_funcs = [self.min_temporal_distance, self.max_temporal_distance, self.mean_temporal_distance]
+            line_tyles = ["-.", "--", "-"][::-1]
+            to_plot_labels = ["maximum temporal distance", "mean temporal distance", "minimum temporal distance"]
+            to_plot_funcs = [self.max_temporal_distance, self.mean_temporal_distance, self.min_temporal_distance]
 
             xmin, xmax = ax.get_xlim()
             for to_plot_label, to_plot_func, ls in zip(to_plot_labels, to_plot_funcs, line_tyles):
-                y = to_plot_func() / 60.
+                y = to_plot_func() / duration_divider
                 assert y < float('inf'), to_plot_label
-                ax.plot([xmin, xmax], [y, y], color="green", ls=ls, lw=2)
-                txt = to_plot_label + "\n = %.1f min" % y
-                ax.text(xmax + 0.01 * (xmax - xmin), y, txt, color="green", va="center", ha="left")
-
-            old_xmax = xmax
-            xmax += (xmax - xmin) * 0.3
-            ymin, ymax = ax.get_ylim()
-            ax.fill_between([old_xmax, xmax], ymin, ymax, color="gray", alpha=0.1)
-            ax.set_xlim(xmin, xmax)
-            # end plotting summary variables
+                ax.plot([xmin, xmax], [y, y], color="blue", ls=ls, lw=1, label=to_plot_label)
 
         if plot_trip_stats:
-            assert(not plot_tdist_stats)
+            assert (not plot_tdist_stats)
             line_tyles = ["-", "-.", "--"]
             to_plot_labels = ["min journey duration", "max journey duration", "mean journey duration"]
             to_plot_funcs = [self.min_trip_duration, self.max_trip_duration, self.mean_trip_duration]
 
             xmin, xmax = ax.get_xlim()
             for to_plot_label, to_plot_func, ls in zip(to_plot_labels, to_plot_funcs, line_tyles):
-                y = to_plot_func() / 60.
+                y = to_plot_func() / duration_divider
                 if not numpy.math.isnan(y):
                     ax.plot([xmin, xmax], [y, y], color="red", ls=ls, lw=2)
                     txt = to_plot_label + "\n = %.1f min" % y
@@ -341,13 +329,47 @@ class NodeProfileAnalyzerTime:
             ymin, ymax = ax.get_ylim()
             ax.fill_between([old_xmax, xmax], ymin, ymax, color="gray", alpha=0.1)
             ax.set_xlim(xmin, xmax)
-            # end plotting summary variables
 
+        if plot_journeys:
+            xs = [_ut_to_unloc_datetime(x) for x in self.trip_departure_times]
+            ys = self.trip_durations
+            ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
+
+        # plot the actual profile
+        vertical_lines, slopes = self.temporal_profile_analyzer.get_vlines_and_slopes_for_plotting()
+        for i, line in enumerate(slopes):
+            xs = [_ut_to_unloc_datetime(x) for x in line['x']]
+            if i is 0:
+                if rcParams['text.usetex']:
+                    label = r"temporal distance profile $\tau$"
+                else:
+                    label = "temporal distance profile"
+            else:
+                label = None
+            ax.plot(xs, numpy.array(line['y']) / duration_divider, "-", color="black", lw=lw, label=label)
+
+        for line in vertical_lines:
+            xs = [_ut_to_unloc_datetime(x) for x in line['x']]
+            ax.plot(xs, numpy.array(line['y']) / duration_divider, "--", color="black")  # , lw=lw)
+
+        assert (isinstance(ax, plt.Axes))
+
+        fill_between_x = []
+        fill_between_y = []
+        for line in slopes:
+            xs = [_ut_to_unloc_datetime(x) for x in line['x']]
+            fill_between_x.extend(xs)
+            fill_between_y.extend(numpy.array(line["y"]) / duration_divider)
+
+        ax.fill_between(fill_between_x, y1=fill_between_y, color=color, alpha=alpha, label=label)
+
+        ax.set_ylim(bottom=0)
+        ax.set_ylim(ax.get_ylim()[0], ax.get_ylim()[1] * 1.05)
 
         ax.set_xlabel("Departure time")
         ax.set_ylabel("Temporal distance (min)")
         ax.figure.tight_layout()
-        plt.xticks(rotation=45)
+        # plt.xticks(rotation=45)
         ax.figure.subplots_adjust(bottom=0.3)
         return ax.figure
 
@@ -394,5 +416,5 @@ class NodeProfileAnalyzerTime:
             "min_temporal_distance",
             "n_pareto_optimal_trips"
         ]
-        assert(len(profile_summary_methods) == len(profile_observable_names))
+        assert (len(profile_summary_methods) == len(profile_observable_names))
         return profile_summary_methods, profile_observable_names
