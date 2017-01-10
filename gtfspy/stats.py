@@ -72,7 +72,7 @@ def write_stats_as_csv(gtfs, path_to_csv):
                 is_new = True
 
     with open(path_to_csv, 'a') as csvfile:
-        statswriter = csv.writer(csvfile, delimiter=',')
+        statswriter = csv.writer(csvfile, delimiter=b',')
         # write column names if
         if is_new:
             statswriter.writerow([key for key in sorted(stats_dict.keys())])

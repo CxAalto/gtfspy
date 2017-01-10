@@ -8,7 +8,7 @@ from __future__ import print_function
 import sys
 if sys.getdefaultencoding() != "utf-8":
     # for Python2
-    sys.reload()
+    reload(sys)
     sys.setdefaultencoding('utf-8')
 
 
@@ -489,7 +489,7 @@ class RouteLoader(TableLoader):
                     ]
 
     # route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url
-    # 1001,HSL,1,Kauppatori - Käpylä,,0,http://aikataulut.hsl.fi/linjat/fi/h1_1a.html
+    # 1001,HSL,1,Kauppatori - Kapyla,0,http://aikataulut.hsl.fi/linjat/fi/h1_1a.html
     def gen_rows(self, readers, prefixes):
         from gtfspy import extended_route_types
         for reader, prefix in zip(readers, prefixes):
@@ -527,7 +527,7 @@ class TripLoader(TableLoader):
                     ]
 
     # route_id,service_id,trip_id,trip_headsign,direction_id,shape_id,wheelchair_accessible,bikes_allowed
-    # 1001,1001_20150424_20150426_Ke,1001_20150424_Ke_1_0953,"Käpylä",0,1001_20140811_1,1,2
+    # 1001,1001_20150424_20150426_Ke,1001_20150424_Ke_1_0953,"Kapyla",0,1001_20140811_1,1,2
     def gen_rows(self, readers, prefixes):
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
