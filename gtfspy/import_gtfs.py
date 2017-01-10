@@ -8,7 +8,7 @@ from __future__ import print_function
 import sys
 if sys.getdefaultencoding() != "utf-8":
     # for Python2
-    sys.reload()
+    reload(sys)
     sys.setdefaultencoding('utf-8')
 
 
@@ -489,7 +489,7 @@ class RouteLoader(TableLoader):
                     ]
 
     # route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url
-    # 1001,HSL,1,Kauppatori - Käpylä,,0,http://aikataulut.hsl.fi/linjat/fi/h1_1a.html
+    # 1001,HSL,1,Kauppatori - Kapyla,0,http://aikataulut.hsl.fi/linjat/fi/h1_1a.html
     def gen_rows(self, readers, prefixes):
         from gtfspy import extended_route_types
         for reader, prefix in zip(readers, prefixes):
@@ -527,7 +527,7 @@ class TripLoader(TableLoader):
                     ]
 
     # route_id,service_id,trip_id,trip_headsign,direction_id,shape_id,wheelchair_accessible,bikes_allowed
-    # 1001,1001_20150424_20150426_Ke,1001_20150424_Ke_1_0953,"Käpylä",0,1001_20140811_1,1,2
+    # 1001,1001_20150424_20150426_Ke,1001_20150424_Ke_1_0953,"Kapyla",0,1001_20140811_1,1,2
     def gen_rows(self, readers, prefixes):
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
@@ -1583,7 +1583,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
                 print_progress=True, location_name=None, **kwargs):
     """Import a GTFS database
 
-    gtfs_sources: str or dict
+    gtfs_sources: str, dict, list
         path to the gtfs zip file or to the dir containing
         or alternatively, a dict mapping gtfs filenames
         (like 'stops.txt' and 'agencies.txt') into their
@@ -1713,9 +1713,10 @@ def main():
 
     # parsing import-multiple
     parser_import_multiple = subparsers.add_parser('import-multiple', help="GTFS import from multiple zip-files")
-    parser_import_multiple.add_argument('gtfsnames', help='Input GTFS filename zips')
     parser_import_multiple.add_argument('zipfiles', metavar='zipfiles', type=str, nargs=argparse.ONE_OR_MORE,
                                         help='zipfiles for the import')
+    parser_import_multiple.add_argument('output', help='Output .sqlite filename (must end in .sqlite)')
+
 
     # Parsing copy
     parser_copy = subparsers.add_parser('copy', help="Copy database")
@@ -1762,6 +1763,11 @@ def main():
             import_gtfs(gtfs, output=tmpfile)
     elif args.cmd == "import-multiple":
         zipfiles = args.zipfiles
+        output = args.output
+        print(args.zipfiles)
+        print(output)
+        with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
+            import_gtfs(zipfiles, output=tmpfile)
         # print(zipfiles)
     elif args.cmd == 'make-views':
         main_make_views(args.gtfs)

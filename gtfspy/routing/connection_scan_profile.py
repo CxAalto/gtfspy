@@ -86,7 +86,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         if walk_network is None:
             walk_network = networkx.Graph()
         self._walk_network = walk_network
-        self._walk_speed = walk_speed
+        self._walk_speed = float(walk_speed)
         self._verbose = verbose
 
         # algorithm internals
