@@ -256,7 +256,8 @@ class NodeProfileAnalyzerTime:
 
     def plot_temporal_distance_profile(self,
                                        timezone=None,
-                                       color="red", alpha=0.15,
+                                       color="blue",
+                                       alpha=0.15,
                                        ax=None,
                                        lw=2,
                                        label="",
@@ -308,7 +309,7 @@ class NodeProfileAnalyzerTime:
             for to_plot_label, to_plot_func, ls in zip(to_plot_labels, to_plot_funcs, line_tyles):
                 y = to_plot_func() / duration_divider
                 assert y < float('inf'), to_plot_label
-                ax.plot([xmin, xmax], [y, y], color="blue", ls=ls, lw=1, label=to_plot_label)
+                ax.plot([xmin, xmax], [y, y], color="black", ls=ls, lw=1, label=to_plot_label)
 
         if plot_trip_stats:
             assert (not plot_tdist_stats)
@@ -330,10 +331,6 @@ class NodeProfileAnalyzerTime:
             ax.fill_between([old_xmax, xmax], ymin, ymax, color="gray", alpha=0.1)
             ax.set_xlim(xmin, xmax)
 
-        if plot_journeys:
-            xs = [_ut_to_unloc_datetime(x) for x in self.trip_departure_times]
-            ys = self.trip_durations
-            ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
 
         # plot the actual profile
         vertical_lines, slopes = self.temporal_profile_analyzer.get_vlines_and_slopes_for_plotting()
@@ -346,13 +343,22 @@ class NodeProfileAnalyzerTime:
                     label = "temporal distance profile"
             else:
                 label = None
-            ax.plot(xs, numpy.array(line['y']) / duration_divider, "-", color="black", lw=lw, label=label)
+            ax.plot(xs, numpy.array(line['y']) / duration_divider, "-", color=color, lw=lw, label=label)
 
         for line in vertical_lines:
             xs = [_ut_to_unloc_datetime(x) for x in line['x']]
-            ax.plot(xs, numpy.array(line['y']) / duration_divider, "--", color="black")  # , lw=lw)
+            ax.plot(xs, numpy.array(line['y']) / duration_divider, "--", color=color)  # , lw=lw)
 
         assert (isinstance(ax, plt.Axes))
+
+        if plot_journeys:
+            xs = [_ut_to_unloc_datetime(x) for x in self.trip_departure_times]
+            ys = self.trip_durations
+            ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
+            for x, y, letter in zip(xs, ys, "ABCDEFGHIJKLM"):
+                ax.text(x + datetime.timedelta(seconds=7),
+                        y/duration_divider - 0.28, letter, va="center", ha="left")
+
 
         fill_between_x = []
         fill_between_y = []

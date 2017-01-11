@@ -259,6 +259,7 @@ class TableLoader(object):
                 else:
                     raise e
         prefixes = [u"feed_{i}_".format(i=i) for i in range(len(csv_reader_generators))]
+
         if len(prefixes) == 1:
             # no prefix for a single source feed
             prefixes = [u""]

@@ -6,6 +6,8 @@ import datetime
 import matplotlib
 import numpy
 import matplotlib.pyplot as plt
+from matplotlib import lines
+
 from matplotlib import dates as md
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
@@ -336,7 +338,9 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                                     duration_divider=60.0,
                                                     ax=None,
                                                     plot_journeys=True,
-                                                    highlight_fastest_path=True):
+                                                    highlight_fastest_path=True,
+                                                    default_lw=5,
+                                                    area_alpha=0.8):
         max_n = self.max_trip_n_boardings()
         min_n = self.min_trip_n_boardings()
         print(max_n, min_n)
@@ -368,10 +372,25 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
         colors = self._get_colors_for_boardings(min_n, max_n)
         n_boardings_range = range(min_n, max_n + 1)
+        nboardings_to_lw = {n: default_lw for i, n in enumerate(n_boardings_range)}
         nboardings_to_color = {n:colors[i] for i, n in enumerate(n_boardings_range)}
-        nboardings_to_lw = {n: 1.2 for i, n in enumerate(n_boardings_range)}
+        n_boardings_to_line_color = {}
+
+        #
+        rgbs = [color_tuple[:3] for color_tuple in nboardings_to_color.values()]
+        hsvs = matplotlib.colors.rgb_to_hsv(rgbs)
+        max_saturation = max([hsv[1] for hsv in hsvs])
+        print(max_saturation)
+        line_saturation_multiplier = 1/max_saturation
+        for n, color_tuple in nboardings_to_color.items():
+            hsv = matplotlib.colors.rgb_to_hsv(color_tuple[:3])
+            rgb = matplotlib.colors.hsv_to_rgb((hsv[0], hsv[1] * line_saturation_multiplier, hsv[2]))
+            n_boardings_to_line_color[n] = (rgb[0], rgb[1], rgb[2], 1)
+
+
 
         #  get all trips ordered by departure time
+
 
         deptime_ordered_labels = sorted(list(self.all_labels), key=lambda x: x.departure_time)
 
@@ -382,12 +401,14 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         walk_duration = self._walk_to_target_duration / duration_divider
         if walk_duration < float('inf'):
             xs = [_ut_to_unloc_datetime(x) for x in [self.start_time_dep, self.end_time_dep]]
-            ax.plot(xs, [walk_duration, walk_duration], lw=nboardings_to_lw[0], color="k")
-            ax.fill_between(xs, 0, walk_duration, color=nboardings_to_color[0])
+            ax.plot(xs, [walk_duration, walk_duration], lw=nboardings_to_lw[0], color=n_boardings_to_line_color[0])
+            ax.fill_between(xs, 0, walk_duration, color="white", alpha=1)
+            ax.fill_between(xs, 0, walk_duration, color=nboardings_to_color[0], alpha=area_alpha)
             max_tdist = walk_duration
         else:
             max_tdist = 0
 
+        journeys = []
         for n_boardings in n_boardings_range:
             if n_boardings == 0:
                 # dealt above
@@ -421,19 +442,13 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                 ys = numpy.array([journey_label.duration() + waiting_time, journey_label.duration()]) / duration_divider
                 max_tdist = max(ys[0], max_tdist)
                 ax.plot(xs, ys,
-                        color="k",
+                        color=n_boardings_to_line_color[n_boardings], # "k",
                         lw=lw)
                 ax.fill_between(xs, 0, ys, color=color)
+                ax.fill_between(xs, 0, ys, color="white", alpha=1-area_alpha)
                 if plot_journeys:
-                    ax.plot(xs[1], ys[1], "o", ms=8, color="k")
+                    journeys.append((xs[1], ys[1]))
 
-        if highlight_fastest_path:
-            fastest_path_time_analyzer = self._get_time_profile_analyzer()
-            vlines, slopes = fastest_path_time_analyzer.temporal_profile_analyzer.get_vlines_and_slopes_for_plotting()
-            for vline in vlines:
-                ax.plot([_ut_to_unloc_datetime(x) for x in vline['x']], numpy.array(vline['y'])/duration_divider, "--", lw=2, color="k")
-            for slope in slopes:
-                ax.plot([_ut_to_unloc_datetime(x) for x in slope['x']], numpy.array(slope['y'])/duration_divider, "-", color="k", lw=3)
 
         legend_patches = []
         for n_boardings in n_boardings_range:
@@ -442,11 +457,34 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                 text = text[:-1]
             if n_boardings == 0:
                 text = u"walk"
-            p = matplotlib.patches.Patch(color=nboardings_to_color[n_boardings],
-                                         label=text, ec="k")
+            p = lines.Line2D([0, 1], [0, 1], lw=nboardings_to_lw[n_boardings],
+                             color=n_boardings_to_line_color[n_boardings],
+                             label=text)
             legend_patches.append(p)
 
-        print(max_tdist)
+        if highlight_fastest_path:
+            fastest_path_time_analyzer = self._get_time_profile_analyzer()
+            vlines, slopes = fastest_path_time_analyzer.temporal_profile_analyzer.get_vlines_and_slopes_for_plotting()
+            lw = 3
+            ls = "--"
+            for vline in vlines:
+                ax.plot([_ut_to_unloc_datetime(x) for x in vline['x']], numpy.array(vline['y'])/duration_divider, ls=ls, lw=lw, color="k")
+            for slope in slopes:
+                ax.plot([_ut_to_unloc_datetime(x) for x in slope['x']], numpy.array(slope['y'])/duration_divider, ls=ls, color="k", lw=lw)
+            p = lines.Line2D([0, 1], [0, 1], ls=ls, lw=lw, color="k", label="fastest path profile")
+            legend_patches.append(p)
+
+        if plot_journeys:
+            letters = iter("ABCDEFGHIJKLMN")
+            journeys.sort()
+            for (x, y), letter in zip(journeys, letters):
+                if x < _ut_to_unloc_datetime(self.end_time_dep):
+                    ax.plot(x, y, "o", ms=8, color="k")
+                    ax.text(x + datetime.timedelta(seconds=0.2),
+                            y / duration_divider - 0.9, letter, va="center", ha="left")
+            p = lines.Line2D([0, 0], [1, 1], ls="", marker="o", ms=8, color="k", label="journeys")
+            legend_patches.append(p)
+
         ax.legend(handles=legend_patches, loc="best")
         ax.set_ylim(0, 1.1 * max_tdist)
         ax.set_xlabel("Departure time")
