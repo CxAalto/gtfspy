@@ -256,7 +256,7 @@ class NodeProfileAnalyzerTime:
 
     def plot_temporal_distance_profile(self,
                                        timezone=None,
-                                       color="blue",
+                                       color="green",
                                        alpha=0.15,
                                        ax=None,
                                        lw=2,
