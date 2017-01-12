@@ -302,6 +302,8 @@ def _fleet_size_estimate(gtfs, hour, date):
 def _n_gtfs_sources(gtfs):
     n_gtfs_sources = gtfs.execute_custom_query(
         "SELECT value FROM metadata WHERE key = 'n_gtfs_sources';").fetchone()
+    if not n_gtfs_sources:
+        n_gtfs_sources = [1]
     return n_gtfs_sources
 
 def _feed_calendar_span(gtfs, stats):
@@ -459,3 +461,5 @@ def route_frequencies(gtfs, results_by_mode=False):
 
 def hourly_frequencies(gtfs, results_by_mode=False):
     pass
+
+# TODO: export shapefiles

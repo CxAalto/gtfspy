@@ -1,16 +1,15 @@
 # reload(sys)
-
 # -*- encoding: utf-8 -*-
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import print_function
 
 import sys
-if sys.getdefaultencoding() != "utf-8":
+#if sys.getdefaultencoding() != "utf-8":
     # for Python2
-    sys.reload()
-    sys.setdefaultencoding('utf-8')
-
+#    sys.reload()
+#    sys.setdefaultencoding('utf-8')
+import itertools
 
 """
 Importing GTFS into a sqlite database.
@@ -34,7 +33,6 @@ from gtfspy import stats
 from gtfspy import util
 from gtfspy.gtfs import GTFS
 from gtfspy import calc_transfers
-
 
 
 def decode_six(string):
@@ -190,7 +188,7 @@ class TableLoader(object):
         # pointing out that dictionaries are used everywhere here to
         # not have to depend on the particular ordering of fields, and
         # to make it easier to add more fields in the future.
-        def iter_file(file_obj):
+        def _iter_file(file_obj):
             # Python2 csv reading is stupid when it comes to UTF8.
             # The input has to be strings. But some files have
             # the UTF8 byte order mark, which needs to be removed.
@@ -225,21 +223,22 @@ class TableLoader(object):
                 elif "zipfile" in source:
                     try:
                         Z = zipfile.ZipFile(source['zipfile'], mode='r')
+                        # print(Z.namelist())
                         f = Z.open(os.path.join(source['zip_commonprefix'], self.fname), mode='rU')
-                    # File does not exist in the zip archive
                     except KeyError:
                         pass
             elif isinstance(source, string_types):
                 # now source is a directory
                 try:
                     f = open(os.path.join(source, self.fname))
-                except FileNotFoundError as e:
+                except OSError as e:
                     f = []
             fs.append(f)
 
-        csv_readers = [csv.DictReader(iter_file(f)) for f in fs]
+        # so far so good...
+        csv_readers = [csv.DictReader(_iter_file(f)) for f in fs]
         csv_reader_generators = []
-        for csv_reader in csv_readers:
+        for i, csv_reader in enumerate(csv_readers):
             try:
                 csv_reader.fieldnames = [x.strip() for x in csv_reader.fieldnames]
                 # Make a generator that strips the values in all fields before
@@ -254,7 +253,8 @@ class TableLoader(object):
                 csv_reader_generators.append(csv_reader_stripped)
             except TypeError as e:
                 if "NoneType" in str(e):
-                    print("file missing", self.fname)
+                    print(self.fname + " missing from feed " + str(i))
+                    csv_reader_generators.append(iter(()))
                     #raise e here will make every multifeed download with incompatible number of tables fail
                 else:
                     raise e
@@ -300,15 +300,17 @@ class TableLoader(object):
         # "INSERT INTO table (col1, col2, ...) VALUES (:col1, :col2,
         # ...)".  The ":col1" is sqlite syntax for named value.
 
-        for i, (csv_reader, prefix) in enumerate(zip(*(self._get_csv_reader_generators()))):
+        csv_reader_generators, prefixes = self._get_csv_reader_generators()
+        for csv_reader, prefix in zip(csv_reader_generators, prefixes):
             try:
-                fields = next(iter(self.gen_rows([csv_reader], [prefix]))).keys()
+                row = next(iter(self.gen_rows([csv_reader], [prefix])))
+                fields = row.keys()
             except StopIteration:
                 # The file has *only* a header and no data.
                 # next(iter()) yields StopIteration and we can't
-                # proceed.  Since there is nothing to import, just return
-                # from this function now.
-                return
+                # proceed.  Since there is nothing to import, just continue the loop
+                print("Not importing %s into %s for %s" % (self.fname, self.table, prefix))
+                continue
             stmt = '''INSERT INTO %s (%s) VALUES (%s)''' % (
                 self.table,
                 (', '.join([x for x in fields if x[0] != '_'] + self.extra_keys)),
@@ -319,12 +321,35 @@ class TableLoader(object):
             # statement and then an iterator over dictionaries.  Each
             # dictionary is inserted.
             if self.print_progress:
-                print('Importing %s into %s' % (self.fname, self.table))
+                print('Importing %s into %s for %s' % (self.fname, self.table, prefix))
             # the first row was consumed by fetching the fields
             # (this could be optimized)
-            new_csv_readers, _ = self._get_csv_reader_generators()
-            cur.executemany(stmt, self.gen_rows([new_csv_readers[i]], [prefix]))
+            from itertools import chain
+            rows = chain([row], self.gen_rows([csv_reader], [prefix]))
+            cur.executemany(stmt, rows)
             conn.commit()
+
+            # This was used for debugging the missing service_I:
+            # if self.__class__.__name__ == 'TripLoader': # and False:
+                # for i in self.gen_rows([new_csv_readers[i]], [prefix]):
+                # print(stmt)
+                # rows = cur.execute('SELECT agency_id, trips.service_id FROM agencies, routes, trips
+            # LEFT JOIN calendar ON(calendar.service_id=trips.service_id)
+            # WHERE trips.route_I = routes.route_I and routes.agency_I = agencies.agency_I and trips.service_I is NULL
+            # GROUP BY trips.service_id, agency_id').fetchall()
+                # rows = cur.execute('SELECT distinct trips.service_id FROM trips
+            # LEFT JOIN calendar ON(calendar.service_id=trips.service_id) WHERE trips.service_I is NULL').fetchall()
+
+                # print('trips, etc', [description[0] for description in cur.description])
+                # for i, row in enumerate(rows):
+                    # print(row)
+                    #if i == 100:
+                        #exit(0)
+
+                # rows = cur.execute('SELECT distinct service_id FROM calendar').fetchall()
+                # print('calendar_columns',[description[0] for description in cur.description])
+                # for row in rows:
+                    # print(row)
 
     def run_post_import(self, conn):
         if self.print_progress:
@@ -516,6 +541,7 @@ class RouteLoader(TableLoader):
 class TripLoader(TableLoader):
     fname = 'trips.txt'
     table = 'trips'
+    # service_I INT NOT NULL
     tabledef = ('(trip_I INTEGER PRIMARY KEY, trip_id TEXT UNIQUE NOT NULL, '
                 'route_I INT, service_I INT, direction_id TEXT, shape_id TEXT, '
                 'headsign TEXT, '
@@ -529,17 +555,20 @@ class TripLoader(TableLoader):
     # route_id,service_id,trip_id,trip_headsign,direction_id,shape_id,wheelchair_accessible,bikes_allowed
     # 1001,1001_20150424_20150426_Ke,1001_20150424_Ke_1_0953,"Käpylä",0,1001_20140811_1,1,2
     def gen_rows(self, readers, prefixes):
+        #try:
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
                 #print row
-                yield dict(
-                    _route_id     = prefix + decode_six(row['route_id']),
-                    _service_id   = prefix + decode_six(row['service_id']),
-                    trip_id       = prefix + decode_six(row['trip_id']),
-                    direction_id  = decode_six(row['direction_id']) if row.get('direction_id','') else None,
-                    shape_id      = prefix + decode_six(row['shape_id']) if row.get('shape_id','') else None,
-                    headsign      = decode_six(row['trip_headsign']) if 'trip_headsign' in row else None,
-                )
+                    yield dict(
+                        _route_id     = prefix + decode_six(row['route_id']),
+                        _service_id   = prefix + decode_six(row['service_id']),
+                        trip_id       = prefix + decode_six(row['trip_id']),
+                        direction_id  = decode_six(row['direction_id']) if row.get('direction_id','') else None,
+                        shape_id      = prefix + decode_six(row['shape_id']) if row.get('shape_id','') else None,
+                        headsign      = decode_six(row['trip_headsign']) if 'trip_headsign' in row else None,
+                        )
+        #except:
+            #print(row)
 
     @classmethod
     def index(cls, cur):
@@ -676,7 +705,7 @@ class StopTimesLoader(TableLoader):
 
 
 class DayTripsMaterializer(TableLoader):
-    """Make the tabel day_trips with (date, trip_I, start, end, day_start_ut).
+    """Make the table day_trips with (date, trip_I, start, end, day_start_ut).
 
     This replaces the old day_trips view.  This allows direct querying
     on the start_time_ut and end_time_ut, at the cost that this table is
@@ -1131,18 +1160,18 @@ class DayLoader(TableLoader):
     def post_import(self, cur):
         days = []
         # This index is important here, but no where else, and not for
-        # future processing.  So, create it here, delete it at the ond
+        # future processing.  So, create it here, delete it at the end
         # of the function.  If this index was important, it could be
         # moved to CalendarDatesLoader.
         cur.execute('CREATE INDEX IF NOT EXISTS idx_calendar_dates_sid ON calendar_dates (service_I)')
 
         cur.execute('SELECT * FROM calendar')
-        row_data = cur.description
+        colnames = cur.description
         cur2 = self._conn.cursor()
 
         def make_dict(row):
             """Quick function to make dictionary out of row"""
-            return dict((dat[0], value) for dat, value in zip(row_data, row))
+            return dict((key[0], value) for key, value in zip(colnames, row))
 
         def iter_dates(start, end):
             """Iter date objects for start--end, INCLUSIVE of end date"""
@@ -1714,9 +1743,10 @@ def main():
 
     # parsing import-multiple
     parser_import_multiple = subparsers.add_parser('import-multiple', help="GTFS import from multiple zip-files")
-    parser_import_multiple.add_argument('gtfsnames', help='Input GTFS filename zips')
+    # parser_import_multiple.add_argument('gtfsnames', help='Input GTFS filename zips')
     parser_import_multiple.add_argument('zipfiles', metavar='zipfiles', type=str, nargs=argparse.ONE_OR_MORE,
                                         help='zipfiles for the import')
+    parser_import_multiple.add_argument('output', help='Output .sqlite filename (must end in .sqlite)')
 
     # Parsing copy
     parser_copy = subparsers.add_parser('copy', help="Copy database")
@@ -1763,7 +1793,9 @@ def main():
             import_gtfs(gtfs, output=tmpfile)
     elif args.cmd == "import-multiple":
         zipfiles = args.zipfiles
-        # print(zipfiles)
+        output = args.output
+        with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
+            import_gtfs(zipfiles, output=tmpfile)
     elif args.cmd == 'make-views':
         main_make_views(args.gtfs)
     # This is now implemented in gtfs.py, please remove the commented code
