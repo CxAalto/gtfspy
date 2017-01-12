@@ -72,7 +72,7 @@ def write_stats_as_csv(gtfs, path_to_csv):
                 is_new = True
 
     with open(path_to_csv, 'a') as csvfile:
-        statswriter = csv.writer(csvfile, delimiter=',')
+        statswriter = csv.writer(csvfile, delimiter=b',')
         # write column names if
         if is_new:
             statswriter.writerow([key for key in sorted(stats_dict.keys())])
@@ -174,9 +174,11 @@ def get_stats(gtfs):
             stats["max_activity_hour"] = max_activity_hour[1]
         else:
             stats["max_activity_hour"] = None
+
     # Fleet size estimate: considering each line separately
-    fleet_size_estimates = _fleet_size_estimate(gtfs, stats['max_activity_hour'], stats['max_activity_date'])
-    stats.update(fleet_size_estimates)
+    if max_activity_date and max_activity_hour:
+        fleet_size_estimates = _fleet_size_estimate(gtfs, stats['max_activity_hour'], stats['max_activity_date'])
+        stats.update(fleet_size_estimates)
 
     # Compute simple distributions of various columns that have a finite range of values.
     # Commented lines refer to values that are not imported yet, ?
@@ -336,11 +338,11 @@ def _feed_calendar_span(gtfs, stats):
                     max_start = calendar_span[0]
                 if gtfs.get_day_start_ut(calendar_span[1]) < gtfs.get_day_start_ut(min_end):
                     min_end = calendar_span[1]
-        stats["latest_start_date"] = max_start
-        stats["earliest_end_date"] = min_end
+        stats["latest_feed_start_date"] = max_start
+        stats["earliest_feed_end_date"] = min_end
     else:
-        stats["latest_start_date"] = stats["start_date"]
-        stats["earliest_end_date"] = stats["end_date"]
+        stats["latest_feed_start_date"] = stats["start_date"]
+        stats["earliest_feed_end_date"] = stats["end_date"]
     return stats
 
 

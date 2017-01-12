@@ -5,11 +5,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import sys
-#if sys.getdefaultencoding() != "utf-8":
-    # for Python2
-#    sys.reload()
-#    sys.setdefaultencoding('utf-8')
-import itertools
 
 """
 Importing GTFS into a sqlite database.
@@ -197,7 +192,7 @@ class TableLoader(object):
             version = sys.version_info[0]
             for line in file_obj:
                 if isinstance(line, bytes):
-                    yield line.decode("utf-8").lstrip(codecs.BOM_UTF8)
+                    yield line.lstrip(codecs.BOM_UTF8).decode("utf-8")
                 elif version == 2:  # python2.x
                     if isinstance(line, str):
                         yield line
@@ -259,6 +254,7 @@ class TableLoader(object):
                 else:
                     raise e
         prefixes = [u"feed_{i}_".format(i=i) for i in range(len(csv_reader_generators))]
+
         if len(prefixes) == 1:
             # no prefix for a single source feed
             prefixes = [u""]
@@ -514,7 +510,7 @@ class RouteLoader(TableLoader):
                     ]
 
     # route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url
-    # 1001,HSL,1,Kauppatori - Käpylä,,0,http://aikataulut.hsl.fi/linjat/fi/h1_1a.html
+    # 1001,HSL,1,Kauppatori - Kapyla,0,http://aikataulut.hsl.fi/linjat/fi/h1_1a.html
     def gen_rows(self, readers, prefixes):
         from gtfspy import extended_route_types
         for reader, prefix in zip(readers, prefixes):
@@ -553,7 +549,7 @@ class TripLoader(TableLoader):
                     ]
 
     # route_id,service_id,trip_id,trip_headsign,direction_id,shape_id,wheelchair_accessible,bikes_allowed
-    # 1001,1001_20150424_20150426_Ke,1001_20150424_Ke_1_0953,"Käpylä",0,1001_20140811_1,1,2
+    # 1001,1001_20150424_20150426_Ke,1001_20150424_Ke_1_0953,"Kapyla",0,1001_20140811_1,1,2
     def gen_rows(self, readers, prefixes):
         #try:
         for reader, prefix in zip(readers, prefixes):
@@ -979,7 +975,6 @@ class TransfersLoader(TableLoader):
     extra_values = ['(SELECT stop_I FROM stops WHERE stop_id=:_from_stop_id)',
                     '(SELECT stop_I FROM stops WHERE stop_id=:_to_stop_id)',
                     ]
-
 
     def gen_rows(self, readers, prefixes):
         for reader, prefix in zip(readers, prefixes):
@@ -1613,7 +1608,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
                 print_progress=True, location_name=None, **kwargs):
     """Import a GTFS database
 
-    gtfs_sources: str or dict
+    gtfs_sources: str, dict, list
         path to the gtfs zip file or to the dir containing
         or alternatively, a dict mapping gtfs filenames
         (like 'stops.txt' and 'agencies.txt') into their
@@ -1743,7 +1738,6 @@ def main():
 
     # parsing import-multiple
     parser_import_multiple = subparsers.add_parser('import-multiple', help="GTFS import from multiple zip-files")
-    # parser_import_multiple.add_argument('gtfsnames', help='Input GTFS filename zips')
     parser_import_multiple.add_argument('zipfiles', metavar='zipfiles', type=str, nargs=argparse.ONE_OR_MORE,
                                         help='zipfiles for the import')
     parser_import_multiple.add_argument('output', help='Output .sqlite filename (must end in .sqlite)')
@@ -1796,6 +1790,7 @@ def main():
         output = args.output
         with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
             import_gtfs(zipfiles, output=tmpfile)
+
     elif args.cmd == 'make-views':
         main_make_views(args.gtfs)
     # This is now implemented in gtfs.py, please remove the commented code

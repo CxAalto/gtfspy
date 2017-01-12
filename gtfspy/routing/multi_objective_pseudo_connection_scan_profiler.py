@@ -54,10 +54,6 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             whether to consider time in the set of pareto_optimal
         """
         AbstractRoutingAlgorithm.__init__(self)
-        if isinstance(targets, list):
-            self._targets = targets
-        else:
-            self._targets = [targets]
         self._transit_connections = transit_events
         if start_time is None:
             start_time = transit_events[-1].departure_time
@@ -73,9 +69,6 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         self._verbose = verbose
 
         # algorithm internals
-
-        # trip flags:
-        self.__trip_labels = defaultdict(lambda: list())
 
         # initialize stop_profiles
         self._count_vehicle_legs = track_vehicle_legs
@@ -93,7 +86,6 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         self._stop_departure_times, self._stop_arrival_times = self.__compute_stop_dep_and_arrival_times()
         self._all_nodes = set.union(set(self._stop_departure_times.keys()),
                                     set(self._stop_arrival_times.keys()),
-                                    set(self._targets),
                                     set(self._walk_network.nodes()))
 
         self._pseudo_connections = self.__compute_pseudo_connections()
@@ -101,7 +93,11 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         self._all_connections = self._pseudo_connections + self._transit_connections
         self._all_connections.sort(key=lambda connection: -connection.departure_time)
         self._augment_all_connections_with_arrival_stop_next_dep_time()
-        self.__initialize_node_profiles()
+        if isinstance(targets, list):
+            self._targets = targets
+        else:
+            self._targets = [targets]
+        self.reset(self._targets)
 
     @timeit
     def _add_pseudo_connection_departures_to_stop_departure_times(self):
@@ -242,7 +238,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         for i, connection in enumerate(self._all_connections):
             # basic checking + printing progress:
             if self._verbose and i % 100000 == 0:
-                print(i, "/", n_connections_tot)
+                print(i, "/", n_connections_tot, " : ", float(i)/n_connections_tot)
             assert (isinstance(connection, Connection))
             assert (connection.departure_time <= previous_departure_time)
             previous_departure_time = connection.departure_time
@@ -298,3 +294,14 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                 label.n_boardings += 1
             label.first_leg_is_walk = first_leg_is_walk
         return labels_copy
+
+    def reset(self, targets):
+        if isinstance(targets, list):
+            self._targets = targets
+        else:
+            self._targets = [targets]
+        for target in targets:
+            assert(target in self._all_nodes)
+        self.__initialize_node_profiles()
+        self.__trip_labels = defaultdict(lambda: list())
+        self._has_run = False

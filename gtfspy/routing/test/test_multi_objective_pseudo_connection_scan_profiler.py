@@ -382,6 +382,40 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             self.assertEqual(len(labels), 1)
             self.assertEqual(labels[0].n_boardings, n_veh_legs)
 
+    def test_reset(self):
+        walk_speed = 1
+        target_stop = 2
+        start_time = 0
+        end_time = 60
+        transfer_margin = 0
+        transit_connections = [
+            Connection(0, 1, 40, 50, "trip_1"),
+            Connection(1, 2, 55, 60, "trip_1"),
+            Connection(3, 1, 40, 60, "trip_2"),
+        ]
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      networkx.Graph(), walk_speed)
+        csa_profile.run()
+        nodes = [0, 1, 2, 3]
+        label_counts = [1, 1, 0, 0]
+        for node, count in zip(nodes, label_counts):
+            n_labels = len(csa_profile.stop_profiles[node].get_final_optimal_labels())
+            self.assertEqual(n_labels, count)
+
+        target_stops = [1]
+        csa_profile.reset(target_stops)
+        csa_profile.run()
+        label_counts = [1, 0, 0, 1]
+        for node, count in zip(nodes, label_counts):
+            n_labels = len(csa_profile.stop_profiles[node].get_final_optimal_labels())
+            self.assertEqual(n_labels, count)
+
+        # TODO: perform a check for the reinitialization of trip_labels
+        # THIS IS NOT YET TESTED but should work at the moment
+        # RK 9.1.2017
+
+
     def _assert_label_sets_equal(self, found_tuples, should_be_tuples):
         self.assertEqual(len(found_tuples), len(should_be_tuples))
         for found_tuple in found_tuples:
