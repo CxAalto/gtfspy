@@ -28,6 +28,8 @@ if sys.version_info[0] == 3:
 else:
     binary_type = str
 
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 class GTFS(object):
 
@@ -40,12 +42,15 @@ class GTFS(object):
             path to the preprocessed gtfs database or a connection to a gtfs database
         """
         if isinstance(fname, string_types):
-            self.conn = sqlite3.connect(fname)
-            self.fname = fname
-            # memory-mapped IO size, in bytes
-            self.conn.execute('PRAGMA mmap_size = 1000000000;')
-            # page cache size, in negative KiB.
-            self.conn.execute('PRAGMA cache_size = -2000000;')
+            if os.path.isfile(fname):
+                self.conn = sqlite3.connect(fname)
+                self.fname = fname
+                # memory-mapped IO size, in bytes
+                self.conn.execute('PRAGMA mmap_size = 1000000000;')
+                # page cache size, in negative KiB.
+                self.conn.execute('PRAGMA cache_size = -2000000;')
+            else:
+                raise EnvironmentError("File " + fname + " missing")
         elif isinstance(fname, sqlite3.Connection):
             self.conn = fname
             self._dont_close = True
@@ -522,7 +527,7 @@ class GTFS(object):
         # data1 = pd.read_sql_query(query, self.conn)
         # one (arbitrary) shape_id per route_I ("one direction") -> less than half of the routes
         query = "SELECT routes.name as name, shape_id, route_I, trip_I, routes.type, " \
-                "        agency_id, agencies.name as agency_name " \
+                "        agency_id, agencies.name as agency_name, max(end_time_ds-start_time_ds) as trip_duration " \
                 "FROM trips " \
                 "LEFT JOIN routes " \
                 "USING(route_I) " \
@@ -530,16 +535,15 @@ class GTFS(object):
                 "USING(agency_I) " \
                 "GROUP BY routes.route_I"
         data = pd.read_sql_query(query, self.conn)
-
-        print(pd.read_sql_query("select * from agencies", self.conn))
-        print(pd.read_sql_query("select * from routes", self.conn))
-        print(pd.read_sql_query("select * from trips", self.conn))
+        # print(pd.read_sql_query("select * from agencies", self.conn))
+        # print(pd.read_sql_query("select * from routes", self.conn))
+        # print(pd.read_sql_query("select * from trips", self.conn))
 
         routeShapes = []
         n_rows = len(data)
         for i, row in enumerate(data.itertuples()):
             datum = {"name": row.name, "type": row.type, "agency": row.agency_id, "agency_name": row.agency_name}
-            print(row.agency_id, ": ", i, "/", n_rows)
+            # print(row.agency_id, ": ", i, "/", n_rows)
             # this function should be made also non-shape friendly (at this point)
             if use_shapes and row.shape_id:
                 shape = shapes.get_shape_points2(cur, row.shape_id)
@@ -661,6 +665,27 @@ class GTFS(object):
         # for dsut in trip_counts_per_day.index:
         #     assert dsut in day_start_uts
         # return {"day_start_uts": day_start_uts, "trip_counts":trip_counts}
+
+    def get_suitable_date_for_daily_extract(self, date):
+        '''
+        Selects suitable date for daily extract
+        Iterates trough the available dates forward and backward from the download date accepting the first day that has
+        at least 90 percent of the number of trips of the maximum date. The condition can be changed to something else.
+        If the download date is out of range, the process will look trough the dates in from first to last.
+        :param daily_trips: pandas dataframe
+        :param date: date string
+        :return:
+        '''
+        daily_trips = self.get_trip_counts_per_day()
+        max_daily_trips = daily_trips[u'trip_counts'].max(axis=0)
+        if date in daily_trips[u'dates']:
+            start_index = daily_trips[daily_trips[u'dates'] == date].index.tolist()[0]
+            daily_trips[u'old_index'] = daily_trips.index
+            daily_trips[u'date_dist'] = abs(start_index - daily_trips.index)
+            daily_trips = daily_trips.sort_values(by=[u'date_dist', u'old_index']).reindex()
+        for row in daily_trips.itertuples():
+            if row.trip_counts >= 0.9 * max_daily_trips:
+                return row.dates
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
@@ -1331,8 +1356,8 @@ class GTFS(object):
         -------
         warnings_container: validator.ValidationWarningsContainer
         """
-        from .validator import Validator
-        validator = Validator(self)
+        from .data_validator import DataValidator
+        validator = DataValidator(self)
         return validator.get_warnings()
 
     def execute_custom_query(self, query):
@@ -1442,20 +1467,20 @@ def main(cmd, args):
         to_db = args[1]
         download_date = g.meta['download_date']
         d = datetime.datetime.strptime(download_date, '%Y-%m-%d').date()
-        date_start = d + datetime.timedelta(7 - d.isoweekday() + 1)      # inclusive
-        date_end   = d + datetime.timedelta(7 - d.isoweekday() + 1 + 1)  # exclusive
-        filter.filter_extract(g, to_db, start_date=date_start, end_date=date_end)
+        start_time = d + datetime.timedelta(7 - d.isoweekday() + 1)      # inclusive
+        end_time   = d + datetime.timedelta(7 - d.isoweekday() + 1 + 1)  # exclusive
+        filter.filter_extract(g, to_db, start_date=start_time, end_date=end_time)
     elif cmd == 'make-weekly':
         from_db = args[0]
         g = GTFS(from_db)
         to_db = args[1]
         download_date = g.meta['download_date']
         d = datetime.datetime.strptime(download_date, '%Y-%m-%d').date()
-        date_start = d + datetime.timedelta(7 - d.isoweekday() + 1)  # inclusive
-        date_end = d + datetime.timedelta(7 - d.isoweekday() + 1 + 7)  # exclusive
-        print(date_start, date_end)
-        filter.filter_extract(g, to_db, start_date=date_start, end_date=date_end)
-    elif "spatial-extract":
+        start_time = d + datetime.timedelta(7 - d.isoweekday() + 1)  # inclusive
+        end_time = d + datetime.timedelta(7 - d.isoweekday() + 1 + 7)  # exclusive
+        print(start_time, end_time)
+        filter.filter_extract(g, to_db, start_date=start_time, end_date=end_time)
+    elif cmd == "spatial-extract":
         try:
             from_db = args[0]
             lat = float(args[1])
@@ -1476,6 +1501,25 @@ def main(cmd, args):
         # noinspection PyPackageRequirements
         import IPython
         IPython.embed()
+    elif 'export_shapefile' in cmd:
+        from util import write_shapefile
+        from_db = args[0] #'/m/cs/project/networks/jweckstr/transit/scratch/proc_latest/helsinki/2016-04-06/main.day.sqlite'
+        shapefile_path = args[1] #'/m/cs/project/networks/jweckstr/TESTDATA/helsinki_routes.shp'
+        g = GTFS(from_db)
+        if cmd == 'export_shapefile_routes':
+            data = g.get_all_route_shapes(use_shapes=True)
+
+        elif cmd == 'export_shapefile_segment_counts':
+            date = args[2] # '2016-04-06'
+            d = datetime.datetime.strptime(date, '%Y-%m-%d').date()
+            day_start = g.get_day_start_ut(d + datetime.timedelta(7 - d.isoweekday() + 1))
+            start_time = day_start + 3600 * 7
+            end_time = day_start + 3600 * 8
+            data = g.get_segment_count_data(start_time, end_time, use_shapes=True)
+
+        write_shapefile(data, shapefile_path)
+
+
     else:
         print("Unrecognized command: %s" % cmd)
         exit(1)
@@ -1483,3 +1527,5 @@ def main(cmd, args):
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2:])
+
+
