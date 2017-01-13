@@ -150,7 +150,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
     def median_n_boardings_on_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.median()
 
-    def _get_time_profile_analyzer(self, max_n_boardings=None):
+    def get_time_profile_analyzer(self, max_n_boardings=None):
         """
         Parameters
         ----------
@@ -204,46 +204,46 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
     @_if_no_labels_return_inf
     def min_temporal_distance(self):
-        result = self._get_time_profile_analyzer().min_temporal_distance()
+        result = self.get_time_profile_analyzer().min_temporal_distance()
         assert(result >= 0), result
         return result
 
     @_if_no_labels_return_inf
     def max_temporal_distance(self):
-        return self._get_time_profile_analyzer().max_temporal_distance()
+        return self.get_time_profile_analyzer().max_temporal_distance()
 
     @_if_no_labels_return_inf
     def median_temporal_distance(self):
-        return self._get_time_profile_analyzer().median_temporal_distance()
+        return self.get_time_profile_analyzer().median_temporal_distance()
 
     @_if_no_labels_return_inf
     def mean_temporal_distance(self):
-        return self._get_time_profile_analyzer().mean_temporal_distance()
+        return self.get_time_profile_analyzer().mean_temporal_distance()
 
     @_if_no_labels_return_inf
     def min_trip_duration(self):
-        return self._get_time_profile_analyzer().min_trip_duration()
+        return self.get_time_profile_analyzer().min_trip_duration()
 
     @_if_no_labels_return_inf
     def max_trip_duration(self):
-        return self._get_time_profile_analyzer().max_trip_duration()
+        return self.get_time_profile_analyzer().max_trip_duration()
 
     @_if_no_labels_return_inf
     def median_trip_duration(self):
-        return self._get_time_profile_analyzer().median_trip_duration()
+        return self.get_time_profile_analyzer().median_trip_duration()
 
     @_if_no_labels_return_inf
     def mean_trip_duration(self):
-        return self._get_time_profile_analyzer().mean_trip_duration()
+        return self.get_time_profile_analyzer().mean_trip_duration()
 
     def mean_temporal_distance_with_min_n_boardings(self):
         min_n_boardings = self.min_n_boardings()
-        min_n_boardings_analyzer = self._get_time_profile_analyzer(min_n_boardings)
+        min_n_boardings_analyzer = self.get_time_profile_analyzer(min_n_boardings)
         return min_n_boardings_analyzer.mean_temporal_distance()
 
     def min_temporal_distance_with_min_n_boardings(self):
         min_n_boardings = self.min_n_boardings()
-        min_n_boardings_analyzer = self._get_time_profile_analyzer(min_n_boardings)
+        min_n_boardings_analyzer = self.get_time_profile_analyzer(min_n_boardings)
         return min_n_boardings_analyzer.min_temporal_distance()
 
     def median_temporal_distances(self, min_n_boardings=None, max_n_boardings=None):
@@ -264,7 +264,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
         median_temporal_distances = [float('inf') for _ in range(min_n_boardings, max_n_boardings + 1)]
         for n_boardings in range(min_n_boardings, max_n_boardings + 1):
-            simple_analyzer = self._get_time_profile_analyzer(n_boardings)
+            simple_analyzer = self.get_time_profile_analyzer(n_boardings)
             median_temporal_distances[n_boardings] = simple_analyzer.median_temporal_distance()
         return median_temporal_distances
 
@@ -281,8 +281,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             max_n_boardings = n_default
         from matplotlib import cm
         cmap = cm.get_cmap("cubehelix_r")
-        start = 0.15
-        end = 0.8
+        start = 0.1
+        end = 0.9
         if max_n_boardings is 0:
             step = 0
         else:
@@ -312,7 +312,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         colors = NodeProfileAnalyzerTimeAndVehLegs._get_colors_for_boardings(min_n, max_n)
         max_temporal_distance = 0
         for color, n_boardings in zip(colors, range(min_n, max_n + 1)):
-            npat = self._get_time_profile_analyzer(n_boardings)
+            npat = self.get_time_profile_analyzer(n_boardings)
             maxdist = npat.largest_finite_temporal_distance()
             if maxdist is not None and maxdist > max_temporal_distance:
                 max_temporal_distance = maxdist
@@ -432,8 +432,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             if n_boardings == 0:
                 # dealt above
                 continue
-            prev_analyzer = self._get_time_profile_analyzer(n_boardings - 1)
-            prev_profile_block_analyzer = prev_analyzer.temporal_profile_analyzer
+            prev_analyzer = self.get_time_profile_analyzer(n_boardings - 1)
+            prev_profile_block_analyzer = prev_analyzer.profile_block_analyzer
             assert(isinstance(prev_profile_block_analyzer, ProfileBlockAnalyzer))
             labels = n_boardings_to_labels[n_boardings]
             for i, journey_label in enumerate(labels):
@@ -480,8 +480,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             legend_patches.append(p)
 
         if highlight_fastest_path:
-            fastest_path_time_analyzer = self._get_time_profile_analyzer()
-            vlines, slopes = fastest_path_time_analyzer.temporal_profile_analyzer.get_vlines_and_slopes_for_plotting()
+            fastest_path_time_analyzer = self.get_time_profile_analyzer()
+            vlines, slopes = fastest_path_time_analyzer.profile_block_analyzer.get_vlines_and_slopes_for_plotting()
             lw = fastest_path_lw
             ls = "--"
             for vline in vlines:
@@ -492,8 +492,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                         ls=ls, color="k", lw=lw)
             p = lines.Line2D([0, 1], [0, 1], ls=ls, lw=lw, color="k", label="fastest path profile")
             legend_patches.append(p)
-
-
 
         if plot_journeys:
             letters = iter("ABCDEFGHIJKLMN")
@@ -519,7 +517,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             fig = plt.figure(figsize=(10, 6))
             ax = fig.add_subplot(111)
             kwargs["ax"] = ax
-        npat = self._get_time_profile_analyzer(max_n)
+        npat = self.get_time_profile_analyzer(max_n)
         fig = npat.plot_temporal_distance_profile(timezone=timezone,
                                                   **kwargs)
         return fig

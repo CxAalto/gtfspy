@@ -94,8 +94,8 @@ class NodeProfileAnalyzerTime:
                                           )
                 self._profile_blocks.append(trip_block)
 
-        self.temporal_profile_analyzer = ProfileBlockAnalyzer(profile_blocks=self._profile_blocks,
-                                                              cutoff_distance=self._walk_time_to_target)
+        self.profile_block_analyzer = ProfileBlockAnalyzer(profile_blocks=self._profile_blocks,
+                                                           cutoff_distance=self._walk_time_to_target)
 
     def n_pareto_optimal_trips(self):
         """
@@ -173,7 +173,7 @@ class NodeProfileAnalyzerTime:
         -------
         median_temporal_distance : float
         """
-        return self.temporal_profile_analyzer.median()
+        return self.profile_block_analyzer.median()
 
     def min_temporal_distance(self):
         """
@@ -183,7 +183,7 @@ class NodeProfileAnalyzerTime:
         -------
         min_temporal_distance: float
         """
-        return self.temporal_profile_analyzer.min()
+        return self.profile_block_analyzer.min()
 
     def max_temporal_distance(self):
         """
@@ -193,7 +193,7 @@ class NodeProfileAnalyzerTime:
         -------
         max_temporal_distance : float
         """
-        return self.temporal_profile_analyzer.max()
+        return self.profile_block_analyzer.max()
 
     def largest_finite_temporal_distance(self):
         """
@@ -203,7 +203,7 @@ class NodeProfileAnalyzerTime:
         -------
         max_temporal_distance : float
         """
-        return self.temporal_profile_analyzer.largest_finite_distance()
+        return self.profile_block_analyzer.largest_finite_distance()
 
     def plot_temporal_distance_cdf(self):
         """
@@ -213,7 +213,7 @@ class NodeProfileAnalyzerTime:
         -------
         fig: matplotlib.Figure
         """
-        xvalues, cdf = self.temporal_profile_analyzer._temporal_distance_cdf()
+        xvalues, cdf = self.profile_block_analyzer._temporal_distance_cdf()
         fig = plt.figure()
         ax = fig.add_subplot(111)
         xvalues = numpy.array(xvalues) / 60.0
@@ -223,7 +223,7 @@ class NodeProfileAnalyzerTime:
         ax.set_xlabel("Temporal distance t (min)")
         return fig
 
-    def plot_temporal_distance_pdf(self):
+    def plot_temporal_distance_pdf(self, use_minutes=True, color="green", ax=None):
         """
         Plot the temporal distance probability density function.
 
@@ -231,28 +231,141 @@ class NodeProfileAnalyzerTime:
         -------
         fig: matplotlib.Figure
         """
-        temporal_distance_split_points_ordered, densities = self._temporal_distance_pdf()
+        from matplotlib import pyplot as plt
+        plt.rc('text', usetex=True)
+        temporal_distance_split_points_ordered, densities, delta_peaks = self._temporal_distance_pdf()
         xs = []
         for i, x in enumerate(temporal_distance_split_points_ordered):
             xs.append(x)
             xs.append(x)
+        xs = numpy.array(xs)
         ys = [0]
         for y in densities:
             ys.append(y)
             ys.append(y)
         ys.append(0)
+        ys = numpy.array(ys)
         # convert data to minutes:
-        xs = numpy.array(xs) / 60.0
-        ys = numpy.array(ys) * 60.0
+        xlabel = "Temporal distance (s)"
+        ylabel = "PDF(t)"
+        if use_minutes:
+            xs /= 60.0
+            ys *= 60.0
+            xlabel = "Temporal distance (min)"
+            delta_peaks = {peak / 60.0: mass for peak, mass in delta_peaks.items()}
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
         ax.plot(xs, ys, "k-")
-        ax.fill_between(xs, ys, color="red", alpha=0.2)
-        ax.set_xlabel("Temporal distance t (min)")
-        ax.set_ylabel("PDF(t) t (min)")
+        ax.fill_between(xs, ys, color="green", alpha=0.2)
+
+        if delta_peaks:
+            peak_height = max(ys) * 1.4
+            max_x = max(xs)
+            min_x = min(xs)
+            now_max_x = max(xs) + 0.3 * (max_x - min_x)
+            now_min_x = min_x - 0.1 * (max_x - min_x)
+
+            text_x_offset = 0.1 * (now_max_x - max_x)
+
+            for loc, mass in delta_peaks.items():
+                ax.plot([loc, loc], [0, peak_height], color="green", lw=5)
+                ax.text(loc + text_x_offset, peak_height * 0.99, "$P_{walk} = %.2f$" % (mass), color="green")
+            ax.set_xlim(now_min_x, now_max_x)
+
+            tot_delta_peak_mass = sum(delta_peaks.values())
+            transit_text_x = (min_x + max_x) / 2
+            transit_text_y = min(ys[ys > 0]) / 2.
+            ax.text(transit_text_x,
+                    transit_text_y,
+                    "$P_{transit} = %.2f$" % (1 - tot_delta_peak_mass),
+                    color="green",
+                    va="center",
+                    ha="center")
+
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
         ax.set_ylim(bottom=0)
-        return fig
+        return ax.figure
+
+    def plot_temporal_distance_pdf_horizontal(self, use_minutes=True,
+                                              color="green", ax=None,
+                                              duration_divider=60.0):
+        """
+        Plot the temporal distance probability density function.
+
+        Returns
+        -------
+        fig: matplotlib.Figure
+        """
+        from matplotlib import pyplot as plt
+        plt.rc('text', usetex=True)
+
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+
+        temporal_distance_split_points_ordered, densities, delta_peaks = self._temporal_distance_pdf()
+        xs = []
+        for i, x in enumerate(temporal_distance_split_points_ordered):
+            xs.append(x)
+            xs.append(x)
+        xs = numpy.array(xs)
+        ys = [0]
+        for y in densities:
+            ys.append(y)
+            ys.append(y)
+        ys.append(0)
+        ys = numpy.array(ys)
+        # convert data to minutes:
+        xlabel = "Temporal distance (s)"
+        ylabel = "PDF($\\tau$)"
+        if use_minutes:
+            xs /= duration_divider
+            ys *= duration_divider
+            xlabel = "Temporal distance (min)"
+            delta_peaks = {peak / 60.0: mass for peak, mass in delta_peaks.items()}
+
+        if delta_peaks:
+            peak_height = max(ys) * 1.4
+            max_x = max(xs)
+            min_x = min(xs)
+            now_max_x = max(xs) + 0.3 * (max_x - min_x)
+            now_min_x = min_x - 0.1 * (max_x - min_x)
+
+            text_x_offset = 0.1 * (now_max_x - max_x)
+
+            for loc, mass in delta_peaks.items():
+                text = r"$P_{\text{walk}} = " + ("%.2f$" % (mass))
+                ax.plot([0, peak_height], [loc, loc], color=color, lw=5, label=text)
+
+        ax.plot(ys, xs, "k-")
+        if delta_peaks:
+            tot_delta_peak_mass = sum(delta_peaks.values())
+            fill_label = "$P_{transit} = %.2f$" % (1- tot_delta_peak_mass)
+        else:
+            fill_label = None
+        ax.fill_betweenx(xs, ys, color=color, alpha=0.2, label=fill_label)
+
+        ax.set_ylabel(xlabel)
+        ax.set_xlabel(ylabel)
+        ax.set_xlim(left=0, right=max(ys) * 1.2)
+        if delta_peaks:
+            ax.legend(loc="best")
+
+
+        if True: #
+            line_tyles = ["-.", "--", "-"][::-1]
+            to_plot_funcs = [self.max_temporal_distance, self.mean_temporal_distance, self.min_temporal_distance]
+
+            xmin, xmax = ax.get_xlim()
+            for to_plot_func, ls in zip(to_plot_funcs, line_tyles):
+                y = to_plot_func() / duration_divider
+                assert y < float('inf')
+                ax.plot([xmin, xmax], [y, y], color="black", ls=ls, lw=1)
+
+        return ax.figure
 
     def plot_temporal_distance_profile(self,
                                        timezone=None,
@@ -265,8 +378,7 @@ class NodeProfileAnalyzerTime:
                                        plot_trip_stats=False,
                                        format_string="%Y-%m-%d %H:%M:%S",
                                        plot_journeys=False,
-                                       duration_divider=60.0
-                                       ):
+                                       duration_divider=60.0):
         """
         Parameters
         ----------
@@ -331,16 +443,12 @@ class NodeProfileAnalyzerTime:
             ax.fill_between([old_xmax, xmax], ymin, ymax, color="gray", alpha=0.1)
             ax.set_xlim(xmin, xmax)
 
-
         # plot the actual profile
-        vertical_lines, slopes = self.temporal_profile_analyzer.get_vlines_and_slopes_for_plotting()
+        vertical_lines, slopes = self.profile_block_analyzer.get_vlines_and_slopes_for_plotting()
         for i, line in enumerate(slopes):
             xs = [_ut_to_unloc_datetime(x) for x in line['x']]
             if i is 0:
-                if rcParams['text.usetex']:
-                    label = r"temporal distance profile $\tau$"
-                else:
-                    label = "temporal distance profile"
+                label = u"temporal distance profile"
             else:
                 label = None
             ax.plot(xs, numpy.array(line['y']) / duration_divider, "-", color=color, lw=lw, label=label)
@@ -356,9 +464,8 @@ class NodeProfileAnalyzerTime:
             ys = self.trip_durations
             ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
             for x, y, letter in zip(xs, ys, "ABCDEFGHIJKLM"):
-                ax.text(x + datetime.timedelta(seconds=7),
-                        y/duration_divider - 0.28, letter, va="center", ha="left")
-
+                ax.text(x + datetime.timedelta(seconds=10),
+                        y / duration_divider - 0.28, letter, va="center", ha="left")
 
         fill_between_x = []
         fill_between_y = []
@@ -372,11 +479,12 @@ class NodeProfileAnalyzerTime:
         ax.set_ylim(bottom=0)
         ax.set_ylim(ax.get_ylim()[0], ax.get_ylim()[1] * 1.05)
 
-        ax.set_xlabel("Departure time")
-        ax.set_ylabel("Temporal distance (min)")
-        ax.figure.tight_layout()
-        # plt.xticks(rotation=45)
-        ax.figure.subplots_adjust(bottom=0.3)
+        if rcParams['text.usetex']:
+            ax.set_xlabel(r"Departure time $t_{\mathrm{dep}}$")
+        else:
+            ax.set_xlabel("Departure time")
+
+        ax.set_ylabel(r"Temporal distance $\tau$ (min)")
         return ax.figure
 
     def _temporal_distance_pdf(self):
@@ -385,17 +493,30 @@ class NodeProfileAnalyzerTime:
 
         Returns
         -------
-        temporal_distance_split_points_ordered: numpy.array
-        density: numpy.array
+        non_delta_peak_split_points: numpy.array
+        non_delta_peak_densities: numpy.array
             len(density) == len(temporal_distance_split_points_ordered) -1
+        delta_peak_loc_to_probability_mass : dict
         """
-        raise NotImplementedError("One should figure out, how to deal with delta functions due to walk times")
-        # temporal_distance_split_points_ordered, norm_cdf = self._temporal_distance_cdf()
-        # temporal_distance_split_widths = temporal_distance_split_points_ordered[1:] - \
-        #                                  temporal_distance_split_points_ordered[:-1]
-        # densities = (norm_cdf[1:] - norm_cdf[:-1]) / temporal_distance_split_widths
-        # assert (len(densities) == len(temporal_distance_split_points_ordered) - 1)
-        # return temporal_distance_split_points_ordered, densities
+        temporal_distance_split_points_ordered, norm_cdf = self.profile_block_analyzer._temporal_distance_cdf()
+        delta_peak_loc_to_probability_mass = {}
+
+        non_delta_peak_split_points = [temporal_distance_split_points_ordered[0]]
+        non_delta_peak_densities = []
+        for i in range(0, len(temporal_distance_split_points_ordered) - 1):
+            left = temporal_distance_split_points_ordered[i]
+            right = temporal_distance_split_points_ordered[i + 1]
+            width = right - left
+            prob_mass = norm_cdf[i + 1] - norm_cdf[i]
+            if width == 0.0:
+                delta_peak_loc_to_probability_mass[left] = prob_mass
+            else:
+                non_delta_peak_split_points.append(right)
+                non_delta_peak_densities.append(prob_mass / float(width))
+        assert (len(non_delta_peak_densities) == len(non_delta_peak_split_points) - 1)
+        return numpy.array(non_delta_peak_split_points), \
+               numpy.array(non_delta_peak_densities), \
+               delta_peak_loc_to_probability_mass
 
     @staticmethod
     def all_measures_and_names_as_lists():
