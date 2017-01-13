@@ -11,7 +11,6 @@ _profile_block = namedtuple('ProfileBlock',
 
 
 class ProfileBlock(_profile_block):
-
     def area(self):
         return self.width() * self.mean()
 
@@ -29,7 +28,6 @@ class ProfileBlock(_profile_block):
 
 
 class ProfileBlockAnalyzer:
-
     def __init__(self, profile_blocks, cutoff_distance=None):
         """
         Parameters
@@ -59,8 +57,9 @@ class ProfileBlockAnalyzer:
                     block.distance_end = cutoff_distance
                     block.distance_start = cutoff_distance
                 else:
-                    assert(block.distance_end < cutoff_distance)
-                    split_point_x = block.start_time + (block.distance_start - cutoff_distance) / (block.distance_start - block.distance_end) * block.width()
+                    assert (block.distance_end < cutoff_distance)
+                    split_point_x = block.start_time + (block.distance_start - cutoff_distance) / (
+                    block.distance_start - block.distance_end) * block.width()
                     if block.distance_start > block.distance_end:
                         start_distance = cutoff_distance
                         end_distance = block.distance_end
@@ -70,7 +69,7 @@ class ProfileBlockAnalyzer:
                     first_block = ProfileBlock(block.start_time, split_point_x, start_distance, cutoff_distance)
                     second_block = ProfileBlock(split_point_x, block.end_time, cutoff_distance, end_distance)
                     index = self._profile_blocks.index(block)
-                    self._profile_blocks[index:index+1] = [first_block, second_block]
+                    self._profile_blocks[index:index + 1] = [first_block, second_block]
 
     def mean(self):
         total_width = self._profile_blocks[-1].end_time - self._profile_blocks[0].start_time
@@ -159,7 +158,7 @@ class ProfileBlockAnalyzer:
         if not (numpy.isclose(
                 [unnormalized_cdf[-1]],
                 [self._end_time - self._start_time - sum(delta_peaks.values())], atol=1E-4
-                ).all()):
+        ).all()):
             print(unnormalized_cdf[-1], self._end_time - self._start_time - sum(delta_peaks.values()))
             raise RuntimeError("Something went wrong with cdf computation!")
 
@@ -176,6 +175,36 @@ class ProfileBlockAnalyzer:
 
         norm_cdf = unnormalized_cdf / (unnormalized_cdf[-1] + delta_peaks[float('inf')])
         return distance_split_points_ordered, norm_cdf
+
+    def _temporal_distance_pdf(self):
+        """
+        Temporal distance probability density function.
+
+        Returns
+        -------
+        non_delta_peak_split_points: numpy.array
+        non_delta_peak_densities: numpy.array
+            len(density) == len(temporal_distance_split_points_ordered) -1
+        delta_peak_loc_to_probability_mass : dict
+        """
+        temporal_distance_split_points_ordered, norm_cdf = self._temporal_distance_cdf()
+        delta_peak_loc_to_probability_mass = {}
+
+        non_delta_peak_split_points = [temporal_distance_split_points_ordered[0]]
+        non_delta_peak_densities = []
+        for i in range(0, len(temporal_distance_split_points_ordered) - 1):
+            left = temporal_distance_split_points_ordered[i]
+            right = temporal_distance_split_points_ordered[i + 1]
+            width = right - left
+            prob_mass = norm_cdf[i + 1] - norm_cdf[i]
+            if width == 0.0:
+                delta_peak_loc_to_probability_mass[left] = prob_mass
+            else:
+                non_delta_peak_split_points.append(right)
+                non_delta_peak_densities.append(prob_mass / float(width))
+        assert (len(non_delta_peak_densities) == len(non_delta_peak_split_points) - 1)
+        return numpy.array(non_delta_peak_split_points), \
+               numpy.array(non_delta_peak_densities), delta_peak_loc_to_probability_mass
 
     def get_vlines_and_slopes_for_plotting(self):
         vertical_lines = []
@@ -195,4 +224,3 @@ class ProfileBlockAnalyzer:
                 vertical_lines.append(dict(x=[block.start_time, block.start_time],
                                            y=[previous_duration_minutes, distance_start_minutes]))
         return vertical_lines, slopes
-
