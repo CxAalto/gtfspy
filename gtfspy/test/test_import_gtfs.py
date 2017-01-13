@@ -511,6 +511,7 @@ class TestImport(unittest.TestCase):
         #    import_gtfs([self.fdict, fdict_copy], self.conn)
         self.fail()
 
+
     def test_resequencing_stop_times(self):
         gtfs_source = self.fdict.copy()
         gtfs_source.pop('stop_times.txt')

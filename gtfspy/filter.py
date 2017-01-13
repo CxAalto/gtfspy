@@ -241,7 +241,7 @@ def _filter_by_area(copy_db_conn, buffer_lat, buffer_lon, buffer_distance):
     """
 
     if (buffer_lat is not None) and (buffer_lon is not None) and (buffer_distance is not None):
-        print("Making spatial extract")
+        print("Filter.py: Making spatial extract")
         _buffer_distance = buffer_distance * 1000
         logging.info("Making spatial extract")
         copy_db_conn.create_function("find_distance", 4, wgs84_distance)

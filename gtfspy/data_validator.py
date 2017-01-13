@@ -30,7 +30,7 @@ ALL_WARNINGS = {
     WARNING_STOP_SEQUENCE_ERROR
 }
 
-class Validator(object):
+class DataValidator(object):
 
     def __init__(self, gtfs):
         """
@@ -205,7 +205,7 @@ def main():
     cmd = sys.argv[1]
     args = sys.argv[2:]
     if cmd == "validate":
-        validator = Validator(args[0])
+        validator = DataValidator(args[0])
         warningsContainer = validator.get_warnings()
         warningsContainer.print_summary()
 

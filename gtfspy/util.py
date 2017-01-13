@@ -12,6 +12,7 @@ import time
 
 import networkx as nx
 
+
 # Below is a race condition, so do it only on import.  Is there a
 # portable way to do this?
 current_umask = os.umask(0)
@@ -245,8 +246,55 @@ def corrupted_zip(zip_path):
         return "error"
 
 
+def write_shapefile(data, shapefile_path):
+    import shapefile as shp
+    w = shp.Writer(shp.POLYLINE) # shapeType=3)
+
+    fields = []
+    encode_strings = []
+
+    # This makes sure every geom has all the attributes
+    w.autoBalance = 1
+    # Create all attribute fields except for lats and lons. In addition the field names are saved for the
+    # datastoring phase. Encode_strings stores .encode methods as strings for all fields that are strings
+    if not fields:
+        for key, value in data[0].iteritems():
+            if key != u'lats' and key != u'lons':
+                fields.append(key)
+                print(type(value))
+                if type(value) == float:
+                    w.field(key.encode('ascii'), fieldType='N', size=11, decimal=3)
+
+                elif type(value) == int:
+
+                    # encode_strings.append(".encode('ascii')")
+                    w.field(key.encode('ascii'), fieldType='N', size=6, decimal=0)
+                else:
+                    w.field(key.encode('ascii'))
+
+    for dict_item in data:
+        line = []
+        lineparts = []
+        records = []
+        records_string = ''
+        for lat, lon in zip(dict_item[u'lats'], dict_item[u'lons']):
+            line.append([float(lon), float(lat)])
+        lineparts.append(line)
+        w.line(parts=lineparts)
+
+        for field in fields:
+            #records.append(dict_item[field])
+            if records_string:
+                records_string += ", dict_item['" + str(field) + "']"
+            else:
+                records_string += "dict_item['" + str(field) + "']"
+        method_string = "w.record(" + records_string + ")"
+
+        # w.record(dict_item['name'], dict_item['agency'], dict_item['agency_name'], dict_item['type'], dict_item['lons'])
+        eval(method_string)
 
 
+    w.save(shapefile_path)
 
 def make_sure_path_exists(path):
     import os
