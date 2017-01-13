@@ -1356,8 +1356,8 @@ class GTFS(object):
         -------
         warnings_container: validator.ValidationWarningsContainer
         """
-        from .data_validator import DataValidator
-        validator = DataValidator(self)
+        from .timetable_validator import TimetableValidator
+        validator = TimetableValidator(self)
         return validator.get_warnings()
 
     def execute_custom_query(self, query):
