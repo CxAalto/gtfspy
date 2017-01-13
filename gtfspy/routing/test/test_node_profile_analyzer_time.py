@@ -112,7 +112,6 @@ class TestNodeProfileAnalyzerTime(TestCase):
         self.assertAlmostEqual((2.5 * 1.5 + 0.5 * 1.25) / 3., analyzer.mean_temporal_distance())
         self.assertAlmostEqual(1.5, analyzer.median_temporal_distance())
 
-
     def test_temporal_distance_statistics_with_walk2(self):
         pt1 = LabelTimeSimple(departure_time=10, arrival_time_target=30)
         profile = NodeProfileSimple(25)
@@ -126,9 +125,38 @@ class TestNodeProfileAnalyzerTime(TestCase):
         self.assertAlmostEqual((7.5 * 25 + 2.5 * 20) / 10.0, analyzer.mean_temporal_distance())
         self.assertAlmostEqual(25, analyzer.median_temporal_distance())
 
+    def test_temporal_distance_pdf_with_walk(self):
+        profile = NodeProfileSimple(25)
+        pt1 = LabelTimeSimple(departure_time=10, arrival_time_target=30)
+        profile.update_pareto_optimal_tuples(pt1)
+        analyzer = NodeProfileAnalyzerTime(profile, 0, 10)
 
-    @unittest.skip("Skipping plotting test")
+        self.assertEqual(len(analyzer.profile_block_analyzer._temporal_distance_pdf()), 3)
+
+        split_points, densities, delta_peaks = analyzer.profile_block_analyzer._temporal_distance_pdf()
+        self.assertEqual(len(split_points), 2)
+        self.assertEqual(split_points[0], 20)
+        self.assertEqual(split_points[1], 25)
+
+        self.assertEqual(len(densities), 1)
+        self.assertEqual(densities[0], 0.1)
+
+        self.assertIn(25, delta_peaks)
+        self.assertEqual(delta_peaks[25], 0.5)
+
+
+    # @unittest.skip("Skipping plotting test")
     def test_all_plots(self):
+        profile = NodeProfileSimple(25)
+        pt1 = LabelTimeSimple(departure_time=10, arrival_time_target=30)
+        profile.update_pareto_optimal_tuples(pt1)
+        analyzer = NodeProfileAnalyzerTime(profile, 0, 10)
+        analyzer.plot_temporal_distance_profile(plot_tdist_stats=True)
+        analyzer.plot_temporal_distance_cdf()
+        analyzer.plot_temporal_distance_pdf()
+        plt.show()
+        exit()
+
         profile = NodeProfileSimple()
         profile.update_pareto_optimal_tuples(LabelTimeSimple(departure_time=2 * 60, arrival_time_target=11 * 60))
         profile.update_pareto_optimal_tuples(LabelTimeSimple(departure_time=20 * 60, arrival_time_target=25 * 60))
@@ -136,7 +164,7 @@ class TestNodeProfileAnalyzerTime(TestCase):
         analyzer = NodeProfileAnalyzerTime(profile, 0, 60 * 60)
         analyzer.plot_temporal_distance_profile()
         analyzer.plot_temporal_distance_cdf()
-        # analyzer.plot_temporal_distance_pdf()
+        analyzer.plot_temporal_distance_pdf()
 
         profile = NodeProfileSimple()
         profile.update_pareto_optimal_tuples(LabelTimeSimple(departure_time=2 * 60, arrival_time_target=3 * 60))
@@ -144,7 +172,7 @@ class TestNodeProfileAnalyzerTime(TestCase):
         analyzer = NodeProfileAnalyzerTime(profile, 0, 5 * 60)
         analyzer.plot_temporal_distance_profile()
         analyzer.plot_temporal_distance_cdf()
-        # analyzer.plot_temporal_distance_pdf()
+        analyzer.plot_temporal_distance_pdf()
 
         pt1 = LabelTimeSimple(departure_time=1, arrival_time_target=2)
         pt2 = LabelTimeSimple(departure_time=4, arrival_time_target=5)   # not taken into account by the analyzer
@@ -152,7 +180,7 @@ class TestNodeProfileAnalyzerTime(TestCase):
         profile.update_pareto_optimal_tuples(pt1)
         profile.update_pareto_optimal_tuples(pt2)
         analyzer = NodeProfileAnalyzerTime(profile, 0, 3)
-        # analyzer.plot_temporal_distance_profile()
+        analyzer.plot_temporal_distance_profile()
         analyzer.plot_temporal_distance_cdf()
 
         plt.show()
