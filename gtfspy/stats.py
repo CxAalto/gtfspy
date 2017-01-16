@@ -424,6 +424,7 @@ def trip_stats(gtfs, results_by_mode=False):
 
 def stop_headways(gtfs, results_by_mode=False):
     """
+    Calculates the average headway for each stop
     is this meaningful?
     :param gtfs:
     :param results_by_mode:
@@ -437,7 +438,7 @@ def section_stats(gtfs, results_by_mode=False):
 
     conn.create_function("find_distance", 4, wgs84_distance)
     cur = conn.cursor()
-    # this query calculates the distance and travel time for each complete trip
+    # this query calculates the distance and travel time for each stop to stop section for each trip
     # stop_data_df = pd.read_sql_query(query, self.conn, params=params)
 
     query = 'SELECT q1.trip_I,  type,  q1.stop_I as stop_1,  q2.stop_I as stop_2,  ' \
@@ -465,10 +466,23 @@ def section_stats(gtfs, results_by_mode=False):
 
 
 def route_frequencies(gtfs, results_by_mode=False):
+    """
+
+    :param gtfs:
+    :param results_by_mode:
+    :return:
+    """
     pass
 
 
 def hourly_frequencies(gtfs, results_by_mode=False):
+    """
+
+    :param gtfs:
+    :param results_by_mode:
+    :return:
+    """
     pass
 
-# TODO: export shapefiles
+def route_circuity():
+    pass
