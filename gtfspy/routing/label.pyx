@@ -40,10 +40,10 @@ cdef class LabelTimeSimple:
         return self.arrival_time_target <= other.arrival_time_target
 
     @staticmethod
-    def direct_walk_label(float departure_time, float walk_duration):
+    def direct_walk_label(double departure_time, double walk_duration):
         return LabelTimeSimple(departure_time, departure_time + walk_duration)
 
-    cpdef float duration(self):
+    cpdef double duration(self):
         return self.arrival_time_target - self.departure_time
 
     cpdef LabelTimeSimple get_copy(self):
@@ -58,7 +58,7 @@ cdef class LabelTime:
         public double arrival_time_target
         public bint first_leg_is_walk
 
-    def __init__(self, departure_time=-float("inf"), arrival_time_target=float('inf'), bint first_leg_is_walk=False,
+    def __init__(self, double departure_time=-float("inf"), double arrival_time_target=float('inf'), bint first_leg_is_walk=False,
                  **kwargs):
         self.departure_time = departure_time
         self.arrival_time_target = arrival_time_target
@@ -104,14 +104,14 @@ cdef class LabelTime:
     cpdef LabelTime get_copy(self):
         return LabelTime(self.departure_time, self.arrival_time_target, self.first_leg_is_walk)
 
-    cpdef LabelTime get_copy_with_specified_departure_time(self, float departure_time):
+    cpdef LabelTime get_copy_with_specified_departure_time(self, double departure_time):
         return LabelTime(departure_time, self.arrival_time_target, self.first_leg_is_walk)
 
     @staticmethod
-    def direct_walk_label(float departure_time, float walk_duration):
+    def direct_walk_label(double departure_time, double walk_duration):
         return LabelTime(departure_time, departure_time + walk_duration, True)
 
-    cpdef float duration(self):
+    cpdef double duration(self):
         return self.arrival_time_target - self.departure_time
 
     cpdef LabelTime get_copy_with_walk_added(self, walk_duration):

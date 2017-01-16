@@ -28,6 +28,11 @@ class NodeProfileSimple:
         added: bool
             whether new_pareto_tuple was added to the set of pareto-optimal tuples
         """
+        if new_pareto_tuple.duration() > self._walk_to_target_duration:
+            direct_walk_label = self._label_class.direct_walk_label(new_pareto_tuple.departure_time,
+                                                                    self._walk_to_target_duration)
+            if not direct_walk_label.dominates(new_pareto_tuple):
+                raise
         direct_walk_label = self._label_class.direct_walk_label(new_pareto_tuple.departure_time, self._walk_to_target_duration)
         if direct_walk_label.dominates(new_pareto_tuple):
             return False

@@ -35,8 +35,6 @@ class ProfileBlockAnalyzer:
         profile_blocks: list[ProfileBlock]
         """
         for i, block in enumerate(profile_blocks[:-1]):
-            if (block.start_time > block.end_time):
-                continue
             assert block.start_time <= block.end_time
             assert block.end_time == profile_blocks[i + 1].start_time
             assert block.distance_start >= block.distance_end
@@ -49,17 +47,25 @@ class ProfileBlockAnalyzer:
             self._apply_cutoff(cutoff_distance)
 
     def _apply_cutoff(self, cutoff_distance):
+        print("cutoff?")
         for block in list(self._profile_blocks):
             block_max = max(block.distance_start, block.distance_end)
             if block_max > cutoff_distance:
+                print("applying cutoff")
+                blocks = []
                 if block.distance_start == block.distance_end or \
                         (block.distance_start > cutoff_distance and block.distance_end > cutoff_distance):
-                    block.distance_end = cutoff_distance
-                    block.distance_start = cutoff_distance
+                    blocks.append(
+                        ProfileBlock(distance_end=cutoff_distance,
+                                     distance_start=cutoff_distance,
+                                     start_time=block.start_time,
+                                     end_time=block.end_time)
+                    )
                 else:
-                    assert (block.distance_end < cutoff_distance)
+                    if (block.distance_end >= cutoff_distance):
+                        assert (block.distance_end < cutoff_distance)
                     split_point_x = block.start_time + (block.distance_start - cutoff_distance) / (
-                    block.distance_start - block.distance_end) * block.width()
+                        block.distance_start - block.distance_end) * block.width()
                     if block.distance_start > block.distance_end:
                         start_distance = cutoff_distance
                         end_distance = block.distance_end
@@ -68,8 +74,10 @@ class ProfileBlockAnalyzer:
                         end_distance = cutoff_distance
                     first_block = ProfileBlock(block.start_time, split_point_x, start_distance, cutoff_distance)
                     second_block = ProfileBlock(split_point_x, block.end_time, cutoff_distance, end_distance)
-                    index = self._profile_blocks.index(block)
-                    self._profile_blocks[index:index + 1] = [first_block, second_block]
+                    blocks.append(first_block)
+                    blocks.append(second_block)
+                index = self._profile_blocks.index(block)
+                self._profile_blocks[index:index + 1] = blocks
 
     def mean(self):
         total_width = self._profile_blocks[-1].end_time - self._profile_blocks[0].start_time

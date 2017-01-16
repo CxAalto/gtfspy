@@ -55,6 +55,18 @@ class TestLabelTime(TestCase):
 
         self.assertTrue(sorted([l1, l2])[0] == l2)
 
+    def test_large_numbers_do_not_overflow(self):
+        departure_time = 1475530980
+        arrival_time = 1475530980
+        label = LabelTime(
+            departure_time=float(departure_time),
+            arrival_time_target=float(arrival_time),
+            first_leg_is_walk=False
+        )
+        self.assertEqual(departure_time, label.departure_time)
+        self.assertEqual(arrival_time, label.arrival_time_target)
+        print(label)
+
 
 class TestLabelTimeAndVehLegCount(TestCase):
 
@@ -121,9 +133,9 @@ class TestLabelTimeAndVehLegCount(TestCase):
         self.assertFalse(l1 > l2)
 
 
-    def test_large_numbers(self):
-        departure_time = 1475530980# -1475530000
-        arrival_time = 1475530980#-1475530000
+    def test_large_numbers_do_not_overflow(self):
+        departure_time = 1475530980
+        arrival_time = 1475530980
         label = LabelTimeWithBoardingsCount(
             departure_time=float(departure_time),
             arrival_time_target=float(arrival_time),
@@ -142,6 +154,7 @@ class TestLabelVehLegCount(TestCase):
         label1 = LabelVehLegCount(n_boardings=1)
         label2 = LabelVehLegCount(n_boardings=0)
         self.assertTrue(label2.dominates(label1))
+
 
     def test_sort(self):
         l1 = LabelVehLegCount(departure_time=1, n_boardings=3)

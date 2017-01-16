@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 import networkx
+from six import StringIO
 
 from gtfspy.routing.models import Connection
 from gtfspy.routing.label import min_arrival_time_target, LabelTimeWithBoardingsCount, LabelTime
@@ -414,6 +415,35 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         # TODO: perform a check for the reinitialization of trip_labels
         # THIS IS NOT YET TESTED but should work at the moment
         # RK 9.1.2017
+
+
+    def test_550_problem(self):
+        # There used to be a problem when working with real unixtimes (c-side floating point number problems),
+        # this test is one check for that
+        event_data = StringIO(
+            "from_stop_I,to_stop_I,dep_time_ut,arr_time_ut,route_type,route_id,trip_I,seq\n" +
+            "2198,2247,1475530740,1475530860,3,2550,158249,36\n" +
+            "2247,2177,1475530860,1475530980,3,2550,158249,37\n")
+        import pandas as pd
+        events = pd.read_csv(event_data)
+        events.sort_values("dep_time_ut", ascending=False, inplace=True)
+        connections = [
+            Connection(int(e.from_stop_I), int(e.to_stop_I), int(e.dep_time_ut), int(e.arr_time_ut), int(e.trip_I))
+            for e in events.itertuples()
+        ]
+        csa_profiler = MultiObjectivePseudoCSAProfiler(connections, 2177,
+                                                      0, 1475530860*10, 0,
+                                                      networkx.Graph(), 0)
+
+        csa_profiler.run()
+
+        profiles = csa_profiler.stop_profiles
+        labels_2198 = profiles[2198].get_final_optimal_labels()
+        self.assertEqual(len(labels_2198), 1)
+        self.assertEqual(labels_2198[0].duration(), 1475530980 - 1475530740)
+        labels_2247 = profiles[2247].get_final_optimal_labels()
+        self.assertEqual(len(labels_2247), 1)
+        self.assertEqual(labels_2247[0].duration(), 1475530980 - 1475530860)
 
 
     def _assert_label_sets_equal(self, found_tuples, should_be_tuples):

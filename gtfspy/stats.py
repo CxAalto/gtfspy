@@ -4,6 +4,7 @@ import csv
 import pandas as pd
 
 import numpy
+import sys
 
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
@@ -72,7 +73,11 @@ def write_stats_as_csv(gtfs, path_to_csv):
                 is_new = True
 
     with open(path_to_csv, 'a') as csvfile:
-        statswriter = csv.writer(csvfile, delimiter=b',')
+        if (sys.version_info > (3, 0)):
+            delimiter = u","
+        else:
+            delimiter = b","
+        statswriter = csv.writer(csvfile, delimiter=delimiter)
         # write column names if
         if is_new:
             statswriter.writerow([key for key in sorted(stats_dict.keys())])
@@ -115,7 +120,6 @@ def get_stats(gtfs):
     lats = stops['lat'].values
     lons = stops['lon'].values
     percentiles = [0, 10, 50, 90, 100]
-
 
     try:
         lat_percentiles = numpy.percentile(lats, percentiles)
@@ -238,40 +242,40 @@ def _fleet_size_estimate(gtfs, hour, date):
     cur = gtfs.conn.cursor()
     rows = cur.execute(
         'SELECT type, max(vehicles) '
-            'FROM ('
-                'SELECT type, direction_id, sum(vehicles) as vehicles '
-                'FROM '
-                '('
-                    'SELECT trips.route_I, trips.direction_id, routes.route_id, name, type, count(*) as vehicles, cycle_time_min '
-                    'FROM trips, routes, days, '
-                    '('
-                        'SELECT first_trip.route_I, first_trip.direction_id, first_trip_start_time, first_trip_end_time, '
-                            'MIN(start_time_ds) as return_trip_start_time, end_time_ds as return_trip_end_time, '
-                            '(end_time_ds - first_trip_start_time)/60 as cycle_time_min '
-                        'FROM '
-                            'trips, '
-                            '(SELECT route_I, direction_id, MIN(start_time_ds) as first_trip_start_time, '
-                                    'end_time_ds as first_trip_end_time '
-                             'FROM trips, days '
-                             'WHERE trips.trip_I=days.trip_I AND start_time_ds >= ? * 3600 '
-                                'AND start_time_ds <= (? + 1) * 3600 AND date = ? '
-                             'GROUP BY route_I, direction_id) first_trip '
-                        'WHERE first_trip.route_I = trips.route_I '
-                            'AND first_trip.direction_id != trips.direction_id '
-                            'AND start_time_ds >= first_trip_end_time '
-                        'GROUP BY trips.route_I, trips.direction_id'
-                    ') return_trip '
-                    'WHERE trips.trip_I=days.trip_I AND trips.route_I= routes.route_I '
-                        'AND date = ? AND trips.route_I = return_trip.route_I '
-                        'AND trips.direction_id = return_trip.direction_id '
-                        'AND start_time_ds >= first_trip_start_time '
-                        'AND start_time_ds < return_trip_end_time '
-                    'GROUP BY trips.route_I, trips.direction_id '
-                    'ORDER BY type, name, vehicles desc'
-                ') cycle_times '
-                'GROUP BY direction_id, type'
-                ') vehicles_type '
-            'GROUP BY type;', (hour, hour, date, date))
+        'FROM ('
+        'SELECT type, direction_id, sum(vehicles) as vehicles '
+        'FROM '
+        '('
+        'SELECT trips.route_I, trips.direction_id, routes.route_id, name, type, count(*) as vehicles, cycle_time_min '
+        'FROM trips, routes, days, '
+        '('
+        'SELECT first_trip.route_I, first_trip.direction_id, first_trip_start_time, first_trip_end_time, '
+        'MIN(start_time_ds) as return_trip_start_time, end_time_ds as return_trip_end_time, '
+        '(end_time_ds - first_trip_start_time)/60 as cycle_time_min '
+        'FROM '
+        'trips, '
+        '(SELECT route_I, direction_id, MIN(start_time_ds) as first_trip_start_time, '
+        'end_time_ds as first_trip_end_time '
+        'FROM trips, days '
+        'WHERE trips.trip_I=days.trip_I AND start_time_ds >= ? * 3600 '
+        'AND start_time_ds <= (? + 1) * 3600 AND date = ? '
+        'GROUP BY route_I, direction_id) first_trip '
+        'WHERE first_trip.route_I = trips.route_I '
+        'AND first_trip.direction_id != trips.direction_id '
+        'AND start_time_ds >= first_trip_end_time '
+        'GROUP BY trips.route_I, trips.direction_id'
+        ') return_trip '
+        'WHERE trips.trip_I=days.trip_I AND trips.route_I= routes.route_I '
+        'AND date = ? AND trips.route_I = return_trip.route_I '
+        'AND trips.direction_id = return_trip.direction_id '
+        'AND start_time_ds >= first_trip_start_time '
+        'AND start_time_ds < return_trip_end_time '
+        'GROUP BY trips.route_I, trips.direction_id '
+        'ORDER BY type, name, vehicles desc'
+        ') cycle_times '
+        'GROUP BY direction_id, type'
+        ') vehicles_type '
+        'GROUP BY type;', (hour, hour, date, date))
     for row in rows:
         fleet_size_list.append(str(row[0]) + ':' + str(row[1]))
     results['fleet_size_route_based'] = " ".join(fleet_size_list)
@@ -301,12 +305,14 @@ def _fleet_size_estimate(gtfs, hour, date):
     results["fleet_size_max_movement"] = ' '.join(fleet_size_list)
     return results
 
+
 def _n_gtfs_sources(gtfs):
     n_gtfs_sources = gtfs.execute_custom_query(
         "SELECT value FROM metadata WHERE key = 'n_gtfs_sources';").fetchone()
     if not n_gtfs_sources:
         n_gtfs_sources = [1]
     return n_gtfs_sources
+
 
 def _feed_calendar_span(gtfs, stats):
     """
@@ -325,7 +331,7 @@ def _feed_calendar_span(gtfs, stats):
             end_key = feed_key + "calendar_end"
             calendar_span = gtfs.conn.cursor().execute(
                 'SELECT min(date), max(date) FROM trips, days '
-                'WHERE trips.trip_I = days.trip_I AND trip_id LIKE ?;', (feed_key+'%',)).fetchone()
+                'WHERE trips.trip_I = days.trip_I AND trip_id LIKE ?;', (feed_key + '%',)).fetchone()
 
             stats[start_key] = calendar_span[0]
             stats[end_key] = calendar_span[1]
@@ -460,6 +466,7 @@ def section_stats(gtfs, results_by_mode=False):
 
 def route_frequencies(gtfs, results_by_mode=False):
     pass
+
 
 def hourly_frequencies(gtfs, results_by_mode=False):
     pass
