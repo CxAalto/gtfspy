@@ -121,6 +121,21 @@ class TestLabelTimeAndVehLegCount(TestCase):
         self.assertFalse(l1 > l2)
 
 
+    def test_large_numbers(self):
+        departure_time = 1475530980# -1475530000
+        arrival_time = 1475530980#-1475530000
+        label = LabelTimeWithBoardingsCount(
+            departure_time=float(departure_time),
+            arrival_time_target=float(arrival_time),
+            n_boardings=0,
+            first_leg_is_walk=False
+        )
+        self.assertEqual(departure_time, label.departure_time)
+        self.assertEqual(arrival_time, label.arrival_time_target)
+        print(label)
+
+
+
 class TestLabelVehLegCount(TestCase):
 
     def test_dominates_simple(self):

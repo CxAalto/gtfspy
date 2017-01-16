@@ -6,7 +6,7 @@ cdef class LabelTimeSimple:
         public double departure_time
         public double arrival_time_target
 
-    def __init__(self, departure_time=-float("inf"), arrival_time_target=float('inf')):
+    def __init__(self, double departure_time=-float("inf"), double arrival_time_target=float('inf')):
         self.departure_time = departure_time
         self.arrival_time_target = arrival_time_target
 
@@ -125,7 +125,7 @@ cdef class LabelTimeWithBoardingsCount:
         public bint first_leg_is_walk
 
 
-    def __init__(self, float departure_time, float arrival_time_target,
+    def __init__(self, double departure_time, double arrival_time_target,
                  int n_boardings, bint first_leg_is_walk):
         self.departure_time = departure_time
         self.arrival_time_target = arrival_time_target
@@ -217,19 +217,20 @@ cdef class LabelTimeWithBoardingsCount:
         return LabelTimeWithBoardingsCount(departure_time, self.arrival_time_target,
                                            self.n_boardings, self.first_leg_is_walk)
 
-    cpdef float duration(self):
+    cpdef double duration(self):
         return self.arrival_time_target - self.departure_time
 
     @staticmethod
     def direct_walk_label(departure_time, walk_duration):
         return LabelTimeWithBoardingsCount(departure_time, departure_time + walk_duration, 0, True)
 
-    cpdef LabelTimeWithBoardingsCount get_copy_with_walk_added(self, float walk_duration):
+    cpdef LabelTimeWithBoardingsCount get_copy_with_walk_added(self, double walk_duration):
         return LabelTimeWithBoardingsCount(self.departure_time - walk_duration,
                                            self.arrival_time_target, self.n_boardings, True)
 
     def __str__(self):
         return str((self.departure_time, self.arrival_time_target, self.n_boardings, self.first_leg_is_walk))
+
 
 cdef class LabelVehLegCount:
     cdef:
@@ -237,7 +238,7 @@ cdef class LabelVehLegCount:
         public int n_boardings
         public bint first_leg_is_walk
 
-    def __init__(self, n_boardings=0, departure_time=-float('inf'), first_leg_is_walk=False, **kwargs):
+    def __init__(self, n_boardings=0, double departure_time=-float('inf'), first_leg_is_walk=False, **kwargs):
         self.n_boardings = n_boardings
         self.departure_time = departure_time
         self.first_leg_is_walk = first_leg_is_walk
