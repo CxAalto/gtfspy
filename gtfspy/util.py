@@ -173,6 +173,22 @@ def ut_to_utc_datetime_str(time_ut):
     dt = datetime.datetime.utcfromtimestamp(time_ut)
     return dt.strftime("%b %d %Y %H:%M:%S")
 
+def str_time_to_day_seconds(time):
+    """
+    Converts time strings to integer seconds
+    :param time: %H:%M:%S string
+    :return: integer seconds
+    """
+    t = str(time).split(':')
+    seconds = int(t[0]) * 3600 + int(t[1]) * 60 + int(t[2])
+    return seconds
+
+def day_seconds_to_str_time(ds):
+    assert ds >= 0
+    hours = ds // 3600
+    minutes = (ds - hours * 3600) // 60
+    seconds = ds % 60
+    return "%02d:%02d:%02d" % (hours, minutes, seconds)
 
 def makedirs(path):
     """
@@ -208,12 +224,6 @@ def draw_net_using_node_coords(net):
     return fig
 
 
-def day_seconds_to_str_time(ds):
-    assert ds >= 0
-    hours = ds // 3600
-    minutes = (ds - hours * 3600) // 60
-    seconds = ds % 60
-    return "%02d:%02d:%02d" % (hours, minutes, seconds)
 
 
 def timeit(method):
@@ -245,8 +255,40 @@ def corrupted_zip(zip_path):
     except:
         return "error"
 
+def txt_to_pandas(path, table):
+    """
+    :param path: path to directory or zipfile
+    :param table: name of table
+    :return: pandas dataframe
+    """
+    import os
+    import zipfile
+    import pandas as pd
+    if not u'.txt' in table:
+        table += u'.txt'
+
+    if isinstance(path, dict):
+        data_obj = path[table]
+        f = data_obj.split("\n")
+    else:
+        if os.path.isdir(path):
+            f = open(os.path.join(path, table))
+
+        else:
+
+            z = zipfile.ZipFile(path)
+            f = z.open(table, mode='rU')
+
+    df = pd.read_csv(f)
+    #print(df.to_string())
+    return df
 
 def write_shapefile(data, shapefile_path):
+    """
+    :param data: list of dicts where dictionary contains the keys lons and lats
+    :param shapefile_path: path where shapefile is saved
+    :return:
+    """
     import shapefile as shp
     w = shp.Writer(shp.POLYLINE) # shapeType=3)
 
@@ -282,6 +324,7 @@ def write_shapefile(data, shapefile_path):
         lineparts.append(line)
         w.line(parts=lineparts)
 
+        # The shapefile records command is built up as strings to allow a differing number of columns
         for field in fields:
             #records.append(dict_item[field])
             if records_string:
