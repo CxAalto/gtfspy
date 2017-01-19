@@ -1,5 +1,5 @@
 import unittest
-
+import os
 from gtfspy import util
 
 
@@ -32,3 +32,13 @@ class TestUtil(unittest.TestCase):
         self.assertTrue(str_time == "25:59:10", "the times can also go over 24 hours")
         str_time = util.day_seconds_to_str_time(0)
         self.assertTrue(str_time == "00:00:00", "day should start at 00:00")
+
+    def test_txt_to_pandas(self):
+        import pandas as pd
+        source_dir = os.path.join(os.path.dirname(__file__), "test_data")
+        txtnames = ['agency', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
+        df = util.txt_to_pandas(source_dir, txtnames[3])
+        self.assertIsInstance(df, pd.DataFrame)
+        source_zip = os.path.join(os.path.dirname(__file__), "test_data/test_gtfs.zip")
+        df = util.txt_to_pandas(source_zip, txtnames[4])
+        self.assertIsInstance(df, pd.DataFrame)

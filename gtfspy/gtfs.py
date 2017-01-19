@@ -1363,6 +1363,9 @@ class GTFS(object):
     def execute_custom_query(self, query):
         return self.conn.cursor().execute(query)
 
+    def execute_custom_query_pandas(self, query):
+        return pd.read_sql(query, self.conn)
+
     def get_stats(self):
         from gtfspy import stats
         return stats.get_stats(self)

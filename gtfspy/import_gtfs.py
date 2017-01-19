@@ -153,7 +153,7 @@ class TableLoader(object):
                     return True
                 # File does not exist in the zip archive
                 except KeyError:
-                    print(self.fname)
+                    print(self.fname, ' missing in ', source)
                     continue
             # Normal filename
             if isinstance(source, string_types):
