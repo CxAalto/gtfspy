@@ -354,7 +354,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                                     highlight_fastest_path=True,
                                                     default_lw=5,
                                                     ncol_legend=1,
-                                                    fastest_path_lw=3   ):
+                                                    fastest_path_lw=3,
+                                                    legend_alpha=0.9):
         max_n = self.max_trip_n_boardings()
         min_n = self.min_trip_n_boardings()
         print(max_n, min_n)
@@ -504,7 +505,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             p = lines.Line2D([0, 0], [1, 1], ls="", marker="o", ms=8, color="k", label="journeys")
             legend_patches.append(p)
 
-        ax.legend(handles=legend_patches, loc="best", ncol=ncol_legend)
+        leg = ax.legend(handles=legend_patches, loc="best", ncol=ncol_legend, fancybox=True)
+        leg.get_frame().set_alpha(legend_alpha)
         ax.set_ylim(0, 1.1 * max_tdist)
         ax.set_xlabel("Departure time")
         ax.set_ylabel("Temporal distance")
