@@ -91,7 +91,7 @@ def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_u
     ----------
     gtfs : gtfspy.GTFS
     output_filename : str
-        path to the directory where to store teh extracts
+        path to the directory where to store the extracts
     start_time_ut: int | None
         start time of the extract in unixtime (seconds after epoch)
     end_time_ut: int | None

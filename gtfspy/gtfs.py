@@ -28,8 +28,9 @@ if sys.version_info[0] == 3:
 else:
     binary_type = str
 
-reload(sys)
-sys.setdefaultencoding('utf-8')
+if sys.getdefaultencoding() != 'utf-8':
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
 
 class GTFS(object):
 

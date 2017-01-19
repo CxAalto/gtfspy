@@ -44,6 +44,8 @@ class NodeProfileAnalyzerTime:
         self.trip_durations = []
         self.trip_departure_times = []
         for trip_pareto_tuple in trip_pareto_optimal_tuples:
+            if self._walk_time_to_target <= trip_pareto_tuple.duration():
+                assert(self._walk_time_to_target > trip_pareto_tuple.duration())
             effective_trip_previous_departure_time = max(
                 previous_departure_time,
                 trip_pareto_tuple.departure_time - (self._walk_time_to_target - trip_pareto_tuple.duration())
@@ -83,6 +85,8 @@ class NodeProfileAnalyzerTime:
                                           distance_start=self._walk_time_to_target,
                                           distance_end=self._walk_time_to_target
                                           )
+                assert (walk_block.start_time <= walk_block.end_time)
+                assert (walk_block.distance_end <= walk_block.distance_start)
                 self._profile_blocks.append(walk_block)
             trip_waiting_time = waiting_time - walking_wait_time
 
@@ -92,10 +96,13 @@ class NodeProfileAnalyzerTime:
                                           distance_start=distance_end_trip + trip_waiting_time,
                                           distance_end=distance_end_trip
                                           )
+                assert(trip_block.start_time <= trip_block.end_time)
+                assert(trip_block.distance_end <= trip_block.distance_start)
                 self._profile_blocks.append(trip_block)
 
-        self.profile_block_analyzer = ProfileBlockAnalyzer(profile_blocks=self._profile_blocks,
-                                                           cutoff_distance=self._walk_time_to_target)
+
+        # TODO? Refactor to use the cutoff_distance feature in ProfileBlockAnalyzer?
+        self.profile_block_analyzer = ProfileBlockAnalyzer(profile_blocks=self._profile_blocks)
 
     def n_pareto_optimal_trips(self):
         """
