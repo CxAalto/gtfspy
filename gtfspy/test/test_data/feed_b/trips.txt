@@ -1,0 +1,7 @@
+route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id
+R1,laborable,FL1,Funikular Plaza,0,,
+R1,laborable,AL1,Artxanda,1,,
+R1,festivo,FF1,Funikular Plaza,0,,
+R1,festivo,AF1,Artxanda,1,,
+R1,festivoVerano,FF2,Funikular Plaza,0,,
+R1,festivoVerano,AF2,Artxanda,1,,

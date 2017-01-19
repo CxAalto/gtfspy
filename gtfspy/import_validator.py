@@ -46,25 +46,7 @@ class ImportValidator(object):
             _gtfs_sources = gtfssource
 
         self.gtfs_sources = _gtfs_sources
-        """
-        for source in _gtfs_sources:
-            # print(source)
-            # dict input
-            if isinstance(source, dict):
-                self.gtfs_sources.append(source)
-            # zipfile/dir input.
-            elif isinstance(source, string_types):
-                if os.path.isdir(source):
-                    self.gtfs_sources.append(source)
-                else:
-                    z = zipfile.ZipFile(source, mode='r')
-                    zip_commonprefix = os.path.commonprefix(z.namelist())
-                    zip_source_datum = {
-                        "zipfile": source,
-                        "zip_commonprefix": zip_commonprefix
-                    }
-                    self.gtfs_sources.append(zip_source_datum)
-"""
+
         if not isinstance(gtfs, GTFS):
             self.gtfs = GTFS(gtfs)
         else:
@@ -87,16 +69,19 @@ class ImportValidator(object):
 
             for gtfs_source in self.gtfs_sources:
                 # print gtfs_source
-                if txt == 'trips':
-                    row_count[txt] = self.frequency_generated_trips(gtfs_source, txt)
+                try:
+                    if txt == 'trips':
+                        row_count[txt] += self.frequency_generated_trips(gtfs_source, txt)
 
-                elif txt == 'stop_times':
-                    row_count[txt] = self.frequency_generated_stop_times(gtfs_source, txt)
+                    elif txt == 'stop_times':
+                        row_count[txt] += self.frequency_generated_stop_times(gtfs_source, txt)
 
-                else:
-                    df = self.txt_reader(gtfs_source, txt)
+                    else:
+                        df = self.txt_reader(gtfs_source, txt)
 
-                    row_count[txt] += len(df.index)
+                        row_count[txt] += len(df.index)
+                except IOError:
+                    pass
 
             # Result from GTFSobj:
             table_counts = self.db_table_counts(table)
@@ -123,12 +108,15 @@ class ImportValidator(object):
 
             df = self.gtfs.get_table(table)
             df.drop(fields_where_null_ok[table], inplace=True, axis=1)
+            # print(df.to_string())
             len_table = len(df.index)
+            df_ = df
             df.dropna(inplace=True, axis=0)
             len_non_null = len(df.index)
             nullrows = len_table - len_non_null
             if nullrows > 0:
                 print('Warning: Null values detected in table ' + table)
+
 
 
     def frequency_generated_trips(self, source, txt):

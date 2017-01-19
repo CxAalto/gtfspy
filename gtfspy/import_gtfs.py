@@ -226,7 +226,8 @@ class TableLoader(object):
                 # now source is a directory
                 try:
                     f = open(os.path.join(source, self.fname))
-                except OSError as e:
+                # except OSError as e:
+                except IOError as e:
                     f = []
             fs.append(f)
 
@@ -1696,7 +1697,10 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
                 if location_name_list:
                     G.meta[prefix + 'location_name'] = location_name_list[-1]
                 else:
-                    G.meta[prefix + 'location_name'] = source.split("/")[-4]
+                    try:
+                        G.meta[prefix + 'location_name'] = source.split("/")[-4]
+                    except:
+                        G.meta[prefix + 'location_name'] = source
 
     G.meta['timezone'] = cur.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()[0]
     stats.update_stats(G)

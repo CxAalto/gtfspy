@@ -279,7 +279,7 @@ def txt_to_pandas(path, table):
             z = zipfile.ZipFile(path)
             f = z.open(table, mode='rU')
 
-    df = pd.read_csv(f)
+    df = pd.read_csv(f, sep='\s*,\s*')
     #print(df.to_string())
     return df
 

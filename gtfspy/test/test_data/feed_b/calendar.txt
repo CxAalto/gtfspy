@@ -1,0 +1,4 @@
+service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+laborable,1,1,1,1,1,1,0,20161101,20170930
+festivo,0,0,0,0,0,0,1,20161101,20170531
+festivoVerano,0,0,0,0,0,0,1,20170601,20170930
