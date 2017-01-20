@@ -24,7 +24,59 @@ output: error messages for failed checks
     - which columns are essential?
     - Check that links between tables match (no unused rows) <- the file might be ok even if there is,
      but might be worth checking anyway. The loose ends should be removed in the filtering step.
+
+WARNING_AGENCIES_NULL
+WARNING_ROUTES_NULL
+WARNING_TRIPS_NULL
+WARNING_CALENDAR_NULL
+WARNING_CALENDAR_DATES_NULL
+WARNING_STOP_TIMES_NULL
+WARNING_STOPS_NULL
+WARNING_SHAPES_NULL
+WARNING_AGENCIES_ROWS_MISSING
+WARNING_ROUTES_ROWS_MISSING
+WARNING_TRIPS_ROWS_MISSING
+WARNING_CALENDAR_ROWS_MISSING
+WARNING_CALENDAR_DATES_ROWS_MISSING
+WARNING_STOP_TIMES_ROWS_MISSING
+WARNING_STOPS_ROWS_MISSING
+WARNING_SHAPES_ROWS_MISSING
 """
+WARNING_AGENCIES_NULL = "Null values found in agencies"
+WARNING_ROUTES_NULL = "Null values found in routes"
+WARNING_TRIPS_NULL = "Null values found in trips"
+WARNING_CALENDAR_NULL = "Null values found in calendar"
+WARNING_CALENDAR_DATES_NULL = "Null values found in calendar_dates"
+WARNING_STOP_TIMES_NULL = "Null values found in stop_times"
+WARNING_STOPS_NULL = "Null values found in stops"
+WARNING_SHAPES_NULL = "Null values found in shapes"
+WARNING_AGENCIES_ROWS_MISSING = "Rows missing in agencies"
+WARNING_ROUTES_ROWS_MISSING = "Rows missing in routes"
+WARNING_TRIPS_ROWS_MISSING = "Rows missing in trips"
+WARNING_CALENDAR_ROWS_MISSING = "Rows missing in calendar"
+WARNING_CALENDAR_DATES_ROWS_MISSING = "Rows missing in calendar_dates"
+WARNING_STOP_TIMES_ROWS_MISSING = "Rows missing in stop_times"
+WARNING_STOPS_ROWS_MISSING = "Rows missing in stops"
+WARNING_SHAPES_ROWS_MISSING = "Rows missing in shapes"
+
+ALL_WARNINGS = {
+    WARNING_AGENCIES_NULL,
+    WARNING_ROUTES_NULL,
+    WARNING_TRIPS_NULL,
+    WARNING_CALENDAR_NULL,
+    WARNING_CALENDAR_DATES_NULL,
+    WARNING_STOP_TIMES_NULL,
+    WARNING_STOPS_NULL,
+    WARNING_SHAPES_NULL,
+    WARNING_AGENCIES_ROWS_MISSING,
+    WARNING_ROUTES_ROWS_MISSING,
+    WARNING_TRIPS_ROWS_MISSING,
+    WARNING_CALENDAR_ROWS_MISSING,
+    WARNING_CALENDAR_DATES_ROWS_MISSING,
+    WARNING_STOP_TIMES_ROWS_MISSING,
+    WARNING_STOPS_ROWS_MISSING,
+    WARNING_SHAPES_ROWS_MISSING,
+}
 
 class ImportValidator(object):
 
@@ -51,6 +103,9 @@ class ImportValidator(object):
             self.gtfs = GTFS(gtfs)
         else:
             self.gtfs = gtfs
+
+    def get_warnings(self):
+        pass
 
 
     def txt_reader(self, source, table):
@@ -136,6 +191,10 @@ class ImportValidator(object):
         df_stop_freq = pd.merge(df_freq, df_stop_times, how='outer', on='trip_id')
 
         return int(df_stop_freq['n_trips'].fillna(1).sum(axis=0))
+
+class ImportValidationWarningsContainer(object):
+    def __init__(self):
+        pass
 
 def main():
     pass

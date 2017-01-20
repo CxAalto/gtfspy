@@ -672,7 +672,7 @@ class GTFS(object):
         Selects suitable date for daily extract
         Iterates trough the available dates forward and backward from the download date accepting the first day that has
         at least 90 percent of the number of trips of the maximum date. The condition can be changed to something else.
-        If the download date is out of range, the process will look trough the dates in from first to last.
+        If the download date is out of range, the process will look trough the dates from first to last.
         :param daily_trips: pandas dataframe
         :param date: date string
         :return:
@@ -1355,7 +1355,7 @@ class GTFS(object):
 
         Returns
         -------
-        warnings_container: validator.ValidationWarningsContainer
+        warnings_container: validator.TimetableValidationWarningsContainer
         """
         from .timetable_validator import TimetableValidator
         validator = TimetableValidator(self)

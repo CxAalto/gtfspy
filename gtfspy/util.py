@@ -255,12 +255,14 @@ def corrupted_zip(zip_path):
     except:
         return "error"
 
-def txt_to_pandas(path, table):
+def txt_to_pandas(path, table, args=None):
     """
     :param path: path to directory or zipfile
     :param table: name of table
+    :param args: string arguments passed to the read_csv function
     :return: pandas dataframe
     """
+
     import os
     import zipfile
     import pandas as pd
@@ -278,8 +280,12 @@ def txt_to_pandas(path, table):
 
             z = zipfile.ZipFile(path)
             f = z.open(table, mode='rU')
+    if args:
+        code_string = "pd.read_csv(f" + args + ")"
+        df = eval(code_string)
+    else:
+        df = pd.read_csv(f)
 
-    df = pd.read_csv(f, sep='\s*,\s*')
     #print(df.to_string())
     return df
 
