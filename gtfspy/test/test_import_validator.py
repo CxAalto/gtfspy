@@ -25,7 +25,7 @@ class TestImportValidator(unittest.TestCase):
         self.assertIsInstance(df, pd.DataFrame)
 
     def test_source_gtfsobj_comparison(self):
-        self.validator_object_txt.source_gtfsobj_comparison()
+        self.validator_object_txt._validate_table_counts()
 
     def test_null_counts_in_gtfsobj(self):
-        self.validator_object_txt.null_counts_in_gtfs_obj()
+        self.validator_object_txt._validate_no_nulls()

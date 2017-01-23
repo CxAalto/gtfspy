@@ -43,7 +43,7 @@ class TimetableValidator(object):
             self.gtfs = GTFS(gtfs)
         else:
             self.gtfs = gtfs
-        self.warnings_container = TimetableValidationWarningsContainer()
+        self.warnings_container = WarningsContainer()
 
     def get_warnings(self):
         """
@@ -53,7 +53,7 @@ class TimetableValidator(object):
 
         Returns
         -------
-        warnings: TimetableValidationWarningsContainer
+        warnings: WarningsContainer
         """
         self.warnings_container.clear()
         self._validate_stops_with_same_stop_time()
@@ -162,7 +162,7 @@ class TimetableValidator(object):
             old_seq = row[2]
 
 
-class TimetableValidationWarningsContainer(object):
+class WarningsContainer(object):
 
     def __init__(self):
         self._warnings_counter = Counter()
@@ -206,8 +206,8 @@ def main():
     args = sys.argv[2:]
     if cmd == "validate":
         validator = TimetableValidator(args[0])
-        warningsContainer = validator.get_warnings()
-        warningsContainer.print_summary()
+        warningscontainer = validator.get_warnings()
+        warningscontainer.print_summary()
 
 if __name__ == "__main__":
     main()
