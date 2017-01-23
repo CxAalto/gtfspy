@@ -9,6 +9,7 @@ import os
 import shutil
 import tempfile
 import time
+import numpy
 
 import networkx as nx
 
@@ -169,9 +170,17 @@ def execute(cur, *args):
     return cur.execute(*args)
 
 
+def to_date_string(date):
+    if isinstance(date, numpy.int64) or isinstance(date, int):
+        date = str(date)
+        date = '%s-%s-%s' % (date[:4], date[4:6], date[6:8])
+        return date
+
+
 def ut_to_utc_datetime_str(time_ut):
     dt = datetime.datetime.utcfromtimestamp(time_ut)
     return dt.strftime("%b %d %Y %H:%M:%S")
+
 
 def str_time_to_day_seconds(time):
     """
@@ -182,6 +191,7 @@ def str_time_to_day_seconds(time):
     t = str(time).split(':')
     seconds = int(t[0]) * 3600 + int(t[1]) * 60 + int(t[2])
     return seconds
+
 
 def day_seconds_to_str_time(ds):
     assert ds >= 0
@@ -266,7 +276,7 @@ def txt_to_pandas(path, table, args=None):
     import os
     import zipfile
     import pandas as pd
-    if not u'.txt' in table:
+    if u'.txt' not in table:
         table += u'.txt'
 
     if isinstance(path, dict):
@@ -341,9 +351,8 @@ def write_shapefile(data, shapefile_path):
 
         # w.record(dict_item['name'], dict_item['agency'], dict_item['agency_name'], dict_item['type'], dict_item['lons'])
         eval(method_string)
-
-
     w.save(shapefile_path)
+
 
 def make_sure_path_exists(path):
     import os

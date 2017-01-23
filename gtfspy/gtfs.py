@@ -59,6 +59,7 @@ class GTFS(object):
             raise NotImplementedError(
                 "Initiating GTFS using an object with type " + str(type(fname)) + " is not supported")
 
+        assert self.conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchone() is not None
         self.meta = GTFSMetadata(self.conn)
         # Bind functions
         self.conn.create_function("find_distance", 4, wgs84_distance)
@@ -291,7 +292,9 @@ class GTFS(object):
             start time of the day in unixtime
         """
         if isinstance(date, string_types):
+
             date = datetime.datetime.strptime(date, '%Y-%m-%d')
+
         date_noon = datetime.datetime(date.year, date.month, date.day,
                                       12, 0, 0)
         ut_noon = self.unlocalized_datetime_to_ut_seconds(date_noon)

@@ -1622,9 +1622,12 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     print_progress: bool, optional
         Whether to print progress output
     """
+
     if isinstance(output, sqlite3.Connection):
         conn = output
     else:
+        if os.path.isfile(output):
+            raise RuntimeError('File already exists')
         conn = sqlite3.connect(output)
     if not isinstance(gtfs_sources, list):
         gtfs_sources = [gtfs_sources]
