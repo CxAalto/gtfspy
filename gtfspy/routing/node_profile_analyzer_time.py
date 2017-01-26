@@ -254,7 +254,7 @@ class NodeProfileAnalyzerTime:
         ys = numpy.array(ys)
         # convert data to minutes:
         xlabel = "Temporal distance (s)"
-        ylabel = "PDF(t)"
+        ylabel = "Probability density (t)"
         if use_minutes:
             xs /= 60.0
             ys *= 60.0
@@ -278,7 +278,7 @@ class NodeProfileAnalyzerTime:
 
             for loc, mass in delta_peaks.items():
                 ax.plot([loc, loc], [0, peak_height], color="green", lw=5)
-                ax.text(loc + text_x_offset, peak_height * 0.99, "$P_{walk} = %.2f$" % (mass), color="green")
+                ax.text(loc + text_x_offset, peak_height * 0.99, "$P_{\\mathrm{walk}} = %.2f$" % (mass), color="green")
             ax.set_xlim(now_min_x, now_max_x)
 
             tot_delta_peak_mass = sum(delta_peaks.values())
@@ -286,7 +286,7 @@ class NodeProfileAnalyzerTime:
             transit_text_y = min(ys[ys > 0]) / 2.
             ax.text(transit_text_x,
                     transit_text_y,
-                    "$P_{transit} = %.2f$" % (1 - tot_delta_peak_mass),
+                    "$P_{\\mathrm{PT}} = %.2f$" % (1 - tot_delta_peak_mass),
                     color="green",
                     va="center",
                     ha="center")
@@ -327,7 +327,7 @@ class NodeProfileAnalyzerTime:
         ys = numpy.array(ys)
         # convert data to minutes:
         xlabel = "Temporal distance (s)"
-        ylabel = "PDF($\\tau$)"
+        ylabel = "Probability density $P(\\tau)$"
         if use_minutes:
             xs /= duration_divider
             ys *= duration_divider
@@ -344,13 +344,13 @@ class NodeProfileAnalyzerTime:
             text_x_offset = 0.1 * (now_max_x - max_x)
 
             for loc, mass in delta_peaks.items():
-                text = r"$P_{\text{walk}} = " + ("%.2f$" % (mass))
+                text = "$P_\\mathrm{walk} = " + ("%.2f$" % (mass))
                 ax.plot([0, peak_height], [loc, loc], color=color, lw=5, label=text)
 
         ax.plot(ys, xs, "k-")
         if delta_peaks:
             tot_delta_peak_mass = sum(delta_peaks.values())
-            fill_label = "$P_{transit} = %.2f$" % (1- tot_delta_peak_mass)
+            fill_label = "$P_\\mathrm{PT} = %.2f$" % (1-tot_delta_peak_mass)
         else:
             fill_label = None
         ax.fill_betweenx(xs, ys, color=color, alpha=0.2, label=fill_label)
@@ -376,7 +376,7 @@ class NodeProfileAnalyzerTime:
 
     def plot_temporal_distance_profile(self,
                                        timezone=None,
-                                       color="green",
+                                       color="black",
                                        alpha=0.15,
                                        ax=None,
                                        lw=2,
@@ -385,7 +385,8 @@ class NodeProfileAnalyzerTime:
                                        plot_trip_stats=False,
                                        format_string="%Y-%m-%d %H:%M:%S",
                                        plot_journeys=False,
-                                       duration_divider=60.0):
+                                       duration_divider=60.0,
+                                       fill_color="green"):
         """
         Parameters
         ----------
@@ -464,7 +465,7 @@ class NodeProfileAnalyzerTime:
 
         for line in vertical_lines:
             xs = [_ut_to_unloc_datetime(x) for x in line['x']]
-            ax.plot(xs, numpy.array(line['y']) / duration_divider, "--", color=color)  # , lw=lw)
+            ax.plot(xs, numpy.array(line['y']) / duration_divider, ":", color=color)  # , lw=lw)
 
         assert (isinstance(ax, plt.Axes))
 
@@ -473,8 +474,8 @@ class NodeProfileAnalyzerTime:
             ys = self.trip_durations
             ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
             for x, y, letter in zip(xs, ys, "ABCDEFGHIJKLM"):
-                ax.text(x + datetime.timedelta(seconds=10),
-                        y / duration_divider - 0.28, letter, va="center", ha="left")
+                ax.text(x + datetime.timedelta(seconds=20),
+                        y / duration_divider - 0.5, letter, va="center", ha="left")
 
         fill_between_x = []
         fill_between_y = []
@@ -483,7 +484,7 @@ class NodeProfileAnalyzerTime:
             fill_between_x.extend(xs)
             fill_between_y.extend(numpy.array(line["y"]) / duration_divider)
 
-        ax.fill_between(fill_between_x, y1=fill_between_y, color=color, alpha=alpha, label=label)
+        ax.fill_between(fill_between_x, y1=fill_between_y, color=fill_color, alpha=alpha, label=label)
 
         ax.set_ylim(bottom=0)
         ax.set_ylim(ax.get_ylim()[0], ax.get_ylim()[1] * 1.05)
