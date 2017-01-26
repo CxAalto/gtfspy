@@ -335,15 +335,15 @@ def _feed_calendar_span(gtfs, stats):
 
             stats[start_key] = calendar_span[0]
             stats[end_key] = calendar_span[1]
-
-            if not max_start and not min_end:
-                max_start = calendar_span[0]
-                min_end = calendar_span[1]
-            else:
-                if gtfs.get_day_start_ut(calendar_span[0]) > gtfs.get_day_start_ut(max_start):
+            if calendar_span[0] is not None and calendar_span[1] is not None:
+                if not max_start and not min_end:
                     max_start = calendar_span[0]
-                if gtfs.get_day_start_ut(calendar_span[1]) < gtfs.get_day_start_ut(min_end):
                     min_end = calendar_span[1]
+                else:
+                    if gtfs.get_day_start_ut(calendar_span[0]) > gtfs.get_day_start_ut(max_start):
+                        max_start = calendar_span[0]
+                    if gtfs.get_day_start_ut(calendar_span[1]) < gtfs.get_day_start_ut(min_end):
+                        min_end = calendar_span[1]
         stats["latest_feed_start_date"] = max_start
         stats["earliest_feed_end_date"] = min_end
     else:
