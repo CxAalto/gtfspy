@@ -421,13 +421,15 @@ class NodeProfileAnalyzerTime:
 
         if plot_tdist_stats:
             line_tyles = ["-.", "--", "-"][::-1]
-            to_plot_labels = ["maximum temporal distance", "mean temporal distance", "minimum temporal distance"]
+            # to_plot_labels = ["maximum temporal distance", "mean temporal distance", "minimum temporal distance"]
+            to_plot_labels  = ["$\\tau_\\mathrm{max} \\;$ = ", "$\\tau_\\mathrm{mean}$ = ", "$\\tau_\\mathrm{min} \\:\\:$ = "]
             to_plot_funcs = [self.max_temporal_distance, self.mean_temporal_distance, self.min_temporal_distance]
 
             xmin, xmax = ax.get_xlim()
             for to_plot_label, to_plot_func, ls in zip(to_plot_labels, to_plot_funcs, line_tyles):
                 y = to_plot_func() / duration_divider
                 assert y < float('inf'), to_plot_label
+                to_plot_label = to_plot_label + "%.1f min" % (y)
                 ax.plot([xmin, xmax], [y, y], color="black", ls=ls, lw=1, label=to_plot_label)
 
         if plot_trip_stats:
@@ -455,7 +457,7 @@ class NodeProfileAnalyzerTime:
         for i, line in enumerate(slopes):
             xs = [_ut_to_unloc_datetime(x) for x in line['x']]
             if i is 0:
-                label = u"temporal distance profile"
+                label = u"profile"
             else:
                 label = None
             ax.plot(xs, numpy.array(line['y']) / duration_divider, "-", color=color, lw=lw, label=label)
