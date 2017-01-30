@@ -100,7 +100,10 @@ FIELDS_WHERE_NULL_OK = {
 DB_TABLE_NAMES = ['agencies', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
 SOURCE_TABLE_NAMES = ['agency', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
 
-
+# TODO: check that there are no unreferenced id pairs between tables:
+# stops <> stop_times
+# stop_times <> trips <> days
+# trips <> routes
 class ImportValidator(object):
 
     def __init__(self, gtfssource, gtfs):
@@ -166,7 +169,7 @@ class ImportValidator(object):
                   ' while the corresponding rowcount in gtfsobject is ' +
                   str(table_counts))
             if not row_count[txt] == table_counts:
-                print('Warning: difference in row_count for table ' + table)
+                # print('Warning: difference in row_count for table ' + table)
                 self.warnings_container.add_warning(self.location, row_warning)
 
     def _validate_no_nulls(self):
@@ -181,7 +184,7 @@ class ImportValidator(object):
             len_non_null = len(df.index)
             nullrows = len_table - len_non_null
             if nullrows > 0:
-                print('Warning: Null values detected in table ' + table)
+                # print('Warning: Null values detected in table ' + table)
                 self.warnings_container.add_warning(self.location, null_warning)
 
 
