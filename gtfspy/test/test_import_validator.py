@@ -6,6 +6,7 @@ from gtfspy.gtfs import GTFS
 from gtfspy import import_validator as iv
 import pandas as pd
 
+
 class TestImportValidator(unittest.TestCase):
     def setUp(self):
 
@@ -20,12 +21,9 @@ class TestImportValidator(unittest.TestCase):
         self.assertIsInstance(self.validator_object_txt, iv.ImportValidator)
         self.assertEqual(len(self.validator_object_txt.gtfs_sources), 2)
 
-    def test_txt_import(self):
-        df = self.validator_object_txt.txt_reader(self.gtfs_source_dir, 'agency')
-        self.assertIsInstance(df, pd.DataFrame)
-
     def test_source_gtfsobj_comparison(self):
         self.validator_object_txt._validate_table_counts()
 
     def test_null_counts_in_gtfsobj(self):
         self.validator_object_txt._validate_no_nulls()
+        self.validator_object_txt.get_warnings()
