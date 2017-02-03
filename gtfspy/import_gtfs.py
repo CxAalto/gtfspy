@@ -1410,8 +1410,7 @@ def calculate_trip_shape_breakpoints(conn):
                             lat=row[1],
                             lon=row[2],
                             stop_I=row[3])
-                       for row in cur]
-
+                       for row in cur if row[1] and row[2]]
         # Calculate a cache key for this sequence.  If shape_id and
         # all stop_Is are the same, then we assume that it is the same
         # route and re-use existing breakpoints.

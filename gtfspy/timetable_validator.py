@@ -170,12 +170,15 @@ class WarningsContainer(object):
         self._warnings_records = defaultdict(list)
         # key: "row that produced error" tuple, value: list of "warning type(s)" string
 
-    def add_warning(self, row, error):
-        self._warnings_counter[error] += 1
+    def add_warning(self, row, error, value=None):
+        if value:
+            self._warnings_counter[error] += value
+        else:
+            self._warnings_counter[error] += 1
         self._warnings_records[row].append(error)
 
     def print_summary(self):
-        print('The feed produced the following warnings:')
+        print('The feed produced the following warnings: ')
         for key in self._warnings_counter.keys():
             print(key + ": " + str(self._warnings_counter[key]))
 

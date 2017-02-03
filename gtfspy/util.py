@@ -275,7 +275,7 @@ def txt_to_pandas(path, table, args=None):
 
     import os
     import zipfile
-    import pandas as pd
+    from pandas import read_csv
     if u'.txt' not in table:
         table += u'.txt'
 
@@ -289,12 +289,20 @@ def txt_to_pandas(path, table, args=None):
         else:
 
             z = zipfile.ZipFile(path)
-            f = z.open(table, mode='rU')
+            for path in z.namelist():
+                if table in path:
+                    table = path
+                    break
+            try:
+                f = z.open(table, mode='rU')
+            except KeyError as e:
+                return None
+
     if args:
-        code_string = "pd.read_csv(f" + args + ")"
+        code_string = "read_csv(f" + args + ")"
         df = eval(code_string)
     else:
-        df = pd.read_csv(f)
+        df = read_csv(f)
 
     #print(df.to_string())
     return df
