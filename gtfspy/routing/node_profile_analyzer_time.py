@@ -278,7 +278,7 @@ class NodeProfileAnalyzerTime:
 
             for loc, mass in delta_peaks.items():
                 ax.plot([loc, loc], [0, peak_height], color="green", lw=5)
-                ax.text(loc + text_x_offset, peak_height * 0.99, "$P_{\\mathrm{walk}} = %.2f$" % (mass), color="green")
+                ax.text(loc + text_x_offset, peak_height * 0.99, "$P(\\mathrm{walk}) = %.2f$" % (mass), color="green")
             ax.set_xlim(now_min_x, now_max_x)
 
             tot_delta_peak_mass = sum(delta_peaks.values())
@@ -286,7 +286,7 @@ class NodeProfileAnalyzerTime:
             transit_text_y = min(ys[ys > 0]) / 2.
             ax.text(transit_text_x,
                     transit_text_y,
-                    "$P_{\\mathrm{PT}} = %.2f$" % (1 - tot_delta_peak_mass),
+                    "$P(mathrm{PT}) = %.2f$" % (1 - tot_delta_peak_mass),
                     color="green",
                     va="center",
                     ha="center")
@@ -298,7 +298,8 @@ class NodeProfileAnalyzerTime:
 
     def plot_temporal_distance_pdf_horizontal(self, use_minutes=True,
                                               color="green", ax=None,
-                                              duration_divider=60.0):
+                                              duration_divider=60.0,
+                                              legend_font_size=None):
         """
         Plot the temporal distance probability density function.
 
@@ -344,13 +345,13 @@ class NodeProfileAnalyzerTime:
             text_x_offset = 0.1 * (now_max_x - max_x)
 
             for loc, mass in delta_peaks.items():
-                text = "$P_\\mathrm{walk} = " + ("%.2f$" % (mass))
+                text = "$P(\\mathrm{walk}) = " + ("%.2f$" % (mass))
                 ax.plot([0, peak_height], [loc, loc], color=color, lw=5, label=text)
 
         ax.plot(ys, xs, "k-")
         if delta_peaks:
             tot_delta_peak_mass = sum(delta_peaks.values())
-            fill_label = "$P_\\mathrm{PT} = %.2f$" % (1-tot_delta_peak_mass)
+            fill_label = "$P(\\mathrm{PT}) = %.2f$" % (1-tot_delta_peak_mass)
         else:
             fill_label = None
         ax.fill_betweenx(xs, ys, color=color, alpha=0.2, label=fill_label)
@@ -359,7 +360,9 @@ class NodeProfileAnalyzerTime:
         ax.set_xlabel(ylabel)
         ax.set_xlim(left=0, right=max(ys) * 1.2)
         if delta_peaks:
-            ax.legend(loc="best")
+            if legend_font_size is None:
+                legend_font_size = 12
+            ax.legend(loc="best", prop={'size': legend_font_size})
 
 
         if True: #
