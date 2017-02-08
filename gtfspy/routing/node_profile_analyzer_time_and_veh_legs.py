@@ -373,7 +373,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         else:
             divider = max(n_default, max_n_boardings)
             step = (end - start) / divider
-        print(start + step * max_n_boardings)
         truncated = _truncate_colormap(cmap, start, start + step * max_n_boardings)
         return truncated
 
@@ -450,7 +449,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
             c = NodeProfileAnalyzerTimeAndVehLegs._multiply_color_brightness(color_tuple, 1.2)
             c = NodeProfileAnalyzerTimeAndVehLegs._multiply_color_saturation(c, 0.8)
-            print(c)
             n_boardings_to_fill_color[n] = c
         return n_boardings_to_fill_color, n_boardings_to_line_color
 
@@ -478,8 +476,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                                     legend_font_size=None):
         max_n = self.max_n_boardings_on_shortest_paths()
         min_n = self.min_n_boardings()
-        print(max_n, min_n)
-
         if self._walk_to_target_duration < float('inf'):
             min_n = 0
         if max_n is None:
@@ -543,8 +539,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                 if journey_label.departure_time > self.end_time_dep:
                     if prev_was_larger_already:
                         continue
-                    else:
-                        prev_was_larger_already
 
                 prev_dep_time = self.start_time_dep
                 if i is not 0:
@@ -603,7 +597,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                 if x < _ut_to_unloc_datetime(self.end_time_dep):
                     ax.plot(x, y, "o", ms=8, color="k")
                     ax.text(x + datetime.timedelta(seconds=0.2),
-                            y / duration_divider - 0.45, letter, va="center", ha="left")
+                            y / duration_divider - 0.5, letter, va="center", ha="left")
             p = lines.Line2D([0, 0], [1, 1], ls="", marker="o", ms=8, color="k", label="journeys")
             legend_patches.append(p)
 
@@ -676,20 +670,24 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             pdf_values_to_plot_by_n_boardings[n_boardings] = numpy.array(pdf_values_to_plot)
 
         if walking_is_fastest_time > 0:
-            text = "$P_\\mathrm{walk} = " + ("%.2f$" % (walking_is_fastest_time/(self.end_time_dep - self.start_time_dep)))
+            text = "$P(\\mathrm{walk}) = " + ("%.2f$" % (walking_is_fastest_time/(self.end_time_dep - self.start_time_dep)))
             ax.plot([0, 10], [self._walk_to_target_duration / duration_divider, self._walk_to_target_duration / duration_divider], color=line_colors[0],
                     lw=5, label=text, zorder=10)
 
         for n_boardings in range(max(1, self.min_n_boardings_on_shortest_paths()), self.max_n_boardings_on_shortest_paths() + 1):
-            print(n_boardings)
             if n_boardings is self.max_n_boardings_on_shortest_paths():
                 prob = pdf_areas[n_boardings]
             else:
                 prob = pdf_areas[n_boardings] - pdf_areas[n_boardings+1]
             pdf_values_to_plot = pdf_values_to_plot_by_n_boardings[n_boardings]
+            if n_boardings is 0:
+                label = "$P(\\mathrm{walk})= %.2f $" % (prob)
+            else:
+                label = "$P(b=" + str(n_boardings) + ")= %.2f $" % (prob)
+                # "$P_\\mathrm{" + self.n_boardings_to_label(n_boardings).replace(" ", "\\,") + "} = %.2f $" % (prob)
             ax.fill_betweenx(temporal_distance_values_to_plot / duration_divider,
                              pdf_values_to_plot * duration_divider,
-                             label="$P_\\mathrm{" + self.n_boardings_to_label(n_boardings).replace(" ", "\\,") + "} = %.2f $" % (prob),
+                             label=label,
                              color=fill_colors[n_boardings], zorder=n_boardings)
             ax.plot(pdf_values_to_plot * duration_divider, temporal_distance_values_to_plot / duration_divider,
                     color=line_colors[n_boardings], zorder=n_boardings)
