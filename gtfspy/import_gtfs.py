@@ -1026,7 +1026,7 @@ class FrequenciesLoader(TableLoader):
                     start_time = row['start_time'],
                     end_time = row['end_time'],
                     headway_secs = int(row['headway_secs']),
-                    exact_times = int(row['exact_times']) if 'exact_times' in row else 0
+                    exact_times = int(row['exact_times']) if 'exact_times' in row and row['exact_times'].isdigit() else 0
                 )
 
     def post_import(self, cur):
@@ -1410,8 +1410,7 @@ def calculate_trip_shape_breakpoints(conn):
                             lat=row[1],
                             lon=row[2],
                             stop_I=row[3])
-                       for row in cur]
-
+                       for row in cur if row[1] and row[2]]
         # Calculate a cache key for this sequence.  If shape_id and
         # all stop_Is are the same, then we assume that it is the same
         # route and re-use existing breakpoints.
@@ -1626,8 +1625,8 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     if isinstance(output, sqlite3.Connection):
         conn = output
     else:
-        if os.path.isfile(output):
-            raise RuntimeError('File already exists')
+        #if os.path.isfile(output):
+         #   raise RuntimeError('File already exists')
         conn = sqlite3.connect(output)
     if not isinstance(gtfs_sources, list):
         gtfs_sources = [gtfs_sources]
@@ -1749,6 +1748,8 @@ def main():
                                         help='zipfiles for the import')
     parser_import_multiple.add_argument('output', help='Output .sqlite filename (must end in .sqlite)')
 
+    # parsing import-list
+
     # Parsing copy
     parser_copy = subparsers.add_parser('copy', help="Copy database")
     parser_copy.add_argument('source', help='Input GTFS .sqlite')
@@ -1797,7 +1798,6 @@ def main():
         output = args.output
         with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
             import_gtfs(zipfiles, output=tmpfile)
-
     elif args.cmd == 'make-views':
         main_make_views(args.gtfs)
     # This is now implemented in gtfs.py, please remove the commented code
