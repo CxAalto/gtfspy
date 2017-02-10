@@ -1,0 +1,12 @@
+routing/label.html
+.doit.db.db
+.nfs*
+.DS_Store
+tmp*
+.~*#
+*.pyc
+*.so
+build/
+nohup.out
+.idea/*
+doc/*html
