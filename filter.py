@@ -13,6 +13,7 @@ from gtfspy import stats
 from gtfspy import gtfs
 
 
+
 class FilterExtract(object):
     def __init__(self,
                  gtfs,
@@ -106,7 +107,7 @@ class FilterExtract(object):
             self.copy_db_conn = sqlite3.connect(tempfile)
             assert isinstance(self.copy_db_conn, sqlite3.Connection)
 
-            self._filter_by_start_and_end_date()
+            self._delete_rows_by_start_and_end_date()
             self._filter_by_calendar()
             self._filter_by_agency()
             self._filter_by_area()
@@ -115,7 +116,7 @@ class FilterExtract(object):
 
         return
 
-    def _filter_by_start_and_end_date(self):
+    def _delete_rows_by_start_and_end_date(self):
         """
         Removes rows from the sqlite database copy that are out of the time span defined by start_date and end_date
         :param gtfs: GTFS object
@@ -156,11 +157,36 @@ class FilterExtract(object):
             for table, query_template in table_to_remove_map.items():
                 param_dict = {"start_ut": str(start_date_ut),
                               "end_ut": str(end_date_ut)}
+                if True and table == "days":
+                    query = "SELECT FROM " + table + " " + \
+                            query_template.format(**param_dict)
+
+                    self.gtfs.execute_custom_query_pandas(query)
+
                 query = "DELETE FROM " + table + " " + \
                         query_template.format(**param_dict)
                 self.copy_db_conn.execute(query)
         return
 
+    def _soft_filter_by_calendar(self):
+        """
+        # TODO: soft filtering, where the recursive deletion of rows depends on the initially removed rows, not on missing links between ID fields.
+        The reason for doing this is to detect unreferenced rows that possibly should be included in the filtered extract.
+
+        """
+        'DELETE FROM agency WHERE agency_I IN'
+        'DELETE FROM routes WHERE route_I IN'
+
+        'DELETE FROM trips WHERE trip_I IN'
+
+        'DELETE FROM stops WHERE stop_I IN'
+        'DELETE FROM stop_times WHERE trip_I IN'
+
+        'SELECT agency_I FROM routes WHERE route_I IN'
+        'SELECT route_I FROM trips WHERE trip_I IN'
+        'SELECT stop_I FROM stop_times WHERE trip_I IN'
+
+        'SELECT trip_I WHERE NOT ({start_ut} <= day_start_ut AND day_start_ut < {end_ut})'
     def _filter_by_calendar(self):
         """
         update calendar table's services
