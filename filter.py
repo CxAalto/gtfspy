@@ -169,24 +169,40 @@ class FilterExtract(object):
         return
 
     def _soft_filter_by_calendar(self):
+        pass
         """
         # TODO: soft filtering, where the recursive deletion of rows depends on the initially removed rows, not on missing links between ID fields.
         The reason for doing this is to detect unreferenced rows that possibly should be included in the filtered extract.
+        This gives a much more accurate perspective on the quality of the feed
 
+
+
+
+
+
+
+        PSeudocode:
+        select all trip_I not to be deleted based on dates
+        select all routes not to be deleted based on trip_I
+        delete all agencies where agency_I not in routes to be saved nor is unreferenced in routes
+        delete all routes where route_I not in trips to be saved
+        delete all
+
+        delete = {'agency': 'DELETE FROM agencies WHERE NOT agency_I IN',
+                  'routes': 'DELETE FROM routes WHERE NOT route_I IN',
+                  'trips': 'DELETE FROM trips WHERE NOT trip_I IN',
+                  'stops': 'DELETE FROM stops WHERE NOT stop_I IN',
+                  'stop_times': 'DELETE FROM stop_times WHERE NOT trip_I IN',
+                  'days': 'DELETE trip_I FROM days WHERE NOT ({start_ut} <= day_start_ut AND day_start_ut < {end_ut})'}
+        select = {'routes': 'SELECT agency_I FROM routes WHERE route_I IN',
+                  'trips': 'SELECT route_I FROM trips WHERE trip_I IN',
+                  'stop_times': 'SELECT stop_I FROM stop_times WHERE trip_I IN',
+                  'days': 'SELECT trip_I FROM days WHERE ({start_ut} <= day_start_ut AND day_start_ut < {end_ut})'}
+        'SELECT agency_I FROM agencies LEFT JOIN routes WHERE routes.'
+        query = delete['agency']+select['routes']+select['trips']+select['days']
+
+        agency_query = 'DELETE FROM agencies WHERE NOT agency_I IN (SELECT agency_I FROM routes WHERE route_I IN (SELECT route_I FROM trips WHERE trip_I IN ())) AND '
         """
-        'DELETE FROM agency WHERE agency_I IN'
-        'DELETE FROM routes WHERE route_I IN'
-
-        'DELETE FROM trips WHERE trip_I IN'
-
-        'DELETE FROM stops WHERE stop_I IN'
-        'DELETE FROM stop_times WHERE trip_I IN'
-
-        'SELECT agency_I FROM routes WHERE route_I IN'
-        'SELECT route_I FROM trips WHERE trip_I IN'
-        'SELECT stop_I FROM stop_times WHERE trip_I IN'
-
-        'SELECT trip_I WHERE NOT ({start_ut} <= day_start_ut AND day_start_ut < {end_ut})'
     def _filter_by_calendar(self):
         """
         update calendar table's services
