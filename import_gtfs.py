@@ -1646,9 +1646,14 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     cur.execute('PRAGMA page_size = 4096;')
     cur.execute('PRAGMA mmap_size = 1073741824;')
     cur.execute('PRAGMA cache_size = -2000000;')
+    # Changes of isolation level are python3.6 workarounds -
+    # eventually will probably be fixed and this can be removed.
+    conn.isolation_level = None  # change to autocommit mode (former default)
     cur.execute('PRAGMA journal_mode = OFF;')
     #cur.execute('PRAGMA journal_mode = WAL;')
     cur.execute('PRAGMA synchronous = OFF;')
+    conn.isolation_level = ''    # change back to python default.
+    # end python3.6 workaround
 
     #TableLoader.mode = 'index'
     # Do the actual importing.
@@ -1710,7 +1715,11 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
 
     if print_progress:
         print("Vacuuming...")
+    # Next 3 lines are python 3.6 work-arounds again.
+    conn.isolation_level = None  # former default of autocommit mode
     cur.execute('VACUUM;')
+    conn.isolation_level = ''    # back to python default
+    # end python3.6 workaround
     if print_progress:
         print("Analyzing...")
     cur.execute('ANALYZE')
