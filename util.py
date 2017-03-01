@@ -10,9 +10,9 @@ import shutil
 import tempfile
 import time
 import numpy
+import zipfile
 
 import networkx as nx
-
 
 # Below is a race condition, so do it only on import.  Is there a
 # portable way to do this?
@@ -294,7 +294,7 @@ def txt_to_pandas(path, table, args=None):
                     table = path
                     break
             try:
-                f = z.open(table, mode='rU')
+                f = zip_open(z, table)
             except KeyError as e:
                 return None
 
@@ -360,6 +360,16 @@ def write_shapefile(data, shapefile_path):
         # w.record(dict_item['name'], dict_item['agency'], dict_item['agency_name'], dict_item['type'], dict_item['lons'])
         eval(method_string)
     w.save(shapefile_path)
+
+# Opening files with Universal newlines is done differently in py3
+def zip_open(z, filename):
+    import sys
+    import io
+
+    if sys.version_info[0] == 2:
+        return z.open(filename, 'rU')
+    else:
+        return io.TextIOWrapper(z.open(filename, 'r'))
 
 
 def make_sure_path_exists(path):

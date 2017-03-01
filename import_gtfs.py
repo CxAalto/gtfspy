@@ -219,7 +219,7 @@ class TableLoader(object):
                     try:
                         Z = zipfile.ZipFile(source['zipfile'], mode='r')
                         # print(Z.namelist())
-                        f = Z.open(os.path.join(source['zip_commonprefix'], self.fname), mode='rU')
+                        f = util.zip_open(Z, os.path.join(source['zip_commonprefix'], self.fname))
                     except KeyError:
                         pass
             elif isinstance(source, string_types):
