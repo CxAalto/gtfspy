@@ -670,7 +670,7 @@ class GTFS(object):
         #     assert dsut in day_start_uts
         # return {"day_start_uts": day_start_uts, "trip_counts":trip_counts}
 
-    def get_suitable_date_for_daily_extract(self, date):
+    def get_suitable_date_for_daily_extract(self, date=None, ut=False):
         '''
         Selects suitable date for daily extract
         Iterates trough the available dates forward and backward from the download date accepting the first day that has
@@ -689,7 +689,10 @@ class GTFS(object):
             daily_trips = daily_trips.sort_values(by=[u'date_dist', u'old_index']).reindex()
         for row in daily_trips.itertuples():
             if row.trip_counts >= 0.9 * max_daily_trips:
-                return row.dates
+                if ut:
+                    return self.get_day_start_ut(row.dates)
+                else:
+                    return row.dates
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
@@ -1209,12 +1212,16 @@ class GTFS(object):
                 seq: int
 
         """
-        from networks import temporal_network
+        from gtfspy.networks import temporal_network
         df = temporal_network(self, start_time_ut=start_time_ut, end_time_ut=end_time_ut, route_type=route_type)
         df.sort_values("dep_time_ut", ascending=False, inplace=True)
-        # TODO: make this as a generator
         for row in df.itertuples():
             yield row
+
+    def get_walk_transfer_stop_to_stop_network(self):
+        from gtfspy.networks import walk_transfer_stop_to_stop_network
+        net = walk_transfer_stop_to_stop_network(self)
+        return net
 
     def get_transit_events(self, start_time_ut=None, end_time_ut=None, route_type=None):
         """

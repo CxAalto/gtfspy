@@ -25,6 +25,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                  end_time=None,
                  transfer_margin=0,
                  walk_network=None,
+                 euclidean_stop_to_stop=False,
                  walk_speed=1.5,
                  verbose=False,
                  track_vehicle_legs=True,
@@ -49,7 +50,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         verbose: boolean, optional
             whether to print out progress
         track_vehicle_legs: boolean, optional
-            whether to consider the nubmer of vehicle legs
+            whether to consider the number of vehicle legs
         track_time: boolean, optional
             whether to consider time in the set of pareto_optimal
         """
@@ -65,6 +66,10 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         if walk_network is None:
             walk_network = networkx.Graph()
         self._walk_network = walk_network
+        if euclidean_stop_to_stop:
+            self.d_type = "d_great_circle"
+        else:
+            self.d_type = "d_shape"
         self._walk_speed = walk_speed
         self._verbose = verbose
 
@@ -125,7 +130,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                 for target in self._targets:
                     if self._walk_network.has_edge(target, node):
                         edge_data = self._walk_network.get_edge_data(target, node)
-                        walk_duration_to_target = edge_data["d_walk"] / float(self._walk_speed)
+                        walk_duration_to_target = edge_data[self.d_type] / float(self._walk_speed)
             self._stop_profiles[node] = NodeProfileMultiObjective(dep_times=self._stop_departure_times_with_pseudo_connections[node],
                                                                   label_class=self._label_class,
                                                                   walk_to_target_duration=walk_duration_to_target,
@@ -150,7 +155,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         pseudo_connections = []
         # DiGraph makes things iterate both ways (!)
         for u, v, data in networkx.DiGraph(self._walk_network).edges(data=True):
-            total_walk_time_with_transfer = data['d_walk'] / float(self._walk_speed) + self._transfer_margin
+            total_walk_time_with_transfer = data[self.d_type] / float(self._walk_speed) + self._transfer_margin
             in_times = self._stop_arrival_times[u]
             out_times = self._stop_departure_times[v]
             j = 0
@@ -242,8 +247,9 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             assert (isinstance(connection, Connection))
             assert (connection.departure_time <= previous_departure_time)
             previous_departure_time = connection.departure_time
-
+            # This is for the labels possibly subject to buffer time
             arrival_node_labels = self._get_modified_arrival_node_labels(connection)
+            # This is for the labels staying "in the vehicle"
             trip_labels = self._get_trip_labels(connection)
 
             # then, take the Pareto-optimal set of these alternatives:
@@ -255,6 +261,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
             # update departure stop profile (later: with the sets of pareto-optimal labels)
             self._stop_profiles[connection.departure_stop].update(all_pareto_optimal_labels, connection.departure_time)
+
         print("finalizing profiles!")
         self._finalize_profiles()
 
@@ -271,7 +278,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                     neighbor_profile = self._stop_profiles[neighbor]
                     assert (isinstance(neighbor_profile, NodeProfileMultiObjective))
                     neighbor_label_bags.append(neighbor_profile.get_labels_for_real_connections())
-                    walk_durations_to_neighbors.append(self._walk_network.get_edge_data(stop, neighbor)["d_walk"] / self._walk_speed)
+                    walk_durations_to_neighbors.append(self._walk_network.get_edge_data(stop, neighbor)[self.d_type] / self._walk_speed)
             assert (isinstance(stop_profile, NodeProfileMultiObjective))
             stop_profile.finalize(neighbor_label_bags, walk_durations_to_neighbors)
 

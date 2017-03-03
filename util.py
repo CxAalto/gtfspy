@@ -10,7 +10,7 @@ import shutil
 import tempfile
 import time
 import numpy
-
+import shapefile as shp
 import networkx as nx
 
 
@@ -313,7 +313,7 @@ def write_shapefile(data, shapefile_path):
     :param shapefile_path: path where shapefile is saved
     :return:
     """
-    import shapefile as shp
+
     w = shp.Writer(shp.POLYLINE) # shapeType=3)
 
     fields = []
