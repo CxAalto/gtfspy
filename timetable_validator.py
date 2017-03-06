@@ -11,7 +11,7 @@ if __name__ == '__main__' and __package__ is None:
 
 
 from gtfspy import route_types
-from .util import wgs84_distance
+from gtfspy.util import wgs84_distance
 from gtfspy.gtfs import GTFS
 
 WARNING_LONG_STOP_SPACING = "Long Stop Spacing"
