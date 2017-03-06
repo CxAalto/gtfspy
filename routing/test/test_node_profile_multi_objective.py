@@ -59,11 +59,9 @@ class TestNodeProfileMultiObjective(TestCase):
         self.assertTrue(node_profile.update([pt2]))
         self.assertTrue(node_profile.update([pt3]))
         node_profile.finalize()
-
         self.assertEqual(1, len(node_profile.get_final_optimal_labels()))
 
     def test_finalize(self):
-        NodeProfileMultiObjective()
         node_profile = NodeProfileMultiObjective(label_class=LabelTimeWithBoardingsCount, dep_times=[10])
         own_label = LabelTimeWithBoardingsCount(departure_time=10, arrival_time_target=20, n_boardings=0, first_leg_is_walk=False)
         self.assertTrue(node_profile.update([own_label]))
@@ -73,6 +71,34 @@ class TestNodeProfileMultiObjective(TestCase):
         assert (len(node_profile.get_final_optimal_labels()) == 2)
         self.assertTrue(any(map(lambda el: el.departure_time == 12, node_profile.get_final_optimal_labels())))
 
+    def test_same_dep_times_fail_in_init(self):
+        with self.assertRaises(AssertionError):
+            node_profile = NodeProfileMultiObjective(label_class=LabelTimeWithBoardingsCount, dep_times=[10, 10, 20, 20])
 
 
+    def test_dep_time_skipped_in_update(self):
+        label3 = LabelTimeWithBoardingsCount(departure_time=30, arrival_time_target=20, n_boardings=0,
+                                             first_leg_is_walk=False)
+        label2 = LabelTimeWithBoardingsCount(departure_time=20, arrival_time_target=20, n_boardings=0,
+                                             first_leg_is_walk=False)
+        label1 = LabelTimeWithBoardingsCount(departure_time=10, arrival_time_target=20, n_boardings=0,
+                                             first_leg_is_walk=False)
+
+        # This should work ok
+        node_profile = NodeProfileMultiObjective(label_class=LabelTimeWithBoardingsCount, dep_times=[10, 20, 30])
+        node_profile.update([label3])
+        node_profile.update([label2])
+        node_profile.update([label2])
+        node_profile.update([label1])
+
+        # This should fail due to dep time 20 missing in between
+        with self.assertRaises(AssertionError):
+            node_profile = NodeProfileMultiObjective(label_class=LabelTimeWithBoardingsCount, dep_times=[10, 20, 30])
+            node_profile.update([label3])
+            node_profile.update([label1])
+
+        # This should fail due to dep time 30 not being the first to deal with
+        with self.assertRaises(AssertionError):
+            node_profile = NodeProfileMultiObjective(label_class=LabelTimeWithBoardingsCount, dep_times=[10, 20, 30])
+            node_profile.update([label2])
 

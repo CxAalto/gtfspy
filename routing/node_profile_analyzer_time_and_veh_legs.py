@@ -771,3 +771,9 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         ]
         assert (len(profile_summary_methods) == len(profile_observable_names))
         return profile_summary_methods, profile_observable_names
+
+    def get_node_profile_measures_as_dict(self):
+        profile_summary_methods, profile_observable_names = self.all_measures_and_names_as_lists()
+        profile_measure_dict = {key: value(self) for key, value in zip(profile_observable_names, profile_summary_methods)}
+        return profile_measure_dict
+
