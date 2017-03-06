@@ -111,8 +111,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             assert(isinstance(pseudo_connection, Connection))
             self._stop_departure_times_with_pseudo_connections[pseudo_connection.departure_stop]\
                 .append(pseudo_connection.departure_time)
-        for key, value in self._stop_departure_times_with_pseudo_connections.items():
-            self._stop_departure_times_with_pseudo_connections[key] = numpy.array(list(sorted(value)))
+        for stop, dep_times in self._stop_departure_times_with_pseudo_connections.items():
+            self._stop_departure_times_with_pseudo_connections[stop] = numpy.array(list(sorted(set(dep_times))))
 
     @timeit
     def __initialize_node_profiles(self):
@@ -238,7 +238,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         for i, connection in enumerate(self._all_connections):
             # basic checking + printing progress:
             if self._verbose and i % 100000 == 0:
-                print(i, "/", n_connections_tot, " : ", float(i)/n_connections_tot)
+                print(i, "/", n_connections_tot, " : ", float(i) / n_connections_tot)
             assert (isinstance(connection, Connection))
             assert (connection.departure_time <= previous_departure_time)
             previous_departure_time = connection.departure_time
@@ -255,6 +255,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
             # update departure stop profile (later: with the sets of pareto-optimal labels)
             self._stop_profiles[connection.departure_stop].update(all_pareto_optimal_labels, connection.departure_time)
+
         print("finalizing profiles!")
         self._finalize_profiles()
 

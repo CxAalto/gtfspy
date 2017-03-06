@@ -445,6 +445,51 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         self.assertEqual(len(labels_2247), 1)
         self.assertEqual(labels_2247[0].duration(), 1475530980 - 1475530860)
 
+    def test_transfer_on_same_stop_with_multiple_departures(self):
+        walk_speed = 1000
+        target_stop = 5
+        start_time = 0
+        end_time = 60
+        transfer_margin = 0
+        transit_connections = [
+            Connection(0, 4, 30, 40, "trip_1"),
+            Connection(4, 1, 50, 60, "trip_2"),
+            Connection(4, 2, 50, 60, "trip_3"),
+            Connection(4, 3, 50, 60, "trip_4"),
+            Connection(4, target_stop, 70, 100, "trip_5")
+        ]
+        csa_profiler = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      networkx.Graph(), walk_speed)
+        csa_profiler.run()
+        profiles = csa_profiler.stop_profiles
+        assert(profiles[0].get_final_optimal_labels()[0])
+        assert(len(profiles[0].get_final_optimal_labels()) > 0)
+
+    def test_transfer_connections_affect_transfer(self):
+        walk_speed = 1000
+        target_stop = 1233412
+        start_time = 0
+        end_time = 60
+        transfer_margin = 0
+        transit_connections = [
+            Connection(0, 1, 30, 40, "trip_1"),
+            Connection(3, 4, 45, 50, "trip_2"),
+            Connection(4, 3, 45, 50, "trip_3"),
+            Connection(5, 3, 45, 50, "trip_4"),
+            Connection(1, target_stop, 70, 100, "trip_5")
+        ]
+        walk_network = networkx.Graph()
+        walk_network.add_edge(1, 3, {"d_walk": 1})
+        walk_network.add_edge(1, 4, {"d_walk": 1})
+        walk_network.add_edge(1, 5, {"d_walk": 1})
+        csa_profiler = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                       start_time, end_time, transfer_margin,
+                                                       walk_network, walk_speed)
+        csa_profiler.run()
+        profiles = csa_profiler.stop_profiles
+        assert(profiles[0].get_final_optimal_labels()[0])
+        assert(len(profiles[0].get_final_optimal_labels()) > 0)
 
     def _assert_label_sets_equal(self, found_tuples, should_be_tuples):
         self.assertEqual(len(found_tuples), len(should_be_tuples))
