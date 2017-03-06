@@ -670,7 +670,7 @@ class GTFS(object):
         #     assert dsut in day_start_uts
         # return {"day_start_uts": day_start_uts, "trip_counts":trip_counts}
 
-    def get_suitable_date_for_daily_extract(self, date):
+    def get_suitable_date_for_daily_extract(self, date=None, ut=False):
         '''
         Selects suitable date for daily extract
         Iterates trough the available dates forward and backward from the download date accepting the first day that has
@@ -689,7 +689,10 @@ class GTFS(object):
             daily_trips = daily_trips.sort_values(by=[u'date_dist', u'old_index']).reindex()
         for row in daily_trips.itertuples():
             if row.trip_counts >= 0.9 * max_daily_trips:
-                return row.dates
+                if ut:
+                    return self.get_day_start_ut(row.dates)
+                else:
+                    return row.dates
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
@@ -1189,6 +1192,36 @@ class GTFS(object):
                                      "           JOIN trips ON stop_times.trip_I = trips.trip_I"
                                      "           JOIN routes ON trips.route_I == routes.route_I "
                                      "WHERE routes.type=(?)", self.conn, params=(route_type,))
+
+    def generate_routable_transit_events(self, start_time_ut=None, end_time_ut=None, route_type=None):
+        """
+        Generates events that take place during a time interval.
+        Each event needs to be only partially overlap the given time interval.
+        Does not include walking events. This is just a quick and dirty implementation to get a way of quickly get a
+        method for generating events compatible with the routing algorithm
+        :param start_time_ut:
+        :param end_time_ut:
+        :param route_type:
+        :return: generates named tuples of the events
+                dep_time_ut: int
+                arr_time_ut: int
+                from_stop_I: int
+                to_stop_I: int
+                trip_I : int
+                route_type : int
+                seq: int
+
+        """
+        from gtfspy.networks import temporal_network
+        df = temporal_network(self, start_time_ut=start_time_ut, end_time_ut=end_time_ut, route_type=route_type)
+        df.sort_values("dep_time_ut", ascending=False, inplace=True)
+        for row in df.itertuples():
+            yield row
+
+    def get_walk_transfer_stop_to_stop_network(self):
+        from gtfspy.networks import walk_transfer_stop_to_stop_network
+        net = walk_transfer_stop_to_stop_network(self)
+        return net
 
     def get_transit_events(self, start_time_ut=None, end_time_ut=None, route_type=None):
         """
