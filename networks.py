@@ -30,15 +30,21 @@ def walk_transfer_stop_to_stop_network(gtfs):
             d_shape:
                 distance along the road/tracks/..
     """
+    use_euclidean = False
     net = networkx.Graph()
     _add_stops_to_net(net, gtfs.get_table("stops"))
     transfers = gtfs.get_table("stop_distances")
+    if transfers["d_walk"].equals(transfers["d"]):
+        use_euclidean = True
+        print("Warning: routed walking distances seems to be missing, using euclidean distances instead")
     for transfer in transfers.itertuples():
         from_node = transfer.from_stop_I
         to_node = transfer.to_stop_I
-        d = transfer.d
-        d_walk = transfer.d_walk
-        net.add_edge(from_node, to_node, {"d_great_circle": d, "d_shape": d_walk})
+        if use_euclidean:
+            d_walk = transfer.d
+        else:
+            d_walk = transfer.d_walk
+        net.add_edge(from_node, to_node, {"d_walk": d_walk})
     return net
 
 def stop_to_stop_network_for_route_type(gtfs,
