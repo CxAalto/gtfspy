@@ -177,10 +177,10 @@ class ImportValidator(object):
             for gtfs_source in self.gtfs_sources:
                 frequencies_in_source = txt_to_pandas(gtfs_source, u'frequencies.txt')
                 try:
-                    if txt == 'trips' and frequencies_in_source:
+                    if txt == 'trips' and not frequencies_in_source.empty:
                         row_count[txt] += self._frequency_generated_trips(gtfs_source, txt)
 
-                    elif txt == 'stop_times' and frequencies_in_source:
+                    elif txt == 'stop_times' and not frequencies_in_source.empty:
                         row_count[txt] += self._frequency_generated_stop_times(gtfs_source, txt)
 
                     else:

@@ -11,10 +11,11 @@ class TestImportValidator(unittest.TestCase):
     def setUp(self):
 
         # create validator object using textfiles
-
+        test_feed_dir = "test/test_data"
+        test_feed_b_dir = "test/test_data/feed_b"
         self.gtfs_source_dir = os.path.join(os.path.dirname(__file__), "test_data")
-        self.G_txt = GTFS.from_directory_as_inmemory_db(["test_data", "test_data/feed_b"])
-        self.validator_object_txt = iv.ImportValidator(["test_data", "test_data/feed_b"], self.G_txt)
+        self.G_txt = GTFS.from_directory_as_inmemory_db([test_feed_dir, test_feed_b_dir])
+        self.validator_object_txt = iv.ImportValidator([test_feed_dir, test_feed_b_dir], self.G_txt)
 
     def test_validator_objects(self):
 
