@@ -114,6 +114,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         for stop, dep_times in self._stop_departure_times_with_pseudo_connections.items():
             self._stop_departure_times_with_pseudo_connections[stop] = numpy.array(list(sorted(set(dep_times))))
 
+
     @timeit
     def __initialize_node_profiles(self):
         self._stop_profiles = dict()
@@ -185,18 +186,16 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             assert(isinstance(connection, Connection))
             to_stop = connection.arrival_stop
             arrival_time = connection.arrival_time
-            if connection.is_walk:
-                arr_stop_next_dep_time = connection.arrival_time
-            else:
-                arr_stop_dep_times = self._stop_departure_times[to_stop]
-                if len(arr_stop_dep_times) > 0:
-                    index = numpy.searchsorted(arr_stop_dep_times, arrival_time + self._transfer_margin)
-                    if 0 <= index < len(arr_stop_dep_times):
-                        arr_stop_next_dep_time = arr_stop_dep_times[index]
-                    else:
-                        arr_stop_next_dep_time = float('inf')
+
+            arr_stop_dep_times = self._stop_departure_times_with_pseudo_connections[to_stop]
+            if len(arr_stop_dep_times) > 0:
+                index = numpy.searchsorted(arr_stop_dep_times, arrival_time + self._transfer_margin)
+                if 0 <= index < len(arr_stop_dep_times):
+                    arr_stop_next_dep_time = arr_stop_dep_times[index]
                 else:
                     arr_stop_next_dep_time = float('inf')
+            else:
+                arr_stop_next_dep_time = float('inf')
             connection.arrival_stop_next_departure_time = arr_stop_next_dep_time
 
     def _get_modified_arrival_node_labels(self, connection):

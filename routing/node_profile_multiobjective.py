@@ -139,20 +139,24 @@ class NodeProfileMultiObjective:
         pareto_optimal_labels : set
             Set of Labels
         """
-        pareto_optimal_labels = list()
+        walk_labels = list()
         # walk label towards target
         if first_leg_can_be_walk and self._walk_to_target_duration != float('inf'):
             # add walk_label
             if connection_arrival_time is not None:
-                pareto_optimal_labels.append(self.get_walk_label(connection_arrival_time))
+                walk_labels.append(self.get_walk_label(connection_arrival_time))
             else:
-                pareto_optimal_labels.append(self.get_walk_label(dep_time))
+                walk_labels.append(self.get_walk_label(dep_time))
 
         # if dep time is larger than the largest dep time -> only walk labels are possible
         if dep_time in self.dep_times_to_index:
             assert(dep_time != float('inf'))
             index = self.dep_times_to_index[dep_time]
-            pareto_optimal_labels = merge_pareto_frontiers(self._label_bags[index], pareto_optimal_labels)
+            labels = self._label_bags[index]
+            pareto_optimal_labels = merge_pareto_frontiers(labels, walk_labels)
+        else:
+            pareto_optimal_labels = walk_labels
+
         if not first_leg_can_be_walk:
             pareto_optimal_labels = [label for label in pareto_optimal_labels if not label.first_leg_is_walk]
         return pareto_optimal_labels
