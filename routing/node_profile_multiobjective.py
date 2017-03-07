@@ -16,7 +16,6 @@ class NodeProfileMultiObjective:
                  label_class=LabelTimeWithBoardingsCount,
                  transit_connection_dep_times=None):
         """
-
         Parameters
         ----------
         dep_times
@@ -119,6 +118,7 @@ class NodeProfileMultiObjective:
         self._label_bags[dep_time_index] = new_frontier
         return True
 
+
     def evaluate(self, dep_time, first_leg_can_be_walk=True, connection_arrival_time=None):
         """
         Get the pareto_optimal set of Labels, given a departure time.
@@ -132,7 +132,7 @@ class NodeProfileMultiObjective:
             (I.e. whether this function is called when scanning a pseudo-connection:
             "double" walks are not allowed.)
         connection_arrival_time: float, int, optional
-            if dep_time is float('inf') or ... i.e. this is some sort of fallback
+            used for computing the walking label if dep_time, i.e., connection.arrival_stop_next_departure_time, is infinity)
 
         Returns
         -------

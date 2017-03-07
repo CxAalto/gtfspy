@@ -151,7 +151,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         pseudo_connections = []
         # DiGraph makes things iterate both ways (!)
         for u, v, data in networkx.DiGraph(self._walk_network).edges(data=True):
-            total_walk_time_with_transfer = data["d_walk"] / float(self._walk_speed) + self._transfer_margin
+            walk_duration = data["d_walk"] / float(self._walk_speed)
+            total_walk_time_with_transfer = walk_duration + self._transfer_margin
             in_times = self._stop_arrival_times[u]
             out_times = self._stop_departure_times[v]
             j = 0
@@ -173,8 +174,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                     to_stop = v
                     waiting_time = arr_time - dep_time - total_walk_time_with_transfer
                     assert(waiting_time >= 0)
-                    pseudo = Connection(from_stop, to_stop, dep_time, arr_time, trip_id=None, is_walk=True,
-                                        waiting_time=waiting_time, arrival_stop_next_departure_time=arr_time)
+                    pseudo = Connection(from_stop, to_stop, arr_time - walk_duration, arr_time,
+                                        trip_id=None, is_walk=True)
                     pseudo_connections.append(pseudo)
                     i += 1
         print("Computed pseudoconnections")
@@ -185,17 +186,19 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         for connection in self._all_connections:
             assert(isinstance(connection, Connection))
             to_stop = connection.arrival_stop
-            arrival_time = connection.arrival_time
 
             arr_stop_dep_times = self._stop_departure_times_with_pseudo_connections[to_stop]
+
+            arr_stop_next_dep_time = float('inf')
             if len(arr_stop_dep_times) > 0:
-                index = numpy.searchsorted(arr_stop_dep_times, arrival_time + self._transfer_margin)
+                if connection.is_walk:
+                    index = numpy.searchsorted(arr_stop_dep_times, connection.arrival_time)
+                else:
+                    index = numpy.searchsorted(arr_stop_dep_times, connection.arrival_time + self._transfer_margin)
                 if 0 <= index < len(arr_stop_dep_times):
                     arr_stop_next_dep_time = arr_stop_dep_times[index]
-                else:
-                    arr_stop_next_dep_time = float('inf')
-            else:
-                arr_stop_next_dep_time = float('inf')
+            if connection.is_walk and not (arr_stop_next_dep_time < float('inf')):
+                assert (arr_stop_next_dep_time < float('inf'))
             connection.arrival_stop_next_departure_time = arr_stop_next_dep_time
 
     def _get_modified_arrival_node_labels(self, connection):

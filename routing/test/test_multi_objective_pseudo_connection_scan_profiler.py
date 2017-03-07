@@ -54,15 +54,14 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         self.assertEqual(len(csa_profile._all_connections), 3)
         pseudo_connection = csa_profile._all_connections[1]
         self.assertTrue(pseudo_connection.is_walk)
-        self.assertEqual(pseudo_connection.waiting_time, 2)
-        self.assertEqual(pseudo_connection.departure_time, 20)
+        self.assertEqual(pseudo_connection.departure_time, 42 - 20)
         self.assertEqual(pseudo_connection.arrival_time, 42)
         self.assertEqual(pseudo_connection.departure_stop, 1)
         self.assertEqual(pseudo_connection.arrival_stop, 2)
 
         node_to_connection_dep_times = {
             0: [10],
-            1: [20],
+            1: [42 - 20],
             2: [42],
             3: [],
         }
@@ -81,6 +80,33 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             self.assertIn(connection.departure_time, departure_stop_profile.dep_times_to_index)
             if connection.arrival_stop_next_departure_time != float('inf'):
                 self.assertIn(connection.arrival_stop_next_departure_time, arrival_stop_profile.dep_times_to_index)
+
+
+    def test_pseudo_connections_with_transfer_margin(self):
+        event_list_raw_data = [
+            (0, 1, 10, 20, "trip_6"),
+            (2, 3, 42, 50, "trip_5")
+        ]
+        transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
+        walk_network = networkx.Graph()
+        walk_network.add_edge(1, 2, {"d_walk": 10})
+        walk_speed = 1
+        target_stop = 3
+        transfer_margin = 5
+        start_time = 0
+        end_time = 50
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      walk_network, walk_speed)
+        transfer_connection = csa_profile._all_connections[1]
+        self.assertEqual(transfer_connection.arrival_stop, 2)
+        self.assertEqual(transfer_connection.arrival_stop_next_departure_time, 42)
+        self.assertEqual(transfer_connection.departure_stop, 1)
+        self.assertEqual(transfer_connection.departure_time, 42 - 10)
+        self.assertEqual(transfer_connection.is_walk, True)
+        self.assertEqual(transfer_connection.arrival_time, 42)
+
+        print(transfer_connection)
 
     def test_basics(self):
         csa_profile = MultiObjectivePseudoCSAProfiler(self.transit_connections, self.target_stop,
@@ -321,6 +347,38 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         stop_profile_1 = csa_profile.stop_profiles[1]
         self.assertEqual(0, len(stop_profile_3.get_final_optimal_labels()))
         self.assertEqual(1, len(stop_profile_1.get_final_optimal_labels()))
+
+
+    def test_transfer_margin_with_walk(self):
+        walk_speed = 1
+        target_stop = 3
+        start_time = 0
+        end_time = 200
+        transit_connections = [
+            Connection(0, 1, 100, 101, "trip__2"),
+            Connection(0, 1, 101, 102, "trip__1"),
+            Connection(0, 1, 102, 103, "trip_0"),
+            Connection(0, 1, 100, 101, "trip_1"),
+            Connection(0, 1, 101, 102, "trip_2"),
+            Connection(0, 1, 102, 103, "trip_3"),
+            Connection(0, 1, 103, 104, "trip_4"),
+            Connection(2, 3, 106, 107, "trip_6"),
+        ]
+
+        walk_network = networkx.Graph()
+        walk_network.add_edge(1, 2, {"d_walk": 0.5})
+        transfer_margins = [1, 2, 3, 4, 0]
+        journey_dep_times = [103, 102, 101, 100, 103]
+
+        for transfer_margin, dep_time in zip(transfer_margins, journey_dep_times):
+            csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                          start_time, end_time, transfer_margin,
+                                                          walk_network, walk_speed)
+            csa_profile.run()
+            profile = csa_profile.stop_profiles[0]
+            self.assertEqual(len(profile.get_final_optimal_labels()), 1, "transfer_margin=" + str(transfer_margin))
+            label = profile.get_final_optimal_labels()[0]
+            self.assertEqual(label.departure_time, dep_time, "transfer_margin=" + str(transfer_margin))
 
     def test_basics_no_transfer_tracking(self):
         csa_profile = MultiObjectivePseudoCSAProfiler(
