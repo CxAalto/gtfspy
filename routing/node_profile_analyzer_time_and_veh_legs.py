@@ -117,6 +117,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
     def _get_transfers_on_fastest_path_analyzer(self):
         """
         TODO: Use _get_fastest_path_blocks to reduce code duplication!
+
         Returns
         -------
 
@@ -547,7 +548,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                 # to not loop over things multiple times
                 for block in prev_profile_block_analyzer._profile_blocks:
                     if block.distance_end != block.distance_start:
-                        if block.distance_end < journey_label.duration() + (
+                        if block.distance_end <= journey_label.duration() + (
                                     journey_label.departure_time - block.end_time):
                             prev_dep_time = max(prev_dep_time, block.end_time)
                     elif block.distance_end == block.distance_start:
