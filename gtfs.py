@@ -355,11 +355,17 @@ class GTFS(object):
             # get stop_data and store it:
             stop_time_df = self.get_trip_stop_time_data(trip_I, day_start_ut)
             for stop_row in stop_time_df.itertuples():
-                stop_lats.append(stop_row.lat)
-                stop_lons.append(stop_row.lon)
-                stop_dep_times.append(stop_row.dep_time_ut)
-                stop_seqs.append(stop_row.seq)
-                shape_breaks.append(stop_row.shape_break)
+                stop_lats.append(float(stop_row.lat))
+                stop_lons.append(float(stop_row.lon))
+                stop_dep_times.append(float(stop_row.dep_time_ut))
+                try:
+                    stop_seqs.append(int(stop_row.seq))
+                except TypeError:
+                    stop_seqs.append(None)
+                try:
+                    shape_breaks.append(int(stop_row.shape_break))
+                except TypeError:
+                    shape_breaks.append(None)
 
             if use_shapes:
                 # get shape data (from cache, if possible)
@@ -385,7 +391,6 @@ class GTFS(object):
                 trip['times'] = stop_dep_times
                 trip['lats'] = stop_lats
                 trip['lons'] = stop_lons
-
             trips.append(trip)
         return {"trips": trips}
 
@@ -546,7 +551,7 @@ class GTFS(object):
         routeShapes = []
         n_rows = len(data)
         for i, row in enumerate(data.itertuples()):
-            datum = {"name": row.name, "type": row.type, "agency": row.agency_id, "agency_name": row.agency_name}
+            datum = {"name": str(row.name), "type": int(row.type), "agency": str(row.agency_id), "agency_name": str(row.agency_name)}
             # print(row.agency_id, ": ", i, "/", n_rows)
             # this function should be made also non-shape friendly (at this point)
             if use_shapes and row.shape_id:
@@ -557,8 +562,8 @@ class GTFS(object):
                 stop_shape = self.get_trip_stop_coordinates(row.trip_I)
                 lats = list(stop_shape['lat'])
                 lons = list(stop_shape['lon'])
-            datum['lats'] = lats
-            datum['lons'] = lons
+            datum['lats'] = [float(lat) for lat in lats]
+            datum['lons'] = [float(lon) for lon in lons]
             routeShapes.append(datum)
         return routeShapes
 

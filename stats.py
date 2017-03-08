@@ -112,8 +112,7 @@ def get_stats(gtfs):
 
     # Agency names
     agencies = gtfs.get_table("agencies")
-    stats["agencies"] = "_".join(agencies['name'].values).encode(
-        'utf-8')
+    stats["agencies"] = "_".join(agencies['name'].values)
 
     # Stop lat/lon range
     stops = gtfs.get_table("stops")
