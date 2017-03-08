@@ -244,19 +244,20 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             assert (isinstance(connection, Connection))
             assert (connection.departure_time <= previous_departure_time)
             previous_departure_time = connection.departure_time
-            # This is for the labels possibly subject to buffer time
+
+            # Get labels from the stop (possibly subject to buffer time)
             arrival_node_labels = self._get_modified_arrival_node_labels(connection)
             # This is for the labels staying "in the vehicle"
             trip_labels = self._get_trip_labels(connection)
 
-            # then, take the Pareto-optimal set of these alternatives:
+            # Then, compute Pareto-frontier of these alternatives:
             all_pareto_optimal_labels = merge_pareto_frontiers(arrival_node_labels, trip_labels)
 
-            # Update information for this trip
+            # Update labels for this trip
             if not connection.is_walk:
                 self.__trip_labels[connection.trip_id] = all_pareto_optimal_labels
 
-            # update departure stop profile (later: with the sets of pareto-optimal labels)
+            # Update labels for the departure stop profile (later: with the sets of pareto-optimal labels)
             self._stop_profiles[connection.departure_stop].update(all_pareto_optimal_labels, connection.departure_time)
 
         print("finalizing profiles!")

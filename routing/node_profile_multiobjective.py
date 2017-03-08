@@ -238,3 +238,4 @@ class NodeProfileMultiObjective:
         self._final_pareto_optimal_labels = compute_pareto_front(self._real_connection_labels +
                                                                  labels_from_neighbors,
                                                                  finalization=True)
+

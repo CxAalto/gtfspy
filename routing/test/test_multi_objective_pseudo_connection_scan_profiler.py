@@ -65,6 +65,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             2: [42],
             3: [],
         }
+
         for node, dep_times in node_to_connection_dep_times.items():
             profile = csa_profile._stop_profiles[node]
             for dep_time in dep_times:

@@ -219,10 +219,10 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         if self._walk_to_target_duration < float('inf'):
             return 0
         else:
-            if len(self._labels_within_time_frame) is 0:
+            if len(self.all_labels) is 0:
                 return float('inf')
             else:
-                return min([label.n_boardings for label in self._labels_within_time_frame])
+                return min([label.n_boardings for label in self.all_labels])
 
     def min_n_boardings_on_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.min()
@@ -282,10 +282,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
     @_check_for_no_labels_for_n_veh_counts
     def median_trip_n_boardings(self):
-        return numpy.median([label.n_boardings for label in self._labels_within_time_frame])
-
-    @_check_for_no_labels_for_n_veh_counts
-    def temporal_mean_n_boardings(self):
         return numpy.median([label.n_boardings for label in self._labels_within_time_frame])
 
     @_if_no_labels_return_inf
