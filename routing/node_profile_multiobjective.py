@@ -16,7 +16,6 @@ class NodeProfileMultiObjective:
                  label_class=LabelTimeWithBoardingsCount,
                  transit_connection_dep_times=None):
         """
-
         Parameters
         ----------
         dep_times
@@ -27,6 +26,8 @@ class NodeProfileMultiObjective:
         """
         if dep_times is None:
             dep_times = []
+        n_dep_times = len(dep_times)
+        assert n_dep_times == len(set(dep_times)), "There should be no duplicate departure times"
         self._departure_times = list(reversed(sorted(dep_times)))
         self.dep_times_to_index = dict(zip(self._departure_times, range(len(self._departure_times))))
         self._label_bags = [[]] * len(self._departure_times)
@@ -43,9 +44,10 @@ class NodeProfileMultiObjective:
         self._final_pareto_optimal_labels = None
         self._real_connection_labels = None
 
-    def _update_min_dep_time(self, dep_time):
+    def _check_dep_time_is_valid(self, dep_time):
         """
-        A simple checker, that connections are coming in descending order of departure time.
+        A simple checker, that connections are coming in descending order of departure time
+        and that no departure time has been "skipped".
 
         Parameters
         ----------
@@ -56,6 +58,12 @@ class NodeProfileMultiObjective:
         None
         """
         assert dep_time <= self._min_dep_time, "Labels should be entered in decreasing order of departure time."
+        dep_time_index = self.dep_times_to_index[dep_time]
+        if self._min_dep_time < float('inf'):
+            min_dep_index = self.dep_times_to_index[self._min_dep_time]
+            assert min_dep_index == dep_time_index or (min_dep_index == dep_time_index - 1), "dep times should be ordered sequentiallly"
+        else:
+            assert dep_time_index is 0, "first dep_time index should be zero (ensuring that all connections are properly handled)"
         self._min_dep_time = dep_time
 
     def get_walk_to_target_duration(self):
@@ -84,11 +92,13 @@ class NodeProfileMultiObjective:
         """
         if self._closed:
             raise RuntimeError("Profile is closed, no updates can be made")
-
         try:
             departure_time = next(iter(new_labels)).departure_time
         except StopIteration:
             departure_time = departure_time_backup
+        self._check_dep_time_is_valid(departure_time)
+
+
         for new_label in new_labels:
             assert(new_label.departure_time == departure_time)
         dep_time_index = self.dep_times_to_index[departure_time]
@@ -106,8 +116,8 @@ class NodeProfileMultiObjective:
         new_frontier = merge_pareto_frontiers(new_labels, mod_prev_labels)
 
         self._label_bags[dep_time_index] = new_frontier
-        self._update_min_dep_time(departure_time)
         return True
+
 
     def evaluate(self, dep_time, first_leg_can_be_walk=True, connection_arrival_time=None):
         """
@@ -122,29 +132,31 @@ class NodeProfileMultiObjective:
             (I.e. whether this function is called when scanning a pseudo-connection:
             "double" walks are not allowed.)
         connection_arrival_time: float, int, optional
-            if dep_time is float('inf') or ... i.e. this is some sort of fallback
+            used for computing the walking label if dep_time, i.e., connection.arrival_stop_next_departure_time, is infinity)
 
         Returns
         -------
         pareto_optimal_labels : set
             Set of Labels
         """
-        pareto_optimal_labels = list()
+        walk_labels = list()
         # walk label towards target
         if first_leg_can_be_walk and self._walk_to_target_duration != float('inf'):
             # add walk_label
             if connection_arrival_time is not None:
-                pareto_optimal_labels.append(self.get_walk_label(connection_arrival_time))
+                walk_labels.append(self.get_walk_label(connection_arrival_time))
             else:
-                pareto_optimal_labels.append(self.get_walk_label(dep_time))
-            if pareto_optimal_labels[0] is None:
-                assert(pareto_optimal_labels[0] is not None)
+                walk_labels.append(self.get_walk_label(dep_time))
 
         # if dep time is larger than the largest dep time -> only walk labels are possible
         if dep_time in self.dep_times_to_index:
             assert(dep_time != float('inf'))
             index = self.dep_times_to_index[dep_time]
-            pareto_optimal_labels = merge_pareto_frontiers(self._label_bags[index], pareto_optimal_labels)
+            labels = self._label_bags[index]
+            pareto_optimal_labels = merge_pareto_frontiers(labels, walk_labels)
+        else:
+            pareto_optimal_labels = walk_labels
+
         if not first_leg_can_be_walk:
             pareto_optimal_labels = [label for label in pareto_optimal_labels if not label.first_leg_is_walk]
         return pareto_optimal_labels
@@ -226,3 +238,4 @@ class NodeProfileMultiObjective:
         self._final_pareto_optimal_labels = compute_pareto_front(self._real_connection_labels +
                                                                  labels_from_neighbors,
                                                                  finalization=True)
+

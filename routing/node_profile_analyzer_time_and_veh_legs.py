@@ -117,6 +117,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
     def _get_transfers_on_fastest_path_analyzer(self):
         """
         TODO: Use _get_fastest_path_blocks to reduce code duplication!
+
         Returns
         -------
 
@@ -218,10 +219,10 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         if self._walk_to_target_duration < float('inf'):
             return 0
         else:
-            if len(self._labels_within_time_frame) is 0:
+            if len(self.all_labels) is 0:
                 return float('inf')
             else:
-                return min([label.n_boardings for label in self._labels_within_time_frame])
+                return min([label.n_boardings for label in self.all_labels])
 
     def min_n_boardings_on_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.min()
@@ -281,10 +282,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
     @_check_for_no_labels_for_n_veh_counts
     def median_trip_n_boardings(self):
-        return numpy.median([label.n_boardings for label in self._labels_within_time_frame])
-
-    @_check_for_no_labels_for_n_veh_counts
-    def temporal_mean_n_boardings(self):
         return numpy.median([label.n_boardings for label in self._labels_within_time_frame])
 
     @_if_no_labels_return_inf
@@ -547,7 +544,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                 # to not loop over things multiple times
                 for block in prev_profile_block_analyzer._profile_blocks:
                     if block.distance_end != block.distance_start:
-                        if block.distance_end < journey_label.duration() + (
+                        if block.distance_end <= journey_label.duration() + (
                                     journey_label.departure_time - block.end_time):
                             prev_dep_time = max(prev_dep_time, block.end_time)
                     elif block.distance_end == block.distance_start:
@@ -771,3 +768,9 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         ]
         assert (len(profile_summary_methods) == len(profile_observable_names))
         return profile_summary_methods, profile_observable_names
+
+    def get_node_profile_measures_as_dict(self):
+        profile_summary_methods, profile_observable_names = self.all_measures_and_names_as_lists()
+        profile_measure_dict = {key: value(self) for key, value in zip(profile_observable_names, profile_summary_methods)}
+        return profile_measure_dict
+

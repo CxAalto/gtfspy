@@ -18,3 +18,5 @@ Simple how-to
 
 This projects uses JAVA8. If there are problems, make first sure you use java8 and not e.g java7.
 (Find this out e.g. with command "which java" and see where it points (recursively).
+
+java -version

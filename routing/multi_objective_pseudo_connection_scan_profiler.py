@@ -49,7 +49,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         verbose: boolean, optional
             whether to print out progress
         track_vehicle_legs: boolean, optional
-            whether to consider the nubmer of vehicle legs
+            whether to consider the number of vehicle legs
         track_time: boolean, optional
             whether to consider time in the set of pareto_optimal
         """
@@ -111,8 +111,9 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             assert(isinstance(pseudo_connection, Connection))
             self._stop_departure_times_with_pseudo_connections[pseudo_connection.departure_stop]\
                 .append(pseudo_connection.departure_time)
-        for key, value in self._stop_departure_times_with_pseudo_connections.items():
-            self._stop_departure_times_with_pseudo_connections[key] = numpy.array(list(sorted(value)))
+        for stop, dep_times in self._stop_departure_times_with_pseudo_connections.items():
+            self._stop_departure_times_with_pseudo_connections[stop] = numpy.array(list(sorted(set(dep_times))))
+
 
     @timeit
     def __initialize_node_profiles(self):
@@ -150,7 +151,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         pseudo_connections = []
         # DiGraph makes things iterate both ways (!)
         for u, v, data in networkx.DiGraph(self._walk_network).edges(data=True):
-            total_walk_time_with_transfer = data['d_walk'] / float(self._walk_speed) + self._transfer_margin
+            walk_duration = data["d_walk"] / float(self._walk_speed)
+            total_walk_time_with_transfer = walk_duration + self._transfer_margin
             in_times = self._stop_arrival_times[u]
             out_times = self._stop_departure_times[v]
             j = 0
@@ -172,8 +174,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                     to_stop = v
                     waiting_time = arr_time - dep_time - total_walk_time_with_transfer
                     assert(waiting_time >= 0)
-                    pseudo = Connection(from_stop, to_stop, dep_time, arr_time, trip_id=None, is_walk=True,
-                                        waiting_time=waiting_time, arrival_stop_next_departure_time=arr_time)
+                    pseudo = Connection(from_stop, to_stop, arr_time - walk_duration, arr_time,
+                                        trip_id=None, is_walk=True)
                     pseudo_connections.append(pseudo)
                     i += 1
         print("Computed pseudoconnections")
@@ -184,19 +186,19 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         for connection in self._all_connections:
             assert(isinstance(connection, Connection))
             to_stop = connection.arrival_stop
-            arrival_time = connection.arrival_time
-            if connection.is_walk:
-                arr_stop_next_dep_time = connection.arrival_time
-            else:
-                arr_stop_dep_times = self._stop_departure_times[to_stop]
-                if len(arr_stop_dep_times) > 0:
-                    index = numpy.searchsorted(arr_stop_dep_times, arrival_time + self._transfer_margin)
-                    if 0 <= index < len(arr_stop_dep_times):
-                        arr_stop_next_dep_time = arr_stop_dep_times[index]
-                    else:
-                        arr_stop_next_dep_time = float('inf')
+
+            arr_stop_dep_times = self._stop_departure_times_with_pseudo_connections[to_stop]
+
+            arr_stop_next_dep_time = float('inf')
+            if len(arr_stop_dep_times) > 0:
+                if connection.is_walk:
+                    index = numpy.searchsorted(arr_stop_dep_times, connection.arrival_time)
                 else:
-                    arr_stop_next_dep_time = float('inf')
+                    index = numpy.searchsorted(arr_stop_dep_times, connection.arrival_time + self._transfer_margin)
+                if 0 <= index < len(arr_stop_dep_times):
+                    arr_stop_next_dep_time = arr_stop_dep_times[index]
+            if connection.is_walk and not (arr_stop_next_dep_time < float('inf')):
+                assert (arr_stop_next_dep_time < float('inf'))
             connection.arrival_stop_next_departure_time = arr_stop_next_dep_time
 
     def _get_modified_arrival_node_labels(self, connection):
@@ -238,23 +240,26 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         for i, connection in enumerate(self._all_connections):
             # basic checking + printing progress:
             if self._verbose and i % 100000 == 0:
-                print(i, "/", n_connections_tot, " : ", float(i)/n_connections_tot)
+                print(i, "/", n_connections_tot, " : ", float(i) / n_connections_tot)
             assert (isinstance(connection, Connection))
             assert (connection.departure_time <= previous_departure_time)
             previous_departure_time = connection.departure_time
 
+            # Get labels from the stop (possibly subject to buffer time)
             arrival_node_labels = self._get_modified_arrival_node_labels(connection)
+            # This is for the labels staying "in the vehicle"
             trip_labels = self._get_trip_labels(connection)
 
-            # then, take the Pareto-optimal set of these alternatives:
+            # Then, compute Pareto-frontier of these alternatives:
             all_pareto_optimal_labels = merge_pareto_frontiers(arrival_node_labels, trip_labels)
 
-            # Update information for this trip
+            # Update labels for this trip
             if not connection.is_walk:
                 self.__trip_labels[connection.trip_id] = all_pareto_optimal_labels
 
-            # update departure stop profile (later: with the sets of pareto-optimal labels)
+            # Update labels for the departure stop profile (later: with the sets of pareto-optimal labels)
             self._stop_profiles[connection.departure_stop].update(all_pareto_optimal_labels, connection.departure_time)
+
         print("finalizing profiles!")
         self._finalize_profiles()
 

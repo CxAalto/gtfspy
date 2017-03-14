@@ -71,6 +71,21 @@ class TestNodeProfileAnalyzerTimeAndVehLegs(TestCase):
         analyzer2 = self._get_analyzer(labels, 0, 10, walk_to_target_duration=float('inf'))
         self.assertEqual(analyzer2.min_n_boardings(), 1)
 
+    def test_min_n_boardings_after_departure_time_2(self):
+        # (This tests the bug experienced with the Jollas region)
+        labels = [
+            LabelTimeWithBoardingsCount(departure_time=12, arrival_time_target=14, n_boardings=2,
+                                        first_leg_is_walk=False),
+            LabelTimeWithBoardingsCount(departure_time=11, arrival_time_target=12, n_boardings=3,
+                                        first_leg_is_walk=False),
+            LabelTimeWithBoardingsCount(departure_time=5, arrival_time_target=10, n_boardings=4,
+                                        first_leg_is_walk=False),
+        ]
+        analyzer = self._get_analyzer(labels, 0, 10, walk_to_target_duration=float('inf'))
+        self.assertEqual(analyzer.min_n_boardings(), 2)
+
+
+
     def test_min_n_boardings_on_fastest_paths(self):
         labels = [
             LabelTimeWithBoardingsCount(departure_time=5, arrival_time_target=12, n_boardings=4,

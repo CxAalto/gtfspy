@@ -20,7 +20,7 @@ Now, the following departure_time, arrival_time pairs would all be pareto-optima
 3, 4
 4, 5
 
-However, e.g. (2, 4) would not be a pareto-optimal (departure_time, arrival_time) pair as it is dominated by (4,5)
+However, e.g. (2, 4) would not be a pareto-optimal (departure_time, arrival_time) pair as it is dominated by (3,4)
 
 while only one link in the static network can be traversed at a time.
 
