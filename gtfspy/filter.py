@@ -64,19 +64,22 @@ class FilterExtract(object):
         -------
         None
         """
-        if isinstance(start_date, (datetime.datetime, datetime.date)):
-            self.start_date = start_date.strftime("%Y-%m-%d")
+        if start_date and end_date:
+            if isinstance(start_date, (datetime.datetime, datetime.date)):
+                self.start_date = start_date.strftime("%Y-%m-%d")
+            else:
+                self.start_date = start_date
+            if isinstance(end_date, (datetime.datetime, datetime.date)):
+                end_date_dt = end_date
+                self.end_date = end_date.strftime("%Y-%m-%d")
+            else:
+                self.end_date = end_date
+                end_date_dt = datetime.datetime.strptime(self.end_date, "%Y-%m-%d")
+            end_date_to_include = end_date_dt - datetime.timedelta(days=1)
+            self.end_date_to_include_str = end_date_to_include.strftime("%Y-%m-%d")
         else:
-            self.start_date = start_date
-        if isinstance(end_date, (datetime.datetime, datetime.date)):
-            end_date_dt = end_date
-            self.end_date = end_date.strftime("%Y-%m-%d")
-        else:
-            self.end_date = end_date
-            end_date_dt = datetime.datetime.strptime(self.end_date, "%Y-%m-%d")
-        end_date_to_include = end_date_dt - datetime.timedelta(days=1)
-        self.end_date_to_include_str = end_date_to_include.strftime("%Y-%m-%d")
-
+            self.start_date = None
+            self.end_date = None
         self.copy_db_conn = None
         self.copy_db_path = copy_db_path
 
@@ -158,7 +161,7 @@ class FilterExtract(object):
                 param_dict = {"start_ut": str(start_date_ut),
                               "end_ut": str(end_date_ut)}
                 if True and table == "days":
-                    query = "SELECT FROM " + table + " " + \
+                    query = "SELECT * FROM " + table + " " + \
                             query_template.format(**param_dict)
 
                     self.gtfs.execute_custom_query_pandas(query)

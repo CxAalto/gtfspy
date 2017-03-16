@@ -5,7 +5,7 @@ import datetime
 import pandas
 
 from gtfspy.gtfs import GTFS
-from gtfspy.filter import filter_extract
+from gtfspy.filter import FilterExtract
 from gtfspy.import_gtfs import import_gtfs
 import hashlib
 
@@ -35,7 +35,7 @@ class TestGTFSfilter(unittest.TestCase):
 
     def test_copy(self):
         # do a simple copy
-        filter_extract(self.G, self.fname_copy, update_metadata=False)
+        FilterExtract(self.G, self.fname_copy, update_metadata=False).filter_extract()
 
         # check that the copying has been properly performed:
         hash_copy = hashlib.md5(open(self.fname_copy, 'rb').read()).hexdigest()
@@ -44,7 +44,7 @@ class TestGTFSfilter(unittest.TestCase):
 
     def test_filter_change_metadata(self):
         # A simple test that changing update_metadata to True, does update some stuff:
-        filter_extract(self.G, self.fname_copy, update_metadata=True)
+        FilterExtract(self.G, self.fname_copy, update_metadata=True).filter_extract()
         # check that the copying has been properly performed:
         hash_orig = hashlib.md5(open(self.fname, 'rb').read()).hexdigest()
         hash_copy = hashlib.md5(open(self.fname_copy, 'rb').read()).hexdigest()
@@ -53,7 +53,7 @@ class TestGTFSfilter(unittest.TestCase):
         os.remove(self.fname_copy)
 
     def test_filter_by_agency(self):
-        filter_extract(self.G, self.fname_copy, agency_ids_to_preserve=['DTA'])
+        FilterExtract(self.G, self.fname_copy, agency_ids_to_preserve=['DTA']).filter_extract()
         hash_copy = hashlib.md5(open(self.fname_copy, 'rb').read()).hexdigest()
         self.assertNotEqual(self.hash_orig, hash_copy)
         G_copy = GTFS(self.fname_copy)
@@ -80,7 +80,7 @@ class TestGTFSfilter(unittest.TestCase):
         # (Shapes are not provided in the test data currently)
 
         # test filtering by start and end time, copy full range
-        filter_extract(self.G, self.fname_copy, start_date=u"2007-01-01", end_date=u"2011-01-01", update_metadata=False)
+        FilterExtract(self.G, self.fname_copy, start_date=u"2007-01-01", end_date=u"2011-01-01", update_metadata=False).filter_extract()
         hash_copy = hashlib.md5(open(self.fname_copy, 'rb').read()).hexdigest()
         # self.assertEqual(self.hash_orig, hash_copy)
 
@@ -91,7 +91,7 @@ class TestGTFSfilter(unittest.TestCase):
         os.remove(self.fname_copy)
 
         # the end date is not included:
-        filter_extract(self.G, self.fname_copy, start_date="2007-01-02", end_date="2010-12-31")
+        FilterExtract(self.G, self.fname_copy, start_date="2007-01-02", end_date="2010-12-31").filter_extract()
         hash_copy = hashlib.md5(open(self.fname_copy, 'rb').read()).hexdigest()
         self.assertNotEqual(self.hash_orig, hash_copy)
         G_copy = GTFS(self.fname_copy)
@@ -111,7 +111,7 @@ class TestGTFSfilter(unittest.TestCase):
 
     def test_filter_spatially(self):
         # test that the db is split by a given spatial boundary
-        filter_extract(self.G, self.fname_copy, buffer_lat=36.914893, buffer_lon=-116.76821, buffer_distance=50)
+        FilterExtract(self.G, self.fname_copy, buffer_lat=36.914893, buffer_lon=-116.76821, buffer_distance=50).filter_extract()
         G_copy = GTFS(self.fname_copy)
 
         stops_table = G_copy.get_table("stops")
