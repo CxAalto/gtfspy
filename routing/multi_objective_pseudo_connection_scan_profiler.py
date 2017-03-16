@@ -29,7 +29,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                  verbose=False,
                  track_vehicle_legs=True,
                  track_time=True,
-                 track_route=True):
+                 track_route=False):
         """
         Parameters
         ----------
@@ -288,8 +288,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
                 exit()
                 """
-        #print("finalizing profiles!")
-        #self._finalize_profiles()
+        print("finalizing profiles!")
+        self._finalize_profiles()
 
     def _finalize_profiles(self):
         """
@@ -322,8 +322,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
     def _copy_and_modify_labels(self, labels, connection, increment_vehicle_count=False, first_leg_is_walk=False):
         labels_copy = [label.get_copy() for label in labels]
         for label in labels_copy:
-            assert (isinstance(connection, Connection))
-            label.connection = connection
+            if isinstance(self._label_class, LabelTimeBoardingsAndRoute):
+                label.connection = connection
             label.departure_time = connection.departure_time
             if increment_vehicle_count:
                 label.n_boardings += 1

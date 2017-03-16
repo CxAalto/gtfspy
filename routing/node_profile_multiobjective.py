@@ -165,17 +165,23 @@ class NodeProfileMultiObjective:
         return pareto_optimal_labels
 
     def get_walk_label(self, departure_time, connection=None):
-        assert isinstance(connection, Connection)
         if departure_time != float('inf') and self._walk_to_target_duration != float('inf'):
             if self._walk_to_target_duration == 0:
                 first_leg_is_walk = False
             else:
                 first_leg_is_walk = True
-            label = self.label_class(departure_time=float(departure_time),
-                                     arrival_time_target=float(departure_time + self._walk_to_target_duration),
-                                     n_boardings=0,
-                                     first_leg_is_walk=first_leg_is_walk,
-                                     connection=connection)
+            if isinstance(self.label_class, LabelTimeBoardingsAndRoute):
+                label = self.label_class(departure_time=float(departure_time),
+                                         arrival_time_target=float(departure_time + self._walk_to_target_duration),
+                                         n_boardings=0,
+                                         first_leg_is_walk=first_leg_is_walk,
+                                         connection=connection)
+            else:
+                label = self.label_class(departure_time=float(departure_time),
+                                         arrival_time_target=float(departure_time + self._walk_to_target_duration),
+                                         n_boardings=0,
+                                         first_leg_is_walk=first_leg_is_walk)
+
             return label
         else:
             return None
