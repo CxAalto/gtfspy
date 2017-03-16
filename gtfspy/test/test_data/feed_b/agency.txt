@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_phone,agency_url,agency_timezone,agency_lang
+A1,Funicular de Artxanda,944454966,http://www.bilbao.net/cs/Satellite/funicularArtxanda/Inicio/es/100001096/Home,America/Los_Angeles,es

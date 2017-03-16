@@ -1,0 +1,2 @@
+import pyximport
+pyximport.install()

@@ -1,0 +1,3 @@
+stop_id,stop_code,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url,location_type,parent_station
+1,,Funikular Plaza, ,43.268724884413,-2.9260016260155,,,0,
+2,,Artxanda, ,43.27406768582,-2.9201891660385,,,0,

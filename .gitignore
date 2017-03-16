@@ -1,3 +1,4 @@
+.idea/*
 routing/label.html
 .doit.db.db
 .nfs*
@@ -8,5 +9,4 @@ tmp*
 *.so
 build/
 nohup.out
-.idea/*
 doc/*html
