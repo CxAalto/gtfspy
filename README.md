@@ -26,7 +26,7 @@ What things you need to install the software and how to install them
 Give examples
 ```
 
-### Installing
+### Installation
 
 A step by step series of examples that tell you have to get a development env running
 
@@ -43,12 +43,9 @@ until finished
 ```
 
 
-### Recommended set up for storing GTFS feeds
-
 ## Simple use case examples
-- Importing gtfs feed (`examples/example_import.py`)
-- Generation of shortest path walking distances using OSM  (`examples/example_add_footpaths.py`)
-- Filtering (`examples/example_filter.py`)
+- Importing gtfs feed (examples/example_import.py)
+- Filtering (examples/example_filter.py)
 - Validation (`examples/example_validation.py`)
 - Extracting a temporal network (and other formats) (`examples/`)
 - Running an analysis pipeline(`examples/example_analysis.py`)
