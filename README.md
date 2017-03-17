@@ -44,7 +44,7 @@ until finished
 
 
 ## Simple use case examples
-- Importing gtfs feed (examples/example_import.py)
+- [Importing gtfs feed](examples/example_import.py)
 - Filtering (examples/example_filter.py)
 - Validation (`examples/example_validation.py`)
 - Extracting a temporal network (and other formats) (`examples/`)
