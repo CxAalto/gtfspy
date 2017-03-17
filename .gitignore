@@ -1,3 +1,4 @@
+src/*
 .idea/*
 routing/label.html
 .doit.db.db
@@ -10,3 +11,4 @@ tmp*
 build/
 nohup.out
 doc/*html
+*.sqlite

@@ -1,10 +1,7 @@
 from __future__ import print_function
 
-import math
-import sqlite3
-
-from gtfspy.util import wgs84_distance, wgs84_height, wgs84_width
 from gtfspy.gtfs import GTFS
+from gtfspy.util import wgs84_distance, wgs84_height, wgs84_width
 
 create_stmt = ('CREATE TABLE IF NOT EXISTS main.stop_distances '
                '(from_stop_I INT, '
@@ -182,8 +179,6 @@ def export_transfers(conn, fname):
         print(' '.join(str(x) for x in row), file=f)
 
 
-def compute_walk_paths_open_street_map(gtfs, osm_path):
-    raise NotImplementedError("On the TODO list!")
 
 
 def main():

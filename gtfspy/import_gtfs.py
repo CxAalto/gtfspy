@@ -1349,12 +1349,6 @@ class StopDistancesLoader(TableLoader):
                     )
         conn.commit()
 
-        # Set all d_walk distances to the same as `d` values.  This
-        # would be overwritten in a later step, when routed d_walks
-        # are set.
-        conn.execute('UPDATE stop_distances SET d_walk=d')
-        conn.commit()
-
     def export_stop_distances(self, conn, f_out):
         cur = conn.cursor()
         cur.execute('SELECT '
