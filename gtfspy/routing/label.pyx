@@ -543,13 +543,16 @@ cdef class LabelTimeBoardingsAndRoute:
         )
         return dominates
 
+    cpdef get_label_with_connection_added(self, connection):
+        return LabelTimeBoardingsAndRoute(self.departure_time, self.arrival_time_target,
+                                           self.n_boardings, self.first_leg_is_walk, connection=connection, previous_label=self)
     cpdef get_copy(self):
         return LabelTimeBoardingsAndRoute(self.departure_time, self.arrival_time_target,
-                                           self.n_boardings, self.first_leg_is_walk, self.connection, previous_label=self)
+                                           self.n_boardings, self.first_leg_is_walk, self.connection, previous_label=self.previous_label)
 
     cpdef get_copy_with_specified_departure_time(self, departure_time):
         return LabelTimeBoardingsAndRoute(departure_time, self.arrival_time_target,
-                                           self.n_boardings, self.first_leg_is_walk, self.connection, previous_label=self)
+                                           self.n_boardings, self.first_leg_is_walk, self.connection, previous_label=self.previous_label)
 
     cpdef double duration(self):
         return self.arrival_time_target - self.departure_time
@@ -558,9 +561,9 @@ cdef class LabelTimeBoardingsAndRoute:
     def direct_walk_label(departure_time, walk_duration):
         return LabelTimeBoardingsAndRoute(departure_time, departure_time + walk_duration, 0, True)
 
-    cpdef LabelTimeBoardingsAndRoute get_copy_with_walk_added(self, double walk_duration):
+    cpdef LabelTimeBoardingsAndRoute get_copy_with_walk_added(self, double walk_duration, object connection):
         return LabelTimeBoardingsAndRoute(self.departure_time - walk_duration,
-                                           self.arrival_time_target, self.n_boardings, True, previous_label=self)
+                                           self.arrival_time_target, self.n_boardings, True, connection=connection, previous_label=self)
 
     def __str__(self):
         return str((self.departure_time, self.arrival_time_target, self.n_boardings, self.first_leg_is_walk, self.previous_label, self.connection))

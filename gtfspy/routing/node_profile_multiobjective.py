@@ -1,7 +1,8 @@
 import numpy
 
-from gtfspy.routing.label import LabelTimeWithBoardingsCount, merge_pareto_frontiers, compute_pareto_front, LabelVehLegCount, \
-    LabelTime, LabelTimeBoardingsAndRoute
+import gtfspy
+from gtfspy.routing.label import LabelTimeWithBoardingsCount, merge_pareto_frontiers, compute_pareto_front, \
+    LabelVehLegCount, LabelTime, LabelTimeBoardingsAndRoute
 from gtfspy.routing.models import Connection
 
 
@@ -15,7 +16,9 @@ class NodeProfileMultiObjective:
                  dep_times=None,
                  walk_to_target_duration=float('inf'),
                  label_class=LabelTimeWithBoardingsCount,
-                 transit_connection_dep_times=None):
+                 transit_connection_dep_times=None,
+                 closest_target=None,
+                 id=None):
         """
         Parameters
         ----------
@@ -24,7 +27,10 @@ class NodeProfileMultiObjective:
         label_class: label class to be used
         transit_connection_dep_times:
             if not given, all connections are assumed to be real connections
+        closest_target: int, optional
+            stop_I of the closest target if within walking distance (and Routes are recorded)
         """
+
         if dep_times is None:
             dep_times = []
         n_dep_times = len(dep_times)
@@ -35,6 +41,10 @@ class NodeProfileMultiObjective:
         self._walk_to_target_duration = walk_to_target_duration
         self._min_dep_time = float('inf')
         self.label_class = label_class
+        self.closest_target = closest_target
+        if self.label_class == LabelTimeBoardingsAndRoute and self._walk_to_target_duration < float('inf'):
+            assert(self.closest_target is not None)
+
         if transit_connection_dep_times is not None:
             self._connection_dep_times = transit_connection_dep_times
         else:
@@ -44,6 +54,7 @@ class NodeProfileMultiObjective:
         self._finalized = False
         self._final_pareto_optimal_labels = None
         self._real_connection_labels = None
+        self.id = id
 
     def _check_dep_time_is_valid(self, dep_time):
         """
@@ -102,18 +113,17 @@ class NodeProfileMultiObjective:
 
         for new_label in new_labels:
             assert(new_label.departure_time == departure_time)
-            if isinstance(new_label, LabelTimeBoardingsAndRoute):
-                assert(isinstance(new_label.connection, Connection))
         dep_time_index = self.dep_times_to_index[departure_time]
 
         if dep_time_index > 0:
+            # Departure time is modified in order to not pass on labels which are not Pareto-optimal when departure time is ignored.
             mod_prev_labels = [label.get_copy_with_specified_departure_time(departure_time) for label
                                 in self._label_bags[dep_time_index - 1]]
         else:
             mod_prev_labels = list()
         mod_prev_labels += self._label_bags[dep_time_index]
 
-        walk_label = self.get_walk_label(departure_time, connection=connection)
+        walk_label = self.get_walk_label(departure_time)
         if walk_label:
             new_labels = new_labels + [walk_label]
         new_frontier = merge_pareto_frontiers(new_labels, mod_prev_labels)
@@ -146,11 +156,12 @@ class NodeProfileMultiObjective:
         walk_labels = list()
         # walk label towards target
         if first_leg_can_be_walk and self._walk_to_target_duration != float('inf'):
-            # add walk_label
+            # add walk_labe l
             if connection_arrival_time is not None:
-                walk_labels.append(self.get_walk_label(connection_arrival_time, connection=connection))
+                walk_labels.append(self.get_walk_label(connection_arrival_time))
             else:
-                walk_labels.append(self.get_walk_label(dep_time, connection=connection))
+                walk_labels.append(self.get_walk_label(dep_time))
+
 
         # if dep time is larger than the largest dep time -> only walk labels are possible
         if dep_time in self.dep_times_to_index:
@@ -165,18 +176,28 @@ class NodeProfileMultiObjective:
             pareto_optimal_labels = [label for label in pareto_optimal_labels if not label.first_leg_is_walk]
         return pareto_optimal_labels
 
-    def get_walk_label(self, departure_time, connection=None):
+    def get_walk_label(self, departure_time):
         if departure_time != float('inf') and self._walk_to_target_duration != float('inf'):
             if self._walk_to_target_duration == 0:
                 first_leg_is_walk = False
             else:
                 first_leg_is_walk = True
-            if isinstance(self.label_class, LabelTimeBoardingsAndRoute):
+            if self.label_class == LabelTimeBoardingsAndRoute:
+                if self._walk_to_target_duration > 0:
+                    walk_connection = Connection(self.id,
+                                                 self.closest_target,
+                                                 departure_time,
+                                                 departure_time + self._walk_to_target_duration,
+                                                 trip_id=None,
+                                                 is_walk=True
+                                                 )
+                else:
+                    walk_connection = None
                 label = self.label_class(departure_time=float(departure_time),
                                          arrival_time_target=float(departure_time + self._walk_to_target_duration),
                                          n_boardings=0,
                                          first_leg_is_walk=first_leg_is_walk,
-                                         connection=connection)
+                                         connection=walk_connection)
             else:
                 label = self.label_class(departure_time=float(departure_time),
                                          arrival_time_target=float(departure_time + self._walk_to_target_duration),
@@ -203,7 +224,7 @@ class NodeProfileMultiObjective:
         assert self._finalized, "finalize() first!"
         return self._final_pareto_optimal_labels
 
-    def finalize(self, neighbor_label_bags=None, walk_durations=None):
+    def finalize(self, neighbor_label_bags=None, walk_durations=None, departure_arrival_stops = None):
         """
         Parameters
         ----------
@@ -211,7 +232,7 @@ class NodeProfileMultiObjective:
             each list element is a list of labels corresponding to a neighboring node
              (note: only labels with first connection being a departure should be included)
         walk_durations: list
-
+        departure_arrival_stops: list of tuples
         Returns
         -------
         None
@@ -221,7 +242,7 @@ class NodeProfileMultiObjective:
             self._compute_real_connection_labels()
         if neighbor_label_bags is not None:
             assert(len(walk_durations) == len(neighbor_label_bags))
-            self._update_final_pareto_optimal_label_set(neighbor_label_bags, walk_durations)
+            self._update_final_pareto_optimal_label_set(neighbor_label_bags, walk_durations, departure_arrival_stops)
         else:
             self._final_pareto_optimal_labels = self._real_connection_labels
         self._finalized = True
@@ -243,11 +264,23 @@ class NodeProfileMultiObjective:
         self._real_connection_labels = [label.get_copy() for label in compute_pareto_front(pareto_optimal_labels,
                                                                                            finalization=True)]
 
-    def _update_final_pareto_optimal_label_set(self, neighbor_label_bags, walk_durations):
+    def _update_final_pareto_optimal_label_set(self, neighbor_label_bags, walk_durations, departure_arrival_stops):
         labels_from_neighbors = []
-        for label_bag, walk_duration in zip(neighbor_label_bags, walk_durations):
+        for label_bag, walk_duration, departure_arrival_tuple in zip(neighbor_label_bags, walk_durations, departure_arrival_stops):
             for label in label_bag:
-                labels_from_neighbors.append(label.get_copy_with_walk_added(walk_duration))
+                if self.label_class == LabelTimeBoardingsAndRoute:
+                    departure_time = label.departure_time - walk_duration
+                    arrival_time = label.departure_time
+                    connection = Connection(departure_arrival_tuple[0],
+                                            departure_arrival_tuple[1],
+                                            departure_time,
+                                            arrival_time,
+                                            trip_id=None,
+                                            is_walk=True)
+                    labels_from_neighbors.append(label.get_copy_with_walk_added(walk_duration, connection))
+                else:
+                    labels_from_neighbors.append(label.get_copy_with_walk_added(walk_duration))
+
         self._final_pareto_optimal_labels = compute_pareto_front(self._real_connection_labels +
                                                                  labels_from_neighbors,
                                                                  finalization=True)

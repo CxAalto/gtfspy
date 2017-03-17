@@ -34,20 +34,30 @@ class JourneyAnalyzer:
             assert (isinstance(stop_profile, NodeProfileMultiObjective))
 
             stop_journeys = []
-            for label_bag in stop_profile._label_bags:
-                for label in label_bag:
-                    assert (isinstance(label, LabelTimeBoardingsAndRoute))
-                    cur_label = label
-                    journey = _Journey(self.gtfs)
-                    while cur_label.previous_label:
-                        connection = cur_label.connection
-                        if isinstance(connection, Connection):
-                            journey.journey_legs.append(connection)
-                        cur_label = cur_label.previous_label
+            for label in stop_profile.get_final_optimal_labels():
+                assert (isinstance(label, LabelTimeBoardingsAndRoute))
+                cur_label = label
+                journey = _Journey(self.gtfs)
+                journey_legs = []
+                while True:
+                    connection = cur_label.connection
+                    if isinstance(connection, Connection):
+                        journey_legs.append(connection)
+                    if not cur_label.previous_label:
+                        break
+                    cur_label = cur_label.previous_label
+                route_tuples = [(x.departure_stop, x.arrival_stop) for x in journey_legs]
+                print(route_tuples)
+                """
+                while cur_label.previous_label:
+                    connection = cur_label.connection
+                    if isinstance(connection, Connection):
+                        journey.journey_legs.append(connection)
+                    cur_label = cur_label.previous_label
 
-                    stop_journeys.append(journey)
-            self.journey_dict[stop] = stop_journeys
-
+                stop_journeys.append(journey)
+        self.journey_dict[stop] = stop_journeys
+"""
     def calculate_passing_journeys_per_stop(self):
         """
 

@@ -614,3 +614,25 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             self.assertIn(found_tuple, should_be_tuples)
         for should_be_tuple in should_be_tuples:
             self.assertIn(should_be_tuple, found_tuples)
+
+    def test_stored_route(self):
+
+        csa_profile = MultiObjectivePseudoCSAProfiler(self.transit_connections, self.target_stop,
+                                                      self.start_time, self.end_time, self.transfer_margin,
+                                                      self.walk_network, self.walk_speed, track_route=True)
+        csa_profile.run()
+        for stop, profile in csa_profile.stop_profiles.items():
+            for bag in profile._label_bags:
+                for label in bag:
+                    print(stop, label)
+                    cur_label = label
+                    journey_legs = []
+                    while True:
+                        connection = cur_label.connection
+                        if isinstance(connection, Connection):
+                            journey_legs.append(connection)
+                        if not cur_label.previous_label:
+                            break
+                        cur_label = cur_label.previous_label
+                    route_tuples = [(x.departure_stop, x.arrival_stop) for x in journey_legs]
+                    print(route_tuples)
