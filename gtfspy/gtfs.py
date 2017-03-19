@@ -762,6 +762,12 @@ class GTFS(object):
                 min_stop_I = stop_I
         return min_stop_I
 
+    def get_stop_coordinates(self, stop_I):
+        cur = self.conn.cursor()
+        results = cur.execute("SELECT lat, lon FROM stops WHERE stop_I={stop_I}".format(stop_I=stop_I))
+        lat, lon = results.fetchone()
+        return lat, lon
+
     def get_route_name_and_type_of_tripI(self, trip_I):
         """
         Get route short name and type

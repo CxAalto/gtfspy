@@ -13,6 +13,17 @@ class Connection:
         self.is_walk = is_walk
         self.arrival_stop_next_departure_time = arrival_stop_next_departure_time
 
+        self.departure_coordinate = None
+        self.arrival_coordinate = None
+        self.route_name = None
+        self.mode = None
+        self.duration = None
+        self.distance = None
+
+    def get_coordinate_tuple(self):
+        coordinate_tuple = (self.departure_coordinate, self.arrival_coordinate)
+        return coordinate_tuple
+
     def duration(self):
         return self.arrival_time - self.departure_time
 

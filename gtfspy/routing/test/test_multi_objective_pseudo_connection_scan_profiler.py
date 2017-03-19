@@ -616,7 +616,10 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             self.assertIn(should_be_tuple, found_tuples)
 
     def test_stored_route(self):
-
+        # TODO:
+        # - test with multiple targets
+        # - test with continuing route
+        # - test that timestamps for label and the connection objects match
         csa_profile = MultiObjectivePseudoCSAProfiler(self.transit_connections, self.target_stop,
                                                       self.start_time, self.end_time, self.transfer_margin,
                                                       self.walk_network, self.walk_speed, track_route=True)
@@ -624,7 +627,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         for stop, profile in csa_profile.stop_profiles.items():
             for bag in profile._label_bags:
                 for label in bag:
-                    print(stop, label)
+                    # print(stop, label)
                     cur_label = label
                     journey_legs = []
                     while True:
@@ -634,5 +637,18 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
                         if not cur_label.previous_label:
                             break
                         cur_label = cur_label.previous_label
-                    route_tuples = [(x.departure_stop, x.arrival_stop) for x in journey_legs]
-                    print(route_tuples)
+                    route_tuples_list = [(x.departure_stop, x.arrival_stop) for x in journey_legs]
+                    # print(route_tuples_list)
+                    # test that all legs are unique
+                    self.assertEqual(len(route_tuples_list), len(set(route_tuples_list)))
+                    prev_arr_node = None
+                    for route_tuple in route_tuples_list:
+                        dep_node = route_tuple[0]
+                        arr_node = route_tuple[1]
+                        # test that all legs have unique departure and arrival nodes
+                        self.assertNotEqual(dep_node, arr_node)
+                        if prev_arr_node:
+                            # test that legs form an continuous path
+                            self.assertEqual(prev_arr_node, dep_node)
+                        prev_arr_node = arr_node
+
