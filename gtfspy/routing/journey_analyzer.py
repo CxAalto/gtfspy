@@ -1,4 +1,6 @@
 # from geojson import LineString, Feature, FeatureCollection
+import sqlite3
+import os
 from geopandas import GeoDataFrame
 from shapely.geometry import LineString
 from pandas import DataFrame
@@ -6,12 +8,23 @@ from gtfspy.gtfs import GTFS
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.routing.label import LabelTimeBoardingsAndRoute
 from gtfspy.routing.models import Connection
+from gtfspy.util import timeit
+
+# TODO: store journey data in sqlite DB
+# TODO: DB-handling: make sure the connection is closed using __enter__, __exit__?
+# TODO: Transfer stops
+# TODO: circuity/directness
+
 
 class JourneyAnalyzer:
+    @timeit
     def __init__(self,
+                 fname,
                  gtfs,
                  stop_profiles,
-                 target_stops):
+                 target_stops,
+                 gtfs_dir
+                 ):
         """
 
         :param gtfs: GTFS object
@@ -24,39 +37,143 @@ class JourneyAnalyzer:
         self.stop_profiles = stop_profiles
         self.journey_dict = {}
         self.target_stops = target_stops
-        self.materialize_journey()
+        self.gtfs_dir = gtfs_dir
+        self.conn = sqlite3.connect(fname)
 
-    def materialize_journey(self):
-        """
-        This method extracts the data required from Connection and LabelTimeBoardingsAndRoute objects that are stored in
-        NodeProfileMultiObjective objects.
-        :return: list of dicts
-        """
+
+
+        # TODO: Some kind of info table, so that:
+        # - we can retain a connection to the source data
+        # - date, city, parameters etc information
+        self._populate_connection_table_with_gtfs_data()
+        self.insert_journeys_into_db()
+        self.conn.commit()
+
+    def import_journey_data(self):
+
+    def set_up_tables(self):
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
+                     journey_id INTEGER PRIMARY KEY,
+                     from_id INT,
+                     to_id INT,
+                     dep_time INT,
+                     arr_time INT,
+                     n_boardings INT,
+                     from_coord REAL,
+                     to_coord REAL)''')
+
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS connections(
+                     journey_id INT,
+                     from_id INT,
+                     to_id INT,
+                     dep_time INT,
+                     arr_time INT,
+                     from_lat REAL,
+                     from_lon REAL,
+                     to_lat REAL,
+                     to_lon REAL,
+                     trip_id INT,
+                     mode INT,
+                     route_name TEXT,
+                     seq INT)''')
+
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS walk_durations(
+                     from_id INT,
+                     to_id INT,
+                     duration REAL)''')
+
+
+    def insert_journeys_into_db(self):
         print("Materializing journeys")
-        journey_id = 0
-        for stop, stop_profile in self.stop_profiles.items():
-            assert (isinstance(stop_profile, NodeProfileMultiObjective))
+        journey_id = 0  # TODO: this initial journey_id should depend on the last id already in the table
 
-            stop_journeys = []
-            for label in stop_profile.get_final_optimal_labels():
+        # TODO: Find out how to determine if this is a fastest path or a less boardings path
+        tot = len(self.stop_profiles)
+        for i, origin_stop in enumerate(self.stop_profiles, start= 1):
+            print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
+            assert (isinstance(self.stop_profiles[origin_stop], NodeProfileMultiObjective))
+
+            value_list = []
+            for label in self.stop_profiles[origin_stop].get_final_optimal_labels():
                 assert (isinstance(label, LabelTimeBoardingsAndRoute))
-                journey = _Journey(self.gtfs, label, stop, journey_id)
+                # We need to "unpack" the journey to actually figure out where the trip went
+                # (there can be several targets).
+
+                target_stop = self._insert_connections_into_db(journey_id, label)
+                values = [journey_id,
+                          origin_stop,
+                          target_stop,
+                          int(label.departure_time),
+                          int(label.arrival_time_target),
+                          label.n_boardings]
+
+                stmt = '''INSERT INTO journeys(
+                      journey_id,
+                      from_id,
+                      to_id,
+                      dep_time,
+                      arr_time,
+                      n_boardings) VALUES (%s) ''' % (", ".join(["?" for x in values]))
+                value_list.append(values)
                 journey_id += 1
-                stop_journeys.append(journey)
-            self.journey_dict[stop] = stop_journeys
 
-    def journeys_to_pandas(self):
-        pass
+            self.conn.executemany(stmt, value_list)
+        print()
 
-    def _journey_legs_to_pandas(self):
-        print("Transforming journey legs to pandas")
-        leg_list = []
-        for stop, journeys in self.journey_dict.items():
-            for journey in journeys:
-                for connection in journey.legs:
-                    leg_list.append(connection.__dict__)
-        self.df = DataFrame(leg_list)
+    def _insert_connections_into_db(self, journey_id, label):
+        cur_label = label
+        seq = 1
+        value_list = []
+        while True:
+            connection = cur_label.connection
+            if isinstance(connection, Connection):
+                if connection.trip_id:
+                    trip_id = connection.trip_id
+                else:
+                    trip_id = -1
+                values = (
+                    int(journey_id),
+                    int(connection.departure_stop),
+                    int(connection.arrival_stop),
+                    int(connection.departure_time),
+                    int(connection.arrival_time),
+                    #from_lat,
+                    #from_lon,
+                    #to_lat,
+                    #to_lon,
+                    int(trip_id),
+                    #mode,
+                    #route_name,
+                    int(seq)
+                )
+                stmt = '''INSERT INTO connections(
+                                      journey_id,
+                                      from_id,
+                                      to_id,
+                                      dep_time,
+                                      arr_time,
+                                      trip_id,
+                                      seq) VALUES (%s) ''' % (", ".join(["?" for x in values]))
+                value_list.append(values)
+                seq += 1
+                target_stop = connection.arrival_stop
+            if not cur_label.previous_label:
+                break
+            cur_label = cur_label.previous_label
 
+        self.conn.executemany(stmt, value_list)
+
+        return target_stop
+
+    def _populate_connection_table_with_gtfs_data(self):
+        cur = self.conn.cursor()
+        print(self.gtfs_dir)
+        cur.execute("ATTACH '%s' as 'gtfs'" % str(self.gtfs_dir))
+        cur.execute("PRAGMA database_list")
+        print(cur.fetchone())
+        # route_name, mode = self.gtfs.get_route_name_and_type_of_tripI(connection.trip_id)
+        # from_lat, from_lon = self.gtfs.get_stop_coordinates(connection.departure_stop)
+        # to_lat, to_lon = self.gtfs.get_stop_coordinates(connection.arrival_stop)
 
     def calculate_passing_journeys_per_stop(self):
         """
@@ -98,126 +215,43 @@ class JourneyAnalyzer:
     def aggregate_walking_distance(self):
         pass
 
-    def get_all_stop_sequences(self):
-        all_stop_sequences = {}
-        for stop, journeys in self.journey_dict.items():
-            all_stop_sequences[stop] = [x.stop_sequence for x in journeys]
-        return all_stop_sequences
 
-    def get_all_geoms(self):
-        all_geoms = []
-        for stop, journeys in self.journey_dict.items():
-            for journey in journeys:
-                all_geoms.append(journey.coordinates)
-        return all_geoms
 
-    def get_section_counts(self):
-        if not self.df:
-            self._journey_legs_to_pandas()
-        print("Producing section counts")
-        df = self.df
-        df_grouped = df.groupby(by=['departure_coordinate', 'arrival_coordinate', "departure_stop", "arrival_stop", "mode"]).agg(['count'])
-
-        geometry = [LineString(x) for x in zip(df_grouped.departure_coordinate, df_grouped.arrival_coordinate)]
-        df_grouped = df_grouped.drop(['departure_coordinate', 'arrival_coordinate'], axis=1)
-        crs = {'init': 'epsg:4326'}
-        geo_df = GeoDataFrame(df_grouped, crs=crs, geometry=geometry)
-        return geo_df
-
-    """
-    def extract_geojson(self, geoms, attribute_data=None):
-        ""
-        Extracts geojson format from two matching lists of geometry and attribute data
-        :param geoms: list of coordinate tuples
-        :param attribute_data: list of dict
-        :return:
-        ""
-        print("Extracting geojson")
-        all_features = []
-        if not attribute_data:
-            attribute_data = [{}]*len(geoms)
-        for geom, attribute in zip(geoms, attribute_data):
-            linestring = LineString(geom)
-            feature = Feature(geometry=linestring, properties=attribute)
-            all_features.append(feature)
-        features = FeatureCollection(all_features)
-        return features
+    """    
+                tabledefs = {
+            "journeys":
+                [
+                    ("journey_id", "INT"),
+                    ("from_id", "INT"),
+                    ("to_id", "INT"),
+                    ("dep_time", "INT"),
+                    ("arr_time", "INT"),
+                    ("n_transfers", "INT"),
+                    ("from_coord", "REAL"),
+                    ("to_coord", "REAL")
+                ],
+            "connections":
+                [
+                    ("journey_id", "INT"),
+                    ("from_id", "INT"),
+                    ("to_id", "INT"),
+                    ("dep_time", "INT"),
+                    ("arr_time", "INT"),
+                    ("from_coord", "REAL"),
+                    ("to_coord", "REAL"),
+                    ("mode", "INT"),
+                    ("route_id", "INT"),
+                    ("seq", "INT")
+                ],
+            "walk_durations":
+                [
+                    ("from_id", "INT"),
+                    ("to_id", "INT"),
+                    ("duration", "REAL")
+                ]
+        }
 """
 
-class _Journey:
-    def __init__(self, gtfs, label, origin_stop, journey_id):
-        """
-        This handles individual journeys
-        :param gtfs: gtfs object
-        :param label: label of the departure stop
-        """
-        # TODO: Find out how to determine if this is a fastest path or a less boardings path
-        # TODO: Transfer stops
-        # TODO: circuity/directness
-        self.legs = []
-        self.gtfs = gtfs
-        self.label_dep_time = label.departure_time
-        self.label_arr_time = label.arrival_time_target
-        self.label_n_boardings = label.n_boardings
-        self.origin_stop = origin_stop
-        self.journey_id = journey_id
-        """
-        journey_legs contain the following data for each leg (as a dict):
-        departure_stop
-        arrival_stop
-        departure_time
-        arrival_time
-        trip_id
-        is_walk
-
-        the following values can be generated:
-        departure_coordinate
-        arrival_coordinate
-        mode
-        duration
-        distance
-        """
-        cur_label = label
-        while True:
-            connection = cur_label.connection
-            if isinstance(connection, Connection):
-                self.legs.append(connection)
-            if not cur_label.previous_label:
-                break
-            cur_label = cur_label.previous_label
-
-        self._assign_optional_connection_variables()
-        self.stop_sequence = []  # list of stop_I of all visited nodes
-        self._calculate_stop_sequence()
-        self.coordinates = []  # list of (lat, lon)
-        self._calculate_coordinate_sequence()
-
-    def _assign_optional_connection_variables(self):
-        for connection in self.legs:
-            lat, lon = self.gtfs.get_stop_coordinates(connection.departure_stop)
-            connection.departure_coordinate = (lon, lat)
-            lat, lon = self.gtfs.get_stop_coordinates(connection.arrival_stop)
-            connection.arrival_coordinate = (lon, lat)
-            if connection.trip_id:
-                connection.route_name, connection.mode = self.gtfs.get_route_name_and_type_of_tripI(connection.trip_id)
-            else:
-                connection.route_name = None
-                connection.mode = 'walking'
-
-    def get_section_coordinates(self):
-        section_coordinates = []
-        for connection in self.legs:
-            section_coordinates.append([connection.departure_coordinate, connection.arrival_coordinate])
-        return section_coordinates
-
-    def get_section_metadata(self):
-        section_metadata = []
-        for connection in self.legs:
-            section_metadata.append(
-                {"mode": connection.mode,
-                 "route_name": connection.route_name}
-            )
-        return section_metadata
 
     def get_transfer_stops_and_sections(self):
         pass
@@ -243,14 +277,5 @@ class _Journey:
     def get_walking_time(self):
         pass
 
-    def _calculate_stop_sequence(self):
-        if self.legs:
-            self.stop_sequence = [self.legs[0].departure_stop]
-            for leg in self.legs:
-                self.stop_sequence.append(leg.arrival_stop)
 
-    def _calculate_coordinate_sequence(self):
-        for stop in self.stop_sequence:
-            lat, lon = self.gtfs.get_stop_coordinates(stop)
-            self.coordinates.append((lon, lat))
 
