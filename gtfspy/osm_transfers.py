@@ -12,16 +12,18 @@ from warnings import warn
 from geoindex import GeoGridIndex, GeoPoint
 
 
-def compute_walk_paths_python(gtfs, osm_path, cutoff=1000):
+def add_walk_distances_to_db_python(gtfs, osm_path, cutoff_distance_m=1000):
     """
     Computes the walk paths between stops, and updates these to the gtfs database.
 
     Parameters
     ----------
-    gtfs: a gtfspy.GTFS object or str
-    osm_path: path to the OpenStreetMap file
-    cutoff: number
-        cutoff distance in meters
+    gtfs: gtfspy.GTFS or str
+        A GTFS object or a string representation.
+    osm_path: str
+        path to the OpenStreetMap file
+    cutoff_distance_m: number
+        maximum allowed distance in meters
 
     Returns
     -------
@@ -36,9 +38,9 @@ def compute_walk_paths_python(gtfs, osm_path, cutoff=1000):
         gtfs = GTFS(gtfs)
     assert (isinstance(gtfs, GTFS))
     print("Reading in walk network")
-    walk_network = osm_walk_network_full(osm_path)
+    walk_network = create_walk_network_from_osm(osm_path)
     print("Matching stops to the OSM network")
-    stop_I_to_nearest_osm_node, stop_I_to_nearest_osm_node_distance = match_stop_to_node(gtfs, walk_network)
+    stop_I_to_nearest_osm_node, stop_I_to_nearest_osm_node_distance = match_stops_to_nodes(gtfs, walk_network)
 
     transfers = gtfs.get_straight_line_transfer_distances()
 
@@ -54,7 +56,7 @@ def compute_walk_paths_python(gtfs, osm_path, cutoff=1000):
         from_dist = stop_I_to_nearest_osm_node_distance[from_I]
         shortest_paths = networkx.single_source_dijkstra_path_length(walk_network,
                                                                      from_node,
-                                                                     cutoff=cutoff - from_dist,
+                                                                     cutoff=cutoff_distance_m - from_dist,
                                                                      weight="distance")
         for to_I in to_stop_Is:
             to_distance = stop_I_to_nearest_osm_node_distance[to_I]
@@ -63,8 +65,8 @@ def compute_walk_paths_python(gtfs, osm_path, cutoff=1000):
             total_distance = from_dist + osm_distance + to_distance
             from_stop_I_transfers = transfers[transfers['from_stop_I'] == from_I]
             straigth_distance = from_stop_I_transfers[from_stop_I_transfers["to_stop_I"] == to_I]["d"].values[0]
-            assert (straigth_distance < total_distance + 2)  # allow for slight 2 meters error in calculations
-            if total_distance <= cutoff:
+            assert (straigth_distance < total_distance + 2)  # allow for a maximum  of 2 meters in calculations
+            if total_distance <= cutoff_distance_m:
                 gtfs.conn.execute("UPDATE stop_distances "
                                   "SET d_walk = " + str(int(total_distance)) +
                                   " WHERE from_stop_I=" + str(from_I) + " AND to_stop_I=" + str(to_I))
@@ -72,12 +74,12 @@ def compute_walk_paths_python(gtfs, osm_path, cutoff=1000):
     gtfs.conn.commit()
 
 
-def match_stop_to_node(gtfs, walk_network):
+def match_stops_to_nodes(gtfs, walk_network):
     """
     Parameters
     ----------
-    gtfs
-    walk_network
+    gtfs : a GTFS object
+    walk_network : networkx.Graph
 
     Returns
     -------
@@ -122,7 +124,7 @@ OSM_HIGHWAY_WALK_TAGS = {"trunk", "trunk_link", "primary", "primary_link", "seco
                          "cycleway", "footway"}
 
 
-def osm_walk_network_full(osm_file):
+def create_walk_network_from_osm(osm_file):
     walk_network = networkx.Graph()
     assert (os.path.exists(osm_file))
     ways = []
@@ -157,11 +159,11 @@ def compute_walk_paths_java(gtfs_db_path, osm_file, cache_db=None):
     Parameters
     ----------
     gtfs_db_path: str (path to the gtfs database)
-    osm_file
-    cache_db
+    osm_file: str
+    cache_db: str
 
     Returns
     -------
-
+    None
     """
-    raise NotImplementedError("Try using the Python code for now.")
+    raise NotImplementedError("This has not been pipelined yet. Please see the Python code.")
