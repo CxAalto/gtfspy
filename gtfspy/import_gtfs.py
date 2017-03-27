@@ -995,12 +995,9 @@ class TransfersLoader(TableLoader):
 
 class FrequenciesLoader(TableLoader):
     """Load the general frequency table."""
-    # This loader is special.  calc_transfers creates the table there,
-    # too.  We put a tabledef here so that copy() will work.
     fname = 'frequencies.txt'
     table = 'frequencies'
 
-    # TODO: this is copy-pasted from calc_transfers.
     tabledef = (u'(trip_I INT, '
                 u'start_time TEXT, '
                 u'end_time TEXT, '
@@ -1022,19 +1019,17 @@ class FrequenciesLoader(TableLoader):
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
                 yield dict(
-                    _trip_id = prefix + decode_six(row['trip_id']),
-                    start_time = row['start_time'],
-                    end_time = row['end_time'],
-                    headway_secs = int(row['headway_secs']),
-                    exact_times = int(row['exact_times']) if 'exact_times' in row and row['exact_times'].isdigit() else 0
+                    _trip_id=prefix + decode_six(row['trip_id']),
+                    start_time=row['start_time'],
+                    end_time=row['end_time'],
+                    headway_secs=int(row['headway_secs']),
+                    exact_times=int(row['exact_times']) if 'exact_times' in row and row['exact_times'].isdigit() else 0
                 )
 
     def post_import(self, cur):
         # For each (start_time_dependent) trip_I in frequencies.txt
         conn = self._conn
         frequencies_df = pandas.read_sql("SELECT * FROM " + self.table, conn)
-        trips_df = pandas.read_sql("SELECT * FROM " + "trips", conn)
-        calendar_df = pandas.read_sql("SELECT * FROM " + "calendar", conn)
 
         for freq_tuple in frequencies_df.itertuples():
             trip_data = pandas.read_sql_query("SELECT * FROM trips WHERE trip_I= " + str(int(freq_tuple.trip_I)), conn)
@@ -1049,7 +1044,7 @@ class FrequenciesLoader(TableLoader):
             if trip_duration is None:
                 raise ValueError("Stop times for frequency trip " + trip_data.trip_id + " are not properly defined")
             headway = freq_tuple.headway_secs
-            #print trip_data.trip_I
+
             sql = "SELECT * FROM stop_times WHERE trip_I=" + str(trip_data.trip_I) + " ORDER BY seq"
             stop_time_data = pandas.read_sql_query(sql, conn)
 

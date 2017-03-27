@@ -3,6 +3,7 @@ import pandas as pd
 
 from gtfspy import route_types
 from gtfspy.util import wgs84_distance
+from warnings import warn
 
 DEFAULT_STOP_TO_STOP_LINK_ATTRIBUTES = [
     "capacity_estimate", "duration_min", "duration_max",
@@ -33,11 +34,11 @@ def walk_transfer_stop_to_stop_network(gtfs):
     use_euclidean = False
     net = networkx.Graph()
     _add_stops_to_net(net, gtfs.get_table("stops"))
-    transfers = gtfs.get_table("stop_distances")
-    if transfers["d_walk"].equals(transfers["d"]):
+    stop_distances = gtfs.get_table("stop_distances")
+    if stop_distances["d_walk"][0] is None:
         use_euclidean = True
-        print("Warning: routed walking distances seems to be missing, using euclidean distances instead")
-    for transfer in transfers.itertuples():
+        warn("Warning: OpenStreetMap-based walking distances have not been computed, using euclidean distances instead")
+    for transfer in stop_distances.itertuples():
         from_node = transfer.from_stop_I
         to_node = transfer.to_stop_I
         if use_euclidean:

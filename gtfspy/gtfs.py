@@ -141,7 +141,6 @@ class GTFS(object):
         return self.conn.execute(distance_query).fetchone()[0]
 
 
-
     def get_cursor(self):
         """
         Return a cursor to the underlying sqlite3 object
@@ -1220,11 +1219,6 @@ class GTFS(object):
         df.sort_values("dep_time_ut", ascending=False, inplace=True)
         for row in df.itertuples():
             yield row
-
-    def get_walk_transfer_stop_to_stop_network(self):
-        from gtfspy.networks import walk_transfer_stop_to_stop_network
-        net = walk_transfer_stop_to_stop_network(self)
-        return net
 
     def get_transit_events(self, start_time_ut=None, end_time_ut=None, route_type=None):
         """

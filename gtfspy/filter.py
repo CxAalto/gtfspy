@@ -310,28 +310,34 @@ class FilterExtract(object):
             _buffer_distance = self.buffer_distance * 1000
             logging.info("Making spatial extract")
             self.copy_db_conn.create_function("find_distance", 4, wgs84_distance)
+            # For each trip_I, find smallest (min_seq) and largest (max_seq) stop sequence numbers
+            # that are within the buffer_distance from the buffer_lon and buffer_lat.
+            # Then delete all stops that are not between the min_seq and max_seq for any trip_I,
+            # Note that if a trip is OUT-IN-OUT-IN-OUT, the process preserves the part IN-OUT-IN of the trip.
             self.copy_db_conn.execute('DELETE FROM stops '
                                  'WHERE stop_I NOT IN '
                                  '(SELECT stops.stop_I FROM stop_times, stops, '
                                  '(SELECT trip_I, min(seq) AS min_seq, max(seq) AS max_seq FROM stop_times, stops '
                                  'WHERE stop_times.stop_I = stops.stop_I '
                                  'AND CAST(find_distance(lat, lon, ?, ?) AS INT) < ? '
-                                 'GROUP BY trip_I) q1 '
+                                    'GROUP BY trip_I) q1 '
                                  'WHERE stop_times.stop_I = stops.stop_I '
-                                 'AND stop_times.trip_I = q1.trip_I '
+                                    'AND stop_times.trip_I = q1.trip_I '
                                  'AND seq >= min_seq '
                                  'AND seq <= max_seq '
                                  ')', (self.buffer_lat, self.buffer_lon, _buffer_distance))
 
+            # Delete all stop_times for uncovered stops
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
                                  'stop_I NOT IN (SELECT stop_I FROM stops)')
-            # delete trips with only one stop
+            # Delete trips with only one stop
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
-                                 'trip_I IN (select trip_I from '
-                                 '(select trip_I, count(*) as N_stops from stop_times '
-                                 'group by trip_I) q1 '
-                                 'where N_stops = 1)')
+                                 'trip_I IN (SELECT trip_I FROM '
+                                 '(SELECT trip_I, count(*) AS N_stops from stop_times '
+                                 'GROUP BY trip_I) q1 '
+                                 'WHERE N_stops = 1)')
 
+            # Consecutively delete all the rest remaining.
             self.copy_db_conn.execute('DELETE FROM trips WHERE '
                                  'trip_I NOT IN (SELECT trip_I FROM stop_times)')
             self.copy_db_conn.execute('DELETE FROM routes WHERE '
