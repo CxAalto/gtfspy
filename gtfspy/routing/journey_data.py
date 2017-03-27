@@ -1,7 +1,7 @@
 import sqlite3
 import os
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.label import LabelTimeBoardingsAndRoute
+from gtfspy.routing.label import LabelTimeBoardingsAndRoute, compute_pareto_front
 from gtfspy.routing.models import Connection
 from gtfspy.util import timeit
 from gtfspy.gtfs import GTFS
@@ -11,12 +11,12 @@ from gtfspy.gtfs import GTFS
 
 
 class JourneyDataManager:
-    @timeit
     def __init__(self,
                  journey_db_dir,
                  target_stops,
                  gtfs_dir,
-                 routing_params
+                 routing_params,
+                 close_connection=True
                  ):
         """
 
@@ -24,17 +24,20 @@ class JourneyDataManager:
         :param list_of_stop_profiles: dict of NodeProfileMultiObjective
         :param target_stops: list
         """
-
+        self.close_connection = close_connection
         self.routing_params = routing_params
         self.target_stops = target_stops
         self.gtfs_dir = gtfs_dir
-        self.gtfs_meta = GTFS(self.gtfs_dir).meta
-        self.parameters = Parameters(self.conn)
+        gtfs = GTFS(self.gtfs_dir)
+        self.gtfs_meta = gtfs.meta
+        print(self.gtfs_meta["location_name"])
 
         initialize = False
         if not os.path.isfile(journey_db_dir):
             initialize = True
         self.conn = sqlite3.connect(journey_db_dir)
+        self.parameters = Parameters(self.conn)
+
         if initialize:
             self._set_up_tables()
             self._initialize_parameter_table()
@@ -44,16 +47,16 @@ class JourneyDataManager:
     def __del__(self):
         self.conn.close()
 
+    @timeit
     def import_journey_data(self, list_of_stop_profiles):
         cur = self.conn.cursor()
 
         cur.execute('PRAGMA synchronous = OFF;')
         if not isinstance(list_of_stop_profiles, list):
             list_of_stop_profiles = [list_of_stop_profiles]
-
+        # TODO: test if it is faster to check all distinct destination stops and compare to the input OR use some kind of unique constraint in sqlite for the rows
         self._insert_journeys_into_db(list_of_stop_profiles)
         self._create_indicies()
-        self.conn.commit()
         # Next 3 lines are python 3.6 work-arounds again.
         self.conn.isolation_level = None  # former default of autocommit mode
         cur.execute('VACUUM;')
@@ -61,7 +64,8 @@ class JourneyDataManager:
         # end python3.6 workaround
         print("Analyzing...")
         cur.execute('ANALYZE')
-        self.conn.close()
+        if self.close_connection:
+            self.conn.close()
 
         print("Finished import process")
 
@@ -72,7 +76,8 @@ class JourneyDataManager:
                      to_stop_I INT,
                      dep_time INT,
                      arr_time INT,
-                     n_boardings INT)''')
+                     n_boardings INT,
+                     fastest_path INT)''')
 
         self.conn.execute('''CREATE TABLE IF NOT EXISTS connections(
                      journey_id INT,
@@ -99,7 +104,7 @@ class JourneyDataManager:
                       "end_date"]:
             self.parameters[param] = self.gtfs_meta[param]
 
-        for key, value in self.routing_params:
+        for key, value in self.routing_params.items():
             self.parameters[key] = value
 
         """
@@ -121,7 +126,7 @@ class JourneyDataManager:
         """
 
     def _check_that_dbs_match(self):
-        for key, value in self.parameters:
+        for key, value in self.parameters.items():
             if key in self.gtfs_meta.keys():
                 assert self.gtfs_meta[key] == value
 
@@ -132,7 +137,7 @@ class JourneyDataManager:
 
     def _insert_journeys_into_db(self, list_of_stop_profiles):
         print("Collecting journey and connection data")
-        journey_id = self._check_last_journey_id()+1
+        journey_id = (self._check_last_journey_id() if self._check_last_journey_id() else 0) + 1
         journey_list = []
         connection_list = []
         for stop_profiles in list_of_stop_profiles:
@@ -177,9 +182,10 @@ class JourneyDataManager:
                                   to_stop_I,
                                   dep_time,
                                   arr_time,
-                                  trip_id,
+                                  trip_I,
                                   seq) VALUES (%s) ''' % (", ".join(["?" for x in range(7)]))
             self.conn.executemany(insert_connections_stmt, connection_list)
+        self.conn.commit()
 
     def _collect_connection_data(self, journey_id, label):
         target_stop = None
@@ -222,6 +228,55 @@ class JourneyDataManager:
         cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_trid ON connections (trip_I)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_fid ON connections (from_stop_I)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_tid ON connections (to_stop_I)')
+        self.conn.commit()
+
+    @timeit
+    def add_fastest_path_column(self):
+
+        cur = self.conn.cursor()
+        # Select all distinct O-D pairs
+        # For O-D pair in O-D pairs, create pareto-front
+        cur.execute('SELECT from_stop_I, to_stop_I FROM journeys GROUP BY from_stop_I, to_stop_I')
+        od_pairs = cur.fetchall()
+        # cur.execute('SELECT journey_id FROM journeys ORDER BY journey_id')
+        # all_journey_ids = cur.fetchall()
+        fastest_path_journey_ids = []
+        for pair in od_pairs:
+            cur.execute('SELECT dep_time, arr_time, journey_id FROM journeys '
+                        'WHERE from_stop_I = ? AND to_stop_I = ? '
+                        'ORDER BY dep_time ASC', (pair[0], pair[1]))
+            all_trips = cur.fetchall()
+            all_labels = [LabelTimeBoardingsAndRoute(x[0], x[1], x[2], False) for x in all_trips]
+            all_fp_labels = compute_pareto_front(all_labels, finalization=False, ignore_n_boardings=True)
+            fastest_path_journey_ids.append(all_fp_labels)
+        # all_rows = [1 if x in fastest_path_journey_ids else 0 for x in all_journey_ids]
+        fastest_path_journey_ids = [(1, x.n_boardings) for sublist in fastest_path_journey_ids for x in sublist]
+        cur.executemany("UPDATE journeys SET fastest_path = ? WHERE journey_id = ?", fastest_path_journey_ids)
+        self.conn.commit()
+
+"""
+
+    def add_fastest_path_column(self):
+        cur = self.conn.cursor()
+        # Select all distinct O-D pairs
+        # For O-D pair in O-D pairs, create pareto-front
+        cur.execute('SELECT from_stop_I, to_stop_I FROM journeys GROUP BY from_stop_I, to_stop_I')
+        od_pairs = cur.fetchall()
+        for pair in od_pairs:
+            cur.execute('SELECT journey_id, arr_time, dep_time FROM journeys WHERE from_stop_I = ? AND to_stop_I = ? ORDER BY dep_time ASC', (pair[0], pair[1]))
+            all_trips = cur.fetchall()
+            pareto_trips = []
+            cur_best_trips = []
+            for trip in all_trips:
+                is_dominated = False
+                for best_trip in cur_best_trips:
+                    if trip[1] > best_trip[1]:
+                        is_dominated = True
+                        break
+                if is_dominated:
+                    continue
+
+                      """
 
 
 class Parameters(object):
@@ -233,19 +288,19 @@ class Parameters(object):
         self._conn = conn
 
     def __setitem__(self, key, value):
-        self._conn.execute("INSERT OR REPLACE INTO parameters('key', 'value') VALUES (?, ?)", parameters=(key, value))
+        self._conn.execute("INSERT OR REPLACE INTO parameters('key', 'value') VALUES (?, ?)", (key, value))
         self._conn.commit()
 
     def __getitem__(self, key):
         cur = self._conn.cursor()
-        cur.execute("SELECT 'value' FROM parameters WHERE 'key'=?", parameters=(key,))
+        cur.execute("SELECT 'value' FROM parameters WHERE 'key'=?", (key,))
         val = cur.fetchone()
         if not val:
             raise KeyError("This journey db does not have parameter: %s" % key)
         return val[0]
 
     def __delitem__(self, key):
-        self._conn.execute("DELETE FROM parameters WHERE 'key'=?", parameters=(key,))
+        self._conn.execute("DELETE FROM parameters WHERE 'key'=?", (key,))
         self._conn.commit()
 
     def __iter__(self):
@@ -266,6 +321,14 @@ class Parameters(object):
 
     def items(self):
         cur = self._conn.execute('SELECT key, value FROM parameters ORDER BY key')
+        return cur
+
+    def keys(self):
+        cur = self._conn.execute('SELECT key FROM metadata ORDER BY key')
+        return cur
+
+    def values(self):
+        cur = self._conn.execute('SELECT value FROM metadata ORDER BY key')
         return cur
 
 

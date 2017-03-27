@@ -225,8 +225,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
         arrival_node_labels_orig = arrival_profile.evaluate(connection.arrival_stop_next_departure_time,
                                                             first_leg_can_be_walk=not connection.is_walk,
-                                                            connection_arrival_time=connection.arrival_time,
-                                                            connection=connection)
+                                                            connection_arrival_time=connection.arrival_time)
 
 
         increment_vehicle_count = (self._count_vehicle_legs and not connection.is_walk)
@@ -279,8 +278,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
             # Update labels for the departure stop profile (later: with the sets of pareto-optimal labels)
             self._stop_profiles[connection.departure_stop].update(all_pareto_optimal_labels,
-                                                                  connection.departure_time,
-                                                                  connection=connection)
+                                                                  connection.departure_time)
 
             """
             if i == 10000:

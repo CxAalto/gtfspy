@@ -88,7 +88,7 @@ class NodeProfileMultiObjective:
         """
         return self._walk_to_target_duration
 
-    def update(self, new_labels, departure_time_backup=None, connection=None):
+    def update(self, new_labels, departure_time_backup=None):
         """
         Update the profile with the new labels.
         Each new label should have the same departure_time.
@@ -110,7 +110,6 @@ class NodeProfileMultiObjective:
             departure_time = departure_time_backup
         self._check_dep_time_is_valid(departure_time)
 
-
         for new_label in new_labels:
             assert(new_label.departure_time == departure_time)
         dep_time_index = self.dep_times_to_index[departure_time]
@@ -131,7 +130,7 @@ class NodeProfileMultiObjective:
         self._label_bags[dep_time_index] = new_frontier
         return True
 
-    def evaluate(self, dep_time, first_leg_can_be_walk=True, connection_arrival_time=None, connection=None):
+    def evaluate(self, dep_time, first_leg_can_be_walk=True, connection_arrival_time=None):
 
         """
         Get the pareto_optimal set of Labels, given a departure time.

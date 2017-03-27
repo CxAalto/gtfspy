@@ -458,7 +458,7 @@ cdef class LabelTimeBoardingsAndRoute:
 
 
     def __init__(self, double departure_time, double arrival_time_target,
-                 int n_boardings, bint first_leg_is_walk, object connection, object previous_label=False):
+                 int n_boardings, bint first_leg_is_walk, object connection=None, object previous_label=None):
         self.departure_time = departure_time
         self.arrival_time_target = arrival_time_target
         self.n_boardings = n_boardings

@@ -1476,6 +1476,14 @@ class GTFSMetadata(object):
         cur = self._conn.execute('SELECT key, value FROM metadata ORDER BY key')
         return cur
 
+    def keys(self):
+        cur = self._conn.execute('SELECT key FROM metadata ORDER BY key')
+        return cur
+
+    def values(self):
+        cur = self._conn.execute('SELECT value FROM metadata ORDER BY key')
+        return cur
+
     def update(self, dict_):
         # Would be more efficient to do it in a new query here, but
         # preferring simplicity.  metadata updates are probably
