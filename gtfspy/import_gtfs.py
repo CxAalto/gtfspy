@@ -139,28 +139,48 @@ class TableLoader(object):
     def exists(self):
         """Does this GTFS contain this file? (file specified by the class)"""
         # If file exists in one of the sources, return True
+        return any(self.exists_by_source())
+
+    def exists_by_source(self):
+        """Does this GTFS contain this file? (file specified by the class)"""
+        exists_list = []
         for source in self.gtfs_sources:
             if isinstance(source, dict):
                 # source can now be either a dict or a zipfile
                 if self.fname in source:
                     if source[self.fname]:
-                        return True
+                        exists_list.append(True)
+                        continue
             # Handle zipfiles specially
             if "zipfile" in source:
                 try:
                     Z = zipfile.ZipFile(source['zipfile'], mode='r')
                     Z.getinfo(os.path.join(source['zip_commonprefix'], self.fname))
-                    return True
+                    exists_list.append(True)
+                    continue
                 # File does not exist in the zip archive
                 except KeyError:
                     print(self.fname, ' missing in ', source)
+                    exists_list.append(False)
                     continue
             # Normal filename
-            if isinstance(source, string_types):
+            elif isinstance(source, string_types):
                 if os.path.exists(os.path.join(source, self.fname)):
-                    return True
+                    exists_list.append(True)
+                    continue
+            exists_list.append(False)
         # the "file" was not found in any of the sources, return false
-        return False
+        return exists_list
+
+    def assert_exists_if_required(self):
+
+        REQUIRED_FILES_GTFS = ["agency.txt", "stops.txt", "routes.txt", "trips.txt", "stop_times.txt", "calendar.txt"]
+        if self.fname in REQUIRED_FILES_GTFS:
+            for gtfs_source, exists in zip(self.gtfs_sources, self.exists_by_source()):
+                if not exists:
+                    raise AssertionError(self.fname + " does not exist in the provided gtfs_source")
+
+
 
     def gen_rows0(self):
         """Iterate through all rows in all files file.
@@ -1650,6 +1670,9 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     # Do the actual importing.
     loaders = [L(gtfssource=gtfs_sources, print_progress=print_progress, **kwargs) for L in Loaders]
 
+    for Loader in loaders:
+        Loader.assert_exists_if_required()
+
     # Do initial import.  This consists of making tables, raw insert
     # of the CSVs, and then indexing.
     for Loader in loaders:
@@ -1716,6 +1739,9 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     cur.execute('ANALYZE')
     if not (preserve_connection is True):
         conn.close()
+
+
+
 
 
 def main():

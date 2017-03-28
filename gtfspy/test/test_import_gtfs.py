@@ -497,20 +497,14 @@ class TestImport(unittest.TestCase):
 
     def test_sources_required(self):
         self.fdict.pop("calendar.txt")
-        self.fdict.pop("calendar_dates.txt")
-        # with self.assertRaises(SomeSpecificException):
-        #   import_gtfs(self.fdict, self.conn)
-        self.fail()
+        with self.assertRaises(AssertionError):
+            import_gtfs(self.fdict, self.conn)
 
     def test_sources_required_multiple(self):
         fdict_copy = dict(self.fdict)
         fdict_copy.pop("calendar.txt")
-        self.fdict.pop("calendar_dates.txt")
-        # do something like this:
-        # with self.assertRaises(SomeSpecificException):
-        #    import_gtfs([self.fdict, fdict_copy], self.conn)
-        self.fail()
-
+        with self.assertRaises(AssertionError):
+            import_gtfs([self.fdict, fdict_copy], self.conn)
 
     def test_resequencing_stop_times(self):
         gtfs_source = self.fdict.copy()
