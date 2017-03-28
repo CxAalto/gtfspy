@@ -37,7 +37,8 @@ def walk_transfer_stop_to_stop_network(gtfs):
     stop_distances = gtfs.get_table("stop_distances")
     if stop_distances["d_walk"][0] is None:
         use_euclidean = True
-        warn("Warning: OpenStreetMap-based walking distances have not been computed, using euclidean distances instead")
+        warn("Warning: OpenStreetMap-based walking distances have not been computed, using euclidean distances instead."
+             "Ignore this warning if running unit tests.")
     for transfer in stop_distances.itertuples():
         from_node = transfer.from_stop_I
         to_node = transfer.to_stop_I
