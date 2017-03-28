@@ -51,11 +51,10 @@ Then adjust your ``PYTHONPATH`` environment variables accordingly.
 ## Contributing
 
 We welcome contributions through standard GitHub pull requests.
-In your pull request, please add yourself as a contributor.
+In your pull request, please add yourself as a contributor in the list below.
 
 
 ## Versioning
-
 
 ## Authors
 
