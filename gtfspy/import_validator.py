@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 import pandas as pd
 from six import string_types
-from timetable_validator import WarningsContainer
+from gtfspy.timetable_validator import WarningsContainer
 
 from gtfspy.gtfs import GTFS
 from gtfspy.util import str_time_to_day_seconds
