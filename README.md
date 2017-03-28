@@ -1,80 +1,99 @@
 # gtfspy
 
-The gtfspy python package is used for routing, transforming, filtering and validating public transport timetable data in the General Transit Feeds Specification (GTFS) format.
-For more information about the GTFS standard: https://developers.google.com/transit/gtfs/
+``gtfspy`` is a Python package for working with public transport timetable data provided in the [General Transit Feeds Specification](https://developers.google.com/transit/gtfs/) (GTFS) format.
 
-Current core features:
-* Importing one or multiple GTFS feeds into a sqlite database.
+### Core features:
+* Import one or multiple GTFS feeds into a [SQLite](https://www.sqlite.org/) database.
 * Update this sqlite database using Open Street Map (OSM) data.
-* A routing/profiling engine using the Connection Scan Algorithm (CSA).
+* Compute summary statistics
+* Filter databases spatially and temporally
+* Perform accessibility analyses using a routing/profiling engine
+    - Routing implementation [Connection Scan Algorithm](http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf) (CSA).
     - Used for computing travel times and transfers between origin-destination pairs
 
-Support features:
-* Validation of GTFS feeds
-* Extraction of basic summary statics about the feed
-
-## Getting Started
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
-
 ### Prerequisites
-* Support for Python 3.4
-* Currently supported platforms: Linux + OSX (Windows support is only partial at the moment)
+* [Python 3.4 (or above)](https://www.python.org/)
+* Supported platforms: Linux + OSX (Windows support is under construction, we welcome contributions and suggestions! :) )
+* Optional: [git](https://git-scm.com/) used for development
 
-What things you need to install the software and how to install them
-
-```
-Give examples
-```
 
 ### Installation
 
-A step by step series of examples that tell you have to get a development env running
-
-Say what the step will be
-
 ```
-Give the example
+pip install gtfspy # TODO! This does not work yet!
 ```
 
-And repeat
+### Development quickstart
+
+Only use this if you want to be able to edit the source code of this repository.
 
 ```
-until finished
+git clone git@github.com:CxAalto/gtfspy.git
+cd gtfspy/
+pip install -r requirements.txt # install any requirements
+nosetests . # run tests
 ```
+
+Then adjust your ``PYTHONPATH`` environment variables accordingly.
 
 
 ## Simple use case examples
-- [Importing gtfs feed](examples/example_import.py)
-- Filtering (examples/example_filter.py)
-- Validation (`examples/example_validation.py`)
-- Extracting a temporal network (and other formats) (`examples/`)
-- Running an analysis pipeline(`examples/example_analysis.py`)
+- [Importing a GTFS feed into a sqlite database](examples/example_import.py
+- [Validating an imported feed TODO!](examples/example_validation.py)
+- [Visualizing the public transport network on map](examples/example_map_visualization.py)
+- [TODO! Filtering GTFS feed spatially and in time-domain](examples/example_filter.py)
+- [TODO! Extracting a temporal network (and other formats)](examples/example_export.py)
+- [TODO! Running a simple accessibility analysis pipeline!](examples/example_accessibility_analysis.py)
+- [TODO! Plotting temporal distance profiles between an origin--destination pair!](examples/example_accessibility_analysis.py)
+
+
 
 ## Contributing
 
+We welcome contributions through standard GitHub pull requests.
+In your pull request, please add yourself as a contributor.
+
+
 ## Versioning
+
 
 ## Authors
 
+### Package maintainers
 * **Rainer Kujala** (Rainer.Kujala@gmail.com, @rmkujala) - *Initial work*
 * **Richard Darst** - *Initial work*
 * **Christoffer Weckström** - *Work*
 * **Nils Haglund**
 
-## License
+### Other contributors
+* You?
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+## Licenses
+
+### Actual code
+This source code of this project licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+### Example data
+Note that the OpenStreetMap data (.osm.pbf file(s) under examples/data) is licenced under the [Open Data Commons Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL) by the [OpenStreetMap Foundation](http://osmfoundation.org/) (OSMF).
+
+The GTFS data used for the examples is provided by the City of Kuopio (Finland), and have been downloaded from [http://bussit.kuopio.fi/gtfs/gtfs.zip](http://bussit.kuopio.fi/gtfs/gtfs.zip) [data licensed [under CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed)].
+
 
 ## Usage for scientific purposes
-If you use this code for scientific purposes, please cite our paper ("Travel times and transfers in public transport networks: comprehensive accessibility analysis using Pareto-optimal journeys").
+If you use this code for scientific purposes, please cite our paper [TO BE ANNOUNCED].
 
 ## Acknowledgments
 
-* Hat tip to anyone who's code was used
+* Hat tip to anyone who's code was used.
 * Inspiration
-* etc
+* Libraries used.
 
-## To run the unit tests, run nosetests in the root directory:
+## See also
+
+Code used together with gtfspy: (https://github.com/rmkujala/ptn_temporal_distances)
+
+## To run unit tests:
 ```
 nosetests .
 ```
