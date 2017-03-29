@@ -5,3 +5,9 @@ python:
 install: "pip install -r requirements.txt"
 # command to run tests
 script: nosetests .
+notifications:
+  email:
+    recipients:
+      - rainer.kujala@gmail.com
+    on_success: always # default: change
+    on_failure: always # default: always
