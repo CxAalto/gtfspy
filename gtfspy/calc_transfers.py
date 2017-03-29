@@ -1,7 +1,10 @@
 from __future__ import print_function
 
 import math
+import operator
+
 from geoindex import GeoGridIndex, GeoPoint
+from geoindex.geo_grid_index import GEO_HASH_GRID_SIZE
 
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance, wgs84_height, wgs84_width
@@ -24,8 +27,22 @@ def bind_functions(conn):
     conn.create_function("wgs84_width", 2, wgs84_width)
 
 
-def calc_transfers(conn, threshold=1000):
-    geo_index = GeoGridIndex(precision=5)
+def _get_geo_hash_precision(search_radius_in_km):
+    # adapted from geoindex.geo_grid_index
+    suggested_precision = None
+    for precision, max_size in sorted(GEO_HASH_GRID_SIZE.items(), key=operator.itemgetter(1)):
+        # ordering is from smallest grid size to largest:
+        if search_radius_in_km < max_size / 2:
+            suggested_precision = precision
+            break
+    if suggested_precision is None:
+        raise RuntimeError("GeoHash cannot work with this large search radius (km): " + search_radius_in_km)
+    return suggested_precision
+
+
+def calc_transfers(conn, threshold_meters=1000):
+    geohash_precision = _get_geo_hash_precision(threshold_meters / 1000.)
+    geo_index = GeoGridIndex(precision=geohash_precision)
     g = GTFS(conn)
     stops = g.get_table("stops")
     stop_geopoints = []
@@ -36,7 +53,7 @@ def calc_transfers(conn, threshold=1000):
         geo_index.add_point(stop_geopoint)
         stop_geopoints.append(stop_geopoint)
     for stop_geopoint in stop_geopoints:
-        nearby_stop_geopoints = geo_index.get_nearest_points_dirty(stop_geopoint, 1, "km")
+        nearby_stop_geopoints = geo_index.get_nearest_points_dirty(stop_geopoint, threshold_meters / 1000.0, "km")
         from_stop_I = int(stop_geopoint.ref)
         from_lat = stop_geopoint.latitude
         from_lon = stop_geopoint.longitude
@@ -50,7 +67,7 @@ def calc_transfers(conn, threshold=1000):
             to_lat = nearby_stop_geopoint.latitude
             to_lon = nearby_stop_geopoint.longitude
             distance = math.ceil(wgs84_distance(from_lat, from_lon, to_lat, to_lon))
-            if distance <= threshold:
+            if distance <= threshold_meters:
                 to_stop_Is.append(to_stop_I)
                 distances.append(distance)
 

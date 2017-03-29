@@ -1268,7 +1268,7 @@ class StopDistancesLoader(TableLoader):
         cur2 = conn.cursor()
         if self.print_progress:
             print("Calculating transfers")
-        calc_transfers.calc_transfers(conn, threshold=self.threshold)
+        calc_transfers.calc_transfers(conn, threshold_meters=self.threshold)
 
         # Copy data from transfers table.  Several steps below.
         if self.print_progress:
