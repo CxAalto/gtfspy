@@ -21,7 +21,7 @@ def import_example(verbose=False):
 
         # when using with the Kuopio test data set,
         # this should raise a warning due to no nearby OSM nodes for one of the stops.
-        osm_transfers.add_walk_distances_to_db_python(imported_database_path, osm_path)
+        # osm_transfers.add_walk_distances_to_db_python(imported_database_path, osm_path)
 
         print("Note: for large cities we have also a faster option for computing footpaths that uses Java.)")
         dir_path = os.path.dirname(os.path.realpath(__file__))

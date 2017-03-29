@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+from geoindex import GeoGridIndex, GeoPoint
+
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance, wgs84_height, wgs84_width
 
@@ -21,7 +23,43 @@ def bind_functions(conn):
     conn.create_function("wgs84_width", 2, wgs84_width)
 
 
+
+
 def calc_transfers(conn, threshold=1000):
+    geo_index = GeoGridIndex(precision=5)
+    g = GTFS(conn)
+    stops = g.get_table("stops")
+    stop_geopoints = []
+    cursor = conn.cursor()
+    from_stop_Is = []
+    to_stop_Is = []
+    distances = []
+    for stop in stops.itertuples():
+        stop_geopoint = GeoPoint(stop.lat, stop.lon, ref=stop.stop_I)
+        geo_index.add_point(stop_geopoint)
+        stop_geopoints.append(stop_geopoint)
+    for stop_geopoint in stop_geopoints:
+        nearby_stop_geopoints = geo_index.get_nearest_points_dirty(stop_geopoint, 1, "km")
+        from_stop_I = stop_geopoint.ref
+        from_lat = stop_geopoint.latitude
+        from_lon = stop_geopoint.longitude
+        for nearby_stop_geopoint in nearby_stop_geopoints:
+            to_stop_I = nearby_stop_geopoint.ref
+            to_lat = nearby_stop_geopoint.latitude
+            to_lon = nearby_stop_geopoint.longitude
+            distance = wgs84_distance(from_lat, from_lon, to_lat, to_lon)
+            if distance < threshold:
+                from_stop_Is.append(from_stop_I)
+                to_stop_Is.append(to_stop_I)
+                distances.append(distance)
+    n_pairs = len(from_stop_Is)
+    cursor.executemany('INSERT INTO stop_distances VALUES (?, ?, ?, ?, ?, ?);',
+                        zip(from_stop_Is, to_stop_Is, distances, [None]*n_pairs, [None]*n_pairs, [None]*n_pairs))
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_sd_fsid ON stop_distances (from_stop_I);')
+
+
+
+def calc_transfers_old(conn, threshold=1000):
     """Add transfer information to a GTFS database.
 
     This adds a table 'stop_distances' to the database.  All stops
@@ -41,124 +79,30 @@ def calc_transfers(conn, threshold=1000):
     cur.execute('DROP TABLE IF EXISTS main.stop_distances')
 
     cur.execute(create_stmt)
-    #cur.execute('INSERT INTO stop_distances '
-    #            'SELECT stops1.stop_I as from_stop_I, stops2.stop_I as to_stop_I, '
-    #                'CAST(find_distance(stops1.lat,stops1.lon, stops2.lat, stops2.lon) AS INT) AS d '
-    #              'FROM stops AS stops1 JOIN stops AS stops2 '
-    #              'WHERE (from_stop_I!=to_stop_I) and (d < ?);', (threshold, ))
-    #cur.execute(#'INSERT INTO stop_distances2 (from_stop_I, to_stop_I, d)'
-    #            'explain query plan '
-    #            'SELECT S1.stop_I AS from_stop_I, RT.stop_I AS to_stop_I, '
-    #                'CAST(find_distance(S1.lat,S1.lon, S2.lat, S2.lon) AS INT) AS d '
-    #              'FROM stops AS S1 '
-    #                  'left JOIN stops_rtree AS RT '
-    #                  'LEFT JOIN stops AS S2 ON (RT.stop_I=S2.stop_I)'
-    #              'WHERE '
-    #                  '(from_stop_I != to_stop_I) '
-    #                  'AND S1.lat-wgs84_height(?)*1.2 <= RT.lat2  AND RT.lat <= S1.lat+wgs84_height(?)*1.2 '
-    #                  'AND S1.lon-wgs84_width(?,S1.lat)*1.2 <= RT.lon2 AND RT.lon <= S1.lon+wgs84_width(?,S1.lat)*1. ',
-    #                  #'and (d < ?)',
-    #              #'LIMIT 7',
-    #                  #(threshold, ),
-    #                  (threshold, threshold, threshold, threshold, ),
-    #                  #(threshold, threshold, threshold, threshold, threshold, ),
-    #                  )
-    #cur.execute(#'INSERT INTO stop_distances2 (from_stop_I, to_stop_I, d)'
-    #            'explain query plan '
-    #            #'SELECT from_stop_I, to_stop_I '
-    #            #    'CAST(find_distance(lat1,lon1, S2.lat, S2.lon) AS INT) AS d '
-    #            'SELECT * '
-    #            'FROM ( '
-    #              'SELECT S1.stop_I AS from_stop_I, RT.stop_I AS to_stop_I '
-    #            #         'S1.lat AS lat1, S1.lon AS lon1 '
-    #              'FROM stops AS S1 '
-    #                  'left JOIN stops_rtree AS RT '
-    #              'WHERE '
-    #                  'S1.lat-wgs84_height(?)*1.2 <= RT.lat2  AND RT.lat <= S1.lat+wgs84_height(?)*1.2 '
-    #                  'AND S1.lon-wgs84_width(?,S1.lat)*1.2 <= RT.lon2 AND RT.lon <= S1.lon+wgs84_width(?,S1.lat)*1.2 '
-    #                  'AND (from_stop_I != to_stop_I) '
-    #            ') SQ'
-    #            ', stops AS S2 ',#ON (to_stop_I=S2.stop_I)',
-    #            #'WHERE (SQ.to_stop_I=S2.stop_I)',
-    #            #'WHERE (d < ?)',
-    #              #'LIMIT 7',
-    #                  #(threshold, ),
-    #                  (threshold, threshold, threshold, threshold, ),
-    #                  #(threshold, threshold, threshold, threshold, threshold, ),
-    #                  )
-    #cur.execute(#'INSERT INTO stop_distances2 (from_stop_I, to_stop_I, d)'
-    #            #'explain query plan '
-    #            #'SELECT from_stop_I, to_stop_I '
-    #            #    'CAST(find_distance(lat1,lon1, S2.lat, S2.lon) AS INT) AS d '
-    #
-    #            '(SELECT '
-    #                'S1.stop_I                   AS from_stop_I, '
-    #                'S1.lat+wgs84_height(?)*1.1  AS top, '
-    #                'S1.lat-wgs84_height(?)*1.1  AS bottom, '
-    #                'S1.lon+wgs84_width(?,S1.lat)*1.1 AS right, '
-    #                'S1.lon-wgs84_width(?,S1.lat)*1.1 AS left, '
-    #              'FROM stops AS S1) '
-    #             'LEFT JOIN stops_rtree AS RT'
-    #                 'WHERE '
-    #                 '    bottom <= RT.lat2 AND RT.lat <= top '
-    #                 'AND left <= RT.lon2   AND RT.lon <= left '
-    #
-    #
-    #
-    #            'SELECT * '
-    #            'FROM ( '
-    #              'SELECT S1.stop_I AS from_stop_I, RT.stop_I AS to_stop_I '
-    #            #         'S1.lat AS lat1, S1.lon AS lon1 '
-    #              'FROM stops AS S1 '
-    #                  'left JOIN stops_rtree AS RT '
-    #              'WHERE '
-    #                  'unlikely( '
-    #                  'S1.lat-wgs84_height(?)*1.2 <= RT.lat2  AND RT.lat <= S1.lat+wgs84_height(?)*1.2 '
-    #                  'AND S1.lon-wgs84_width(?,S1.lat)*1.2 <= RT.lon2 AND RT.lon <= S1.lon+wgs84_width(?,S1.lat)*1.2 ) '
-    #                  'AND (from_stop_I != to_stop_I) '
-    #
-    #            ') '
-    #            'CROSS JOIN stops AS S2 ON (to_stop_I=S2.stop_I)',
-    #            #'WHERE (d < ?)',
-    #              #'LIMIT 7',
-    #                  #(threshold, ),
-    #                  (threshold, threshold, threshold, threshold, ),
-    #                  #(threshold, threshold, threshold, threshold, threshold, ),
-    #                  )
-    cur.execute(#'INSERT INTO stop_distances2 (from_stop_I, to_stop_I, d)'
-                #'explain query plan '
-                #'SELECT from_stop_I, to_stop_I '
-                #    'CAST(find_distance(lat1,lon1, S2.lat, S2.lon) AS INT) AS d '
-                'CREATE TEMPORARY TABLE stop_distances_tmp AS '
+    cur.execute('CREATE TEMPORARY TABLE stop_distances_tmp AS '
                 'SELECT S1.stop_I AS from_stop_I, RT.stop_I AS to_stop_I, '
-                         'S1.lat AS lat1, S1.lon AS lon1 '
-                  'FROM stops AS S1 '
-                      'JOIN stops_rtree AS RT '
-                  'WHERE '
-                      'S1.lat-wgs84_height(?)*1.2 <= RT.lat2  AND RT.lat <= S1.lat+wgs84_height(?)*1.2 '
-                      'AND S1.lon-wgs84_width(?,S1.lat)*1.2 <= RT.lon2 AND RT.lon <= S1.lon+wgs84_width(?,S1.lat)*1.2 '
-                      'AND (from_stop_I != to_stop_I) ',
-                #'WHERE (SQ.to_stop_I=S2.stop_I)',
-                #'WHERE (d < ?)',
-                  #'LIMIT 7',
-                      #(threshold, ),
-                      (threshold, threshold, threshold, threshold, ),
-                      #(threshold, threshold, threshold, threshold, threshold, ),
-                      )
+                'S1.lat AS lat1, S1.lon AS lon1 '
+                'FROM stops AS S1 '
+                'JOIN stops_rtree AS RT '
+                'WHERE '
+                'S1.lat-wgs84_height(?)*1.2 <= RT.lat2  AND RT.lat <= S1.lat+wgs84_height(?)*1.2 '
+                'AND S1.lon-wgs84_width(?,S1.lat)*1.2 <= RT.lon2 AND RT.lon <= S1.lon+wgs84_width(?,S1.lat)*1.2 '
+                'AND (from_stop_I != to_stop_I) ',
+                (threshold, threshold, threshold, threshold,),
+                )
     for row in cur:
         print(row)
+
+
     cur.execute('INSERT INTO stop_distances (from_stop_I, to_stop_I, d)'
-                #'explain query plan '
+                # 'EXPLAIN QUERY PLAN '
                 'SELECT from_stop_I, to_stop_I, '
-                    'CAST(find_distance(lat1,lon1, S2.lat, S2.lon) AS INT) AS d '
+                'CAST(find_distance(lat1,lon1, S2.lat, S2.lon) AS INT) AS d '
                 'FROM stop_distances_tmp S1 '
-                    'JOIN stops S2 ON (S1.to_stop_I=S2.stop_I) '
+                'JOIN stops S2 ON (S1.to_stop_I=S2.stop_I) '
                 'WHERE (d < ?)',
-                  #'LIMIT 7',
-                      (threshold, ),
-                      #(threshold, threshold, threshold, threshold, ),
-                      #(threshold, threshold, threshold, threshold, threshold, ),
-                      )
+                (threshold,),
+                )
     for row in cur:
         print(row)
 
@@ -179,8 +123,6 @@ def export_transfers(conn, fname):
         print(' '.join(str(x) for x in row), file=f)
 
 
-
-
 def main():
     import sys
     cmd = sys.argv[1]
@@ -194,5 +136,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

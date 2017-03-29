@@ -6,3 +6,4 @@ smopy
 nose
 Cython
 six
+geoindex
