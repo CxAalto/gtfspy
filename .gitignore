@@ -12,3 +12,4 @@ build/
 nohup.out
 doc/*html
 *.sqlite
+gtfspy/routing/label.c
