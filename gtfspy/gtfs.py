@@ -1287,7 +1287,7 @@ class GTFS(object):
         )[0]
         to_indices = from_indices + 1
         # these should have same trip_ids
-        assert (events_result['trip_I'][from_indices] == events_result['trip_I'][to_indices]).all()
+        assert (events_result['trip_I'][from_indices].values == events_result['trip_I'][to_indices].values).all()
         trip_Is = events_result['trip_I'][from_indices]
         from_stops = events_result['stop_I'][from_indices]
         to_stops = events_result['stop_I'][to_indices]

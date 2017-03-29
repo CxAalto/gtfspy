@@ -173,14 +173,11 @@ class TableLoader(object):
         return exists_list
 
     def assert_exists_if_required(self):
-
         REQUIRED_FILES_GTFS = ["agency.txt", "stops.txt", "routes.txt", "trips.txt", "stop_times.txt", "calendar.txt"]
         if self.fname in REQUIRED_FILES_GTFS:
             for gtfs_source, exists in zip(self.gtfs_sources, self.exists_by_source()):
                 if not exists:
                     raise AssertionError(self.fname + " does not exist in the provided gtfs_source")
-
-
 
     def gen_rows0(self):
         """Iterate through all rows in all files file.
