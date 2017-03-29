@@ -1,10 +1,12 @@
-import sqlite3
 import os
-from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.label import LabelTimeBoardingsAndRoute, compute_pareto_front
-from gtfspy.routing.models import Connection
-from gtfspy.util import timeit
-from gtfspy.gtfs import GTFS
+import sqlite3
+
+from gtfspy import Connection
+from gtfspy import GTFS
+from gtfspy import LabelTimeBoardingsAndRoute, compute_pareto_front
+from gtfspy import NodeProfileMultiObjective
+from gtfspy import timeit
+
 
 # TODO: DB-handling: make sure the connection is closed using __enter__, __exit__?
 # TODO: Find out how to determine if this is a fastest path or a less boardings path

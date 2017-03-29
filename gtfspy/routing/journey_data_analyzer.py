@@ -1,12 +1,12 @@
-import sqlite3
 import os
-from pandas import DataFrame, read_sql_query
-from shapely.geometry import Point, LineString
-import matplotlib.pyplot as plt
-from geopandas import GeoDataFrame
-from gtfspy.gtfs import GTFS
+import sqlite3
 
-from gtfspy.util import timeit
+from geopandas import GeoDataFrame
+from pandas import read_sql_query
+from shapely.geometry import Point, LineString
+
+from gtfspy import timeit
+
 
 class JourneyDataAnalyzer:
     # TODO: Transfer stops
@@ -17,6 +17,7 @@ class JourneyDataAnalyzer:
         assert os.path.isfile(gtfs_dir)
         self.conn = sqlite3.connect(journey_db_dir)
         self._attach_gtfs_database(gtfs_dir)
+        self._create_temporary_view()
 
     def __del__(self):
         self.conn.close()
@@ -27,6 +28,67 @@ class JourneyDataAnalyzer:
         cur.execute("PRAGMA database_list")
         print("GTFS database attached:", cur.fetchall())
 
+    def _create_temporary_view(self):
+        # could use self_or_parent_I for stop_I?
+        self.conn.execute('''CREATE TEMP VIEW IF NOT EXISTS extended_connections(journey_id,
+                     o_stop_I,
+                     d_stop_I,
+                     from_stop_I,
+                     to_stop_I,
+                     dep_time,
+                     arr_time,
+                     trip_I,
+                     seq,
+                     fastest_path,
+                     from_lat,
+                     from_lon,
+                     to_lat,
+                     to_lon,
+                     o_lat,
+                     o_lon,
+                     d_lat,
+                     d_lon,
+                     route_name,
+                     mode)
+                     AS
+                     SELECT
+                     c.journey_id AS journey_id,
+                     j.from_stop_I AS o_stop_I,
+                     j.to_stop_I AS d_stop_I,
+                     c.from_stop_I AS from_stop_I,
+                     c.to_stop_I AS to_stop_I,
+                     c.dep_time,
+                     c.arr_time,
+                     c.trip_I,
+                     c.seq,
+                     j.fastest_path,
+                     from_.lat AS from_lat,
+                     from_.lon AS from_lon,
+                     to_.lat AS to_lat,
+                     to_.lon AS to_lon,
+                     o_.lat AS o_lat,
+                     o_.lon AS o_lon,
+                     d_.lat AS d_lat,
+                     d_.lon AS d_lon,
+                     CASE WHEN c.trip_I = -1 THEN 'walk' ELSE name END AS route_name,
+                     CASE WHEN c.trip_I = -1 THEN -1 ELSE type END AS mode
+                     FROM
+                     (SELECT * FROM connections) c
+                     LEFT JOIN
+                     (SELECT trip_I, trips.route_I, name, type
+                     FROM gtfs.trips, gtfs.routes
+                     WHERE trips.route_I=routes.route_I) r ON c.trip_I = r.trip_I,
+                     (SELECT journey_id, from_stop_I, to_stop_I, fastest_path FROM journeys) j,
+                     (SELECT stop_I, lat, lon FROM gtfs.stops) from_,
+                     (SELECT stop_I, lat, lon FROM gtfs.stops) to_,
+                     (SELECT stop_I, lat, lon FROM gtfs.stops) o_,
+                     (SELECT stop_I, lat, lon FROM gtfs.stops) d_
+                     WHERE c.journey_id = j.journey_id
+                     AND c.from_stop_I = from_.stop_I AND c.to_stop_I = to_.stop_I
+                     AND j.from_stop_I = o_.stop_I AND j.to_stop_I = d_.stop_I
+                     ''')
+
+
     def calculate_passing_journeys_per_stop(self):
         """
 
@@ -34,7 +96,7 @@ class JourneyDataAnalyzer:
         """
         pass
     @timeit
-    def calculate_passing_journeys_per_section(self, fastest_path=False, time_weighted=False):
+    def calculate_journeys_per_section(self, fastest_path=False, time_weighted=False):
         """
 
         :return:
@@ -59,19 +121,29 @@ class JourneyDataAnalyzer:
         df['geometry'] = df.apply(lambda x: LineString([(x.from_lon, x.from_lat), (x.to_lon, x.to_lat)]), axis=1)
         gdf = GeoDataFrame(df, geometry='geometry')
         gdf.crs = {'init': 'epsg:4326'}
-        gdf.plot()
-        plt.show()
+        #gdf.plot()
+        #plt.show()
+        return gdf
 
     def to_geopandas(self):
         pass
 
-    def n_journey_alternatives(self):
+    @timeit
+    def n_route_alternatives(self):
         """
         Calculates the
         :return:
         """
-        pass
+        query = "SELECT *, count(*) FROM " \
+                "(SELECT o_stop_I, d_stop_I, group_concat(route_name) AS route FROM " \
+                "(SELECT * FROM extended_connections WHERE fastest_path = 1 ORDER BY journey_id, seq) subquery " \
+                "GROUP BY journey_id) subquery2 " \
+                "GROUP BY route " \
+                "ORDER BY o_stop_I"
 
+
+        df = read_sql_query(query, self.conn)
+        print(df.to_string)
     def n_departure_stop_alternatives(self):
         """
 
@@ -98,16 +170,40 @@ class JourneyDataAnalyzer:
                 '(SELECT journey_id, from_stop_I, trip_I FROM connections) c2, ' \
                 '(SELECT stop_I, lat, lon FROM gtfs.stops) gtfs ' \
                 'WHERE c1.journey_id=c2.journey_id AND c1.to_stop_I=c2.from_stop_I ' \
-                'AND c1.trip_I != c2.trip_I AND c1.to_stop_I=gtfs.stop_I ' \
-                'GROUP BY stop_I'
+                'AND c1.trip_I != c2.trip_I AND c1.to_stop_I=gtfs.stop_I AND c1.trip_I != -1 AND c2.trip_I != -1 ' \
+                'GROUP BY to_stop_I'
 
         df = read_sql_query(query, self.conn)
 
-        print(df)
         df['geometry'] = df.apply(lambda x: Point((x.lon, x.lat)), axis=1)
         gdf = GeoDataFrame(df, geometry='geometry')
         gdf.crs = {'init': 'epsg:4326'}
         return gdf
+
+    @timeit
+    def get_transfer_walks(self, group_by_routes=False):
+        query = 'SELECT c2.from_stop_I AS from_stop_I, c2.to_stop_I AS to_stop_I, ' \
+                'gtfs1.lat AS from_lat, gtfs1.lon AS from_lon, gtfs2.lat AS to_lat, gtfs2.lon AS to_lon, ' \
+                'count(*) AS n_trips  ' \
+                'FROM ' \
+                '(SELECT journey_id, to_stop_I, trip_I FROM connections) c1, ' \
+                '(SELECT journey_id, from_stop_I, to_stop_I, trip_I FROM connections) c2, ' \
+                '(SELECT journey_id, from_stop_I, trip_I FROM connections) c3, ' \
+                '(SELECT stop_I, lat, lon FROM gtfs.stops) gtfs1, ' \
+                '(SELECT stop_I, lat, lon FROM gtfs.stops) gtfs2 ' \
+                'WHERE c1.journey_id=c2.journey_id AND c2.journey_id=c3.journey_id ' \
+                'AND c1.to_stop_I=c2.from_stop_I AND c2.to_stop_I=c3.from_stop_I ' \
+                'AND c2.from_stop_I=gtfs1.stop_I AND c2.to_stop_I=gtfs2.stop_I ' \
+                'AND c1.trip_I > -1 AND c2.trip_I = -1 AND c3.trip_I > -1 ' \
+                'GROUP BY c2.from_stop_I, c2.to_stop_I'
+
+        df = read_sql_query(query, self.conn)
+        print(df)
+        df['geometry'] = df.apply(lambda x: LineString([(x.from_lon, x.from_lat), (x.to_lon, x.to_lat)]), axis=1)
+        gdf = GeoDataFrame(df, geometry='geometry')
+        gdf.crs = {'init': 'epsg:4326'}
+        return gdf
+
     def get_journey_distance(self):
         pass
 
