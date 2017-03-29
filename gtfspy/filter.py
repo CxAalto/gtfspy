@@ -240,8 +240,6 @@ class FilterExtract(object):
                                  'trip_I NOT IN (SELECT trip_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM stops WHERE '
                                  'stop_I NOT IN (SELECT stop_I FROM stop_times)')
-            self.copy_db_conn.execute('DELETE FROM stops_rtree WHERE '
-                                 'stop_I NOT IN (SELECT stop_I FROM stops)')
             self.copy_db_conn.execute('DELETE FROM stop_distances WHERE '
                                  '   from_stop_I NOT IN (SELECT stop_I FROM stops) '
                                  'OR to_stop_I   NOT IN (SELECT stop_I FROM stops)')
@@ -346,8 +344,6 @@ class FilterExtract(object):
                                  'agency_I NOT IN (SELECT agency_I FROM routes)')
             self.copy_db_conn.execute('DELETE FROM shapes WHERE '
                                  'shape_id NOT IN (SELECT shape_id FROM trips)')
-            self.copy_db_conn.execute('DELETE FROM stops_rtree WHERE '
-                                 'stop_I NOT IN (SELECT stop_I FROM stops)')
             self.copy_db_conn.execute('DELETE FROM stop_distances WHERE '
                                  'from_stop_I NOT IN (SELECT stop_I FROM stops)'
                                  'OR to_stop_I NOT IN (SELECT stop_I FROM stops)')

@@ -76,7 +76,7 @@ class TestGTFSfilter(unittest.TestCase):
 
 
     def test_filter_by_start_and_end(self):
-        # untested tables with filtering: stops, stops_rtree (non-crucial though), shapes
+        # untested tables with filtering: stops, shapes
         # (Shapes are not provided in the test data currently)
 
         # test filtering by start and end time, copy full range

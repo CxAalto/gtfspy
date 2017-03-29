@@ -121,7 +121,6 @@ FIELDS_WHERE_NULL_OK = {
                 'shapes': [],
                 'stop_times': [],
                 'stops': ['code', 'desc', 'parent_I', 'wheelchair_boarding'],
-                'stops_rtree': [],
                 'stop_distances': []
             }
 
