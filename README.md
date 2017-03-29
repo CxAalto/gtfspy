@@ -73,7 +73,7 @@ In your pull request, please add yourself as a contributor in the list below.
 ## Licenses
 
 ### Actual code
-This source code of this project licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This source code of this project licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
 
 ### Example data
 Note that the OpenStreetMap data (.osm.pbf file(s) under examples/data) is licenced under the [Open Data Commons Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL) by the [OpenStreetMap Foundation](http://osmfoundation.org/) (OSMF).
