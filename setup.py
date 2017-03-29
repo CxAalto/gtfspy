@@ -10,7 +10,7 @@ setup(
     author="Rainer Kujala",
     author_email="Rainer.Kujala@gmail.com",
     url="https://github.com/CxAalto/gtfspy",
-    download_url="https://github.com/CxAalto/gtfspy/archive/0.1.tar.gz",
+    download_url="https://github.com/CxAalto/gtfspy/archive/0.2.tar.gz",
     ext_modules=cythonize("gtfspy/routing/*.pyx"),
     keywords = ['transit', 'routing' 'gtfs', 'public transport', 'analysis', 'visualization'], # arbitrary keywords
 )
