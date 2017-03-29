@@ -40,7 +40,7 @@ Then adjust your ``PYTHONPATH`` environment variables accordingly.
 
 
 ## Simple use case examples
-- [Importing a GTFS feed into a sqlite database](examples/example_import.py
+- [Importing a GTFS feed into a sqlite database](examples/example_import.py)
 - [Validating an imported feed TODO!](examples/example_validation.py)
 - [Visualizing the public transport network on map](examples/example_map_visualization.py)
 - [TODO! Filtering GTFS feed spatially and in time-domain](examples/example_filter.py)
