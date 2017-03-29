@@ -9,5 +9,6 @@ notifications:
   email:
     recipients:
       - rainer.kujala@gmail.com
-    on_success: always # default: change
+      - christoffer.weckstrom@aalto.fi
+    on_success: never # default: change
     on_failure: always # default: always
