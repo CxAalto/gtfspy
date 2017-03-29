@@ -1,3 +1,5 @@
+MANIFEST
+dist/*
 src/*
 .idea/*
 routing/label.html
