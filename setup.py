@@ -1,15 +1,15 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 from Cython.Build import cythonize
 
-version="0.0.1.dev1"
+version="0.0.1.dev2"
 
 setup(
     name="gtfspy",
     version=version,
     description="Python package for analyzing public transport timetables",
     url="https://github.com/CxAalto/gtfspy",
-    packages=["gtfspy"],
+    packages=find_packages(exclude=["java_routing", "examples"]),
     author="Rainer Kujala",
     author_email="Rainer.Kujala@gmail.com",
     license='MIT',
