@@ -3,7 +3,7 @@ from unittest import TestCase
 import networkx
 from six import StringIO
 
-from gtfspy.routing.models import Connection
+from gtfspy.routing.connection import Connection
 from gtfspy.routing.label import min_arrival_time_target, LabelTimeWithBoardingsCount, LabelTime
 from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective

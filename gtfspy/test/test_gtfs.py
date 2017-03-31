@@ -199,13 +199,12 @@ class TestGTFS(unittest.TestCase):
         self.assertTrue(found, "a trip that should be found is not found")
 
     def test_get_trip_counts_per_day(self):
-
         df = self.gtfs.get_trip_counts_per_day()
-        columns = "dates trip_counts".split(" ")
+        columns = "date_str trip_counts".split(" ")
         for c in columns:
             self.assertTrue(c in df.columns)
         el = df.iloc[0]
-        self.assertIsInstance(el["dates"], string_types)
+        self.assertIsInstance(el["date_str"], string_types)
         self.assertIsInstance(el["trip_counts"], (int, numpy.int_))
 
     def test_get_spreading_trips(self):

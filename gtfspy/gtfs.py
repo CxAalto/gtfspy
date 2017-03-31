@@ -196,6 +196,9 @@ class GTFS(object):
         os.environ['TZ'] = TZ
         time.tzset()  # Cause C-library functions to notice the update.
 
+    def get_timezone_pytz(self):
+        return self._timezone
+
     def get_timezone_name(self):
         """
         Get name of the GTFS timezone
@@ -541,15 +544,10 @@ class GTFS(object):
                 "USING(agency_I) " \
                 "GROUP BY routes.route_I"
         data = pd.read_sql_query(query, self.conn)
-        # print(pd.read_sql_query("select * from agencies", self.conn))
-        # print(pd.read_sql_query("select * from routes", self.conn))
-        # print(pd.read_sql_query("select * from trips", self.conn))
 
         routeShapes = []
-        n_rows = len(data)
         for i, row in enumerate(data.itertuples()):
             datum = {"name": str(row.name), "type": int(row.type), "agency": str(row.agency_id), "agency_name": str(row.agency_name)}
-            # print(row.agency_id, ": ", i, "/", n_rows)
             # this function should be made also non-shape friendly (at this point)
             if use_shapes and row.shape_id:
                 shape = shapes.get_shape_points2(cur, row.shape_id)
@@ -591,13 +589,13 @@ class GTFS(object):
 
     def get_trip_counts_per_day(self):
         """
-        Get trip counts per day between the start and end day of hte feed.
+        Get trip counts per day between the start and end day of the feed.
 
         Returns
         -------
         trip_counts : pandas.DataFrame
-            has columns "dates" and "trip_counts" where
-                dates are strings
+            has columns "date_str" and "trip_counts" where
+                date_str are strings
                 trip_counts are ints
         """
         query = "SELECT date, count(*) AS number_of_trips FROM day_trips GROUP BY date"
@@ -626,7 +624,7 @@ class GTFS(object):
         # check that all date_strings are included (move this to tests?)
         for date_string in trip_counts_per_day.index:
             assert date_string in date_strings
-        data = {"dates": date_strings, "trip_counts": trip_counts}
+        data = {"date_str": date_strings, "trip_counts": trip_counts}
         return pd.DataFrame(data)
 
         # Remove these pieces of code when this function has been tested:
@@ -673,28 +671,34 @@ class GTFS(object):
         # return {"day_start_uts": day_start_uts, "trip_counts":trip_counts}
 
     def get_suitable_date_for_daily_extract(self, date=None, ut=False):
-        '''
+        """
+        Parameters
+        ----------
+        date : str
+        ut : bool
+            Whether to return the date as a string or as a an int (seconds after epoch).
+
+        Returns
+        -------
         Selects suitable date for daily extract
         Iterates trough the available dates forward and backward from the download date accepting the first day that has
         at least 90 percent of the number of trips of the maximum date. The condition can be changed to something else.
-        If the download date is out of range, the process will look trough the dates from first to last.
-        :param daily_trips: pandas dataframe
-        :param date: date string
-        :return:
-        '''
+        If the download date is out of range, the process will look through the dates from first to last.
+
+        """
         daily_trips = self.get_trip_counts_per_day()
         max_daily_trips = daily_trips[u'trip_counts'].max(axis=0)
-        if date in daily_trips[u'dates']:
-            start_index = daily_trips[daily_trips[u'dates'] == date].index.tolist()[0]
+        if date in daily_trips[u'date_str']:
+            start_index = daily_trips[daily_trips[u'date_str'] == date].index.tolist()[0]
             daily_trips[u'old_index'] = daily_trips.index
             daily_trips[u'date_dist'] = abs(start_index - daily_trips.index)
             daily_trips = daily_trips.sort_values(by=[u'date_dist', u'old_index']).reindex()
         for row in daily_trips.itertuples():
             if row.trip_counts >= 0.9 * max_daily_trips:
                 if ut:
-                    return self.get_day_start_ut(row.dates)
+                    return self.get_day_start_ut(row.date_str)
                 else:
-                    return row.dates
+                    return row.date_str
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
@@ -1197,14 +1201,22 @@ class GTFS(object):
 
     def generate_routable_transit_events(self, start_time_ut=None, end_time_ut=None, route_type=None):
         """
-        Generates events that take place during a time interval.
+        Generates events that take place during a time interval [start_time_ut, end_time_ut].
         Each event needs to be only partially overlap the given time interval.
-        Does not include walking events. This is just a quick and dirty implementation to get a way of quickly get a
+        Does not include walking events.
+        This is just a quick and dirty implementation to get a way of quickly get a
         method for generating events compatible with the routing algorithm
-        :param start_time_ut:
-        :param end_time_ut:
-        :param route_type:
-        :return: generates named tuples of the events
+
+        Parameters
+        ----------
+        start_time_ut: int
+        end_time_ut: int
+        route_type: ?
+
+        Yields
+        ------
+        event: namedtuple
+            containing:
                 dep_time_ut: int
                 arr_time_ut: int
                 from_stop_I: int
@@ -1212,7 +1224,6 @@ class GTFS(object):
                 trip_I : int
                 route_type : int
                 seq: int
-
         """
         from gtfspy.networks import temporal_network
         df = temporal_network(self, start_time_ut=start_time_ut, end_time_ut=end_time_ut, route_type=route_type)

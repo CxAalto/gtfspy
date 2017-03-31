@@ -230,6 +230,9 @@ class NodeProfileAnalyzerTimeAndVehLegs:
     def max_n_boardings_on_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.max()
 
+    def max_finite_n_boardings_on_fastest_paths(self):
+        return self._transfers_on_fastest_paths_analyzer.largest_finite_distance()
+
     def mean_n_boardings_on_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.mean()
 
@@ -423,7 +426,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                                     format_string="%Y-%m-%d %H:%M:%S",
                                                     duration_divider=60.0,
                                                     ax=None,
-                                                    plot_journeys=True,
+                                                    plot_journeys=False,
                                                     highlight_fastest_path=True,
                                                     default_lw=5,
                                                     ncol_legend=1,
@@ -431,7 +434,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                                     legend_alpha=0.9,
                                                     journey_letters=None,
                                                     legend_font_size=None):
-        max_n = self.max_n_boardings_on_shortest_paths()
+        max_n = self.max_finite_n_boardings_on_fastest_paths()
         min_n = self.min_n_boardings()
         if self._walk_to_target_duration < float('inf'):
             min_n = 0

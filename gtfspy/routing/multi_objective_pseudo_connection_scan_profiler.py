@@ -3,7 +3,7 @@ from collections import defaultdict
 import networkx
 import numpy
 
-from gtfspy.routing.models import Connection
+from gtfspy.routing.connection import Connection
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.routing.label import merge_pareto_frontiers, LabelTimeWithBoardingsCount, LabelTime, compute_pareto_front, \
@@ -21,8 +21,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
     def __init__(self,
                  transit_events,
                  targets,
-                 start_time=None,
-                 end_time=None,
+                 start_time_ut=None,
+                 end_time_ut=None,
                  transfer_margin=0,
                  walk_network=None,
                  walk_speed=1.5,
@@ -36,9 +36,9 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             events are assumed to be ordered in DECREASING departure_time (!)
         targets: int, list
             index of the target stop
-        start_time : int, optional
+        start_time_ut : int, optional
             start time in unixtime seconds
-        end_time: int, optional
+        end_time_ut: int, optional
             end time in unixtime seconds (no connections will be scanned after this time)
         transfer_margin: int, optional
             required extra margin required for transfers in seconds
@@ -55,12 +55,12 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         """
         AbstractRoutingAlgorithm.__init__(self)
         self._transit_connections = transit_events
-        if start_time is None:
-            start_time = transit_events[-1].departure_time
-        if end_time is None:
-            end_time = transit_events[0].departure_time
-        self._start_time = start_time
-        self._end_time = end_time
+        if start_time_ut is None:
+            start_time_ut = transit_events[-1].departure_time
+        if end_time_ut is None:
+            end_time_ut = transit_events[0].departure_time
+        self._start_time = start_time_ut
+        self._end_time = end_time_ut
         self._transfer_margin = transfer_margin
         if walk_network is None:
             walk_network = networkx.Graph()

@@ -3,7 +3,7 @@ import unittest
 import networkx
 
 from gtfspy.routing.connection_scan import ConnectionScan
-from gtfspy.routing.models import Connection
+from gtfspy.routing.connection import Connection
 
 
 class ConnectionScanTest(unittest.TestCase):
