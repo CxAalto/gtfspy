@@ -17,14 +17,14 @@
 
 ### Prerequisites
 * [Python 3.5 (or above)](https://www.python.org/)
-* Supported platforms: Linux + OSX (Windows support is under construction, we welcome contributions and suggestions! :) )
+* Supported platforms: Linux + OSX (Windows support untested, we welcome contributions and suggestions! :) )
 * Optional: [git](https://git-scm.com/) used for development
 
 
 ### Installation
 
 ```
-pip install gtfspy # TODO! This does not work yet!
+pip install gtfspy # Should work with Python 3.5
 ```
 
 ### Development quickstart
@@ -47,8 +47,8 @@ Then adjust your ``PYTHONPATH`` environment variables accordingly.
 - [Visualizing the public transport network on map](examples/example_map_visualization.py)
 - [TODO! Filtering GTFS feed spatially and in time-domain](examples/example_filter.py)
 - [TODO! Extracting a temporal network (and other formats)](examples/example_export.py)
+- [TODO! Computing and plotting temporal distance profiles between an origin--destination pair](examples/example_temporal_distance_profile.py)
 - [TODO! Running a simple accessibility analysis pipeline!](examples/example_accessibility_analysis.py)
-- [TODO! Plotting temporal distance profiles between an origin--destination pair!](examples/example_accessibility_analysis.py)
 
 
 
