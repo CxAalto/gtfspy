@@ -448,6 +448,8 @@ def min_n_vehicle_trips(label_list):
         return None
 
 cdef class LabelTimeBoardingsAndRoute:
+    #TODO: implement added constraint for cases when two labels are tied:
+    # The trip with minimal "movement time" should be chosen = maximizing the waiting time for robustness
     cdef:
         public double departure_time
         public double arrival_time_target

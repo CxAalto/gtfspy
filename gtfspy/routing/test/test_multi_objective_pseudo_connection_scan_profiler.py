@@ -442,6 +442,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             self.assertEqual(len(labels), 1)
             self.assertEqual(labels[0].n_boardings, n_veh_legs)
 
+
     def test_reset(self):
         walk_speed = 1
         target_stop = 2
@@ -474,7 +475,6 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         # TODO: perform a check for the reinitialization of trip_labels
         # THIS IS NOT YET TESTED but should work at the moment
         # RK 9.1.2017
-
 
     def test_550_problem(self):
         # There used to be a problem when working with real unixtimes (c-side floating point number problems),
@@ -652,3 +652,26 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
                             self.assertEqual(prev_arr_node, dep_node)
                         prev_arr_node = arr_node
 
+    def test_target_self_loops(self):
+        event_list_raw_data = [
+            (3, 1, 30, 40, "trip_3"),
+
+        ]
+        transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
+        walk_network = networkx.Graph()
+        walk_network.add_edge(1, 3, {"d_walk": 11})
+        walk_speed = 1
+        target_stop = 1
+        transfer_margin = 0
+        start_time = 0
+        end_time = 50
+        print(walk_network.edges())
+        print(transit_connections)
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      walk_network, walk_speed, track_vehicle_legs=True,
+                                                      track_time=True, track_route=True)
+        csa_profile.run()
+        for stop, profile in csa_profile.stop_profiles.items():
+            if stop == target_stop:
+                self.assertEqual(len(profile.get_final_optimal_labels()), 0)

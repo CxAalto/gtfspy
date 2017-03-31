@@ -1,15 +1,11 @@
 import os
 import sqlite3
 
-from gtfspy import Connection
-from gtfspy import GTFS
-from gtfspy import LabelTimeBoardingsAndRoute, compute_pareto_front
-from gtfspy import NodeProfileMultiObjective
-from gtfspy import timeit
-
-
-# TODO: DB-handling: make sure the connection is closed using __enter__, __exit__?
-# TODO: Find out how to determine if this is a fastest path or a less boardings path
+from gtfspy.routing.models import Connection
+from gtfspy.gtfs import GTFS
+from gtfspy.routing.label import LabelTimeBoardingsAndRoute, compute_pareto_front
+from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
+from gtfspy.util import timeit
 
 
 class JourneyDataManager:
@@ -32,7 +28,7 @@ class JourneyDataManager:
         self.gtfs_dir = gtfs_dir
         gtfs = GTFS(self.gtfs_dir)
         self.gtfs_meta = gtfs.meta
-        print(self.gtfs_meta["location_name"])
+        print('location_name: ', self.gtfs_meta["location_name"])
 
         initialize = False
         if not os.path.isfile(journey_db_dir):
@@ -79,6 +75,8 @@ class JourneyDataManager:
                      dep_time INT,
                      arr_time INT,
                      n_boardings INT,
+                     route TEXT,
+                     time_to_prev_journey_fp INT,
                      fastest_path INT)''')
 
         self.conn.execute('''CREATE TABLE IF NOT EXISTS connections(
@@ -154,13 +152,16 @@ class JourneyDataManager:
                     # We need to "unpack" the journey to actually figure out where the trip went
                     # (there can be several targets).
 
-                    target_stop, new_connection_values = self._collect_connection_data(journey_id, label)
+                    target_stop, new_connection_values, route_stops = self._collect_connection_data(journey_id, label)
+                    if origin_stop == target_stop:
+                        continue
                     values = [journey_id,
                               origin_stop,
                               target_stop,
                               int(label.departure_time),
                               int(label.arrival_time_target),
-                              label.n_boardings]
+                              label.n_boardings,
+                              route_stops]
 
                     journey_list.append(values)
                     connection_list += new_connection_values
@@ -174,7 +175,8 @@ class JourneyDataManager:
                   to_stop_I,
                   dep_time,
                   arr_time,
-                  n_boardings) VALUES (%s) ''' % (", ".join(["?" for x in range(6)]))
+                  n_boardings,
+                  route) VALUES (%s) ''' % (", ".join(["?" for x in range(7)]))
             self.conn.executemany(insert_journeys_stmt, journey_list)
 
             print("Inserting connections into database")
@@ -194,6 +196,8 @@ class JourneyDataManager:
         cur_label = label
         seq = 1
         value_list = []
+        route_stops = []
+        prev_trip_id = None
         while True:
             connection = cur_label.connection
             if isinstance(connection, Connection):
@@ -210,15 +214,18 @@ class JourneyDataManager:
                     int(trip_id),
                     int(seq)
                 )
-
+                if prev_trip_id != trip_id:
+                    route_stops.append(connection.departure_stop)
                 value_list.append(values)
                 seq += 1
                 target_stop = connection.arrival_stop
+                prev_trip_id = trip_id
             if not cur_label.previous_label:
                 break
             cur_label = cur_label.previous_label
-
-        return target_stop, value_list
+        route_stops.append(target_stop)
+        route_stops = ','.join([str(x) for x in route_stops])
+        return target_stop, value_list, route_stops
 
     def _create_indicies(self):
         print("Indexing")
@@ -256,6 +263,15 @@ class JourneyDataManager:
         cur.executemany("UPDATE journeys SET fastest_path = ? WHERE journey_id = ?", fastest_path_journey_ids)
         self.conn.commit()
 
+    @timeit
+    def add_time_to_prev_journey_fp_column(self):
+        cur = self.conn.cursor()
+        cur.execute('SELECT journey_id, from_stop_I, to_stop_I, dep_time FROM journeys '
+                    'ORDER BY from_stop_I, to_stop_I, dep_time ')
+
+        all_trips = cur.fetchall()
+        for trip in all_trips:
+            
 """
 
     def add_fastest_path_column(self):

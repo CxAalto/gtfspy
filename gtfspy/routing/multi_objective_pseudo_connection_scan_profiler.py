@@ -141,7 +141,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                                                                   walk_to_target_duration=walk_duration_to_target,
                                                                   transit_connection_dep_times=self._stop_departure_times[node],
                                                                   closest_target=closest_target,
-                                                                  id=node)
+                                                                  node_id=node)
     @timeit
     def __compute_stop_dep_and_arrival_times(self):
         stop_departure_times = defaultdict(lambda: list())
@@ -211,12 +211,6 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             if connection.is_walk and not (arr_stop_next_dep_time < float('inf')):
                 assert (arr_stop_next_dep_time < float('inf'))
             connection.arrival_stop_next_departure_time = arr_stop_next_dep_time
-
-    def _store_connection_and_label(self, connection, previous_labels):
-        departure_stop_profile = self._stop_profiles[connection.departure_stop]
-        index = departure_stop_profile.dep_times_to_index[connection.departure_time]
-        departure_stop_profile.previous_labels[index] = previous_labels
-        departure_stop_profile.connections[index] = connection
 
     def _get_modified_arrival_node_labels(self, connection):
         # get all different "accessible" / arrival times (Pareto-optimal sets)
@@ -317,7 +311,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                     neighbor_profile = self._stop_profiles[neighbor]
                     assert (isinstance(neighbor_profile, NodeProfileMultiObjective))
                     neighbor_label_bags.append(neighbor_profile.get_labels_for_real_connections())
-                    walk_durations_to_neighbors.append(self._walk_network.get_edge_data(stop, neighbor)["d_walk"] / self._walk_speed)
+                    walk_durations_to_neighbors.append(self._walk_network.get_edge_data(stop, neighbor)["d_walk"] /
+                                                       self._walk_speed)
                     if self._label_class == LabelTimeBoardingsAndRoute:
                         departure_arrival_stops.append((stop, neighbor))
             assert (isinstance(stop_profile, NodeProfileMultiObjective))

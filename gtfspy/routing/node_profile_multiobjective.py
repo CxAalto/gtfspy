@@ -18,7 +18,7 @@ class NodeProfileMultiObjective:
                  label_class=LabelTimeWithBoardingsCount,
                  transit_connection_dep_times=None,
                  closest_target=None,
-                 id=None):
+                 node_id=None):
         """
         Parameters
         ----------
@@ -54,7 +54,7 @@ class NodeProfileMultiObjective:
         self._finalized = False
         self._final_pareto_optimal_labels = None
         self._real_connection_labels = None
-        self.id = id
+        self.node_id = node_id
 
     def _check_dep_time_is_valid(self, dep_time):
         """
@@ -122,7 +122,7 @@ class NodeProfileMultiObjective:
             mod_prev_labels = list()
         mod_prev_labels += self._label_bags[dep_time_index]
 
-        walk_label = self.get_walk_label(departure_time)
+        walk_label = self._get_label_to_target(departure_time)
         if walk_label:
             new_labels = new_labels + [walk_label]
         new_frontier = merge_pareto_frontiers(new_labels, mod_prev_labels)
@@ -157,9 +157,9 @@ class NodeProfileMultiObjective:
         if first_leg_can_be_walk and self._walk_to_target_duration != float('inf'):
             # add walk_labe l
             if connection_arrival_time is not None:
-                walk_labels.append(self.get_walk_label(connection_arrival_time))
+                walk_labels.append(self._get_label_to_target(connection_arrival_time))
             else:
-                walk_labels.append(self.get_walk_label(dep_time))
+                walk_labels.append(self._get_label_to_target(dep_time))
 
 
         # if dep time is larger than the largest dep time -> only walk labels are possible
@@ -175,7 +175,7 @@ class NodeProfileMultiObjective:
             pareto_optimal_labels = [label for label in pareto_optimal_labels if not label.first_leg_is_walk]
         return pareto_optimal_labels
 
-    def get_walk_label(self, departure_time):
+    def _get_label_to_target(self, departure_time):
         if departure_time != float('inf') and self._walk_to_target_duration != float('inf'):
             if self._walk_to_target_duration == 0:
                 first_leg_is_walk = False
@@ -183,7 +183,7 @@ class NodeProfileMultiObjective:
                 first_leg_is_walk = True
             if self.label_class == LabelTimeBoardingsAndRoute:
                 if self._walk_to_target_duration > 0:
-                    walk_connection = Connection(self.id,
+                    walk_connection = Connection(self.node_id,
                                                  self.closest_target,
                                                  departure_time,
                                                  departure_time + self._walk_to_target_duration,
