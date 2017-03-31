@@ -36,13 +36,17 @@ class ExportsTest(unittest.TestCase):
             shutil.rmtree(self.extract_output_dir)
 
     def test_walk_network(self):
-        calc_transfers(self.gtfs.conn, 10**6)
         walk_net = networks.walk_transfer_stop_to_stop_network(self.gtfs)
         self.assertGreater(len(walk_net.nodes()), 0)
         self.assertGreater(len(walk_net.edges()), 1)
         for form_node, to_node, data_dict in walk_net.edges(data=True):
             self.assertIn("d_walk", data_dict)
             self.assertGreater(data_dict["d_walk"], 0)
+        threshold = 670
+        walk_net = networks.walk_transfer_stop_to_stop_network(self.gtfs, max_link_distance=threshold)
+        self.assertEqual(len(walk_net.edges()), 2)
+        for form_node, to_node, data_dict in walk_net.edges(data=True):
+            self.assertLess(data_dict['d_walk'], threshold)
 
     def test_write_stop_to_stop_networks(self):
         exports.write_stop_to_stop_networks(self.gtfs, self.extract_output_dir)

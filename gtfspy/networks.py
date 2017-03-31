@@ -12,25 +12,30 @@ DEFAULT_STOP_TO_STOP_LINK_ATTRIBUTES = [
     "route_ids"
 ]
 
-def walk_transfer_stop_to_stop_network(gtfs):
+
+def walk_transfer_stop_to_stop_network(gtfs, max_link_distance=None):
     """
     Construct the walk network.
     If OpenStreetMap-based walking distances have been computed, then those are used as the distance.
-    Otherwise, the great circle distances ("d_great_circle") is used.
+    Otherwise, the great circle distances ("d") is used.
 
     Parameters
     ----------
     gtfs: gtfspy.GTFS
+    max_link_distance: int, optional
+        If given, all walking transfers longer than limit will be omitted.
 
     Returns
     -------
     net: networkx.DiGraph
         edges have attributes
-            d_great_circle:
+            d:
                 straight-line distance between stops
-            d_shape:
+            d_walk:
                 distance along the road/tracks/..
     """
+    if max_link_distance is None:
+        max_link_distance = float('inf')
     use_euclidean = False
     net = networkx.Graph()
     _add_stops_to_net(net, gtfs.get_table("stops"))
@@ -46,8 +51,10 @@ def walk_transfer_stop_to_stop_network(gtfs):
             d_walk = transfer.d
         else:
             d_walk = transfer.d_walk
-        net.add_edge(from_node, to_node, {"d_walk": d_walk})
+        if d_walk < max_link_distance:
+            net.add_edge(from_node, to_node, {"d_walk": d_walk})
     return net
+
 
 def stop_to_stop_network_for_route_type(gtfs,
                                         route_type,
@@ -240,7 +247,10 @@ def temporal_network(gtfs,
     end_time_ut: int | None
         end time of the time span (in unix time)
     route_type: int | None
-        filter by route type?
+        Specifies which mode of public transport are included, or whether all modes should be included.
+        The int should be one of the standard GTFS route_types:
+        (see also gtfspy.route_types.TRANSIT_ROUTE_TYPES )
+        If route_type is not specified, all modes are included.
 
     Returns
     -------
@@ -260,7 +270,6 @@ def temporal_network(gtfs,
         inplace=True
     )
     return events_df
-
 
 # def cluster_network_stops(stop_to_stop_net, distance):
 #     """
@@ -335,4 +344,3 @@ def temporal_network(gtfs,
 #         else:
 #             aggregate_graph.add_edge(new_from_node, new_to_node, route_ids=data['route_ids'])
 #     return aggregate_graph
-
