@@ -134,7 +134,6 @@ class TestNodeProfileAnalyzerTimeAndVehLegs(TestCase):
             LabelTimeWithBoardingsCount(departure_time=5, arrival_time_target=10, n_boardings=1, first_leg_is_walk=True)
         ]
         analyzer = self._get_analyzer(labels, 0, 20, 35)
-        fig = analyzer.plot_temporal_distance_variation()
         print(fig)
         import matplotlib.pyplot as plt
         plt.show()

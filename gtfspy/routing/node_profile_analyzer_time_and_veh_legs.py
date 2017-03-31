@@ -373,46 +373,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         truncated = _truncate_colormap(cmap, start, start + step * max_n_boardings)
         return truncated
 
-    def plot_temporal_distance_variation(self, timezone=None):
-        """
-        Parameters
-        ----------
-        timezone: str, optional
-
-        Returns
-        -------
-        fig: matplotlib.Figure or None
-            returns None, if there essentially is no profile to plot
-        """
-        max_n = self.max_trip_n_boardings()
-        min_n = 0
-        if max_n is None:
-            return None
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        colors = NodeProfileAnalyzerTimeAndVehLegs._get_colors_for_boardings(min_n, max_n)
-        max_temporal_distance = 0
-        for color, n_boardings in zip(colors, range(min_n, max_n + 1)):
-            npat = self.get_time_profile_analyzer(n_boardings)
-            maxdist = npat.largest_finite_temporal_distance()
-            if maxdist is not None and maxdist > max_temporal_distance:
-                max_temporal_distance = maxdist
-            linewidth = 0.5 + 3 * (n_boardings / max(1.0, float(max_n)))
-            if n_boardings == max_n:
-                label = "fastest possible using at most " + str(n_boardings) + " vehicle(s)"
-            else:
-                label = "time lost using " + str(n_boardings) + " vehicle(s) instead of " + str(n_boardings + 1)
-
-            npat.plot_temporal_distance_profile(timezone=timezone,
-                                                color=color,
-                                                alpha=0.6,
-                                                ax=ax,
-                                                lw=linewidth,
-                                                label=label)
-        ax.legend(loc="best", framealpha=0.5)
-        ax.set_ylim(bottom=0, top=max_temporal_distance / 60.0 * 1.05)
-        return fig
-
     @classmethod
     def _multiply_color_saturation(cls, color, multiplier):
         hsv = matplotlib.colors.rgb_to_hsv(color[:3])
