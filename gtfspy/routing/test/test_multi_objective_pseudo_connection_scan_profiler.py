@@ -391,12 +391,12 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
 
         stop_3_pareto_tuples = csa_profile.stop_profiles[3].get_final_optimal_labels()
         self.assertEqual(len(stop_3_pareto_tuples), 1)
-        self.assertIn(LabelTime(32, 35), stop_3_pareto_tuples)
+        self.assertIn(LabelTime(32., 35.), stop_3_pareto_tuples)
 
         stop_2_pareto_tuples = csa_profile.stop_profiles[2].get_final_optimal_labels()
         self.assertEqual(len(stop_2_pareto_tuples), 2)
-        self.assertIn(LabelTime(40, 50), stop_2_pareto_tuples)
-        self.assertIn(LabelTime(25, 35), stop_2_pareto_tuples)
+        self.assertIn(LabelTime(40., 50.), stop_2_pareto_tuples)
+        self.assertIn(LabelTime(25., 35.), stop_2_pareto_tuples)
 
         source_stop_profile = csa_profile.stop_profiles[1]
         source_stop_pareto_optimal_tuples = source_stop_profile.get_final_optimal_labels()
