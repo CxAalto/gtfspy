@@ -675,3 +675,48 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         for stop, profile in csa_profile.stop_profiles.items():
             if stop == target_stop:
                 self.assertEqual(len(profile.get_final_optimal_labels()), 0)
+
+    def test_journeys_using_movement_duration(self):
+        def unpack_route_from_labels(cur_label):
+            route = []
+            last_arrival_stop = None
+            while True:
+                connection = cur_label.connection
+                if isinstance(connection, Connection):
+                    route.append(connection.departure_stop)
+
+                if not cur_label.previous_label:
+                    break
+                cur_label = cur_label.previous_label
+                if isinstance(connection, Connection):
+                    last_arrival_stop = connection.arrival_stop
+            route.append(last_arrival_stop)
+            return route
+
+        event_list_raw_data = [
+            (1, 2, 0, 10, "trip_1"),
+            (2, 3, 10, 20, "trip_1"),
+            (4, 5, 30, 40, "trip_2"),
+
+        ]
+        transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
+        walk_network = networkx.Graph()
+        walk_network.add_edge(2, 4, {"d_walk": 10})
+        walk_network.add_edge(3, 4, {"d_walk": 10})
+        walk_speed = 1
+        target_stop = 5
+        transfer_margin = 0
+        start_time = 0
+        end_time = 50
+
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      walk_network, walk_speed, track_vehicle_legs=True,
+                                                      track_time=True, track_route=True)
+        csa_profile.run()
+        for stop, profile in csa_profile.stop_profiles.items():
+            for label in profile.get_final_optimal_labels():
+                if stop == 1:
+                    assert 3 not in unpack_route_from_labels(label)
+                # print('origin:', stop, 'n_boardings:', label.n_boardings, 'route:', unpack_route_from_labels(label))
+

@@ -155,7 +155,7 @@ class NodeProfileMultiObjective:
         walk_labels = list()
         # walk label towards target
         if first_leg_can_be_walk and self._walk_to_target_duration != float('inf'):
-            # add walk_labe l
+            # add walk_label
             if connection_arrival_time is not None:
                 walk_labels.append(self._get_label_to_target(connection_arrival_time))
             else:

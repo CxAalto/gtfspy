@@ -219,7 +219,7 @@ class JourneyDataAnalyzer:
 
     @timeit
     def get_transfer_stops(self, group_by_routes=False):
-        query = 'SELECT to_stop_I AS stop_I, lat, lon, count(*) AS n_trips  FROM ' \
+        query = 'SELECT to_stop_I AS stop_I, lat, lon, count(*) AS n_journeys  FROM ' \
                 '(SELECT journey_id, to_stop_I, trip_I FROM connections) c1, ' \
                 '(SELECT journey_id, from_stop_I, trip_I FROM connections) c2, ' \
                 '(SELECT stop_I, lat, lon FROM gtfs.stops) gtfs ' \
@@ -238,7 +238,7 @@ class JourneyDataAnalyzer:
     def get_transfer_walks(self, group_by_routes=False):
         query = 'SELECT c2.from_stop_I AS from_stop_I, c2.to_stop_I AS to_stop_I, ' \
                 'gtfs1.lat AS from_lat, gtfs1.lon AS from_lon, gtfs2.lat AS to_lat, gtfs2.lon AS to_lon, ' \
-                'count(*) AS n_trips  ' \
+                'count(*) AS n_journeys  ' \
                 'FROM ' \
                 '(SELECT journey_id, to_stop_I, trip_I FROM connections) c1, ' \
                 '(SELECT journey_id, from_stop_I, to_stop_I, trip_I FROM connections) c2, ' \

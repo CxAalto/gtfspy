@@ -267,11 +267,30 @@ class JourneyDataManager:
     def add_time_to_prev_journey_fp_column(self):
         cur = self.conn.cursor()
         cur.execute('SELECT journey_id, from_stop_I, to_stop_I, dep_time FROM journeys '
+                    'WHERE fastest_path = 1 '
                     'ORDER BY from_stop_I, to_stop_I, dep_time ')
 
         all_trips = cur.fetchall()
+        time_to_prev_journey = []
+        prev_dep_time = None
+        prev_origin = None
+        prev_destination = None
         for trip in all_trips:
-            
+            journey_id = trip[0]
+            from_stop_I = trip[1]
+            to_stop_I = trip[2]
+            dep_time = trip[3]
+            if prev_origin != from_stop_I or prev_destination != to_stop_I:
+                prev_dep_time = None
+            if prev_dep_time:
+                time_to_prev_journey.append((dep_time - prev_dep_time, journey_id))
+            prev_origin = from_stop_I
+            prev_destination = to_stop_I
+            prev_dep_time = dep_time
+        cur.executemany("UPDATE journeys SET time_to_prev_journey_fp = ? WHERE journey_id = ?", time_to_prev_journey)
+        self.conn.commit()
+
+
 """
 
     def add_fastest_path_column(self):

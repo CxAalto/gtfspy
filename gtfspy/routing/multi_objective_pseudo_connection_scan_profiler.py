@@ -221,7 +221,6 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                                                             first_leg_can_be_walk=not connection.is_walk,
                                                             connection_arrival_time=connection.arrival_time)
 
-
         increment_vehicle_count = (self._count_vehicle_legs and not connection.is_walk)
         # TODO: (?) this copying / modification logic should be moved to the Label / ForwardJourney class ?
         arrival_node_labels_modified = self._copy_and_modify_labels(
@@ -231,7 +230,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             first_leg_is_walk=connection.is_walk
         )
         if connection.is_walk:
-            connection.is_walk =True
+            connection.is_walk = True
         arrival_node_labels_modified = compute_pareto_front(arrival_node_labels_modified)
         return arrival_node_labels_modified
 
@@ -336,6 +335,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
         for label in labels_copy:
             label.departure_time = connection.departure_time
+            label.movement_duration += connection.arrival_time - connection.departure_time
             if increment_vehicle_count:
                 label.n_boardings += 1
             label.first_leg_is_walk = first_leg_is_walk
