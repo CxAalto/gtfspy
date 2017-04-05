@@ -335,7 +335,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
         for label in labels_copy:
             label.departure_time = connection.departure_time
-            label.movement_duration += connection.arrival_time - connection.departure_time
+            if self._label_class == LabelTimeBoardingsAndRoute:
+                label.movement_duration += connection.arrival_time - connection.departure_time
             if increment_vehicle_count:
                 label.n_boardings += 1
             label.first_leg_is_walk = first_leg_is_walk

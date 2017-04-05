@@ -2,8 +2,7 @@
 # -*- encoding: utf-8 -*-
 import pandas as pd
 from six import string_types
-from timetable_validator import WarningsContainer
-
+from gtfspy.timetable_validator import WarningsContainer
 from gtfspy.gtfs import GTFS
 from gtfspy.util import str_time_to_day_seconds
 from gtfspy.util import txt_to_pandas
@@ -174,18 +173,23 @@ class ImportValidator(object):
 
             for gtfs_source in self.gtfs_sources:
                 frequencies_in_source = txt_to_pandas(gtfs_source, u'frequencies.txt')
-                try:
-                    if txt == 'trips' and not frequencies_in_source.empty:
-                        row_count[txt] += self._frequency_generated_trips(gtfs_source, txt)
+                if frequencies_in_source:
+                    frequencies_in_source = frequencies_in_source.empty
+                else:
+                    frequencies_in_source = None
+                print(frequencies_in_source)
+                #try:
+                if txt == 'trips' and not frequencies_in_source:
+                    row_count[txt] += self._frequency_generated_trips(gtfs_source, txt)
 
-                    elif txt == 'stop_times' and not frequencies_in_source.empty:
-                        row_count[txt] += self._frequency_generated_stop_times(gtfs_source, txt)
+                elif txt == 'stop_times' and not frequencies_in_source:
+                    row_count[txt] += self._frequency_generated_stop_times(gtfs_source, txt)
 
-                    else:
-                        df = txt_to_pandas(gtfs_source, txt)
+                else:
+                    df = txt_to_pandas(gtfs_source, txt)
 
-                        row_count[txt] += len(df.index)
-                except (IOError):
+                    row_count[txt] += len(df.index)
+                #except (IOError, AttributeError):
                     pass
 
             # Result from GTFSobj:

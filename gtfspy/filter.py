@@ -158,7 +158,7 @@ class FilterExtract(object):
                 param_dict = {"start_ut": str(start_date_ut),
                               "end_ut": str(end_date_ut)}
                 if True and table == "days":
-                    query = "SELECT FROM " + table + " " + \
+                    query = "SELECT * FROM " + table + " " + \
                             query_template.format(**param_dict)
 
                     self.gtfs.execute_custom_query_pandas(query)
