@@ -6,7 +6,7 @@
 
 ``gtfspy`` is a Python package for working with public transport timetable data provided in the [General Transit Feeds Specification](https://developers.google.com/transit/gtfs/) (GTFS) format.
 
-### Core features:
+## Core features:
 * Import one or multiple GTFS feeds into a [SQLite](https://www.sqlite.org/) database.
 * Update this sqlite database using Open Street Map (OSM) data.
 * Compute summary statistics
@@ -15,21 +15,21 @@
     - Routing implementation [Connection Scan Algorithm](http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf) (CSA).
     - Used for computing travel times and transfers between origin-destination pairs
 
-### Prerequisites
+## Prerequisites
 * [Python 3.5 (or above)](https://www.python.org/)
-* Supported platforms: Linux + OSX (Windows is currently not supported, please create an issue in Github if you would like gtfspy to support Windows)
-* Optional: [git](https://git-scm.com/) used for development
+* Supported platforms: Linux + OSX (Windows is currently not supported, please creat an issue in Github if you would be interested in running ``gtfspy`` on Windows)
+* Optional: [git](https://git-scm.com/) is used for development.
 
 
-### Installation
+## Install
 
 ```
-pip install gtfspy # Should work with Python 3.5
+pip install --process-dependency-links gtfspy
 ```
 
-### Development quickstart
+## Development quickstart
 
-Only use this if you want to be able to edit the source code of this repository.
+Only use this if you want to be able to edit ``gtfspy``'s source code.
 
 ```
 git clone git@github.com:CxAalto/gtfspy.git
@@ -38,10 +38,9 @@ pip install -r requirements.txt # install any requirements
 nosetests . # run tests
 ```
 
-Then adjust your ``PYTHONPATH`` environment variables accordingly.
+Remember to also add the ``gtfspy`` directory to your ``PYTHONPATH`` environment variable.
 
-
-## Simple use case examples
+## Examples
 - [Importing a GTFS feed into a sqlite database](examples/example_import.py)
 - [Validating an imported feed TODO!](examples/example_validation.py)
 - [Computing and plotting temporal distance profiles between an origin--destination pair](examples/example_temporal_distance_profile.py)
@@ -51,22 +50,21 @@ Then adjust your ``PYTHONPATH`` environment variables accordingly.
 - [TODO! Running a simple accessibility analysis pipeline!](examples/example_accessibility_analysis.py)
 
 
-
 ## Contributing
 
-We welcome contributions through standard GitHub pull requests.
-In your pull request, please add yourself as a contributor in the list below.
-
+We welcome contributions as GitHub pull requests.
+In your pull request, please also add yourself as a contributor in the list below.
 
 ## Versioning
+
 
 ## Authors
 
 ### Package maintainers
-* **Rainer Kujala** (Rainer.Kujala@gmail.com, @rmkujala) - *Initial work*
-* **Richard Darst** - *Initial work*
-* **Christoffer Weckström** - *Work*
-* **Nils Haglund**
+* Rainer Kujala (Rainer.Kujala@gmail.com, rmkujala)
+* Richard Darst
+* Christoffer Weckström
+* Nils Haglund
 
 ### Other contributors
 * You?
@@ -74,30 +72,25 @@ In your pull request, please add yourself as a contributor in the list below.
 
 ## Licenses
 
-### Actual code
+### Code
 This source code of this project licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
 
-### Example data
-Note that the OpenStreetMap data (.osm.pbf file(s) under examples/data) is licenced under the [Open Data Commons Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL) by the [OpenStreetMap Foundation](http://osmfoundation.org/) (OSMF).
+### Data
+The OpenStreetMap data (.osm.pbf file(s) under examples/data) is licenced under the [Open Data Commons Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL) by the [OpenStreetMap Foundation](http://osmfoundation.org/) (OSMF).
 
 The GTFS data used for the examples is provided by the City of Kuopio (Finland), and have been downloaded from [http://bussit.kuopio.fi/gtfs/gtfs.zip](http://bussit.kuopio.fi/gtfs/gtfs.zip) [data licensed [under CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed)].
 
 
 ## Usage for scientific purposes
+
 If you use this code for scientific purposes, please cite our paper [TO BE ANNOUNCED].
+
 
 ## Acknowledgments
 
-* Hat tip to anyone who's code was used.
-* Inspiration
-* Libraries used.
+* The development of this Python package has benefited from the support by Academy of Finland through the DeCoNet project.
+
 
 ## See also
 
-Code used together with gtfspy: (https://github.com/rmkujala/ptn_temporal_distances)
-
-## To run unit tests:
-```
-nosetests .
-```
-
+Code using (an older version of) ``gtfspy``: (https://github.com/rmkujala/ptn_temporal_distances)
