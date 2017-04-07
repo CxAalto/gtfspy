@@ -1,7 +1,7 @@
 # gtfspy  
 
 [![Gtfspy-master Travis CI build passing](https://api.travis-ci.org/CxAalto/gtfspy.svg?branch=master)](https://travis-ci.org/CxAalto/gtfspy)
-[![PyPI badge](https://d25lcipzij17d.cloudfront.net/badge.svg?id=py&type=6&v=0.0.1.dev2&x2=0)](https://pypi.python.org/pypi/gtfspy/)
+[![PyPI badge](https://badge.fury.io/py/gtfspy.svg)](https://pypi.python.org/pypi/gtfspy/)
 
 
 ``gtfspy`` is a Python package for working with public transport timetable data provided in the [General Transit Feeds Specification](https://developers.google.com/transit/gtfs/) (GTFS) format.
@@ -17,7 +17,7 @@
 
 ### Prerequisites
 * [Python 3.5 (or above)](https://www.python.org/)
-* Supported platforms: Linux + OSX (Windows currently not working, we welcome contributions and suggestions! :) )
+* Supported platforms: Linux + OSX (Windows is currently not supported, please create an issue in Github if you would like gtfspy to support Windows)
 * Optional: [git](https://git-scm.com/) used for development
 
 

@@ -12,3 +12,8 @@ notifications:
       - christoffer.weckstrom@aalto.fi
     on_success: never # default: change
     on_failure: always # default: always
+  webhooks:
+    urls:
+      secure: "GpKBHZujvbbAh/JRNvNxMVd9Pme6U4SU/dmx1iRiBLQKeT5NZ9lCcE2102sm7H7h3kt5PHt4Igz3Uc5OK6843M4kbqqr/aOaiz1i1HdU8ORd7x9OLog8amKwoAS+pGCCXY3TqX1wBQ+3ripQKox9WcL2KpelsY2APr4aaffiB0Y5xymgVVH+LToNdklzsii7hjujGohhOMYG6hARXwUBDklJpH+0gD4JORT/xDYo2JdGPaZa25fG2qa/ptpB90M05d6FQxt7B4hiUxhUET3/DTfs8sPBqFLtpvuMjmQbWQ73IMXI3UOZe+S9U02XBg8ex5AsQffik9pW7K/ehUbwdNXf1ejuhq5FTxbTNrQ6TByHZYJUmBsGwyqYyKUQY2mVl5QEnsm4ocO9F8R+AZ64L70Gq/c4UaEvYCmADwThfPvXe4DTTPpplNgcEiyH36X3NGl3NTX/1KEnWlFlXWkPjAKxybv7UgoxXhwij/P+0Z+G023GEJsj8fzkADo0yIE51cCG/v1ywjO1TevLAvYYaLvVm3WqLDMDjHkTlLOZPdRex3IWQ33BBAqjjjF93kIh+iQA8r5txX2krmybSfpFuC7NJogR3/0uP24eBPZ3UunfUg8oRVvNR0U7uj27Lrz4YBHa8fhgYSQF5R7eMX89fis3Sx5qSUqcISxvkdbwwtA="
+    on_success: change # default: always
+    on_failure: always # default: always
