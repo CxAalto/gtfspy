@@ -13,10 +13,10 @@ from gtfspy import stats
 from gtfspy import gtfs
 
 
-
 class FilterExtract(object):
+
     def __init__(self,
-                 gtfs,
+                 G,
                  copy_db_path,
                  buffer_distance=None,
                  buffer_lat=None,
@@ -28,9 +28,11 @@ class FilterExtract(object):
                  agency_distance=None):
         """
         Copy a database, and then based on various filters.
-        Only copy_and_filter method is provided as of now because we do not want to take the risk of
-        losing any data of the original databases.
+        Only method `create_filtered_copy` is provided as we do not want to take the risk of
+        losing the data stored in the original database.
 
+        G: gtfspy.gtfs.GTFS
+            the original database
         copy_db_path : str
             path to another database database
         update_metadata : boolean, optional
@@ -86,7 +88,7 @@ class FilterExtract(object):
         self.end_date = end_date
 
         self.agency_ids_to_preserve = agency_ids_to_preserve
-        self.gtfs = gtfs
+        self.gtfs = G
         self.buffer_lat = buffer_lat
         self.buffer_lon = buffer_lon
         self.buffer_distance = buffer_distance
@@ -101,7 +103,7 @@ class FilterExtract(object):
             "the directory where the copied database will reside should exist beforehand"
         assert not os.path.exists(copy_db_path), "the resulting database exists already: %s" % copy_db_path
 
-    def filter_extract(self):
+    def create_filtered_copy(self):
         # this with statement
         # is used to ensure that no corrupted/uncompleted files get created in case of problems
         with util.create_file(self.copy_db_path) as tempfile:

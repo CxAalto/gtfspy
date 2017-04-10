@@ -1,6 +1,3 @@
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import calendar
 import datetime
 import logging
@@ -9,6 +6,7 @@ import sqlite3
 import sys
 import time
 from collections import Counter, defaultdict
+from datetime import timedelta
 
 import numpy
 import pandas as pd
@@ -20,15 +18,11 @@ from gtfspy.route_types import ALL_ROUTE_TYPES
 from gtfspy.route_types import WALK
 from gtfspy.util import wgs84_distance
 
-# py2/3 compatibility (copied from six)
-if sys.version_info[0] == 3:
-    binary_type = bytes
-else:
-    binary_type = str
 
 if sys.getdefaultencoding() != 'utf-8':
     reload(sys)
     sys.setdefaultencoding('utf-8')
+
 
 class GTFS(object):
 
@@ -59,6 +53,7 @@ class GTFS(object):
 
         assert self.conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchone() is not None
         self.meta = GTFSMetadata(self.conn)
+
         # Bind functions
         self.conn.create_function("find_distance", 4, wgs84_distance)
 
@@ -624,51 +619,9 @@ class GTFS(object):
         # check that all date_strings are included (move this to tests?)
         for date_string in trip_counts_per_day.index:
             assert date_string in date_strings
-        data = {"date_str": date_strings, "trip_counts": trip_counts}
+        data = {"date": dates, "date_str": date_strings, "trip_counts": trip_counts}
         return pd.DataFrame(data)
 
-        # Remove these pieces of code when this function has been tested:
-        #
-        # (RK) not sure if this works or not:
-        # def localized_datetime_to_ut_seconds(self, loc_dt):
-        #     utcoffset = loc_dt.utcoffset()
-        #     print utcoffset
-        #     utc_naive  = loc_dt.replace(tzinfo=None) - utcoffset
-        #     timestamp = (utc_naive - datetime.datetime(1970, 1, 1)).total_seconds()
-        #     return timestamp
-
-        # def
-        # query = "SELECT day_start_ut, count(*) AS number_of_trips FROM day_trips GROUP BY day_start_ut"
-        # trip_counts_per_day = pd.read_sql_query(query, self.conn, index_col="day_start_ut")
-        # min_day_start_ut = trip_counts_per_day.index.min()
-        # max_day_start_ut = trip_counts_per_day.index.max()
-        # spacing = 24*3600
-        # # day_start_ut is noon - 12 hours (to cover for daylight saving time changes)
-        # min_date_noon = self.ut_seconds_to_gtfs_datetime(min_day_start_ut)+datetime.timedelta(hours=12)
-        # max_date_noon = self.ut_seconds_to_gtfs_datetime(max_day_start_ut)+datetime.timedelta(hours=12)
-        # num_days = (max_date_noon-min_date_noon).days
-        # print min_date_noon, max_date_noon
-        # dates_noon = [min_date_noon + datetime.timedelta(days=x) for x in range(0, num_days+1)]
-        # day_noon_uts = [int(self.localized_datetime_to_ut_seconds(date)) for date in dates_noon]
-        # day_start_uts = [dnu-12*3600 for dnu in day_noon_uts]
-        # print day_start_uts
-        # print list(trip_counts_per_day.index.values)
-
-        # assert max_day_start_ut == day_start_uts[-1]
-        # assert min_day_start_ut == day_start_uts[0]
-
-        # trip_counts = []
-        # for dsut in day_start_uts:
-        #     try:
-        #         value = trip_counts_per_day.loc[dsut, 'number_of_trips']
-        #     except KeyError as e:
-        #         # set value to 0 if dsut is not present, i.e. when no trips
-        #         # take place on that day
-        #         value = 0
-        #     trip_counts.append(value)
-        # for dsut in trip_counts_per_day.index:
-        #     assert dsut in day_start_uts
-        # return {"day_start_uts": day_start_uts, "trip_counts":trip_counts}
 
     def get_suitable_date_for_daily_extract(self, date=None, ut=False):
         """
@@ -684,7 +637,6 @@ class GTFS(object):
         Iterates trough the available dates forward and backward from the download date accepting the first day that has
         at least 90 percent of the number of trips of the maximum date. The condition can be changed to something else.
         If the download date is out of range, the process will look through the dates from first to last.
-
         """
         daily_trips = self.get_trip_counts_per_day()
         max_daily_trips = daily_trips[u'trip_counts'].max(axis=0)
@@ -699,6 +651,28 @@ class GTFS(object):
                     return self.get_day_start_ut(row.date_str)
                 else:
                     return row.date_str
+
+    def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9):
+        daily_trips = self.get_trip_counts_per_day()
+        download_date_str = self.meta['download_date']
+        if download_date_str == "":
+            raise RuntimeError("Download date is not speficied. Cannot find a suitable start date for week extract")
+        download_date = datetime.datetime.strptime(download_date_str, "%Y-%m-%d")
+        max_trip_count = daily_trips['trip_counts'].max()
+        threshold = weekdays_at_least_of_max * max_trip_count
+        threshold_fulfilling_days = daily_trips['trip_counts'] > threshold
+
+        next_monday = download_date + timedelta(days=(7 - download_date.weekday()))
+        monday_index = daily_trips[daily_trips['date'] == next_monday].index[0]
+        while len(daily_trips.index) >= monday_index + 7:
+            if all(threshold_fulfilling_days[monday_index:monday_index + 5]):
+                row = daily_trips.iloc[monday_index]
+                if ut:
+                    return self.get_day_start_ut(row.date_str)
+                else:
+                    return row['date']
+            monday_index += 7
+        raise RuntimeError("No suitable date could be found!")
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
@@ -806,7 +780,7 @@ class GTFS(object):
         cur = self.conn.cursor()
         results = cur.execute("SELECT name, type FROM routes WHERE route_I=(?)", (route_I,))
         name, rtype = results.fetchone()
-        return unicode(name), int(rtype)
+        return name, int(rtype)
 
     def get_trip_stop_coordinates(self, trip_I):
         """
@@ -1356,7 +1330,7 @@ class GTFS(object):
         self.meta.update(stats)
         self.meta['stats_calc_at_ut'] = time.time()
 
-    def get_conservative_gtfs_time_span_in_ut(self):
+    def get_approximate_schedule_time_span_in_ut(self):
         """
         Return conservative estimates of start_time_ut and end_time_uts.
         All trips, events etc. should start after start_time_ut_conservative and end before end_time_ut_conservative
@@ -1443,7 +1417,7 @@ class GTFSMetadata(object):
 
     def __setitem__(self, key, value):
         """Get metadata from the DB"""
-        if isinstance(value, binary_type):
+        if isinstance(value, bytes):
             value = value.decode('utf-8')
         self._conn.execute('INSERT OR REPLACE INTO metadata '
                            '(key, value) VALUES (?, ?)',

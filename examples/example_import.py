@@ -5,7 +5,7 @@ from gtfspy import gtfs
 from gtfspy import osm_transfers
 
 
-def load_or_import_gtfs(verbose=False):
+def load_or_import_example_gtfs(verbose=False):
     imported_database_path = "test_db_kuopio.sqlite"
     if not os.path.exists(imported_database_path):  # reimport only if the imported database does not already exist
         print("Importing gtfs zip file")
@@ -16,6 +16,8 @@ def load_or_import_gtfs(verbose=False):
 
         # Not this is an optional step, which is not necessary for many things.
         print("Computing walking paths using OSM")
+        G = gtfs.GTFS(imported_database_path)
+        G.meta['download_date'] = "2017-03-15"
 
         osm_path = "data/kuopio_extract_mapzen_2017_03_15.osm.pbf"
 
@@ -33,10 +35,10 @@ def load_or_import_gtfs(verbose=False):
 
     if verbose:
         print("Location name:" + G.get_location_name())  # should print Kuopio
-        print("Time span of the data in unixtime: " + str(G.get_conservative_gtfs_time_span_in_ut()))
+        print("Time span of the data in unixtime: " + str(G.get_approximate_schedule_time_span_in_ut()))
         # prints the time span in unix time
     return G
 
 
 if __name__ == "__main__":
-    load_or_import_gtfs(verbose=True)
+    load_or_import_example_gtfs(verbose=True)

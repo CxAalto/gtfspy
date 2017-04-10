@@ -30,6 +30,7 @@ ALL_WARNINGS = {
     WARNING_STOP_SEQUENCE_ERROR
 }
 
+
 class TimetableValidator(object):
 
     def __init__(self, gtfs):
@@ -62,7 +63,9 @@ class TimetableValidator(object):
         self._validate_stop_sequence()
         self.warnings_container.print_summary()
         return self.warnings_container
-# TODO: check for missplaced stops in the filtered feed, by checking outside a buffer + x distance. (Routes going outside are okay if they return inside the buffer)
+
+    # TODO: check for misplaced stops in the filtered feed, by checking outside a buffer + x distance. (Routes going outside are okay if they return inside the buffer)
+
     def _validate_stops_with_same_stop_time(self):
         n_stops_with_same_time = 5
         # this query returns the trips where there are N or more stops with the same stop time
