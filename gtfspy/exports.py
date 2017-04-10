@@ -144,7 +144,6 @@ def write_gtfs(gtfs, output):
     else:
         zip = False
         out_basepath = output
-        raise IOError(out_basepath + " does not exist, cannot write gtfs as a zip")
         tmp_dir = os.path.join(out_basepath + "_" + str(uuid_str))
 
     os.makedirs(tmp_dir, exist_ok=True)
