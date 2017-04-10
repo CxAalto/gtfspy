@@ -210,21 +210,29 @@ class ExportsTest(unittest.TestCase):
 
     def test_write_gtfs(self):
         # A simple import-output-import test"
-        from gtfspy.import_gtfs import import_gtfs
-        UUID = "36167f3012fe11e793ae92361f002671"
-        sqlite_fname = "test.sqlite"
-        test_output_dir = "./test_output_dir_" + UUID
-        try:
-            shutil.rmtree(test_output_dir)
-        except FileNotFoundError:
-            pass
-        os.mkdir(test_output_dir)
-        try:
-            assert(os.path.exists(test_output_dir))
-            exports.write_gtfs(self.gtfs, test_output_dir, stop_distances=False)
-            G = import_gtfs(test_output_dir, os.path.join(test_output_dir, sqlite_fname))
-        finally:
-            shutil.rmtree(test_output_dir)
+        for ending in ["", ".zip"]:
+            from gtfspy.import_gtfs import import_gtfs
+            UUID = "36167f3012fe11e793ae92361f002671"
+            sqlite_fname = "test_" + UUID + ".sqlite"
+            test_output_dir = "./test_output_dir_" + UUID
+            try:
+                shutil.rmtree(test_output_dir)
+            except FileNotFoundError:
+                pass
+
+            try:
+                exports.write_gtfs(self.gtfs, test_output_dir + ending)
+                self.assertTrue(os.path.exists(test_output_dir + ending))
+                try:
+                    G = import_gtfs(test_output_dir + ending, os.path.join(sqlite_fname))
+                    self.assertTrue(os.path.exists(sqlite_fname))
+                finally:
+                    os.remove(sqlite_fname)
+            finally:
+                if ending == "":
+                    shutil.rmtree(test_output_dir + ending)
+                else:
+                    os.remove(test_output_dir + ending)
 
 
     # def test_clustered_stops_network(self):

@@ -1,4 +1,6 @@
 import os
+import shutil
+import uuid
 
 import networkx
 import pandas
@@ -9,30 +11,26 @@ from gtfspy.networks import stop_to_stop_networks_by_type, temporal_network, \
     combined_stop_to_stop_transit_network
 
 
-def write_walk_transfer_edges(gtfs, output):
-    """
-    Note: either @param:gtfs, or @param:net must be specified.
 
+
+def write_walk_transfer_edges(gtfs, output_file_name):
+    """
     Parameters
     ----------
     gtfs: gtfspy.GTFS
-        Not used if @param:net is given
-    output: str
+    output_file_name: str
     """
     transfers = gtfs.get_table("stop_distances")
     transfers.drop([u"min_transfer_time", u"timed_transfer"], 1, inplace=True)
-    with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
+    with util.create_file(output_file_name, tmpdir=True, keepext=True) as tmpfile:
         transfers.to_csv(tmpfile, encoding='utf-8', index=False)
 
 
 def write_nodes(gtfs, output):
     """
-    Note: either @param:gtfs, or @param:net must be specified.
-
     Parameters
     ----------
     gtfs: gtfspy.GTFS
-        Not used if @param:net is given
     output: str
         Path to the output file
     """
@@ -119,27 +117,37 @@ def _write_stop_to_stop_network(net, base_name, data=True):
         networkx.write_edgelist(net, base_name + ".edg")
 
 
-def write_gtfs(gtfs, output_directory, stop_distances=False):
+def write_gtfs(gtfs, output):
     """
     Write out the database according to the GTFS format.
 
     Parameters
     ----------
     gtfs: gtfspy.GTFS
-    output_directory: str
-    stop_distances : bool, optional
-        Whether or not to write out a separate stop_distances table
+    output: str
+        Path where to put the GTFS files
+        if output ends with ".zip" a ZIP-file is created instead.
 
     Returns
     -------
     None
-
-    Raises
-    ------
-    IOError
-        If output_direcetory does not exist.
     """
-    os.makedirs(output_directory, exist_ok=True)
+    output = os.path.abspath(output)
+    uuid_str = "tmp_" + str(uuid.uuid1())
+    if output[-4:] == '.zip':
+        zip = True
+        out_basepath = os.path.dirname(os.path.abspath(output))
+        if not os.path.exists(out_basepath):
+            raise IOError(out_basepath + " does not exist, cannot write gtfs as a zip")
+        tmp_dir = os.path.join(out_basepath, str(uuid_str))
+        # zip_file_na,e = ../out_basedir + ".zip
+    else:
+        zip = False
+        out_basepath = output
+        raise IOError(out_basepath + " does not exist, cannot write gtfs as a zip")
+        tmp_dir = os.path.join(out_basepath + "_" + str(uuid_str))
+
+    os.makedirs(tmp_dir, exist_ok=True)
 
     gtfs_table_to_writer = {
         "agency": _write_gtfs_agencies,
@@ -156,11 +164,19 @@ def write_gtfs(gtfs, output_directory, stop_distances=False):
         "transfers": _write_gtfs_transfers,
         "trips": _write_gtfs_trips,
     }
-    if stop_distances:
-        gtfs_table_to_writer["stop_distances"] = _write_gtfs_stop_distances
 
     for table, writer in gtfs_table_to_writer.items():
-        writer(gtfs, open(os.path.join(output_directory, table + '.txt'), 'w'))
+        fname_to_write = os.path.join(tmp_dir, table + '.txt')
+        print(fname_to_write)
+        writer(gtfs, open(os.path.join(tmp_dir, table + '.txt'), 'w'))
+
+    if zip:
+        shutil.make_archive(output[:-4], 'zip', tmp_dir)
+        shutil.rmtree(tmp_dir)
+    else:
+        print("moving " + str(tmp_dir) + " to " + out_basepath)
+        os.rename(tmp_dir, out_basepath)
+
 
 
 def _remove_I_columns(df):
