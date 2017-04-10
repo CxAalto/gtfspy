@@ -24,7 +24,7 @@
 ## Install
 
 ```
-pip install --process-dependency-links gtfspy
+pip install gtfspy
 ```
 
 ## Development quickstart
