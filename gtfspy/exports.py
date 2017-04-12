@@ -11,8 +11,6 @@ from gtfspy.networks import stop_to_stop_networks_by_type, temporal_network, \
     combined_stop_to_stop_transit_network
 
 
-
-
 def write_walk_transfer_edges(gtfs, output_file_name):
     """
     Parameters
@@ -26,45 +24,59 @@ def write_walk_transfer_edges(gtfs, output_file_name):
         transfers.to_csv(tmpfile, encoding='utf-8', index=False)
 
 
-def write_nodes(gtfs, output):
+def write_nodes(gtfs, output, fields=None):
     """
     Parameters
     ----------
     gtfs: gtfspy.GTFS
     output: str
         Path to the output file
+    fields: list, optional
+        which pieces of information to provide
     """
     nodes = gtfs.get_table("stops")
+    if fields is not None:
+        nodes = nodes[fields]
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
-        nodes.to_csv(tmpfile, encoding='utf-8', index=False)
+        nodes.to_csv(tmpfile, encoding='utf-8', index=False, sep=";")
 
 
-def write_combined_transit_stop_to_stop_network(gtfs, extract_output_dir):
+def write_combined_transit_stop_to_stop_network(gtfs, extract_output_dir, fmt=None):
     """
     Parameters
     ----------
     gtfs : gtfspy.GTFS
     extract_output_dir : str
-    """
+    fmt: None, optional
+        defaulting to "edg" and writing results as ".edg" files
+         If "csv" csv files are produced instead    """
+    if fmt is None:
+        fmt = "edg"
     multi_di_graph = combined_stop_to_stop_transit_network(gtfs)
     util.makedirs(extract_output_dir)
-    _write_stop_to_stop_network(multi_di_graph, os.path.join(extract_output_dir, "combined"))
+    _write_stop_to_stop_network_edges(multi_di_graph, os.path.join(extract_output_dir, "network_combined." + fmt), fmt=fmt)
 
 
-def write_stop_to_stop_networks(gtfs, output_dir):
+def write_static_networks(gtfs, output_dir, fmt=None):
     """
     Parameters
     ----------
     gtfs: gtfspy.GTFS
     output_dir: (str, unicode)
         a path where to write
+    fmt: None, optional
+        defaulting to "edg" and writing results as ".edg" files
+         If "csv" csv files are produced instead
     """
+    if fmt is None:
+        fmt = "edg"
     single_layer_networks = stop_to_stop_networks_by_type(gtfs)
     util.makedirs(output_dir)
     for route_type, net in single_layer_networks.items():
         tag = route_types.ROUTE_TYPE_TO_LOWERCASE_TAG[route_type]
-        base_name = os.path.join(output_dir, tag)
-        _write_stop_to_stop_network(net, base_name)
+        file_name = os.path.join(output_dir, "network_" + tag + "." + fmt)
+        if len(net.edges()) > 0:
+            _write_stop_to_stop_network_edges(net, file_name, fmt=fmt)
 
 
 def write_temporal_networks_by_route_type(gtfs, extract_output_dir):
@@ -101,7 +113,7 @@ def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_u
     pandas_data_frame.to_csv(output_filename, encoding='utf-8', index=False)
 
 
-def _write_stop_to_stop_network(net, base_name, data=True):
+def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
     """
     Write out a network
 
@@ -110,11 +122,33 @@ def _write_stop_to_stop_network(net, base_name, data=True):
     net: networkx.DiGraph
     base_name: str
         path to the filename (without extension)
+    data: bool, optional
+        whether or not to write out any edge data present
+    fmt: str, optional
+        If "csv" write out the network in csv format.
     """
-    if data:
-        networkx.write_edgelist(net, base_name + "_with_data.edg", data=True)
-    else:
-        networkx.write_edgelist(net, base_name + ".edg")
+    if fmt is None:
+        fmt = "edg"
+
+    if fmt == "edg":
+        if data:
+            networkx.write_edgelist(net, file_name, data=True)
+        else:
+            networkx.write_edgelist(net, file_name)
+    elif fmt == "csv":
+        with open(file_name, 'w') as f:
+            # writing out the header
+            edge_iter = net.edges_iter(data=True)
+            _, _, edg_data = next(edge_iter)
+            edg_data_keys = list(edg_data.keys())
+            header = ";".join(["from_stop_I", "to_stop_I"] + edg_data_keys)
+            f.write(header)
+            for from_node_I, to_node_I, data in net.edges_iter(data=True):
+                f.write("\n")
+                values = [str(from_node_I), str(to_node_I)]
+                data_values = [str(data[key]) for key in edg_data_keys]
+                all_values = values + data_values
+                f.write(";".join(all_values))
 
 
 def write_gtfs(gtfs, output):
@@ -347,8 +381,10 @@ def _write_gtfs_shapes(gtfs, ouput_file):
 def _write_gtfs_feed_info(gtfs, output_file):
     gtfs.get_table('feed_info').to_csv(output_file, index=False)
 
+
 def _write_gtfs_frequencies(gtfs, output_file):
     raise NotImplementedError("Frequencies should not be outputted from GTFS as they are included in other tables.")
+
 
 def _write_gtfs_transfers(gtfs, output_file):
     transfers_table = gtfs.get_table('transfers')
@@ -366,6 +402,7 @@ def _write_gtfs_stop_distances(gtfs, output_file):
     del stop_distances['min_transfer_time']
     del stop_distances['timed_transfer']
     stop_distances.to_csv(output_file, index=False)
+
 
 # for row in stop_times_table.itertuples():
 #     dep_time = gtfs.unixtime_seconds_to_gtfs_datetime(row.dep_time_ds).strftime('%H:%M%S')

@@ -40,22 +40,23 @@ class ExportsTest(unittest.TestCase):
         self.assertGreater(len(walk_net.nodes()), 0)
         self.assertGreater(len(walk_net.edges()), 1)
         for form_node, to_node, data_dict in walk_net.edges(data=True):
-            self.assertIn("d_walk", data_dict)
-            self.assertGreater(data_dict["d_walk"], 0)
+            self.assertIn("d", data_dict)
+            self.assertGreaterEqual(data_dict["d"], 0)
         threshold = 670
         walk_net = networks.walk_transfer_stop_to_stop_network(self.gtfs, max_link_distance=threshold)
         self.assertEqual(len(walk_net.edges()), 2)
         for form_node, to_node, data_dict in walk_net.edges(data=True):
-            self.assertLess(data_dict['d_walk'], threshold)
+            self.assertLess(data_dict['d'], threshold)
 
     def test_write_stop_to_stop_networks(self):
-        exports.write_stop_to_stop_networks(self.gtfs, self.extract_output_dir)
-        self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "walk_with_data.edg")))
-        self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "bus_with_data.edg")))
+        exports.write_static_networks(self.gtfs, self.extract_output_dir)
+        self.assertTrue(os.path.exists(self.extract_output_dir + "network_walk.edg"))
+        self.assertTrue(os.path.exists(self.extract_output_dir + "network_bus.edg"))
+        self.assertFalse(os.path.exists(self.extract_output_dir + "network_gondola.edg"))
 
     def test_write_combined_stop_to_stop_networks(self):
         exports.write_combined_transit_stop_to_stop_network(self.gtfs, self.extract_output_dir)
-        combined_file_name = os.path.join(self.extract_output_dir + "combined_with_data.edg")
+        combined_file_name = os.path.join(self.extract_output_dir + "network_combined.edg")
         self.assertTrue(os.path.exists(combined_file_name))
 
     def test_stop_to_stop_network_by_route_type(self):

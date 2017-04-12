@@ -1695,6 +1695,7 @@ def main():
     elif args.cmd == "import-multiple":
         zipfiles = args.zipfiles
         output = args.output
+        print("loaders")
         with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
             import_gtfs(zipfiles, output=tmpfile)
     elif args.cmd == 'make-views':

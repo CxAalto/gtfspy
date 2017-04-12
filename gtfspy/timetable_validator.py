@@ -15,7 +15,7 @@ from gtfspy.util import wgs84_distance
 from gtfspy.gtfs import GTFS
 
 WARNING_LONG_STOP_SPACING = "Long Stop Spacing"
-WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "5 Or More Consecutive Stop Times With Same Time"
+WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "Trips that have Five or More Consecutive Same Stop Times"
 WARNING_LONG_TRIP_TIME = "Long Trip Time"
 WARNING_UNREALISTIC_AVERAGE_SPEED = "Unrealistic Average Speed"
 WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "Long Travel Time Between Consecutive Stops"

@@ -248,7 +248,7 @@ def corrupted_zip(zip_path):
         return "error"
 
 
-def txt_to_pandas(path, table, args=None):
+def source_table_txt_to_pandas(path, table, args=None):
     """
     :param path: path to directory or zipfile
     :param table: name of table
@@ -258,6 +258,7 @@ def txt_to_pandas(path, table, args=None):
 
     import os
     import zipfile
+    import pandas
     from pandas import read_csv
     if u'.txt' not in table:
         table += u'.txt'
@@ -279,11 +280,10 @@ def txt_to_pandas(path, table, args=None):
             try:
                 f = zip_open(z, table)
             except KeyError as e:
-                return None
+                return pandas.DataFrame()
 
     if args:
-        code_string = "read_csv(f" + args + ")"
-        df = eval(code_string)
+        df = read_csv(**args)
     else:
         df = read_csv(f)
     return df
