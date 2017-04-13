@@ -1281,16 +1281,17 @@ class GTFS(object):
         arr_times = events_result['arr_time_ut'][to_indices]
         route_types = events_result['route_type'][from_indices]
         route_ids = events_result['route_id'][from_indices]
+        route_Is = events_result['route_I'][from_indices]
         durations = arr_times.values - dep_times.values
         assert (durations >= 0).all()
         from_seqs = events_result['seq'][from_indices]
         to_seqs = events_result['seq'][to_indices]
         data_tuples = zip(from_stops, to_stops, dep_times, arr_times,
                           shape_ids, route_types, route_ids, trip_Is,
-                          durations, from_seqs, to_seqs)
+                          durations, from_seqs, to_seqs, route_Is)
         columns = ["from_stop_I", "to_stop_I", "dep_time_ut", "arr_time_ut",
                    "shape_id", "route_type", "route_id", "trip_I",
-                   "duration", "from_seq", "to_seq"]
+                   "duration", "from_seq", "to_seq", "route_I"]
         df = pd.DataFrame.from_records(data_tuples, columns=columns)
         return df
 

@@ -9,6 +9,7 @@ import pandas
 
 from gtfspy.gtfs import GTFS
 from gtfspy import networks
+from gtfspy.networks import ALL_STOP_TO_STOP_LINK_ATTRIBUTES
 from gtfspy.route_types import BUS
 from gtfspy.calc_transfers import calc_transfers
 from gtfspy import exports
@@ -61,7 +62,8 @@ class ExportsTest(unittest.TestCase):
 
     def test_stop_to_stop_network_by_route_type(self):
         # test that distance works
-        nxGraph = networks.stop_to_stop_network_for_route_type(self.gtfs, BUS)
+        nxGraph = networks.stop_to_stop_network_for_route_type(self.gtfs, BUS,
+                                                               link_attributes=ALL_STOP_TO_STOP_LINK_ATTRIBUTES)
         self.assertTrue(isinstance(nxGraph, networkx.DiGraph), type(nxGraph))
         nodes = nxGraph.nodes(data=True)
         self.assertGreater(len(nodes), 0)
@@ -86,13 +88,13 @@ class ExportsTest(unittest.TestCase):
             self.assertLessEqual(linkData['duration_avg'], linkData["duration_max"])
             self.assertLessEqual(linkData['duration_median'], linkData["duration_max"])
             self.assertGreaterEqual(linkData['duration_median'], linkData["duration_min"])
-            self.assertTrue(isinstance(linkData['distance_great_circle'], float),
-                            "straight line distance should always exist and be a float")
-            self.assertGreater(linkData['distance_great_circle'],
+            self.assertTrue(isinstance(linkData['d'], int),
+                            "straight line distance should always exist and be an int")
+            self.assertGreaterEqual(linkData['d'],
                                0,
-                               "straight line distance should be always greater than 0 (?)")
+                               "straight line distance should be always greater than or equal to 0 (?)")
             n_veh = linkData["n_vehicles"]
-            route_ids = linkData["route_ids"]
+            route_ids = linkData["route_I_counts"]
             route_ids_sum = sum([count for route_type, count in route_ids.items()])
             self.assertTrue(n_veh, route_ids_sum)
 
@@ -114,10 +116,9 @@ class ExportsTest(unittest.TestCase):
         self.assertTrue(os.path.exists(path))
         df = pandas.read_csv(path)
         columns_should_exist = ["dep_time_ut", "arr_time_ut", "from_stop_I", "to_stop_I",
-                                "route_type", "route_id", "trip_I"]
+                                "route_type", "trip_I"]
         for col in columns_should_exist:
             self.assertIn(col, df.columns.values)
-
 
     def test_write_temporal_networks_by_route_type(self):
         exports.write_temporal_networks_by_route_type(self.gtfs, self.extract_output_dir)
