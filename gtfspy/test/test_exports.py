@@ -11,8 +11,9 @@ from gtfspy.gtfs import GTFS
 from gtfspy import networks
 from gtfspy.networks import ALL_STOP_TO_STOP_LINK_ATTRIBUTES
 from gtfspy.route_types import BUS
-from gtfspy.calc_transfers import calc_transfers
 from gtfspy import exports
+from gtfspy.util import makedirs
+
 
 
 class ExportsTest(unittest.TestCase):
@@ -29,8 +30,8 @@ class ExportsTest(unittest.TestCase):
         self.gtfs_source_dir = self.__class__.gtfs_source_dir
         self.gtfs = self.__class__.G
         self.extract_output_dir = os.path.join(self.gtfs_source_dir, "../", "test_gtfspy_extracts_8211231/")
-        if os.path.exists(self.extract_output_dir):
-            shutil.rmtree(self.extract_output_dir)
+        if not os.path.exists(self.extract_output_dir):
+            makedirs(self.extract_output_dir)
 
     def tearDown(self):
         if os.path.exists(self.extract_output_dir):
@@ -56,9 +57,9 @@ class ExportsTest(unittest.TestCase):
         self.assertFalse(os.path.exists(self.extract_output_dir + "network_gondola.edg"))
 
     def test_write_combined_stop_to_stop_networks(self):
-        exports.write_combined_transit_stop_to_stop_network(self.gtfs, self.extract_output_dir)
-        combined_file_name = os.path.join(self.extract_output_dir + "network_combined.edg")
-        self.assertTrue(os.path.exists(combined_file_name))
+        output = os.path.join(self.extract_output_dir + "network_combined.edg")
+        exports.write_combined_transit_stop_to_stop_network(self.gtfs, output)
+        self.assertTrue(os.path.exists(output))
 
     def test_stop_to_stop_network_by_route_type(self):
         # test that distance works

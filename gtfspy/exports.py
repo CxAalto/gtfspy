@@ -41,20 +41,19 @@ def write_nodes(gtfs, output, fields=None):
         nodes.to_csv(tmpfile, encoding='utf-8', index=False, sep=";")
 
 
-def write_combined_transit_stop_to_stop_network(gtfs, extract_output_dir, fmt=None):
+def write_combined_transit_stop_to_stop_network(gtfs, output_path, fmt=None):
     """
     Parameters
     ----------
     gtfs : gtfspy.GTFS
-    extract_output_dir : str
+    output_path : str
     fmt: None, optional
         defaulting to "edg" and writing results as ".edg" files
          If "csv" csv files are produced instead    """
     if fmt is None:
         fmt = "edg"
     multi_di_graph = combined_stop_to_stop_transit_network(gtfs)
-    util.makedirs(extract_output_dir)
-    _write_stop_to_stop_network_edges(multi_di_graph, os.path.join(extract_output_dir, "network_combined." + fmt), fmt=fmt)
+    _write_stop_to_stop_network_edges(multi_di_graph, output_path, fmt=fmt)
 
 
 def write_static_networks(gtfs, output_dir, fmt=None):
