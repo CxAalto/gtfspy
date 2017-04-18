@@ -41,7 +41,10 @@ setup(
         "Cython",
         "six",
         "geoindex",
-        "osmread==0.2"
+        "osmread==0.2",
+        "geopandas",
+        "shapely",
+        "geojson"
     ],
     ext_modules=[
         Extension(
