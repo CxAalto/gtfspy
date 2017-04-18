@@ -1,7 +1,7 @@
 import numpy
 
 from gtfspy.routing.label import LabelTimeWithBoardingsCount, merge_pareto_frontiers, compute_pareto_front, \
-    LabelVehLegCount, LabelTime, LabelTimeBoardingsAndRoute
+    LabelVehLegCount, LabelTime, LabelTimeBoardingsAndRoute, LabelTimeAndRoute
 from gtfspy.routing.models import Connection
 
 
@@ -180,7 +180,7 @@ class NodeProfileMultiObjective:
                 first_leg_is_walk = False
             else:
                 first_leg_is_walk = True
-            if self.label_class == LabelTimeBoardingsAndRoute:
+            if self.label_class == LabelTimeBoardingsAndRoute or self.label_class == LabelTimeAndRoute:
                 if self._walk_to_target_duration > 0:
                     walk_connection = Connection(self.node_id,
                                                  self.closest_target,
@@ -191,11 +191,18 @@ class NodeProfileMultiObjective:
                                                  )
                 else:
                     walk_connection = None
-                label = self.label_class(departure_time=float(departure_time),
-                                         arrival_time_target=float(departure_time + self._walk_to_target_duration),
-                                         n_boardings=0,
-                                         first_leg_is_walk=first_leg_is_walk,
-                                         connection=walk_connection)
+                if self.label_class == LabelTimeAndRoute:
+                    label = self.label_class(departure_time=float(departure_time),
+                                             arrival_time_target=float(departure_time + self._walk_to_target_duration),
+                                             movement_duration=self._walk_to_target_duration,
+                                             first_leg_is_walk=first_leg_is_walk,
+                                             connection=walk_connection)
+                else:
+                    label = self.label_class(departure_time=float(departure_time),
+                                             arrival_time_target=float(departure_time + self._walk_to_target_duration),
+                                             n_boardings=0,
+                                             first_leg_is_walk=first_leg_is_walk,
+                                             connection=walk_connection)
             else:
                 label = self.label_class(departure_time=float(departure_time),
                                          arrival_time_target=float(departure_time + self._walk_to_target_duration),
@@ -268,7 +275,7 @@ class NodeProfileMultiObjective:
         labels_from_neighbors = []
         for i, (label_bag, walk_duration)in enumerate(zip(neighbor_label_bags, walk_durations)):
             for label in label_bag:
-                if self.label_class == LabelTimeBoardingsAndRoute:
+                if self.label_class == LabelTimeBoardingsAndRoute or self.label_class == LabelTimeAndRoute:
                     departure_arrival_tuple = departure_arrival_stops[i]
                     departure_time = label.departure_time - walk_duration
                     arrival_time = label.departure_time

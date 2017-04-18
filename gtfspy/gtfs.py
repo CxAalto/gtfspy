@@ -1424,6 +1424,37 @@ class GTFS(object):
             table_name = "day_trips"
         return table_name
 
+    # TODO: The following methods could be moved to another module
+    def add_stops_and_stop_distances_from_external_source(self, source):
+        if isinstance(source, GTFS):
+            df_source = source.stops()
+        else:
+            df_source = pd.read_csv(source)
+        df_self = self.stops()
+        df = pd.concat([df_self, df_source])
+        df = df.reset_index(drop=True)
+        df_gpby = df.groupby(['lat', 'lon'])
+        idx = [x[0] for x in df_gpby.groups.values() if len(x) == 1]
+        df.reindex(idx)
+        for row in df.itertuples():
+
+
+        query = """INSERT INTO stops(
+                                    stop_I,
+                                    stop_id,
+                                    code,
+                                    name,
+                                    desc,
+                                    lat,
+                                    lon,
+                                    parent_I,
+                                    location_type,
+                                    wheelchair_boarding,
+                                    self_or_parent_I) VALUES (%s) """ % (", ".join(["?" for x in range(11)]))
+        self.conn.executemany(query, )
+    def recalculate_stop_distances(self, max_distance):
+        from gtfspy.calc_transfers import calc_transfers
+        calc_transfers(self.conn, max_distance)
 
 class GTFSMetadata(object):
     """

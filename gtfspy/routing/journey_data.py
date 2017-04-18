@@ -3,7 +3,7 @@ import sqlite3
 
 from gtfspy.routing.models import Connection
 from gtfspy.gtfs import GTFS
-from gtfspy.routing.label import LabelTimeBoardingsAndRoute, compute_pareto_front
+from gtfspy.routing.label import LabelTimeAndRoute, LabelTimeWithBoardingsCount, compute_pareto_front
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.util import timeit
 
@@ -11,10 +11,12 @@ from gtfspy.util import timeit
 class JourneyDataManager:
     def __init__(self,
                  journey_db_dir,
-                 target_stops,
                  gtfs_dir,
                  routing_params,
-                 close_connection=True
+                 target_stops=None,
+                 close_connection=True,
+                 track_route=True,
+                 track_vehicle_legs=True
                  ):
         """
 
@@ -25,6 +27,8 @@ class JourneyDataManager:
         self.close_connection = close_connection
         self.routing_params = routing_params
         self.target_stops = target_stops
+        self.track_route = track_route
+        self.track_vehicle_legs = track_vehicle_legs
         self.gtfs_dir = gtfs_dir
         gtfs = GTFS(self.gtfs_dir)
         self.gtfs_meta = gtfs.meta
@@ -46,15 +50,16 @@ class JourneyDataManager:
         self.conn.close()
 
     @timeit
-    def import_journey_data(self, list_of_stop_profiles):
+    def import_journey_data_single_stop(self, list_of_stop_profiles, target_stop):
         cur = self.conn.cursor()
 
         cur.execute('PRAGMA synchronous = OFF;')
         if not isinstance(list_of_stop_profiles, list):
             list_of_stop_profiles = [list_of_stop_profiles]
-        # TODO: test if it is faster to check all distinct destination stops and compare to the input OR use some kind of unique constraint in sqlite for the rows
-        self._insert_journeys_into_db(list_of_stop_profiles)
-        self._create_indicies()
+        if self.track_route:
+            self._insert_journeys_with_route_into_db(list_of_stop_profiles)
+        else:
+            self._insert_journeys_into_db_no_route(list_of_stop_profiles, target_stop=target_stop)
         # Next 3 lines are python 3.6 work-arounds again.
         self.conn.isolation_level = None  # former default of autocommit mode
         cur.execute('VACUUM;')
@@ -68,29 +73,42 @@ class JourneyDataManager:
         print("Finished import process")
 
     def _set_up_tables(self):
-        self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
-                     journey_id INTEGER PRIMARY KEY,
-                     from_stop_I INT,
-                     to_stop_I INT,
-                     dep_time INT,
-                     arr_time INT,
-                     n_boardings INT,
-                     route TEXT,
-                     time_to_prev_journey_fp INT,
-                     fastest_path INT)''')
-
-        self.conn.execute('''CREATE TABLE IF NOT EXISTS connections(
-                     journey_id INT,
-                     from_stop_I INT,
-                     to_stop_I INT,
-                     dep_time INT,
-                     arr_time INT,
-                     trip_I INT,
-                     seq INT)''')
-
         self.conn.execute('''CREATE TABLE IF NOT EXISTS parameters(
                      key TEXT UNIQUE,
                      value BLOB)''')
+        if self.track_route:
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
+                         journey_id INTEGER PRIMARY KEY,
+                         from_stop_I INT,
+                         to_stop_I INT,
+                         dep_time INT,
+                         arr_time INT,
+                         movement_duration INT,
+                         route TEXT,
+                         time_to_prev_journey_fp INT,
+                         fastest_path INT)''')
+
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS connections(
+                         journey_id INT,
+                         from_stop_I INT,
+                         to_stop_I INT,
+                         dep_time INT,
+                         arr_time INT,
+                         trip_I INT,
+                         seq INT,
+                         leg_stops TEXT)''')
+        else:
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
+                         journey_id INTEGER PRIMARY KEY,
+                         from_stop_I INT,
+                         to_stop_I INT,
+                         dep_time INT,
+                         arr_time INT,
+                         n_boardings INT,
+                         time_to_prev_journey_fp INT,
+                         fastest_path INT)''')
+
+
 
     def _initialize_parameter_table(self):
         self.parameters["multiple_targets"] = True if len(self.target_stops) > 1 else False
@@ -135,7 +153,44 @@ class JourneyDataManager:
         val = cur.execute("select max(journey_id) FROM journeys").fetchone()
         return val[0]
 
-    def _insert_journeys_into_db(self, list_of_stop_profiles):
+    def _insert_journeys_into_db_no_route(self, list_of_stop_profiles, target_stop=None):
+        print("Collecting journey data")
+        journey_id = (self._check_last_journey_id() if self._check_last_journey_id() else 0) + 1
+        journey_list = []
+        for stop_profiles in list_of_stop_profiles:
+            tot = len(stop_profiles)
+            for i, origin_stop in enumerate(stop_profiles, start=1):
+                print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
+
+                assert (isinstance(stop_profiles[origin_stop], NodeProfileMultiObjective))
+
+                for label in stop_profiles[origin_stop].get_final_optimal_labels():
+                    assert (isinstance(label, LabelTimeWithBoardingsCount))
+                    if self.target_stops:
+                        target_stop = None
+
+                    values = [journey_id,
+                              origin_stop,
+                              target_stop,
+                              int(label.departure_time),
+                              int(label.arrival_time_target),
+                              label.n_boardings]
+
+                    journey_list.append(values)
+                    journey_id += 1
+            print()
+            print("Inserting journeys into database")
+            insert_journeys_stmt = '''INSERT INTO journeys(
+                  journey_id,
+                  from_stop_I,
+                  to_stop_I,
+                  dep_time,
+                  arr_time,
+                  n_boardings) VALUES (%s) ''' % (", ".join(["?" for x in range(6)]))
+            self.conn.executemany(insert_journeys_stmt, journey_list)
+        self.conn.commit()
+
+    def _insert_journeys_with_route_into_db(self, list_of_stop_profiles):
         print("Collecting journey and connection data")
         journey_id = (self._check_last_journey_id() if self._check_last_journey_id() else 0) + 1
         journey_list = []
@@ -148,7 +203,7 @@ class JourneyDataManager:
                 assert (isinstance(stop_profiles[origin_stop], NodeProfileMultiObjective))
 
                 for label in stop_profiles[origin_stop].get_final_optimal_labels():
-                    assert (isinstance(label, LabelTimeBoardingsAndRoute))
+                    assert (isinstance(label, LabelTimeAndRoute))
                     # We need to "unpack" the journey to actually figure out where the trip went
                     # (there can be several targets).
 
@@ -160,7 +215,7 @@ class JourneyDataManager:
                               target_stop,
                               int(label.departure_time),
                               int(label.arrival_time_target),
-                              label.n_boardings,
+                              label.movement_duration,
                               route_stops]
 
                     journey_list.append(values)
@@ -175,7 +230,7 @@ class JourneyDataManager:
                   to_stop_I,
                   dep_time,
                   arr_time,
-                  n_boardings,
+                  movement_duration,
                   route) VALUES (%s) ''' % (", ".join(["?" for x in range(7)]))
             self.conn.executemany(insert_journeys_stmt, journey_list)
 
@@ -187,7 +242,8 @@ class JourneyDataManager:
                                   dep_time,
                                   arr_time,
                                   trip_I,
-                                  seq) VALUES (%s) ''' % (", ".join(["?" for x in range(7)]))
+                                  seq,
+                                  leg_stops) VALUES (%s) ''' % (", ".join(["?" for x in range(8)]))
             self.conn.executemany(insert_connections_stmt, connection_list)
         self.conn.commit()
 
@@ -197,7 +253,10 @@ class JourneyDataManager:
         seq = 1
         value_list = []
         route_stops = []
+        leg_stops = []
         prev_trip_id = None
+        leg_departure_time = None
+        leg_departure_stop = None
         while True:
             connection = cur_label.connection
             if isinstance(connection, Connection):
@@ -205,19 +264,27 @@ class JourneyDataManager:
                     trip_id = connection.trip_id
                 else:
                     trip_id = -1
-                values = (
-                    int(journey_id),
-                    int(connection.departure_stop),
-                    int(connection.arrival_stop),
-                    int(connection.departure_time),
-                    int(connection.arrival_time),
-                    int(trip_id),
-                    int(seq)
-                )
+
                 if prev_trip_id != trip_id:
                     route_stops.append(connection.departure_stop)
-                value_list.append(values)
-                seq += 1
+                    if prev_trip_id:
+                        leg_stops.append(connection.arrival_stop)
+                        values = (
+                            int(journey_id),
+                            int(leg_departure_stop),
+                            int(connection.arrival_stop),
+                            int(leg_departure_time),
+                            int(connection.arrival_time),
+                            int(trip_id),
+                            int(seq),
+                            ','.join([str(x) for x in leg_stops])
+                                )
+                        value_list.append(values)
+                        seq += 1
+                        leg_stops = []
+                    leg_departure_stop = connection.departure_stop
+                    leg_departure_time = connection.departure_time
+                leg_stops.append(connection.departure_stop)
                 target_stop = connection.arrival_stop
                 prev_trip_id = trip_id
             if not cur_label.previous_label:
@@ -227,16 +294,17 @@ class JourneyDataManager:
         route_stops = ','.join([str(x) for x in route_stops])
         return target_stop, value_list, route_stops
 
-    def _create_indicies(self):
+    def create_indicies(self):
         print("Indexing")
         cur = self.conn.cursor()
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_jid ON journeys (journey_id)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_fid ON journeys (from_stop_I)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_tid ON journeys (to_stop_I)')
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_jid ON connections (journey_id)')
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_trid ON connections (trip_I)')
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_fid ON connections (from_stop_I)')
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_tid ON connections (to_stop_I)')
+        if self.track_route:
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_jid ON connections (journey_id)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_trid ON connections (trip_I)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_fid ON connections (from_stop_I)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_tid ON connections (to_stop_I)')
         self.conn.commit()
 
     @timeit
@@ -255,7 +323,7 @@ class JourneyDataManager:
                         'WHERE from_stop_I = ? AND to_stop_I = ? '
                         'ORDER BY dep_time ASC', (pair[0], pair[1]))
             all_trips = cur.fetchall()
-            all_labels = [LabelTimeBoardingsAndRoute(x[0], x[1], x[2], False) for x in all_trips]
+            all_labels = [LabelTimeAndRoute(x[0], x[1], x[2], False) for x in all_trips]
             all_fp_labels = compute_pareto_front(all_labels, finalization=False, ignore_n_boardings=True)
             fastest_path_journey_ids.append(all_fp_labels)
         # all_rows = [1 if x in fastest_path_journey_ids else 0 for x in all_journey_ids]

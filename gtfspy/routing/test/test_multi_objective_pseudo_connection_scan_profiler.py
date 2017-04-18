@@ -711,12 +711,19 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
 
         csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                       start_time, end_time, transfer_margin,
-                                                      walk_network, walk_speed, track_vehicle_legs=True,
+                                                      walk_network, walk_speed, track_vehicle_legs=False,
                                                       track_time=True, track_route=True)
         csa_profile.run()
         for stop, profile in csa_profile.stop_profiles.items():
+            for label_bag in profile._label_bags:
+                for label in label_bag:
+                    print('origin:', stop, 'n_boardings/movement_duration:', label.movement_duration, 'route:', unpack_route_from_labels(label))
+        print('optimal labels:')
+        for stop, profile in csa_profile.stop_profiles.items():
             for label in profile.get_final_optimal_labels():
-                if stop == 1:
-                    assert 3 not in unpack_route_from_labels(label)
+
+                print('origin:', stop, 'n_boardings/movement_duration:', label.movement_duration, 'route:', unpack_route_from_labels(label))
+                #if stop == 1:
+                    #assert 3 not in unpack_route_from_labels(label)
                 # print('origin:', stop, 'n_boardings:', label.n_boardings, 'route:', unpack_route_from_labels(label))
 
