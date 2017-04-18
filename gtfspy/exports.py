@@ -1,11 +1,15 @@
+import json
 import os
 import shutil
 import uuid
 
 import networkx
 import pandas
+import geopandas
+from shapely.geometry import Point
 
 from gtfspy import route_types
+from gtfspy.gtfs import GTFS
 from gtfspy import util
 from gtfspy.networks import stop_to_stop_networks_by_type, temporal_network, \
     combined_stop_to_stop_transit_network
@@ -39,6 +43,38 @@ def write_nodes(gtfs, output, fields=None):
         nodes = nodes[fields]
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
         nodes.to_csv(tmpfile, encoding='utf-8', index=False, sep=";")
+
+
+def write_stops_geojson(gtfs, out_file, fields=None):
+    """
+    Parameters
+    ----------
+    gtfs: gtfspy.GTFS
+    out_file: file-like or path to file
+    fields: dict
+        simultaneously map each original_name to the new_name
+    Returns
+    -------
+    """
+    nodes = gtfs.get_table("stops")
+    if fields is None:
+        fields = {'name': 'stop_name', 'stop_I': 'stop_I', 'lat':'lat', 'lon':'lon'}
+    assert(fields['lat'] == 'lat' and fields['lon']=='lon')
+    nodes = nodes[list(fields.keys())]
+    nodes.replace(list(fields.keys()), [fields[key] for key in fields.keys()], inplace=True)
+    assert('lat' in nodes.columns)
+    assert('lon' in nodes.columns)
+    geometries = nodes.apply(lambda x: Point((x.lon, x.lat)), axis=1)
+    nodes = nodes[[col for col in nodes.columns if col not in ['lat', 'lon']]]
+    nodes['geometry'] = geometries
+    gdf = geopandas.GeoDataFrame(nodes, geometry='geometry')
+    gdf.crs = {'init': 'epsg:4326'}
+
+    if hasattr(out_file, "write"):
+        out_file.write(gdf.to_json())
+    else:
+        with util.create_file(out_file, tmpdir=True, keepext=True) as tmpfile:
+            tmpfile.write(gdf.to_json())
 
 
 def write_combined_transit_stop_to_stop_network(gtfs, output_path, fmt=None):
@@ -154,6 +190,58 @@ def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
                         data_values.append(str(data[key]))
                 all_values = values + data_values
                 f.write(";".join(all_values))
+
+
+def write_sections_geojson(G, output_file):
+    multi_di_graph = combined_stop_to_stop_transit_network(G)
+    stops = G.get_table("stops")
+    stop_I_to_coords = {row.stop_I: [row.lon, row.lat] for row in stops.itertuples()}
+    gjson = {"type": "FeatureCollection"}
+    features = []
+    gjson["features"] = features
+    for from_stop_I, to_stop_I, data in multi_di_graph.edges(data=True):
+        feature = {"type": "Feature"}
+        geometry = {"type": "LineString"}
+        geometry['coordinates'] = [stop_I_to_coords[from_stop_I], stop_I_to_coords[to_stop_I]]
+        feature['geometry'] = geometry
+        route_I_counts = data['route_I_counts']
+        route_I_counts = {str(key):int(value) for key,value in route_I_counts.items()}
+        data['route_I_counts'] = route_I_counts
+        properties = data
+        properties['from_stop_I'] = int(from_stop_I)
+        properties['to_stop_I'] = int(to_stop_I)
+        feature['properties'] = data
+        features.append(feature)
+
+    if hasattr(output_file, "write"):
+        output_file.write(json.dumps(gjson))
+    else:
+        with open(output_file) as f:
+            f.write(json.dumps(gjson))
+
+def write_routes_geojson(G, output_file):
+    assert(isinstance(G, GTFS))
+    gjson = {"type": "FeatureCollection"}
+    features = []
+    for routeShape in G.get_all_route_shapes(use_shapes=False):
+        feature = {"type": "Feature"}
+        geometry = {"type": "LineString"}
+        geometry['coordinates'] = list(zip(routeShape['lons'], routeShape['lats']))
+        feature['geometry'] = geometry
+        properties = {"route_type": int(routeShape['type']),
+                      "route_I": int(routeShape['route_I']),
+                      "route_name": str(routeShape['name'])}
+        feature['properties'] = properties
+        features.append(feature)
+    gjson['features'] = features
+    if hasattr(output_file, "write"):
+        print(gjson)
+        output_file.write(json.dumps(gjson))
+    else:
+        with open(output_file) as f:
+            f.write(json.dumps(gjson))
+    return None
+
 
 
 def write_gtfs(gtfs, output):
@@ -461,3 +549,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

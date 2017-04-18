@@ -124,18 +124,19 @@ def stop_to_stop_network_for_route_type(gtfs,
         else:
             link_data = {}
             if "duration_min" in link_attributes:
-                link_data['duration_min'] = link_events['duration'].min()
+                link_data['duration_min'] = float(link_events['duration'].min())
             if "duration_max" in link_attributes:
-                link_data['duration_max'] = link_events['duration'].max()
+                link_data['duration_max'] = float(link_events['duration'].max())
             if "duration_median" in link_attributes:
-                link_data['duration_median'] = link_events['duration'].median()
+                link_data['duration_median'] = float(link_events['duration'].median())
             if "duration_avg" in link_attributes:
-                link_data['duration_avg'] = link_events['duration'].mean()
+                link_data['duration_avg'] = float(link_events['duration'].mean())
             # statistics on numbers of vehicles:
             if "n_vehicles" in link_attributes:
-                link_data['n_vehicles'] = link_events.shape[0]
+                link_data['n_vehicles'] = int(link_events.shape[0])
             if "capacity_estimate" in link_attributes:
-                link_data['capacity_estimate'] = route_types.ROUTE_TYPE_TO_APPROXIMATE_CAPACITY[route_type]
+                link_data['capacity_estimate'] = route_types.ROUTE_TYPE_TO_APPROXIMATE_CAPACITY[route_type] \
+                                                 * int(link_events.shape[0])
             if "distance_great_circle" in link_attributes:
                 from_lat = net.node[from_stop_I]['lat']
                 from_lon = net.node[from_stop_I]['lon']

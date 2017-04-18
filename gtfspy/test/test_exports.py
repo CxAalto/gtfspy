@@ -3,9 +3,11 @@ import os
 import unittest
 import shutil
 
+import geopandas
 import networkx
 import numpy
 import pandas
+import geojson
 
 from gtfspy.gtfs import GTFS
 from gtfspy import networks
@@ -13,7 +15,6 @@ from gtfspy.networks import ALL_STOP_TO_STOP_LINK_ATTRIBUTES
 from gtfspy.route_types import BUS
 from gtfspy import exports
 from gtfspy.util import makedirs
-
 
 
 class ExportsTest(unittest.TestCase):
@@ -237,8 +238,50 @@ class ExportsTest(unittest.TestCase):
                 else:
                     os.remove(test_output_dir + ending)
 
+    def test_write_stops_geojson(self):
+        in_memory_file = io.StringIO()
+        exports.write_stops_geojson(self.gtfs, in_memory_file)
+        in_memory_file.seek(0)
+        self.assertTrue(geojson.is_valid(in_memory_file.read(-1)))
+        in_memory_file.seek(0)
+        gjson = geojson.loads(in_memory_file.read(-1))
+        gjson_properties = gjson['features'][0]['properties']
+        self.assertIn("name", gjson_properties.keys())
+        self.assertIn("stop_I", gjson_properties.keys())
 
-    # def test_clustered_stops_network(self):
+    def test_write_sections_geojson(self):
+        in_memory_file = io.StringIO()
+        exports.write_sections_geojson(self.gtfs, in_memory_file)
+        in_memory_file.seek(0)
+        self.assertTrue(geojson.is_valid(in_memory_file.read(-1)))
+        in_memory_file.seek(0)
+        gjson = geojson.loads(in_memory_file.read(-1))
+        gjson_properties = gjson['features'][0]['properties']
+        self.assertIn("from_stop_I", gjson_properties.keys())
+        self.assertIn("to_stop_I", gjson_properties.keys())
+        self.assertIn("n_vehicles", gjson_properties.keys())
+        self.assertIn("duration_avg", gjson_properties.keys())
+        self.assertIn("route_I_counts", gjson_properties.keys())
+        self.assertIn("route_type", gjson_properties.keys())
+
+    def test_write_routes_geojson(self):
+        in_memory_file = io.StringIO()
+        exports.write_routes_geojson(self.gtfs, in_memory_file)
+        in_memory_file.seek(0)
+        self.assertTrue(geojson.is_valid(in_memory_file.read(-1)))
+        in_memory_file.seek(0)
+        gjson = geojson.loads(in_memory_file.read(-1))
+        gjson_properties = gjson['features'][0]['properties']
+        self.assertIn("route_type", gjson_properties.keys())
+        self.assertIn("route_I", gjson_properties.keys())
+        self.assertIn("route_name", gjson_properties.keys())
+
+
+
+
+
+
+        # def test_clustered_stops_network(self):
     #     orig_net = networks.undirected_stop_to_stop_network_with_route_information(self.gtfs)
     #     aggregate_net = networks.aggregate_route_network(self.gtfs, 1000)
     #     self.assertGreater(len(orig_net.nodes()), len(aggregate_net.nodes()))

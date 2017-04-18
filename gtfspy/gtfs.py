@@ -542,7 +542,7 @@ class GTFS(object):
 
         routeShapes = []
         for i, row in enumerate(data.itertuples()):
-            datum = {"name": str(row.name), "type": int(row.type), "agency": str(row.agency_id), "agency_name": str(row.agency_name)}
+            datum = {"name": str(row.name), "type": int(row.type), "route_I": row.route_I, "agency": str(row.agency_id), "agency_name": str(row.agency_name)}
             # this function should be made also non-shape friendly (at this point)
             if use_shapes and row.shape_id:
                 shape = shapes.get_shape_points2(cur, row.shape_id)

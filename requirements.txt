@@ -7,3 +7,6 @@ Cython
 six
 geoindex
 osmread
+geopandas
+geojson
+shapely
