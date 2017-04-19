@@ -18,7 +18,7 @@ from six import string_types
 from gtfspy import shapes
 from gtfspy.route_types import ALL_ROUTE_TYPES
 from gtfspy.route_types import WALK
-from gtfspy.util import wgs84_distance
+from gtfspy.util import wgs84_distance, difference_of_pandas_dfs
 
 # py2/3 compatibility (copied from six)
 if sys.version_info[0] == 3:
@@ -1424,37 +1424,48 @@ class GTFS(object):
             table_name = "day_trips"
         return table_name
 
-    # TODO: The following methods could be moved to another module
-    def add_stops_and_stop_distances_from_external_source(self, source):
-        if isinstance(source, GTFS):
-            df_source = source.stops()
-        else:
-            df_source = pd.read_csv(source)
-        df_self = self.stops()
-        df = pd.concat([df_self, df_source])
-        df = df.reset_index(drop=True)
-        df_gpby = df.groupby(['lat', 'lon'])
-        idx = [x[0] for x in df_gpby.groups.values() if len(x) == 1]
-        df.reindex(idx)
-        for row in df.itertuples():
+    # TODO: The following methods could be moved to a "edit gtfs" -module
+    def homogenize_stops_table_with_other_db(self, source):
+        cur = self.conn.cursor()
+        self.attach_gtfs_database(source)
 
+        query_inner_join = """SELECT t1.*
+                              FROM stops t1
+                              INNER JOIN other.stops t2
+                              ON t1.stop_id=t2.stop_id
+                              AND find_distance(t1.lon, t1.lat, t2.lon, t2.lat) <= 50"""
+        df_inner_join = self.execute_custom_query_pandas(query_inner_join)
+        print(len(df_inner_join.index))
+        df_not_in_other = self.execute_custom_query_pandas("SELECT * FROM stops EXCEPT " + query_inner_join)
+        print(len(df_not_in_other.index))
+        df_not_in_self = self.execute_custom_query_pandas("SELECT * FROM other.stops EXCEPT " + query_inner_join.replace("t1.*", "t2.*"))
+
+
+        print(len(df_not_in_self.index))
 
         query = """INSERT INTO stops(
-                                    stop_I,
                                     stop_id,
                                     code,
                                     name,
                                     desc,
                                     lat,
                                     lon,
-                                    parent_I,
                                     location_type,
-                                    wheelchair_boarding,
-                                    self_or_parent_I) VALUES (%s) """ % (", ".join(["?" for x in range(11)]))
-        self.conn.executemany(query, )
+                                    wheelchair_boarding) VALUES (%s) """ % (", ".join(["?" for x in range(8)]))
+
+        # cur.executemany(query, stops_to_add)
+        # self.conn.commit()
+
     def recalculate_stop_distances(self, max_distance):
         from gtfspy.calc_transfers import calc_transfers
         calc_transfers(self.conn, max_distance)
+
+    def attach_gtfs_database(self, gtfs_dir):
+        cur = self.conn.cursor()
+        cur.execute("ATTACH '%s' AS 'other'" % str(gtfs_dir))
+        cur.execute("PRAGMA database_list")
+        print("GTFS database attached:", cur.fetchall())
+
 
 class GTFSMetadata(object):
     """

@@ -1,5 +1,7 @@
 import unittest
 import os
+import pandas as pd
+
 from gtfspy import util
 
 
@@ -34,7 +36,6 @@ class TestUtil(unittest.TestCase):
         self.assertTrue(str_time == "00:00:00", "day should start at 00:00")
 
     def test_txt_to_pandas(self):
-        import pandas as pd
         source_dir = os.path.join(os.path.dirname(__file__), "test_data")
         txtnames = ['agency', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
         df = util.txt_to_pandas(source_dir, txtnames[3])
@@ -42,3 +43,11 @@ class TestUtil(unittest.TestCase):
         source_zip = os.path.join(os.path.dirname(__file__), "test_data/test_gtfs.zip")
         df = util.txt_to_pandas(source_zip, txtnames[4])
         self.assertIsInstance(df, pd.DataFrame)
+
+    def test_difference_of_pandas_dfs(self):
+        dict1 = {"lat": [1, 2, 3, 4, 5], "lon": [5, 6, 7, 8, 9], "data": [123, 342, 345, 123, 543]}
+        dict2 = {"lat": [6, 7, 3, 4, 5], "lon": [5, 6, 7, 8, 9], "data": [656, 12, 34, 1112, 43]}
+        df1 = pd.DataFrame(dict1)
+        df2 = pd.DataFrame(dict2)
+        df = util.difference_of_pandas_dfs(df1, df2, ["lat", "lon"])
+        self.assertEqual(len(df.index), 2)

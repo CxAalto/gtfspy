@@ -274,3 +274,16 @@ class TestGTFS(unittest.TestCase):
         # self.assertEqual(location_name, "test_data")
         self.assertTrue(isinstance(location_name, string_types), type(location_name))
         self.assertGreater(len(location_name), 0)
+
+    def test_homogenize_stops_table_with_other_db(self):
+        """stop_data = {"stop_id": [123],
+             "code": [123],
+             "name": [123],
+             "desc": [123],
+             "lat": [123],
+             "lon": [123],
+             "location_type": [123],
+             "wheelchair_boarding": [True]}"""
+        self.G.homogenize_stops_table_with_other_db(stop_data)
+        df = self.G.stops()
+        self.assertEqual(len(df.index), 10)
