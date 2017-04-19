@@ -73,7 +73,8 @@ def write_stops_geojson(gtfs, out_file, fields=None):
     if hasattr(out_file, "write"):
         out_file.write(gdf.to_json())
     else:
-        with util.create_file(out_file, tmpdir=True, keepext=True) as tmpfile:
+        with util.create_file(out_file, tmpdir=True, keepext=True) as tmpfile_path:
+            tmpfile = open(tmpfile_path, 'w')
             tmpfile.write(gdf.to_json())
 
 
@@ -216,7 +217,7 @@ def write_sections_geojson(G, output_file):
     if hasattr(output_file, "write"):
         output_file.write(json.dumps(gjson))
     else:
-        with open(output_file) as f:
+        with open(output_file, 'w') as f:
             f.write(json.dumps(gjson))
 
 def write_routes_geojson(G, output_file):
@@ -238,7 +239,7 @@ def write_routes_geojson(G, output_file):
         print(gjson)
         output_file.write(json.dumps(gjson))
     else:
-        with open(output_file) as f:
+        with open(output_file, 'w') as f:
             f.write(json.dumps(gjson))
     return None
 

@@ -382,8 +382,8 @@ def walk_transfer_stop_to_stop_network(gtfs, max_link_distance=None):
     stop_distances = gtfs.get_table("stop_distances")
     if stop_distances["d_walk"][0] is None:
         osm_distances_available = False
-        warn("Warning: OpenStreetMap-based walking distances have not been computed, using euclidean distances instead."
-             "Ignore this warning if running unit tests.")
+        warn("OpenStreetMap-based walking distances have not been computed, using euclidean distances instead."
+             " This warning can be ignored when running unit tests.")
     else:
         osm_distances_available = True
 
