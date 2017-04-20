@@ -1438,12 +1438,40 @@ class GTFS(object):
         print(len(df_inner_join.index))
         df_not_in_other = self.execute_custom_query_pandas("SELECT * FROM stops EXCEPT " + query_inner_join)
         print(len(df_not_in_other.index))
-        df_not_in_self = self.execute_custom_query_pandas("SELECT * FROM other.stops EXCEPT " + query_inner_join.replace("t1.*", "t2.*"))
-
-
+        df_not_in_self = self.execute_custom_query_pandas("SELECT * FROM other.stops EXCEPT " +
+                                                          query_inner_join.replace("t1.*", "t2.*"))
         print(len(df_not_in_self.index))
+        try:
+            self.execute_custom_query("""ALTER TABLE stops ADD COLUMN stop_pair_I INT """)
 
-        query = """INSERT INTO stops(
+            self.execute_custom_query("""ALTER TABLE other.stops ADD COLUMN stop_pair_I INT """)
+        except sqlite3.OperationalError:
+            pass
+        stop_id_stub = "added_stop_"
+        counter = 0
+        rows_to_update_self = []
+        rows_to_update_other = []
+        rows_to_add_to_self = []
+        rows_to_add_to_other = []
+
+        for items in df_inner_join.itertuples(index=False):
+            rows_to_update_self.append((items[1], counter))
+            rows_to_update_other.append((items[1], counter))
+            counter += 1
+
+        for items in df_not_in_other.itertuples(index=False):
+            rows_to_update_self.append((items[1], counter))
+            rows_to_add_to_other.append((stop_id_stub + str(counter),) + tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9])
+                                        + (counter,))
+            counter += 1
+
+        for items in df_not_in_self.itertuples(index=False):
+            rows_to_update_other.append((items[1], counter))
+            rows_to_add_to_self.append((stop_id_stub + str(counter),) + tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9])
+                                       + (counter,))
+            counter += 1
+
+        query_add_row = """INSERT INTO stops(
                                     stop_id,
                                     code,
                                     name,
@@ -1451,10 +1479,16 @@ class GTFS(object):
                                     lat,
                                     lon,
                                     location_type,
-                                    wheelchair_boarding) VALUES (%s) """ % (", ".join(["?" for x in range(8)]))
+                                    wheelchair_boarding,
+                                    stop_pair_I) VALUES (%s) """ % (", ".join(["?" for x in range(9)]))
 
-        # cur.executemany(query, stops_to_add)
-        # self.conn.commit()
+        query_update_row = """UPDATE stops SET stop_pair_I=? WHERE stop_id=?"""
+
+        cur.executemany(query_add_row, rows_to_add_to_self)
+        cur.executemany(query_update_row, rows_to_update_self)
+        cur.executemany(query_add_row.replace("stops", "other.stops"), rows_to_add_to_other)
+        cur.executemany(query_update_row.replace("stops", "other.stops"), rows_to_update_other)
+        self.conn.commit()
 
     def recalculate_stop_distances(self, max_distance):
         from gtfspy.calc_transfers import calc_transfers
