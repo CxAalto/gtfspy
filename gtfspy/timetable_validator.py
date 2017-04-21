@@ -152,7 +152,7 @@ class TimetableValidator(object):
             '  AND trips.route_I = routes.route_I GROUP BY q1.trip_I').fetchall()
 
         for row in rows:
-            avg_velocity = row[2] / row[3] * 3.6
+            avg_velocity = row[2] / max(row[3], 1) * 3.6
             if avg_velocity > gtfs_type_to_max_speed[row[1]]:
                 self.warnings_container.add_warning(row, WARNING_UNREALISTIC_AVERAGE_SPEED)
 
