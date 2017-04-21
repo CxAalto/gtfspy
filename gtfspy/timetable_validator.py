@@ -1,6 +1,4 @@
-from __future__ import print_function
 from collections import defaultdict, Counter
-
 import sys
 
 # the following is required when using this module as a script
@@ -11,8 +9,8 @@ if __name__ == '__main__' and __package__ is None:
 
 
 from gtfspy import route_types
-from gtfspy.util import wgs84_distance
 from gtfspy.gtfs import GTFS
+from gtfspy.util import wgs84_distance
 
 WARNING_LONG_STOP_SPACING = "Long Stop Spacing"
 WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "Trips that have Five or More Consecutive Same Stop Times"
@@ -20,6 +18,7 @@ WARNING_LONG_TRIP_TIME = "Long Trip Time"
 WARNING_UNREALISTIC_AVERAGE_SPEED = "Unrealistic Average Speed"
 WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "Long Travel Time Between Consecutive Stops"
 WARNING_STOP_SEQUENCE_ERROR = "Stop Sequence Error"
+WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY = "Stop far away from spatial filter boundary"
 
 ALL_WARNINGS = {
     WARNING_LONG_STOP_SPACING,
@@ -33,7 +32,7 @@ ALL_WARNINGS = {
 
 class TimetableValidator(object):
 
-    def __init__(self, gtfs):
+    def __init__(self, gtfs, buffer_params=None):
         """
         Parameters
         ----------
@@ -44,6 +43,7 @@ class TimetableValidator(object):
             self.gtfs = GTFS(gtfs)
         else:
             self.gtfs = gtfs
+        self.buffer_params = buffer_params
         self.warnings_container = WarningsContainer()
 
     def get_warnings(self):
@@ -61,10 +61,21 @@ class TimetableValidator(object):
         self._validate_speeds_and_trip_times()
         self._validate_stop_spacings()
         self._validate_stop_sequence()
+        self._validate_misplaced_stops()
         self.warnings_container.print_summary()
         return self.warnings_container
 
-    # TODO: check for misplaced stops in the filtered feed, by checking outside a buffer + x distance. (Routes going outside are okay if they return inside the buffer)
+    def _validate_misplaced_stops(self):
+        if self.buffer_params:
+            p = self.buffer_params
+            center_lat = p['lat']
+            center_lon = p['lon']
+            distance = p['buffer_distance'] * 2
+            count = 0
+            for stop_row in self.gtfs.stops().iterrows():
+                if distance < wgs84_distance(center_lat, center_lon, stop_row.lat, stop_row.lon):
+                    self.warnings_container.add_warning(stop_row, WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY)
+                    print(WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY, stop_row)
 
     def _validate_stops_with_same_stop_time(self):
         n_stops_with_same_time = 5
