@@ -9,15 +9,8 @@ from gtfspy.util import timeit
 
 
 class JourneyDataManager:
-    def __init__(self,
-                 journey_db_dir,
-                 gtfs_dir,
-                 routing_params,
-                 target_stops=None,
-                 close_connection=True,
-                 track_route=True,
-                 track_vehicle_legs=True
-                 ):
+    def __init__(self, gtfs_dir, routing_params, journey_db_dir=None, target_stops=None, close_connection=True,
+                 track_route=False, track_vehicle_legs=True):
         """
 
         :param gtfs: GTFS object
@@ -34,17 +27,12 @@ class JourneyDataManager:
         self.gtfs_meta = gtfs.meta
         print('location_name: ', self.gtfs_meta["location_name"])
 
-        initialize = False
-        if not os.path.isfile(journey_db_dir):
-            initialize = True
-        self.conn = sqlite3.connect(journey_db_dir)
         self.parameters = Parameters(self.conn)
-
-        if initialize:
-            self._set_up_tables()
-            self._initialize_parameter_table()
-        else:
+        if os.path.isfile(journey_db_dir):
+            self.conn = sqlite3.connect(journey_db_dir)
             self._check_that_dbs_match()
+        else:
+            raise Exception("Database specified does not exist, use run_preparations() method first")
 
     def __del__(self):
         self.conn.close()
@@ -71,77 +59,6 @@ class JourneyDataManager:
             self.conn.close()
 
         print("Finished import process")
-
-    def _set_up_tables(self):
-        self.conn.execute('''CREATE TABLE IF NOT EXISTS parameters(
-                     key TEXT UNIQUE,
-                     value BLOB)''')
-        if self.track_route:
-            self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
-                         journey_id INTEGER PRIMARY KEY,
-                         from_stop_I INT,
-                         to_stop_I INT,
-                         dep_time INT,
-                         arr_time INT,
-                         movement_duration INT,
-                         route TEXT,
-                         time_to_prev_journey_fp INT,
-                         fastest_path INT)''')
-
-            self.conn.execute('''CREATE TABLE IF NOT EXISTS connections(
-                         journey_id INT,
-                         from_stop_I INT,
-                         to_stop_I INT,
-                         dep_time INT,
-                         arr_time INT,
-                         trip_I INT,
-                         seq INT,
-                         leg_stops TEXT)''')
-        else:
-            self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
-                         journey_id INTEGER PRIMARY KEY,
-                         from_stop_I INT,
-                         to_stop_I INT,
-                         dep_time INT,
-                         arr_time INT,
-                         n_boardings INT,
-                         time_to_prev_journey_fp INT,
-                         fastest_path INT)''')
-
-
-
-    def _initialize_parameter_table(self):
-        self.parameters["multiple_targets"] = True if len(self.target_stops) > 1 else False
-        self.parameters["gtfs_dir"] = self.gtfs_dir
-        for param in ["location_name",
-                      "lat_median",
-                      "lon_median",
-                      "start_time_ut",
-                      "end_time_ut",
-                      "start_date",
-                      "end_date"]:
-            self.parameters[param] = self.gtfs_meta[param]
-
-        for key, value in self.routing_params.items():
-            self.parameters[key] = value
-
-        """
-        Parameter table contents:
-        GTFS db identification data:
-        -city/feed = location_name
-        -lon_median, lat_median
-        -end_time_ut, end_date, start_date, start_time_ut
-        -checksum?
-        -db directory
-
-        Routing parameters:
-        -transfer_margin
-        -walking speed
-        -walking distance
-        -time/date
-        -multiple targets (true/false)
-        -
-        """
 
     def _check_that_dbs_match(self):
         for key, value in self.parameters.items():
@@ -294,19 +211,6 @@ class JourneyDataManager:
         route_stops = ','.join([str(x) for x in route_stops])
         return target_stop, value_list, route_stops
 
-    def create_indicies(self):
-        print("Indexing")
-        cur = self.conn.cursor()
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_jid ON journeys (journey_id)')
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_fid ON journeys (from_stop_I)')
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_tid ON journeys (to_stop_I)')
-        if self.track_route:
-            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_jid ON connections (journey_id)')
-            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_trid ON connections (trip_I)')
-            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_fid ON connections (from_stop_I)')
-            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_tid ON connections (to_stop_I)')
-        self.conn.commit()
-
     @timeit
     def add_fastest_path_column(self):
 
@@ -358,7 +262,101 @@ class JourneyDataManager:
         cur.executemany("UPDATE journeys SET time_to_prev_journey_fp = ? WHERE journey_id = ?", time_to_prev_journey)
         self.conn.commit()
 
+    def run_preparations(self, journey_db_dir):
+        assert not os.path.isfile(journey_db_dir)
+        self.conn = sqlite3.connect(journey_db_dir)
+        self._set_up_database()
+        self._initialize_parameter_table()
 
+    def _set_up_database(self):
+
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS parameters(
+                     key TEXT UNIQUE,
+                     value BLOB)''')
+        if self.track_route:
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
+                         journey_id INTEGER PRIMARY KEY,
+                         from_stop_I INT,
+                         to_stop_I INT,
+                         dep_time INT,
+                         arr_time INT,
+                         movement_duration INT,
+                         route TEXT,
+                         time_to_prev_journey_fp INT,
+                         fastest_path INT)''')
+
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS connections(
+                         journey_id INT,
+                         from_stop_I INT,
+                         to_stop_I INT,
+                         dep_time INT,
+                         arr_time INT,
+                         trip_I INT,
+                         seq INT,
+                         leg_stops TEXT)''')
+        else:
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
+                         journey_id INTEGER PRIMARY KEY,
+                         from_stop_I INT,
+                         to_stop_I INT,
+                         dep_time INT,
+                         arr_time INT,
+                         n_boardings INT,
+                         time_to_prev_journey_fp INT,
+                         fastest_path INT)''')
+        self.conn.commit()
+        self.conn.close()
+
+    def _initialize_parameter_table(self):
+
+        parameters = Parameters(self.conn)
+
+        parameters["multiple_targets"] = True if len(self.target_stops) > 1 else False
+        parameters["gtfs_dir"] = self.gtfs_dir
+        for param in ["location_name",
+                      "lat_median",
+                      "lon_median",
+                      "start_time_ut",
+                      "end_time_ut",
+                      "start_date",
+                      "end_date"]:
+            parameters[param] = self.gtfs_meta[param]
+
+        for key, value in self.routing_params.items():
+            parameters[key] = value
+        self.conn.commit()
+        self.conn.close()
+
+        """
+        Parameter table contents:
+        GTFS db identification data:
+        -city/feed = location_name
+        -lon_median, lat_median
+        -end_time_ut, end_date, start_date, start_time_ut
+        -checksum?
+        -db directory
+
+        Routing parameters:
+        -transfer_margin
+        -walking speed
+        -walking distance
+        -time/date
+        -multiple targets (true/false)
+        -
+        """
+
+    def create_indicies(self):
+        print("Indexing")
+        cur = self.conn.cursor()
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_jid ON journeys (journey_id)')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_fid ON journeys (from_stop_I)')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_tid ON journeys (to_stop_I)')
+        if self.track_route:
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_jid ON connections (journey_id)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_trid ON connections (trip_I)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_fid ON connections (from_stop_I)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_tid ON connections (to_stop_I)')
+        self.conn.commit()
 """
 
     def add_fastest_path_column(self):
