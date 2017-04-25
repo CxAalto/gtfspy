@@ -26,7 +26,7 @@ class JourneyDataManager:
         gtfs = GTFS(self.gtfs_dir)
         self.gtfs_meta = gtfs.meta
         print('location_name: ', self.gtfs_meta["location_name"])
-
+        self.conn = None
         self.parameters = Parameters(self.conn)
         if os.path.isfile(journey_db_dir):
             self.conn = sqlite3.connect(journey_db_dir)
@@ -35,7 +35,8 @@ class JourneyDataManager:
             raise Exception("Database specified does not exist, use run_preparations() method first")
 
     def __del__(self):
-        self.conn.close()
+        if self.conn:
+            self.conn.close()
 
     @timeit
     def import_journey_data_single_stop(self, list_of_stop_profiles, target_stop):
