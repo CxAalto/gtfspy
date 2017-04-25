@@ -1,4 +1,12 @@
+pandas
 networkx
 pyshp
 smopy
--e git+https://github.com/rmkujala/osmread.git#egg=osmread
+nose
+Cython
+six
+geoindex
+osmread
+geopandas
+geojson
+shapely

@@ -30,7 +30,7 @@ from collections import defaultdict
 
 import networkx
 
-from gtfspy.routing.models import Connection
+from gtfspy.routing.connection import Connection
 from gtfspy.routing.label import LabelTimeSimple
 from gtfspy.routing.node_profile_simple import NodeProfileSimple
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm

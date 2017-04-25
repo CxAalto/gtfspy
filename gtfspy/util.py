@@ -3,24 +3,28 @@ from __future__ import print_function
 
 import contextlib
 import datetime
+import io
 import math
 import pandas as pd
 import os
 import shutil
+import sys
 import tempfile
 import time
 from math import cos
 
-import networkx as nx
+import networkx
 import numpy
 import shapefile as shp
 
-# Below is a race condition, so do it only on import.  Is there a
-# portable way to do this?
+"""
+Various unrelated utility functions.
+"""
+
+# Below is a race condition, so do it only on import.
+# Is there a portable way to do this?
 current_umask = os.umask(0)
 os.umask(current_umask)
-
-# Various unrelated utility functions.
 
 TORADIANS = 3.141592653589793 / 180.
 EARTH_RADIUS = 6378137.
@@ -39,12 +43,13 @@ def wgs84_distance(lat1, lon1, lat2, lon2):
 
 
 def wgs84_height(meters):
-    return meters/(EARTH_RADIUS * TORADIANS)
+    return meters / (EARTH_RADIUS * TORADIANS)
 
 
 def wgs84_width(meters, lat):
-    R2 = EARTH_RADIUS * cos(lat*TORADIANS)
-    return meters/(R2 * TORADIANS)
+    R2 = EARTH_RADIUS * cos(lat * TORADIANS)
+    return meters / (R2 * TORADIANS)
+
 
 # cython implementation of this.  It is called _often_.
 try:
@@ -55,7 +60,7 @@ except ImportError:
 possible_tmpdirs = [
     '/tmp',
     ''
-    ]
+]
 
 
 @contextlib.contextmanager
@@ -123,7 +128,7 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
         # extension.  Set it to not delete automatically, since on
         # success we will move it to elsewhere.
         tmpfile = tempfile.NamedTemporaryFile(
-            prefix='tmp-'+root+'-', suffix=ext, dir=dir_, delete=False)
+            prefix='tmp-' + root + '-', suffix=ext, dir=dir_, delete=False)
         fname_tmp = tmpfile.name
     try:
         yield fname_tmp
@@ -146,7 +151,7 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
     except OSError as e:
         # New temporary file in same directory
         tmpfile2 = tempfile.NamedTemporaryFile(
-            prefix='tmp-'+root+'-', suffix=ext, dir=this_dir, delete=False)
+            prefix='tmp-' + root + '-', suffix=ext, dir=this_dir, delete=False)
         # Copy contents over
         shutil.copy(fname_tmp, tmpfile2.name)
         # Rename new tmpfile, unlink old one on other filesystem.
@@ -201,6 +206,7 @@ def day_seconds_to_str_time(ds):
     seconds = ds % 60
     return "%02d:%02d:%02d" % (hours, minutes, seconds)
 
+
 def makedirs(path):
     """
     Create directories if they do not exist, otherwise do nothing.
@@ -212,31 +218,6 @@ def makedirs(path):
     return path
 
 
-def draw_net_using_node_coords(net):
-    """
-    Plot a networkx.Graph by using the lat and lon attributes of nodes.
-
-    Parameters
-    ----------
-    net : networkx.Graph
-
-    Returns
-    -------
-    fig : matplotlib.figure
-        the figure object where the network is plotted
-    """
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    node_coords = {}
-    for node, data in net.nodes(data=True):
-        node_coords[node] = (data['lon'], data['lat'])
-    ax = fig.add_subplot(111)
-    nx.draw(net, pos=node_coords, ax=ax, node_size=50)
-    return fig
-
-
-
-
 def timeit(method):
     """
     A Python decorator for printing out the execution time for a function.
@@ -244,11 +225,12 @@ def timeit(method):
     Adapted from:
     www.andreas-jung.com/contents/a-python-decorator-for-measuring-the-execution-time-of-methods
     """
+
     def timed(*args, **kw):
         time_start = time.time()
         result = method(*args, **kw)
         time_end = time.time()
-        print('timeit: %r %2.2f sec (%r, %r) ' % (method.__name__, time_end-time_start, args, kw))
+        print('timeit: %r %2.2f sec (%r, %r) ' % (method.__name__, time_end - time_start, args, kw))
         return result
 
     return timed
@@ -258,15 +240,16 @@ def corrupted_zip(zip_path):
     import zipfile
     try:
         zip_to_test = zipfile.ZipFile(zip_path)
-        #warning = zip_to_test.testzip()
-        #if warning is not None:
+        # warning = zip_to_test.testzip()
+        # if warning is not None:
         #    return str(warning)
-        #else:
+        # else:
         return "ok"
     except:
         return "error"
 
-def txt_to_pandas(path, table, args=None):
+
+def source_table_txt_to_pandas(path, table, args=None):
     """
     :param path: path to directory or zipfile
     :param table: name of table
@@ -276,6 +259,7 @@ def txt_to_pandas(path, table, args=None):
 
     import os
     import zipfile
+    import pandas
     from pandas import read_csv
     if u'.txt' not in table:
         table += u'.txt'
@@ -297,16 +281,14 @@ def txt_to_pandas(path, table, args=None):
             try:
                 f = zip_open(z, table)
             except KeyError as e:
-                return None
+                return pandas.DataFrame()
 
     if args:
-        code_string = "read_csv(f" + args + ")"
-        df = eval(code_string)
+        df = read_csv(**args)
     else:
         df = read_csv(f)
-
-    #print(df.to_string())
     return df
+
 
 def write_shapefile(data, shapefile_path):
     """
@@ -315,7 +297,7 @@ def write_shapefile(data, shapefile_path):
     :return:
     """
 
-    w = shp.Writer(shp.POLYLINE) # shapeType=3)
+    w = shp.Writer(shp.POLYLINE)  # shapeType=3)
 
     fields = []
     encode_strings = []
@@ -351,7 +333,7 @@ def write_shapefile(data, shapefile_path):
 
         # The shapefile records command is built up as strings to allow a differing number of columns
         for field in fields:
-            #records.append(dict_item[field])
+            # records.append(dict_item[field])
             if records_string:
                 records_string += ", dict_item['" + str(field) + "']"
             else:
@@ -362,15 +344,34 @@ def write_shapefile(data, shapefile_path):
         eval(method_string)
     w.save(shapefile_path)
 
+
 # Opening files with Universal newlines is done differently in py3
 def zip_open(z, filename):
-    import sys
-    import io
-
     if sys.version_info[0] == 2:
         return z.open(filename, 'rU')
     else:
         return io.TextIOWrapper(z.open(filename, 'r'))
+
+
+def draw_net_using_node_coords(net):
+    """
+    Plot a networkx.Graph by using the lat and lon attributes of nodes.
+    Parameters
+    ----------
+    net : networkx.Graph
+    Returns
+    -------
+    fig : matplotlib.figure
+        the figure object where the network is plotted
+    """
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    node_coords = {}
+    for node, data in net.nodes(data=True):
+        node_coords[node] = (data['lon'], data['lat'])
+    ax = fig.add_subplot(111)
+    networkx.draw(net, pos=node_coords, ax=ax, node_size=50)
+    return fig
 
 
 def make_sure_path_exists(path):
@@ -381,7 +382,6 @@ def make_sure_path_exists(path):
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             raise
-
 
 def difference_of_pandas_dfs(df_self, df_other, col_names=None):
     """

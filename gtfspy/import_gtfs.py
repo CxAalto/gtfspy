@@ -139,28 +139,45 @@ class TableLoader(object):
     def exists(self):
         """Does this GTFS contain this file? (file specified by the class)"""
         # If file exists in one of the sources, return True
+        return any(self.exists_by_source())
+
+    def exists_by_source(self):
+        """Does this GTFS contain this file? (file specified by the class)"""
+        exists_list = []
         for source in self.gtfs_sources:
             if isinstance(source, dict):
                 # source can now be either a dict or a zipfile
                 if self.fname in source:
                     if source[self.fname]:
-                        return True
+                        exists_list.append(True)
+                        continue
             # Handle zipfiles specially
             if "zipfile" in source:
                 try:
                     Z = zipfile.ZipFile(source['zipfile'], mode='r')
                     Z.getinfo(os.path.join(source['zip_commonprefix'], self.fname))
-                    return True
+                    exists_list.append(True)
+                    continue
                 # File does not exist in the zip archive
                 except KeyError:
                     print(self.fname, ' missing in ', source)
+                    exists_list.append(False)
                     continue
             # Normal filename
-            if isinstance(source, string_types):
+            elif isinstance(source, string_types):
                 if os.path.exists(os.path.join(source, self.fname)):
-                    return True
+                    exists_list.append(True)
+                    continue
+            exists_list.append(False)
         # the "file" was not found in any of the sources, return false
-        return False
+        return exists_list
+
+    def assert_exists_if_required(self):
+        REQUIRED_FILES_GTFS = ["agency.txt", "stops.txt", "routes.txt", "trips.txt", "stop_times.txt", "calendar.txt"]
+        if self.fname in REQUIRED_FILES_GTFS:
+            for gtfs_source, exists in zip(self.gtfs_sources, self.exists_by_source()):
+                if not exists:
+                    raise AssertionError(self.fname + " does not exist in the provided gtfs_source")
 
     def gen_rows0(self):
         """Iterate through all rows in all files file.
@@ -231,7 +248,6 @@ class TableLoader(object):
                     f = []
             fs.append(f)
 
-        # so far so good...
         csv_readers = [csv.DictReader(_iter_file(f)) for f in fs]
         csv_reader_generators = []
         for i, csv_reader in enumerate(csv_readers):
@@ -433,15 +449,12 @@ class StopLoader(TableLoader):
     table = 'stops'
     tabledef = '''(stop_I INTEGER PRIMARY KEY, stop_id TEXT UNIQUE NOT NULL, code TEXT, name TEXT, desc TEXT, lat REAL, lon REAL, parent_I INT, location_type INT, wheelchair_boarding BOOL, self_or_parent_I INT)'''
 
-    # stop_id,stop_code,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url,location_type,parent_station,wheelchair_boarding
-    # 1010103,2008,"Kirkkokatu","Mariankatu 13",60.171263,24.956605,1,http://aikataulut.hsl.fi/pysakit/fi/1010103.html,0, ,2
     def gen_rows(self, readers, prefixes):
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
-                #print row
                 # and transform the "row" dictionary into a new
                 # dictionary, which is yielded.  There can be different
-                # transformations on here, as needed.
+                # transformations here, as needed.
                 yield dict(
                     stop_id       = prefix + decode_six(row['stop_id']),
                     code          = decode_six(row['stop_code']) if 'stop_code' in row else None,
@@ -474,22 +487,6 @@ class StopLoader(TableLoader):
         #conn.commit()
         pass
 
-
-# View for adjacent stops
-#        cur.execute('''CREATE VIEW IF NOT EXISTS view_stop_groups \
-#AS SELECT stop.stop_I, other_stop.stop_I other_stop_I \
-#FROM stop join stop other_stop ON (other_stop.parent_I=stop.parent_I) \
-#WHERE stop.stop_I!=other_stop.stop_I''')
-
-class StopRtreeLoader(TableLoader):
-    fname = None
-    table = 'stops_rtree'
-    tabledef = ('CREATE VIRTUAL TABLE IF NOT EXISTS stops_rtree USING '
-                'rtree(stop_I, lat, lat2, lon, lon2)')
-
-    @classmethod
-    def post_import(self, cur):
-        cur.execute('INSERT INTO stops_rtree SELECT stop_I, lat, lat, lon, lon FROM stops')
 
 
 class RouteLoader(TableLoader):
@@ -995,12 +992,9 @@ class TransfersLoader(TableLoader):
 
 class FrequenciesLoader(TableLoader):
     """Load the general frequency table."""
-    # This loader is special.  calc_transfers creates the table there,
-    # too.  We put a tabledef here so that copy() will work.
     fname = 'frequencies.txt'
     table = 'frequencies'
 
-    # TODO: this is copy-pasted from calc_transfers.
     tabledef = (u'(trip_I INT, '
                 u'start_time TEXT, '
                 u'end_time TEXT, '
@@ -1022,19 +1016,17 @@ class FrequenciesLoader(TableLoader):
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
                 yield dict(
-                    _trip_id = prefix + decode_six(row['trip_id']),
-                    start_time = row['start_time'],
-                    end_time = row['end_time'],
-                    headway_secs = int(row['headway_secs']),
-                    exact_times = int(row['exact_times']) if 'exact_times' in row and row['exact_times'].isdigit() else 0
+                    _trip_id=prefix + decode_six(row['trip_id']),
+                    start_time=row['start_time'],
+                    end_time=row['end_time'],
+                    headway_secs=int(row['headway_secs']),
+                    exact_times=int(row['exact_times']) if 'exact_times' in row and row['exact_times'].isdigit() else 0
                 )
 
     def post_import(self, cur):
         # For each (start_time_dependent) trip_I in frequencies.txt
         conn = self._conn
         frequencies_df = pandas.read_sql("SELECT * FROM " + self.table, conn)
-        trips_df = pandas.read_sql("SELECT * FROM " + "trips", conn)
-        calendar_df = pandas.read_sql("SELECT * FROM " + "calendar", conn)
 
         for freq_tuple in frequencies_df.itertuples():
             trip_data = pandas.read_sql_query("SELECT * FROM trips WHERE trip_I= " + str(int(freq_tuple.trip_I)), conn)
@@ -1049,7 +1041,7 @@ class FrequenciesLoader(TableLoader):
             if trip_duration is None:
                 raise ValueError("Stop times for frequency trip " + trip_data.trip_id + " are not properly defined")
             headway = freq_tuple.headway_secs
-            #print trip_data.trip_I
+
             sql = "SELECT * FROM stop_times WHERE trip_I=" + str(trip_data.trip_I) + " ORDER BY seq"
             stop_time_data = pandas.read_sql_query(sql, conn)
 
@@ -1273,7 +1265,7 @@ class StopDistancesLoader(TableLoader):
         cur2 = conn.cursor()
         if self.print_progress:
             print("Calculating transfers")
-        calc_transfers.calc_transfers(conn, threshold=self.threshold)
+        calc_transfers.calc_transfers(conn, threshold_meters=self.threshold)
 
         # Copy data from transfers table.  Several steps below.
         if self.print_progress:
@@ -1347,12 +1339,6 @@ class StopDistancesLoader(TableLoader):
                     ' AS INT)'
                     'WHERE d ISNULL'
                     )
-        conn.commit()
-
-        # Set all d_walk distances to the same as `d` values.  This
-        # would be overwritten in a later step, when routed d_walks
-        # are set.
-        conn.execute('UPDATE stop_distances SET d_walk=d')
         conn.commit()
 
     def export_stop_distances(self, conn, f_out):
@@ -1484,101 +1470,7 @@ def main_make_views(gtfs_fname):
     conn.commit()
 
 
-# OBSOLETE, not supported
-# See gtfs.copy_and_filter for similar functionality
-#
-# def main_copy(source, dest, **where):
-#     """Copy one database to another.
-#
-#     This function is designed to copy one GTFS database to another.  In
-#     particular, it would be used to materialize the day_* views.
-#
-#     Parameters
-#     ----------
-#     source : sqlite database?
-#     dest: sqlite database?
-#     """
-#     time_import_start = time.time()
-#     conn = db.connect_gtfs(None, fname=dest, mode='w')
-#     conn.execute('PRAGMA page_size = 4096;')
-#     conn.execute('PRAGMA mmap_size = 1073741824;')
-#     conn.execute('PRAGMA cache_size = -2000000;')
-#     conn.execute('PRAGMA journal_mode = OFF;')
-#     #conn.execute('PRAGMA journal_mode = WAL;')
-#     conn.execute('PRAGMA synchronous = OFF;')
-#
-#     conn.execute('ATTACH DATABASE ? AS source', (source.decode('utf-8'),))
-#
-#     #where = { }
-#     G0 = GTFS(source)
-#     G0.tzset()
-#     if 'start_ut' in where:
-#         if not isinstance(where['start_ut'], int):
-#             where['start_ut'] = G0.get_day_start_ut(where['start_ut'])
-#     if 'end_ut' in where:
-#         if not isinstance(where['end_ut'], int):
-#             where['end_ut'] = G0.get_day_start_ut(where['end_ut'])
-#
-#     #where['start_ut'] = G0.get_day_start_ut('2015-08-12')
-#     #where['end_ut'] = G0.get_day_start_ut('2015-08-15')
-#
-#     print "Copying %s -> %s  (%s)" % (source, dest, where)
-#     for L in Loaders:
-#         print L.__name__
-#         L(None).create_table(conn)
-#         L(None).create_index(conn)
-#         L.copy(conn, **where)
-#     for L in Loaders:
-#         L(None).make_views(conn)
-#     # Recursively detete data
-#     print "Recursively deleting data..."
-#     conn.execute('DELETE FROM main.trips WHERE '
-#                  'trip_I NOT IN (SELECT trip_I FROM main.days)')
-#     conn.execute('DELETE FROM main.shapes WHERE '
-#                  'shape_id NOT IN (SELECT shape_id FROM main.trips)')
-#     conn.execute('DELETE FROM main.stop_times WHERE '
-#                  'trip_I NOT IN (SELECT trip_I FROM main.days)')
-#     conn.execute('DELETE FROM main.stops WHERE '
-#                  'stop_I NOT IN (SELECT stop_I FROM main.stop_times)')
-#     conn.execute('DELETE FROM main.stops_rtree WHERE '
-#                  'stop_I NOT IN (SELECT stop_I FROM main.stops)')
-#     conn.execute('DELETE FROM main.stop_distances WHERE '
-#                  '   from_stop_I NOT IN (SELECT stop_I FROM main.stops) '
-#                  'OR to_stop_I   NOT IN (SELECT stop_I FROM main.stops)')
-#     conn.execute('DELETE FROM main.routes WHERE '
-#                  'route_I NOT IN (SELECT route_I FROM main.trips)')
-#     conn.execute('DELETE FROM main.agencies WHERE '
-#                  'agency_I NOT IN (SELECT agency_I FROM main.routes)')
-#     conn.commit()
-#
-#     # Check that we have some data left
-#     count = conn.execute('select count(*) from days').fetchone()
-#     if count is None or count[0] == 0:
-#         raise ValueError("This DB has no data after copying: %s" % source)
-#
-#     # Metadata for the copy
-#     G = GTFS(dest)
-#     G.meta['copied_from'] = source
-#     G.meta['copy_time_ut'] = time.time()
-#     G.meta['copy_time'] = time.ctime()
-#     G.meta['copy_seconds'] = time.time() - time_import_start
-#     # Copy some keys directly.
-#     for key in ['original_gtfs', 'download_date', 'location_name',
-#                 'timezone', ]:
-#         G.meta[key] = G0.meta[key]
-#     # Update *all* original metadata under orig_ namespace.
-#     G.meta.update(('orig_' + k, v) for k, v in G0.meta.items())
-#     G.calc_and_store_stats()
-#
-#     # Must be detached first, or else timestamps will be updated and
-#     # make will get messed up.
-#     conn.execute('DETACH DATABASE source')
-#
-#     print "Vacuuming..."
-#     conn.execute('VACUUM;')
-#     print "Analyzing..."
-#     conn.execute('ANALYZE;')
-#     del G0, G
+
 
 
 Loaders = [AgencyLoader,         # deps: -
@@ -1589,7 +1481,6 @@ Loaders = [AgencyLoader,         # deps: -
            ShapeLoader,          # deps: -
            FeedInfoLoader,       # deps: -
            StopLoader,           # deps: -
-           StopRtreeLoader,      # deps: Stop
            TransfersLoader,      # deps: Stop
            StopDistancesLoader,  # deps: (pi: Stop)
            TripLoader,           # deps: Route, Calendar, (Shape)             | (pi2: StopTimes)
@@ -1627,21 +1518,13 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     if isinstance(output, sqlite3.Connection):
         conn = output
     else:
-        #if os.path.isfile(output):
-         #   raise RuntimeError('File already exists')
+        # if os.path.isfile(output):
+        #  raise RuntimeError('File already exists')
         conn = sqlite3.connect(output)
     if not isinstance(gtfs_sources, list):
         gtfs_sources = [gtfs_sources]
     cur = conn.cursor()
     time_import_start = time.time()
-    # Use this for quick, fast checks on things.
-    #StopLoader(gtfsdir).import_(conn)
-    #StopLoader(gtfsdir).post_import(cur)
-    #StopRtreeLoader(gtfsdir).import_(conn)
-    #StopRtreeLoader(gtfsdir).post_import(cur)
-    #import calc_transfers ; calc_transfers.calc_transfers(conn)
-    #conn.commit()
-    #exit(0)
 
     # These are a bit unsafe, but make importing much faster,
     # especially on scratch.
@@ -1657,9 +1540,11 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     conn.isolation_level = ''    # change back to python default.
     # end python3.6 workaround
 
-    #TableLoader.mode = 'index'
     # Do the actual importing.
     loaders = [L(gtfssource=gtfs_sources, print_progress=print_progress, **kwargs) for L in Loaders]
+
+    for Loader in loaders:
+        Loader.assert_exists_if_required()
 
     # Do initial import.  This consists of making tables, raw insert
     # of the CSVs, and then indexing.
@@ -1727,6 +1612,9 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     cur.execute('ANALYZE')
     if not (preserve_connection is True):
         conn.close()
+
+
+
 
 
 def main():
@@ -1807,6 +1695,7 @@ def main():
     elif args.cmd == "import-multiple":
         zipfiles = args.zipfiles
         output = args.output
+        print("loaders")
         with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
             import_gtfs(zipfiles, output=tmpfile)
     elif args.cmd == 'make-views':

@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import networkx
 
-from gtfspy.routing.models import Connection
+from gtfspy.routing.connection import Connection
 from gtfspy.routing.label import LabelTime
 from gtfspy.routing.pseudo_connection_scan_profiler import PseudoConnectionScanProfiler
 

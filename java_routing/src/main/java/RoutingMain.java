@@ -127,7 +127,7 @@ public class RoutingMain {
         System.out.println("Routing/fetching data from cache took " + String.valueOf(routingDuration/1000.) +
                 " seconds");
         System.out.println("Writing out results took " + String.valueOf(writeOutDuration/1000.) + " seconds");
-        System.out.println(String.format("In total there were %d results fetched from cache.", cacheRouter.nCacheHits));
+        System.out.println("In total there were "+ cacheRouter.nCacheHits + " results fetched from cache.");
         return false;
     }
 

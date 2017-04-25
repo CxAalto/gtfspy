@@ -13,10 +13,10 @@ from gtfspy import stats
 from gtfspy import gtfs
 
 
-
 class FilterExtract(object):
+
     def __init__(self,
-                 gtfs,
+                 G,
                  copy_db_path,
                  buffer_distance=None,
                  buffer_lat=None,
@@ -28,9 +28,11 @@ class FilterExtract(object):
                  agency_distance=None):
         """
         Copy a database, and then based on various filters.
-        Only copy_and_filter method is provided as of now because we do not want to take the risk of
-        losing any data of the original databases.
+        Only method `create_filtered_copy` is provided as we do not want to take the risk of
+        losing the data stored in the original database.
 
+        G: gtfspy.gtfs.GTFS
+            the original database
         copy_db_path : str
             path to another database database
         update_metadata : boolean, optional
@@ -58,32 +60,35 @@ class FilterExtract(object):
         buffer_lon : float
             Longitude of the buffer zone center
         buffer_distance : float
-            Distance from the buffer zone center (in meters)
+            Distance from the buffer zone center (in kilometers)
 
         Returns
         -------
         None
         """
-        if isinstance(start_date, (datetime.datetime, datetime.date)):
-            self.start_date = start_date.strftime("%Y-%m-%d")
+        if start_date and end_date:
+            if isinstance(start_date, (datetime.datetime, datetime.date)):
+                self.start_date = start_date.strftime("%Y-%m-%d")
+            else:
+                self.start_date = start_date
+            if isinstance(end_date, (datetime.datetime, datetime.date)):
+                end_date_dt = end_date
+                self.end_date = end_date.strftime("%Y-%m-%d")
+            else:
+                self.end_date = end_date
+                end_date_dt = datetime.datetime.strptime(self.end_date, "%Y-%m-%d")
+            end_date_to_include = end_date_dt - datetime.timedelta(days=1)
+            self.end_date_to_include_str = end_date_to_include.strftime("%Y-%m-%d")
         else:
-            self.start_date = start_date
-        if isinstance(end_date, (datetime.datetime, datetime.date)):
-            end_date_dt = end_date
-            self.end_date = end_date.strftime("%Y-%m-%d")
-        else:
-            self.end_date = end_date
-            end_date_dt = datetime.datetime.strptime(self.end_date, "%Y-%m-%d")
-        end_date_to_include = end_date_dt - datetime.timedelta(days=1)
-        self.end_date_to_include_str = end_date_to_include.strftime("%Y-%m-%d")
-
+            self.start_date = None
+            self.end_date = None
         self.copy_db_conn = None
         self.copy_db_path = copy_db_path
 
         self.end_date = end_date
 
         self.agency_ids_to_preserve = agency_ids_to_preserve
-        self.gtfs = gtfs
+        self.gtfs = G
         self.buffer_lat = buffer_lat
         self.buffer_lon = buffer_lon
         self.buffer_distance = buffer_distance
@@ -98,7 +103,7 @@ class FilterExtract(object):
             "the directory where the copied database will reside should exist beforehand"
         assert not os.path.exists(copy_db_path), "the resulting database exists already: %s" % copy_db_path
 
-    def filter_extract(self):
+    def create_filtered_copy(self):
         # this with statement
         # is used to ensure that no corrupted/uncompleted files get created in case of problems
         with util.create_file(self.copy_db_path) as tempfile:
@@ -237,8 +242,6 @@ class FilterExtract(object):
                                  'trip_I NOT IN (SELECT trip_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM stops WHERE '
                                  'stop_I NOT IN (SELECT stop_I FROM stop_times)')
-            self.copy_db_conn.execute('DELETE FROM stops_rtree WHERE '
-                                 'stop_I NOT IN (SELECT stop_I FROM stops)')
             self.copy_db_conn.execute('DELETE FROM stop_distances WHERE '
                                  '   from_stop_I NOT IN (SELECT stop_I FROM stops) '
                                  'OR to_stop_I   NOT IN (SELECT stop_I FROM stops)')
@@ -307,28 +310,34 @@ class FilterExtract(object):
             _buffer_distance = self.buffer_distance * 1000
             logging.info("Making spatial extract")
             self.copy_db_conn.create_function("find_distance", 4, wgs84_distance)
+            # For each trip_I, find smallest (min_seq) and largest (max_seq) stop sequence numbers
+            # that are within the buffer_distance from the buffer_lon and buffer_lat.
+            # Then delete all stops that are not between the min_seq and max_seq for any trip_I,
+            # Note that if a trip is OUT-IN-OUT-IN-OUT, the process preserves the part IN-OUT-IN of the trip.
             self.copy_db_conn.execute('DELETE FROM stops '
                                  'WHERE stop_I NOT IN '
                                  '(SELECT stops.stop_I FROM stop_times, stops, '
                                  '(SELECT trip_I, min(seq) AS min_seq, max(seq) AS max_seq FROM stop_times, stops '
                                  'WHERE stop_times.stop_I = stops.stop_I '
                                  'AND CAST(find_distance(lat, lon, ?, ?) AS INT) < ? '
-                                 'GROUP BY trip_I) q1 '
+                                    'GROUP BY trip_I) q1 '
                                  'WHERE stop_times.stop_I = stops.stop_I '
-                                 'AND stop_times.trip_I = q1.trip_I '
+                                    'AND stop_times.trip_I = q1.trip_I '
                                  'AND seq >= min_seq '
                                  'AND seq <= max_seq '
                                  ')', (self.buffer_lat, self.buffer_lon, _buffer_distance))
 
+            # Delete all stop_times for uncovered stops
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
                                  'stop_I NOT IN (SELECT stop_I FROM stops)')
-            # delete trips with only one stop
+            # Delete trips with only one stop
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
-                                 'trip_I IN (select trip_I from '
-                                 '(select trip_I, count(*) as N_stops from stop_times '
-                                 'group by trip_I) q1 '
-                                 'where N_stops = 1)')
+                                 'trip_I IN (SELECT trip_I FROM '
+                                 '(SELECT trip_I, count(*) AS N_stops from stop_times '
+                                 'GROUP BY trip_I) q1 '
+                                 'WHERE N_stops = 1)')
 
+            # Consecutively delete all the rest remaining.
             self.copy_db_conn.execute('DELETE FROM trips WHERE '
                                  'trip_I NOT IN (SELECT trip_I FROM stop_times)')
             self.copy_db_conn.execute('DELETE FROM routes WHERE '
@@ -337,8 +346,6 @@ class FilterExtract(object):
                                  'agency_I NOT IN (SELECT agency_I FROM routes)')
             self.copy_db_conn.execute('DELETE FROM shapes WHERE '
                                  'shape_id NOT IN (SELECT shape_id FROM trips)')
-            self.copy_db_conn.execute('DELETE FROM stops_rtree WHERE '
-                                 'stop_I NOT IN (SELECT stop_I FROM stops)')
             self.copy_db_conn.execute('DELETE FROM stop_distances WHERE '
                                  'from_stop_I NOT IN (SELECT stop_I FROM stops)'
                                  'OR to_stop_I NOT IN (SELECT stop_I FROM stops)')

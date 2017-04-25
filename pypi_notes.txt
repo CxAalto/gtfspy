@@ -1,0 +1,13 @@
+
+# Source distribution
+python setup.py sdist
+
+# Wheel distribution:
+python setup.py bdist_wheel
+
+# To register
+twine register dist/mypkg.whl -r pypi
+
+# To upload
+twine upload dist/* -r pypi
+

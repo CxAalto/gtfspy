@@ -417,11 +417,6 @@ class TestImport(unittest.TestCase):
             row = rows[0]
             assert key in row
 
-    @unittest.skip("not yet tested")
-    def test_stopRtreeLoader(self):
-        # TODO!
-        import_gtfs(self.fdict, self.conn, preserve_connection=True)
-
     def test_testDataImport(self):
         gtfs_source_dir = os.path.join(os.path.dirname(__file__), "test_data")
         import_gtfs(gtfs_source_dir, self.conn, preserve_connection=True)
@@ -497,20 +492,14 @@ class TestImport(unittest.TestCase):
 
     def test_sources_required(self):
         self.fdict.pop("calendar.txt")
-        self.fdict.pop("calendar_dates.txt")
-        # with self.assertRaises(SomeSpecificException):
-        #   import_gtfs(self.fdict, self.conn)
-        self.fail()
+        with self.assertRaises(AssertionError):
+            import_gtfs(self.fdict, self.conn)
 
     def test_sources_required_multiple(self):
         fdict_copy = dict(self.fdict)
         fdict_copy.pop("calendar.txt")
-        self.fdict.pop("calendar_dates.txt")
-        # do something like this:
-        # with self.assertRaises(SomeSpecificException):
-        #    import_gtfs([self.fdict, fdict_copy], self.conn)
-        self.fail()
-
+        with self.assertRaises(AssertionError):
+            import_gtfs([self.fdict, fdict_copy], self.conn)
 
     def test_resequencing_stop_times(self):
         gtfs_source = self.fdict.copy()

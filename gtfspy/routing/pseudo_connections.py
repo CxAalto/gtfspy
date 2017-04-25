@@ -1,4 +1,4 @@
-from gtfspy.routing.models import Connection
+from gtfspy.routing.connection import Connection
 
 
 def compute_pseudo_connections(transit_connections, start_time_dep,

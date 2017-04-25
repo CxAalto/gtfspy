@@ -1,7 +1,7 @@
 import unittest
 
 from gtfspy.routing.forwardjourney import ForwardJourney
-from gtfspy.routing.models import Connection
+from gtfspy.routing.connection import Connection
 
 
 class ForwardJourneyTest(unittest.TestCase):
