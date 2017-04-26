@@ -64,7 +64,8 @@ class ExportsTest(unittest.TestCase):
 
     def test_stop_to_stop_network_by_route_type(self):
         # test that distance works
-        nxGraph = networks.stop_to_stop_network_for_route_type(self.gtfs, BUS,
+        nxGraph = networks.stop_to_stop_network_for_route_type(self.gtfs,
+                                                               BUS,
                                                                link_attributes=ALL_STOP_TO_STOP_LINK_ATTRIBUTES)
         self.assertTrue(isinstance(nxGraph, networkx.DiGraph), type(nxGraph))
         nodes = nxGraph.nodes(data=True)
@@ -90,10 +91,8 @@ class ExportsTest(unittest.TestCase):
             self.assertLessEqual(linkData['duration_avg'], linkData["duration_max"])
             self.assertLessEqual(linkData['duration_median'], linkData["duration_max"])
             self.assertGreaterEqual(linkData['duration_median'], linkData["duration_min"])
-            self.assertTrue(isinstance(linkData['d'], int),
-                            "straight line distance should always exist and be an int")
-            self.assertGreaterEqual(linkData['d'],
-                               0,
+            self.assertTrue(isinstance(linkData['d'], int), "straight line distance should always exist and be an int")
+            self.assertGreaterEqual(linkData['d'], 0,
                                "straight line distance should be always greater than or equal to 0 (?)")
             n_veh = linkData["n_vehicles"]
             route_ids = linkData["route_I_counts"]
