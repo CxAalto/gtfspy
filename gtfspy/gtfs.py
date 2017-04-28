@@ -1268,9 +1268,7 @@ class GTFS(object):
                 event_query += where_clause
         # ordering is required for later stages
         event_query += " ORDER BY trip_I, day_start_ut+dep_time_ds;"
-
         events_result = pd.read_sql_query(event_query, self.conn)
-
         # 'filter' results so that only real "events" are taken into account
         from_indices = numpy.nonzero(
             (events_result['trip_I'][:-1].values == events_result['trip_I'][1:].values) *
@@ -1463,12 +1461,13 @@ class GTFS(object):
                                     stop_pair_I) VALUES (%s) """ % (", ".join(["?" for x in range(9)]))
 
         query_update_row = """UPDATE stops SET stop_pair_I=? WHERE stop_id=?"""
-
+        print("adding rows to databases")
         cur.executemany(query_add_row, rows_to_add_to_self)
         cur.executemany(query_update_row, rows_to_update_self)
         cur.executemany(query_add_row.replace("stops", "other.stops"), rows_to_add_to_other)
         cur.executemany(query_update_row.replace("stops", "other.stops"), rows_to_update_other)
         self.conn.commit()
+        print("finished")
 
     def recalculate_stop_distances(self, max_distance):
         from gtfspy.calc_transfers import calc_transfers

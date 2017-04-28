@@ -177,7 +177,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             i = 0
             while i < n_in_times and j < n_out_times:
                 if in_times[i] + total_walk_time_with_transfer > out_times[j]:
-                    j += 1  # -> need to increase out_time
+                    j += 1  # connection j cannot be reached -> need to check next j -> increase out_time
                 else:
                     # if next element still satisfies the wanted condition, go on and increase i!
                     while i + 1 < n_in_times and in_times[i + 1] + total_walk_time_with_transfer < out_times[j]:

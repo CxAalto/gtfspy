@@ -2,7 +2,7 @@ import numpy
 
 from gtfspy.routing.label import LabelTimeWithBoardingsCount, merge_pareto_frontiers, compute_pareto_front, \
     LabelVehLegCount, LabelTime, LabelTimeBoardingsAndRoute, LabelTimeAndRoute
-from gtfspy.routing.models import Connection
+from gtfspy.routing.connection import Connection
 
 
 class NodeProfileMultiObjective:

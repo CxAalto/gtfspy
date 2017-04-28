@@ -1,7 +1,7 @@
 import os
 import sqlite3
 
-from gtfspy.routing.models import Connection
+from gtfspy.routing.connection import Connection
 from gtfspy.gtfs import GTFS
 from gtfspy.routing.label import LabelTimeAndRoute, LabelTimeWithBoardingsCount, compute_pareto_front
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
@@ -9,39 +9,43 @@ from gtfspy.util import timeit
 
 
 class JourneyDataManager:
-    def __init__(self, gtfs_dir, routing_params, journey_db_dir=None, target_stops=None, close_connection=True,
+    def __init__(self, gtfs_dir, routing_params, journey_db_dir=None, multitarget_routing=False, close_connection=True,
                  track_route=False, track_vehicle_legs=True):
         """
 
         :param gtfs: GTFS object
         :param list_of_stop_profiles: dict of NodeProfileMultiObjective
-        :param target_stops: list
+        :param multitarget_routing: bool
         """
         self.close_connection = close_connection
         self.routing_params = routing_params
-        self.target_stops = target_stops
+        self.multitarget_routing = multitarget_routing
         self.track_route = track_route
         self.track_vehicle_legs = track_vehicle_legs
         self.gtfs_dir = gtfs_dir
-        gtfs = GTFS(self.gtfs_dir)
-        self.gtfs_meta = gtfs.meta
+        self.gtfs = GTFS(self.gtfs_dir)
+        self.gtfs_meta = self.gtfs.meta
+        self.gtfs._dont_close = True
         print('location_name: ', self.gtfs_meta["location_name"])
         self.conn = None
-        self.parameters = Parameters(self.conn)
-        if os.path.isfile(journey_db_dir):
-            self.conn = sqlite3.connect(journey_db_dir)
-            self._check_that_dbs_match()
-        else:
-            raise Exception("Database specified does not exist, use run_preparations() method first")
+        if journey_db_dir:
+            if os.path.isfile(journey_db_dir):
+                self.conn = sqlite3.connect(journey_db_dir)
+                self.parameters = Parameters(self.conn)
+                self._check_that_dbs_match()
+
+            else:
+                raise Exception("Database specified does not exist, use run_preparations() method first")
 
     def __del__(self):
+        self.gtfs._dont_close = False
         if self.conn:
             self.conn.close()
 
     @timeit
     def import_journey_data_single_stop(self, list_of_stop_profiles, target_stop):
         cur = self.conn.cursor()
-
+        self.conn.isolation_level = 'EXCLUSIVE'
         cur.execute('PRAGMA synchronous = OFF;')
         if not isinstance(list_of_stop_profiles, list):
             list_of_stop_profiles = [list_of_stop_profiles]
@@ -49,13 +53,7 @@ class JourneyDataManager:
             self._insert_journeys_with_route_into_db(list_of_stop_profiles)
         else:
             self._insert_journeys_into_db_no_route(list_of_stop_profiles, target_stop=target_stop)
-        # Next 3 lines are python 3.6 work-arounds again.
-        self.conn.isolation_level = None  # former default of autocommit mode
-        cur.execute('VACUUM;')
-        self.conn.isolation_level = ''  # back to python default
-        # end python3.6 workaround
-        print("Analyzing...")
-        cur.execute('ANALYZE')
+
         if self.close_connection:
             self.conn.close()
 
@@ -69,22 +67,29 @@ class JourneyDataManager:
     def _check_last_journey_id(self):
         cur = self.conn.cursor()
         val = cur.execute("select max(journey_id) FROM journeys").fetchone()
-        return val[0]
+        return val[0] if val[0] else 0
 
     def _insert_journeys_into_db_no_route(self, list_of_stop_profiles, target_stop=None):
+        # TODO: Change the insertion so that the check last journey id and insertions are in the same transaction block
+        """
+        con.isolation_level = 'EXCLUSIVE'
+        con.execute('BEGIN EXCLUSIVE')
+        #exclusive access starts here. Nothing else can r/w the db, do your magic here.
+        con.commit()
+        """
         print("Collecting journey data")
-        journey_id = (self._check_last_journey_id() if self._check_last_journey_id() else 0) + 1
+        journey_id = 1
         journey_list = []
         for stop_profiles in list_of_stop_profiles:
             tot = len(stop_profiles)
             for i, origin_stop in enumerate(stop_profiles, start=1):
-                print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
+                #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
 
                 assert (isinstance(stop_profiles[origin_stop], NodeProfileMultiObjective))
 
                 for label in stop_profiles[origin_stop].get_final_optimal_labels():
                     assert (isinstance(label, LabelTimeWithBoardingsCount))
-                    if self.target_stops:
+                    if self.multitarget_routing:
                         target_stop = None
 
                     values = [journey_id,
@@ -96,7 +101,6 @@ class JourneyDataManager:
 
                     journey_list.append(values)
                     journey_id += 1
-            print()
             print("Inserting journeys into database")
             insert_journeys_stmt = '''INSERT INTO journeys(
                   journey_id,
@@ -105,8 +109,17 @@ class JourneyDataManager:
                   dep_time,
                   arr_time,
                   n_boardings) VALUES (%s) ''' % (", ".join(["?" for x in range(6)]))
-            self.conn.executemany(insert_journeys_stmt, journey_list)
+            #self.conn.executemany(insert_journeys_stmt, journey_list)
+
+            self._execute_function(insert_journeys_stmt, journey_list)
         self.conn.commit()
+
+    @timeit
+    def _execute_function(self, statement, rows):
+        self.conn.execute('BEGIN EXCLUSIVE')
+        last_id = self._check_last_journey_id()
+        rows = [[x[0]+last_id] + x[1:] for x in rows]
+        self.conn.executemany(statement, rows)
 
     def _insert_journeys_with_route_into_db(self, list_of_stop_profiles):
         print("Collecting journey and connection data")
@@ -116,7 +129,7 @@ class JourneyDataManager:
         for stop_profiles in list_of_stop_profiles:
             tot = len(stop_profiles)
             for i, origin_stop in enumerate(stop_profiles, start=1):
-                print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
+                #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
 
                 assert (isinstance(stop_profiles[origin_stop], NodeProfileMultiObjective))
 
@@ -263,11 +276,15 @@ class JourneyDataManager:
         cur.executemany("UPDATE journeys SET time_to_prev_journey_fp = ? WHERE journey_id = ?", time_to_prev_journey)
         self.conn.commit()
 
-    def run_preparations(self, journey_db_dir):
+    def initialize_database(self, journey_db_dir):
         assert not os.path.isfile(journey_db_dir)
+
         self.conn = sqlite3.connect(journey_db_dir)
         self._set_up_database()
         self._initialize_parameter_table()
+        print("Database initialized!")
+        if self.close_connection:
+            self.conn.close()
 
     def _set_up_database(self):
 
@@ -306,13 +323,12 @@ class JourneyDataManager:
                          time_to_prev_journey_fp INT,
                          fastest_path INT)''')
         self.conn.commit()
-        self.conn.close()
 
     def _initialize_parameter_table(self):
 
         parameters = Parameters(self.conn)
 
-        parameters["multiple_targets"] = True if len(self.target_stops) > 1 else False
+        parameters["multiple_targets"] = self.multitarget_routing
         parameters["gtfs_dir"] = self.gtfs_dir
         for param in ["location_name",
                       "lat_median",
@@ -326,7 +342,6 @@ class JourneyDataManager:
         for key, value in self.routing_params.items():
             parameters[key] = value
         self.conn.commit()
-        self.conn.close()
 
         """
         Parameter table contents:
@@ -347,6 +362,14 @@ class JourneyDataManager:
         """
 
     def create_indicies(self):
+        # Next 3 lines are python 3.6 work-arounds again.
+        self.conn.isolation_level = None  # former default of autocommit mode
+        cur = self.conn.cursor()
+        cur.execute('VACUUM;')
+        self.conn.isolation_level = ''  # back to python default
+        # end python3.6 workaround
+        print("Analyzing...")
+        cur.execute('ANALYZE')
         print("Indexing")
         cur = self.conn.cursor()
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_jid ON journeys (journey_id)')
