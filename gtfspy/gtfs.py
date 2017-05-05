@@ -19,11 +19,6 @@ from gtfspy.route_types import WALK
 from gtfspy.util import wgs84_distance
 
 
-if sys.getdefaultencoding() != 'utf-8':
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
-
-
 class GTFS(object):
 
     def __init__(self, fname):

@@ -1573,6 +1573,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     G.meta['location_name'] = ''
     G.meta['n_gtfs_sources'] = len(gtfs_sources)
     # Extract things from GTFS
+    download_date_strs = []
     for i, source in enumerate(gtfs_sources):
         if len(gtfs_sources) == 1:
             prefix = ""
@@ -1583,7 +1584,9 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
             # Extract GTFS date.  Last date pattern in filename.
             filename_date_list = re.findall(r'\d{4}-\d{2}-\d{2}', source)
             if filename_date_list:
-                G.meta[prefix + 'download_date'] = filename_date_list[-1]
+                date_str = filename_date_list[-1]
+                G.meta[prefix + 'download_date'] = date_str
+                download_date_strs.append(date_str)
             if location_name:
                 G.meta['location_name'] = location_name
             else:
@@ -1595,6 +1598,11 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
                         G.meta[prefix + 'location_name'] = source.split("/")[-4]
                     except:
                         G.meta[prefix + 'location_name'] = source
+    if G.meta['download_date'] == "":
+        unique_download_dates = list(set(download_date_strs))
+        if len(unique_download_dates) == 1:
+            G.meta['download_date'] = list(unique_download_dates)[0]
+
 
     G.meta['timezone'] = cur.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()[0]
     stats.update_stats(G)
@@ -1681,7 +1689,6 @@ def main():
     args = parser.parse_args()
     if args.fast:
         ignore_tables.update(('stop_times', 'shapes'))
-
     # if the first argument is import, import a GTFS directory to a .sqlite database.
     # Both directory and
     if args.cmd == 'import':
