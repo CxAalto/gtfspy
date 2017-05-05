@@ -1598,10 +1598,13 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
                         G.meta[prefix + 'location_name'] = source.split("/")[-4]
                     except:
                         G.meta[prefix + 'location_name'] = source
+
     if G.meta['download_date'] == "":
         unique_download_dates = list(set(download_date_strs))
         if len(unique_download_dates) == 1:
             G.meta['download_date'] = list(unique_download_dates)[0]
+        else:
+            raise(RuntimeError("No download date available"))
 
 
     G.meta['timezone'] = cur.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()[0]
