@@ -3,7 +3,6 @@ import os
 import unittest
 import shutil
 
-import geopandas
 import networkx
 import numpy
 import pandas
