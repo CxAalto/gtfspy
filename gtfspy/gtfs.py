@@ -648,6 +648,24 @@ class GTFS(object):
                     return row.date_str
 
     def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9):
+        """
+        Find the weekly extract start date (monday).
+        The weekdays should contain at least 0.9 of the total maximum of trips.
+
+        Parameters
+        ----------
+        ut
+        weekdays_at_least_of_max
+
+        Returns
+        -------
+        date
+
+        Raises
+        ------
+        error: RuntimeError
+            If no download date could be found.
+        """
         daily_trips = self.get_trip_counts_per_day()
         download_date_str = self.meta['download_date']
         if download_date_str == "":
@@ -658,6 +676,7 @@ class GTFS(object):
         threshold_fulfilling_days = daily_trips['trip_counts'] > threshold
 
         next_monday = download_date + timedelta(days=(7 - download_date.weekday()))
+        # look forward first
         monday_index = daily_trips[daily_trips['date'] == next_monday].index[0]
         while len(daily_trips.index) >= monday_index + 7:
             if all(threshold_fulfilling_days[monday_index:monday_index + 5]):
@@ -667,7 +686,17 @@ class GTFS(object):
                 else:
                     return row['date']
             monday_index += 7
-        raise RuntimeError("No suitable date could be found!")
+        monday_index = daily_trips[daily_trips['date'] == next_monday].index[0] - 7
+        # then backwards
+        while monday_index >= 0:
+            if all(threshold_fulfilling_days[monday_index:monday_index + 5]):
+                row = daily_trips.iloc[monday_index]
+                if ut:
+                    return self.get_day_start_ut(row.date_str)
+                else:
+                    return row['date']
+            monday_index -= 7
+        raise RuntimeError("No suitable download date could be specified for the extract!")
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
