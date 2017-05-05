@@ -33,7 +33,7 @@ setup(
     ], 
     install_requires = [
         "setuptools>=18.0",
-        "pandas>=0.19.2",
+        "pandas",
         "networkx",
         "pyshp",
         "smopy",
@@ -42,7 +42,7 @@ setup(
         "six",
         "geoindex",
         "osmread==0.2",
-        "geopandas",
+        "geopandas>=0.2.1",
         "shapely",
         "geojson"
     ],
