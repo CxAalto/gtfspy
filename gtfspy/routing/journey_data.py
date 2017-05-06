@@ -43,16 +43,14 @@ class JourneyDataManager:
             self.conn.close()
 
     @timeit
-    def import_journey_data_single_stop(self, list_of_stop_profiles, target_stop):
+    def import_journey_data_single_stop(self, stop_profiles, target_stop):
         cur = self.conn.cursor()
         self.conn.isolation_level = 'EXCLUSIVE'
         cur.execute('PRAGMA synchronous = OFF;')
-        if not isinstance(list_of_stop_profiles, list):
-            list_of_stop_profiles = [list_of_stop_profiles]
         if self.track_route:
-            self._insert_journeys_with_route_into_db(list_of_stop_profiles)
+            self._insert_journeys_with_route_into_db(stop_profiles)
         else:
-            self._insert_journeys_into_db_no_route(list_of_stop_profiles, target_stop=target_stop)
+            self._insert_journeys_into_db_no_route(stop_profiles, target_stop=target_stop)
 
         if self.close_connection:
             self.conn.close()
@@ -69,7 +67,7 @@ class JourneyDataManager:
         val = cur.execute("select max(journey_id) FROM journeys").fetchone()
         return val[0] if val[0] else 0
 
-    def _insert_journeys_into_db_no_route(self, list_of_stop_profiles, target_stop=None):
+    def _insert_journeys_into_db_no_route(self, stop_profiles, target_stop=None):
         # TODO: Change the insertion so that the check last journey id and insertions are in the same transaction block
         """
         con.isolation_level = 'EXCLUSIVE'
@@ -80,38 +78,35 @@ class JourneyDataManager:
         print("Collecting journey data")
         journey_id = 1
         journey_list = []
-        for stop_profiles in list_of_stop_profiles:
-            tot = len(stop_profiles)
-            for i, origin_stop in enumerate(stop_profiles, start=1):
-                #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
+        tot = len(stop_profiles)
+        for i, (origin_stop, labels) in enumerate(stop_profiles.items(), start=1):
+            #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
 
-                assert (isinstance(stop_profiles[origin_stop], NodeProfileMultiObjective))
+            for label in labels:
+                assert (isinstance(label, LabelTimeWithBoardingsCount))
+                if self.multitarget_routing:
+                    target_stop = None
 
-                for label in stop_profiles[origin_stop].get_final_optimal_labels():
-                    assert (isinstance(label, LabelTimeWithBoardingsCount))
-                    if self.multitarget_routing:
-                        target_stop = None
+                values = [journey_id,
+                          origin_stop,
+                          target_stop,
+                          int(label.departure_time),
+                          int(label.arrival_time_target),
+                          label.n_boardings]
 
-                    values = [journey_id,
-                              origin_stop,
-                              target_stop,
-                              int(label.departure_time),
-                              int(label.arrival_time_target),
-                              label.n_boardings]
+                journey_list.append(values)
+                journey_id += 1
+        print("Inserting journeys into database")
+        insert_journeys_stmt = '''INSERT INTO journeys(
+              journey_id,
+              from_stop_I,
+              to_stop_I,
+              dep_time,
+              arr_time,
+              n_boardings) VALUES (%s) ''' % (", ".join(["?" for x in range(6)]))
+        #self.conn.executemany(insert_journeys_stmt, journey_list)
 
-                    journey_list.append(values)
-                    journey_id += 1
-            print("Inserting journeys into database")
-            insert_journeys_stmt = '''INSERT INTO journeys(
-                  journey_id,
-                  from_stop_I,
-                  to_stop_I,
-                  dep_time,
-                  arr_time,
-                  n_boardings) VALUES (%s) ''' % (", ".join(["?" for x in range(6)]))
-            #self.conn.executemany(insert_journeys_stmt, journey_list)
-
-            self._execute_function(insert_journeys_stmt, journey_list)
+        self._execute_function(insert_journeys_stmt, journey_list)
         self.conn.commit()
 
     @timeit
@@ -121,61 +116,61 @@ class JourneyDataManager:
         rows = [[x[0]+last_id] + x[1:] for x in rows]
         self.conn.executemany(statement, rows)
 
-    def _insert_journeys_with_route_into_db(self, list_of_stop_profiles):
+    def _insert_journeys_with_route_into_db(self, stop_profiles):
         print("Collecting journey and connection data")
         journey_id = (self._check_last_journey_id() if self._check_last_journey_id() else 0) + 1
         journey_list = []
         connection_list = []
-        for stop_profiles in list_of_stop_profiles:
-            tot = len(stop_profiles)
-            for i, origin_stop in enumerate(stop_profiles, start=1):
-                #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
 
-                assert (isinstance(stop_profiles[origin_stop], NodeProfileMultiObjective))
+        tot = len(stop_profiles)
+        for i, (origin_stop, labels) in enumerate(stop_profiles.items(), start=1):
+            #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
 
-                for label in stop_profiles[origin_stop].get_final_optimal_labels():
-                    assert (isinstance(label, LabelTimeAndRoute))
-                    # We need to "unpack" the journey to actually figure out where the trip went
-                    # (there can be several targets).
+            assert (isinstance(stop_profiles[origin_stop], list))
 
-                    target_stop, new_connection_values, route_stops = self._collect_connection_data(journey_id, label)
-                    if origin_stop == target_stop:
-                        continue
-                    values = [journey_id,
-                              origin_stop,
-                              target_stop,
-                              int(label.departure_time),
-                              int(label.arrival_time_target),
-                              label.movement_duration,
-                              route_stops]
+            for label in labels:
+                assert (isinstance(label, LabelTimeAndRoute))
+                # We need to "unpack" the journey to actually figure out where the trip went
+                # (there can be several targets).
 
-                    journey_list.append(values)
-                    connection_list += new_connection_values
-                    journey_id += 1
+                target_stop, new_connection_values, route_stops = self._collect_connection_data(journey_id, label)
+                if origin_stop == target_stop:
+                    continue
+                values = [journey_id,
+                          origin_stop,
+                          target_stop,
+                          int(label.departure_time),
+                          int(label.arrival_time_target),
+                          label.movement_duration,
+                          route_stops]
 
-            print()
-            print("Inserting journeys into database")
-            insert_journeys_stmt = '''INSERT INTO journeys(
-                  journey_id,
-                  from_stop_I,
-                  to_stop_I,
-                  dep_time,
-                  arr_time,
-                  movement_duration,
-                  route) VALUES (%s) ''' % (", ".join(["?" for x in range(7)]))
-            self.conn.executemany(insert_journeys_stmt, journey_list)
+                journey_list.append(values)
+                connection_list += new_connection_values
+                journey_id += 1
 
-            print("Inserting connections into database")
-            insert_connections_stmt = '''INSERT INTO connections(
-                                  journey_id,
-                                  from_stop_I,
-                                  to_stop_I,
-                                  dep_time,
-                                  arr_time,
-                                  trip_I,
-                                  seq,
-                                  leg_stops) VALUES (%s) ''' % (", ".join(["?" for x in range(8)]))
-            self.conn.executemany(insert_connections_stmt, connection_list)
+        print()
+        print("Inserting journeys into database")
+        insert_journeys_stmt = '''INSERT INTO journeys(
+              journey_id,
+              from_stop_I,
+              to_stop_I,
+              dep_time,
+              arr_time,
+              movement_duration,
+              route) VALUES (%s) ''' % (", ".join(["?" for x in range(7)]))
+        self.conn.executemany(insert_journeys_stmt, journey_list)
+
+        print("Inserting connections into database")
+        insert_connections_stmt = '''INSERT INTO connections(
+                              journey_id,
+                              from_stop_I,
+                              to_stop_I,
+                              dep_time,
+                              arr_time,
+                              trip_I,
+                              seq,
+                              leg_stops) VALUES (%s) ''' % (", ".join(["?" for x in range(8)]))
+        self.conn.executemany(insert_connections_stmt, connection_list)
         self.conn.commit()
 
     def _collect_connection_data(self, journey_id, label):

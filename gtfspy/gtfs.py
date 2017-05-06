@@ -1469,6 +1469,23 @@ class GTFS(object):
         self.conn.commit()
         print("finished")
 
+    def add_stops_from_csv(self, csv_dir):
+        stops_to_add = pd.read_csv(csv_dir)
+        assert stops_to_add.columns == ["stop_id", "desc", "lat", "lon"]
+
+        query_add_row = """INSERT INTO stops(
+                                    stop_id,
+                                    code,
+                                    name,
+                                    desc,
+                                    lat,
+                                    lon,
+                                    location_type,
+                                    wheelchair_boarding) VALUES (%s) """ % (", ".join(["?" for x in range(8)]))
+
+        for row in stops_to_add.itertuples():
+            row.lat
+
     def recalculate_stop_distances(self, max_distance):
         from gtfspy.calc_transfers import calc_transfers
         calc_transfers(self.conn, max_distance)
