@@ -1404,6 +1404,12 @@ class GTFS(object):
 
     # TODO: The following methods could be moved to a "edit gtfs" -module
     def homogenize_stops_table_with_other_db(self, source):
+        """
+        This function takes an external database, looks of common stops and adds the missing stops to both databases.
+        In addition the stop_pair_I column is added. This id links the stops between these two sources.
+        :param source: directory of external database
+        :return:
+        """
         cur = self.conn.cursor()
         self.attach_gtfs_database(source)
 
@@ -1433,18 +1439,18 @@ class GTFS(object):
         rows_to_add_to_other = []
 
         for items in df_inner_join.itertuples(index=False):
-            rows_to_update_self.append((items[1], counter))
-            rows_to_update_other.append((items[1], counter))
+            rows_to_update_self.append((counter, items[1]))
+            rows_to_update_other.append((counter, items[1]))
             counter += 1
 
         for items in df_not_in_other.itertuples(index=False):
-            rows_to_update_self.append((items[1], counter))
+            rows_to_update_self.append((counter, items[1]))
             rows_to_add_to_other.append((stop_id_stub + str(counter),) + tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9])
                                         + (counter,))
             counter += 1
 
         for items in df_not_in_self.itertuples(index=False):
-            rows_to_update_other.append((items[1], counter))
+            rows_to_update_other.append((counter, items[1]))
             rows_to_add_to_self.append((stop_id_stub + str(counter),) + tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9])
                                        + (counter,))
             counter += 1
@@ -1470,8 +1476,16 @@ class GTFS(object):
         print("finished")
 
     def add_stops_from_csv(self, csv_dir):
-        stops_to_add = pd.read_csv(csv_dir)
-        assert stops_to_add.columns == ["stop_id", "desc", "lat", "lon"]
+        # TODO: this should be generalized for other use cases
+        cur = self.conn.cursor()
+
+        stops_to_add = pd.read_csv(csv_dir, encoding='utf-8')
+        assert all([x in stops_to_add.columns for x in ["stop_id", "code", "name", "desc", "lat", "lon"]])
+
+        stops_to_add["stop_id"] = stops_to_add["stop_id"].astype(str)
+        stops_to_add["code"] = stops_to_add["code"].astype(str)
+        stops_to_add["name"] = stops_to_add["name"].astype(str)
+        stops_to_add["desc"] = stops_to_add["desc"].astype(str)
 
         query_add_row = """INSERT INTO stops(
                                     stop_id,
@@ -1479,12 +1493,15 @@ class GTFS(object):
                                     name,
                                     desc,
                                     lat,
-                                    lon,
-                                    location_type,
-                                    wheelchair_boarding) VALUES (%s) """ % (", ".join(["?" for x in range(8)]))
+                                    lon) VALUES (%s) """ % (", ".join(["?" for x in range(6)]))
 
+        """rows_to_add = []
         for row in stops_to_add.itertuples():
-            row.lat
+            rows_to_add.append((row.stop_id, row.desc, row.lat, row.lon))
+        """
+        cur.executemany(query_add_row,
+                        stops_to_add[["stop_id", "code", "name", "desc", "lat", "lon"]].itertuples(index=False))
+        self.conn.commit()
 
     def recalculate_stop_distances(self, max_distance):
         from gtfspy.calc_transfers import calc_transfers
