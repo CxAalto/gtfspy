@@ -113,6 +113,8 @@ class FilterExtract(object):
             assert isinstance(self.copy_db_conn, sqlite3.Connection)
 
             self._delete_rows_by_start_and_end_date()
+            if self.copy_db_conn.execute('SELECT count(*) FROM days').fetchone() == (0,):
+                raise ValueError('No data left after filtering')
             self._filter_by_calendar()
             self._filter_by_agency()
             self._filter_by_area()
