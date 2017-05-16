@@ -172,7 +172,7 @@ cdef class LabelTimeWithBoardingsCount:
         """
         self_tuple = self._tuple_for_ordering()
         other_tuple = other._tuple_for_ordering()
-        return all([(s >= o) for s, o in zip(self_tuple, other_tuple)])
+        return not any([(s < o) for s, o in zip(self_tuple, other_tuple)])
 
     cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeWithBoardingsCount other):
         dominates = (
@@ -596,7 +596,7 @@ cdef class LabelTimeAndRoute:
         self.departure_time, self.arrival_time_target, self.movement_duration, self.connection, self.previous_label = state
 
     def _tuple_for_ordering(self):
-        return self.departure_time, -self.arrival_time_target, -self.movement_duration, not self.first_leg_is_walk
+        return self.departure_time, -self.arrival_time_target, not self.first_leg_is_walk, -self.movement_duration
 
     def __richcmp__(LabelTimeAndRoute self, LabelTimeAndRoute other, int op):
         self_tuple = self._tuple_for_ordering()
@@ -627,12 +627,18 @@ cdef class LabelTimeAndRoute:
         """
         self_tuple = self._tuple_for_ordering()
         other_tuple = other._tuple_for_ordering()
-        return all([(s >= o) for s, o in zip(self_tuple, other_tuple)])
+        if any([(s < o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]):
+            return False
+        elif all([(s == o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]) and self_tuple[-1] < other_tuple[-1]:
+            return False
+        else:
+            return True
+
 
     cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeAndRoute other):
         dominates = (
-            self.arrival_time_target <= other.arrival_time_target and
-            self.movement_duration <= other.movement_duration
+            self.arrival_time_target <= other.arrival_time_target or
+            (self.arrival_time_target == other.arrival_time_target and self.movement_duration <= other.movement_duration)
         )
         return dominates
 
@@ -640,9 +646,11 @@ cdef class LabelTimeAndRoute:
         cdef:
             int dominates
         dominates = (
-            self.arrival_time_target <= other.arrival_time_target and
-            self.movement_duration <= other.movement_duration and
-            self.first_leg_is_walk <= other.first_leg_is_walk
+            (self.arrival_time_target <= other.arrival_time_target and
+            self.first_leg_is_walk <= other.first_leg_is_walk) or
+            (self.arrival_time_target == other.arrival_time_target and
+            self.first_leg_is_walk == other.first_leg_is_walk and self.movement_duration <= other.movement_duration)
+
         )
         return dominates
 
@@ -655,7 +663,7 @@ cdef class LabelTimeAndRoute:
         )
         return dominates
 
-    cpdef int dominates_ignoring_dep_time_and_movement_duration(self, LabelTimeAndRoute other):
+    cpdef int dominates_ignoring_dep_time_and_n_boardings(self, LabelTimeAndRoute other):
         cdef:
             int dominates
         dominates = (

@@ -132,13 +132,17 @@ class JourneyDataManager:
                 assert (isinstance(label, LabelTimeAndRoute))
                 # We need to "unpack" the journey to actually figure out where the trip went
                 # (there can be several targets).
+                if label.departure_time == label.arrival_time_target:
+                    print("Weird label:", label)
+                    continue
 
                 target_stop, new_connection_values, route_stops = self._collect_connection_data(journey_id, label)
                 if origin_stop == target_stop:
                     continue
-                values = [journey_id,
-                          origin_stop,
-                          target_stop,
+
+                values = [int(journey_id),
+                          int(origin_stop),
+                          int(target_stop),
                           int(label.departure_time),
                           int(label.arrival_time_target),
                           label.movement_duration,
@@ -181,40 +185,57 @@ class JourneyDataManager:
         route_stops = []
         leg_stops = []
         prev_trip_id = None
+        connection = None
         leg_departure_time = None
         leg_departure_stop = None
         while True:
-            connection = cur_label.connection
-            if isinstance(connection, Connection):
+            if isinstance(cur_label.connection, Connection):
+                connection = cur_label.connection
                 if connection.trip_id:
                     trip_id = connection.trip_id
                 else:
                     trip_id = -1
 
+                # In case of new leg
                 if prev_trip_id != trip_id:
                     route_stops.append(connection.departure_stop)
                     if prev_trip_id:
-                        leg_stops.append(connection.arrival_stop)
+                        leg_stops.append(connection.departure_stop)
                         values = (
                             int(journey_id),
                             int(leg_departure_stop),
-                            int(connection.arrival_stop),
+                            int(connection.departure_stop),
                             int(leg_departure_time),
-                            int(connection.arrival_time),
-                            int(trip_id),
+                            int(connection.departure_time),
+                            int(prev_trip_id),
                             int(seq),
                             ','.join([str(x) for x in leg_stops])
                                 )
                         value_list.append(values)
                         seq += 1
                         leg_stops = []
+
                     leg_departure_stop = connection.departure_stop
                     leg_departure_time = connection.departure_time
                 leg_stops.append(connection.departure_stop)
                 target_stop = connection.arrival_stop
                 prev_trip_id = trip_id
+
             if not cur_label.previous_label:
+                leg_stops.append(connection.arrival_stop)
+                values = (
+                    int(journey_id),
+                    int(leg_departure_stop),
+                    int(connection.arrival_stop),
+                    int(leg_departure_time),
+                    int(connection.arrival_time),
+                    int(prev_trip_id),
+                    int(seq),
+                    ','.join([str(x) for x in leg_stops])
+                )
+                value_list.append(values)
                 break
+
             cur_label = cur_label.previous_label
         route_stops.append(target_stop)
         route_stops = ','.join([str(x) for x in route_stops])
