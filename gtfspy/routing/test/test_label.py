@@ -199,29 +199,30 @@ class TestLabelTimeAndRoute(TestCase):
         label1 = LabelTimeAndRoute(departure_time=0, arrival_time_target=20, movement_duration=0, first_leg_is_walk=False)
         label2 = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
         self.assertTrue(label2.dominates(label1))
+        self.assertFalse(label1.dominates(label2))
 
     def test_does_not_dominate_same(self):
         label2 = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
         label3 = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
         self.assertTrue(label2.dominates(label3))
+        self.assertTrue(label3.dominates(label2))
 
     def test_dominates_later_arrival_time(self):
         label2 = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
         label4 = LabelTimeAndRoute(departure_time=1, arrival_time_target=11, movement_duration=0, first_leg_is_walk=False)
         self.assertTrue(label2.dominates(label4))
+        self.assertFalse(label4.dominates(label2))
 
     def test_dominates_earlier_departure_time(self):
         label2 = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
         label5 = LabelTimeAndRoute(departure_time=0, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
         self.assertTrue(label2.dominates(label5))
+        self.assertFalse(label5.dominates(label2))
 
     def test_dominates_less_movement_duration(self):
         labela = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
         labelb = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=1, first_leg_is_walk=False)
         self.assertFalse(labelb.dominates(labela))
-
-        labela = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
-        labelb = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=1, first_leg_is_walk=False)
         self.assertTrue(labela.dominates(labelb))
 
     def test_dominates_less_movement_duration_when_arrival_time_not_the_same(self):
@@ -229,13 +230,55 @@ class TestLabelTimeAndRoute(TestCase):
         labela = LabelTimeAndRoute(departure_time=1, arrival_time_target=9, movement_duration=1, first_leg_is_walk=False)
         labelb = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
         self.assertFalse(labelb.dominates(labela))
-
+        self.assertTrue(labela.dominates(labelb))
 
     def test_dominates_less_movement_duration_when_departure_time_not_the_same(self):
         labela = LabelTimeAndRoute(departure_time=4, arrival_time_target=10, movement_duration=1, first_leg_is_walk=False)
         labelb = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, first_leg_is_walk=False)
         self.assertFalse(labelb.dominates(labela))
+        self.assertTrue(labela.dominates(labelb))
 
+    def test_dominates_ignoring_dep_time_finalization_less_movement_duration(self):
+        labela = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0,
+                                   first_leg_is_walk=False)
+        labelb = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=1,
+                                   first_leg_is_walk=False)
+        self.assertTrue(labelb.dominates_ignoring_dep_time_finalization(labela))
+        self.assertTrue(labela.dominates_ignoring_dep_time_finalization(labelb))
+
+    def test_dominates_ignoring_dep_time_finalization_arrival_time(self):
+        labela = LabelTimeAndRoute(departure_time=1, arrival_time_target=9, movement_duration=1,
+                                   first_leg_is_walk=False)
+        labelb = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=1,
+                                   first_leg_is_walk=False)
+        self.assertFalse(labelb.dominates_ignoring_dep_time_finalization(labela))
+        self.assertTrue(labela.dominates_ignoring_dep_time_finalization(labelb))
+
+    def test_dominates_ignoring_dep_time_less_movement_duration(self):
+        labela = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0,
+                                   first_leg_is_walk=False)
+        labelb = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=1,
+                                   first_leg_is_walk=False)
+        self.assertTrue(labelb.dominates_ignoring_dep_time(labela))
+        self.assertTrue(labela.dominates_ignoring_dep_time(labelb))
+
+    def test_dominates_ignoring_dep_time_arrival_time(self):
+        labela = LabelTimeAndRoute(departure_time=1, arrival_time_target=9, movement_duration=1,
+                                   first_leg_is_walk=False)
+        labelb = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=1,
+                                   first_leg_is_walk=False)
+        self.assertFalse(labelb.dominates_ignoring_dep_time(labela))
+        self.assertTrue(labela.dominates_ignoring_dep_time(labelb))
+
+    """
+    def test_dominates_ignoring_dep_time_finalization_equal(self):
+        labela = LabelTimeAndRoute(departure_time=11, arrival_time_target=10, movement_duration=1,
+                                   first_leg_is_walk=False)
+        labelb = LabelTimeAndRoute(departure_time=1, arrival_time_target=10, movement_duration=1,
+                                   first_leg_is_walk=False)
+        self.assertFalse(labelb.dominates_ignoring_dep_time_finalization(labela))
+        self.assertFalse(labela.dominates_ignoring_dep_time_finalization(labelb))
+    """
     def test_duration(self):
         label1 = LabelTimeAndRoute(departure_time=0, arrival_time_target=20, movement_duration=1, first_leg_is_walk=False)
         self.assertEqual(20, label1.duration())

@@ -89,6 +89,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                 self._label_class = LabelTimeAndRoute
             else:
                 self._label_class = LabelTime
+
+        print("using label:", str(self._label_class))
         self._stop_departure_times, self._stop_arrival_times = self.__compute_stop_dep_and_arrival_times()
         self._all_nodes = set.union(set(self._stop_departure_times.keys()),
                                     set(self._stop_arrival_times.keys()),
@@ -338,7 +340,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
         for label in labels_copy:
             label.departure_time = connection.departure_time
-            if self._label_class == LabelTimeAndRoute:
+            if self._label_class == LabelTimeAndRoute or self._label_class == LabelTimeBoardingsAndRoute:
                 label.movement_duration += connection.duration()
             if increment_vehicle_count:
                 label.n_boardings += 1

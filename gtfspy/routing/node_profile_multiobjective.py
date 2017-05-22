@@ -200,6 +200,7 @@ class NodeProfileMultiObjective:
                 else:
                     label = self.label_class(departure_time=float(departure_time),
                                              arrival_time_target=float(departure_time + self._walk_to_target_duration),
+                                             movement_duration=self._walk_to_target_duration,
                                              n_boardings=0,
                                              first_leg_is_walk=first_leg_is_walk,
                                              connection=walk_connection)

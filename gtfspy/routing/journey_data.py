@@ -3,7 +3,8 @@ import sqlite3
 
 from gtfspy.routing.connection import Connection
 from gtfspy.gtfs import GTFS
-from gtfspy.routing.label import LabelTimeAndRoute, LabelTimeWithBoardingsCount, compute_pareto_front
+from gtfspy.routing.label import LabelTimeAndRoute, LabelTimeWithBoardingsCount, LabelTimeBoardingsAndRoute, \
+    compute_pareto_front
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.util import timeit
 
@@ -129,7 +130,7 @@ class JourneyDataManager:
             assert (isinstance(stop_profiles[origin_stop], list))
 
             for label in labels:
-                assert (isinstance(label, LabelTimeAndRoute))
+                assert (isinstance(label, LabelTimeAndRoute) or isinstance(label, LabelTimeBoardingsAndRoute))
                 # We need to "unpack" the journey to actually figure out where the trip went
                 # (there can be several targets).
                 if label.departure_time == label.arrival_time_target:
@@ -140,13 +141,23 @@ class JourneyDataManager:
                 if origin_stop == target_stop:
                     continue
 
-                values = [int(journey_id),
-                          int(origin_stop),
-                          int(target_stop),
-                          int(label.departure_time),
-                          int(label.arrival_time_target),
-                          label.movement_duration,
-                          route_stops]
+                if isinstance(label, LabelTimeBoardingsAndRoute):
+                    values = [int(journey_id),
+                              int(origin_stop),
+                              int(target_stop),
+                              int(label.departure_time),
+                              int(label.arrival_time_target),
+                              label.n_boardings,
+                              label.movement_duration,
+                              route_stops]
+                else:
+                    values = [int(journey_id),
+                              int(origin_stop),
+                              int(target_stop),
+                              int(label.departure_time),
+                              int(label.arrival_time_target),
+                              label.movement_duration,
+                              route_stops]
 
                 journey_list.append(values)
                 connection_list += new_connection_values
@@ -154,14 +165,25 @@ class JourneyDataManager:
 
         print()
         print("Inserting journeys into database")
-        insert_journeys_stmt = '''INSERT INTO journeys(
-              journey_id,
-              from_stop_I,
-              to_stop_I,
-              dep_time,
-              arr_time,
-              movement_duration,
-              route) VALUES (%s) ''' % (", ".join(["?" for x in range(7)]))
+        if isinstance(label, LabelTimeBoardingsAndRoute):
+            insert_journeys_stmt = '''INSERT INTO journeys(
+                  journey_id,
+                  from_stop_I,
+                  to_stop_I,
+                  dep_time,
+                  arr_time,
+                  n_boardings,
+                  movement_duration,
+                  route) VALUES (%s) ''' % (", ".join(["?" for x in range(8)]))
+        else:
+            insert_journeys_stmt = '''INSERT INTO journeys(
+                  journey_id,
+                  from_stop_I,
+                  to_stop_I,
+                  dep_time,
+                  arr_time,
+                  movement_duration,
+                  route) VALUES (%s) ''' % (", ".join(["?" for x in range(7)]))
         self.conn.executemany(insert_journeys_stmt, journey_list)
 
         print("Inserting connections into database")
@@ -314,6 +336,7 @@ class JourneyDataManager:
                          to_stop_I INT,
                          dep_time INT,
                          arr_time INT,
+                         n_boardings INT,
                          movement_duration INT,
                          route TEXT,
                          time_to_prev_journey_fp INT,
