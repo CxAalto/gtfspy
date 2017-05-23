@@ -180,9 +180,9 @@ class GTFS(object):
 
         Alters os.environ['TZ']
         """
-        # TODO!: This is dangerous (?). We should get rid of this IMHO (RK)
         TZ = self.conn.execute('SELECT timezone FROM agencies LIMIT 1').fetchall()[0][0]
         # print TZ
+        # TODO!: This is dangerous (?). In my opinion, we should get rid of this (RK):
         os.environ['TZ'] = TZ
         time.tzset()  # Cause C-library functions to notice the update.
 
@@ -198,8 +198,7 @@ class GTFS(object):
         timezone_name : str
             name of the time zone, e.g. "Europe/Helsinki"
         """
-        tz_name = self.conn.execute('SELECT timezone FROM agencies LIMIT 1'
-                                    ).fetchone()
+        tz_name = self.conn.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()
         if tz_name is None:
             raise ValueError("This database does not have a timezone defined.")
         return tz_name[0]
@@ -675,6 +674,15 @@ class GTFS(object):
         threshold = weekdays_at_least_of_max * max_trip_count
         threshold_fulfilling_days = daily_trips['trip_counts'] > threshold
 
+        # from matplotlib import pyplot as plt
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # ax.plot(daily_trips['date'], daily_trips["trip_counts"])
+        # ax.axvline(download_date)
+        # ax.axhline(median_trip_count)
+        # ax.axhline(median_trip_count * 0.9)
+        # plt.show()
+
         next_monday = download_date + timedelta(days=(7 - download_date.weekday()))
         # look forward first
         monday_index = daily_trips[daily_trips['date'] == next_monday].index[0]
@@ -696,7 +704,7 @@ class GTFS(object):
                 else:
                     return row['date']
             monday_index -= 7
-        raise RuntimeError("No suitable download date could be specified for the extract!")
+        raise RuntimeError("No suitable weekly extract start date could be specified!")
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
