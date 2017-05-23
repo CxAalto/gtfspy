@@ -113,6 +113,8 @@ class FilterExtract(object):
             assert isinstance(self.copy_db_conn, sqlite3.Connection)
 
             self._delete_rows_by_start_and_end_date()
+            if self.copy_db_conn.execute('SELECT count(*) FROM days').fetchone() == (0,):
+                raise ValueError('No data left after filtering')
             self._filter_by_calendar()
             self._filter_by_agency()
             self._filter_by_area()
@@ -134,6 +136,8 @@ class FilterExtract(object):
         if (self.start_date is not None) and (self.end_date is not None):
             start_date_ut = self.gtfs.get_day_start_ut(self.start_date)
             end_date_ut = self.gtfs.get_day_start_ut(self.end_date)
+            if self.copy_db_conn.execute("select count(*) from day_trips2 where start_time_ut is null or end_time_ut is null").fetchone() != (0,):
+                raise ValueError("Missing information in day_trips2 (start_time_ut and/or end_time_ut), check trips.start_time_ds and trips.end_time_ds.")
             logging.info("Filtering based on agency_ids")
             # negated from import_gtfs
             table_to_remove_map = {
