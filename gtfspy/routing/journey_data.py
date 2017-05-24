@@ -48,13 +48,14 @@ class JourneyDataManager:
         cur = self.conn.cursor()
         self.conn.isolation_level = 'EXCLUSIVE'
         cur.execute('PRAGMA synchronous = OFF;')
-        if self.track_route:
-            self._insert_journeys_with_route_into_db(stop_profiles)
-        else:
-            self._insert_journeys_into_db_no_route(stop_profiles, target_stop=target_stop)
+        if not "," + str(target_stop) + "," in self.parameters["target_list"]:
+            if self.track_route:
+                self._insert_journeys_with_route_into_db(stop_profiles, target_stop=target_stop)
+            else:
+                self._insert_journeys_into_db_no_route(stop_profiles, target_stop=target_stop)
 
-        if self.close_connection:
-            self.conn.close()
+            if self.close_connection:
+                self.conn.close()
 
         print("Finished import process")
 
@@ -117,7 +118,7 @@ class JourneyDataManager:
         rows = [[x[0]+last_id] + x[1:] for x in rows]
         self.conn.executemany(statement, rows)
 
-    def _insert_journeys_with_route_into_db(self, stop_profiles):
+    def _insert_journeys_with_route_into_db(self, stop_profiles, target_stop):
         print("Collecting journey and connection data")
         journey_id = (self._check_last_journey_id() if self._check_last_journey_id() else 0) + 1
         journey_list = []
@@ -187,8 +188,8 @@ class JourneyDataManager:
                       route) VALUES (%s) ''' % (", ".join(["?" for x in range(7)]))
             self.conn.executemany(insert_journeys_stmt, journey_list)
 
-            print("Inserting connections into database")
-            insert_connections_stmt = '''INSERT INTO connections(
+            print("Inserting legs into database")
+            insert_legs_stmt = '''INSERT INTO legs(
                                   journey_id,
                                   from_stop_I,
                                   to_stop_I,
@@ -197,7 +198,8 @@ class JourneyDataManager:
                                   trip_I,
                                   seq,
                                   leg_stops) VALUES (%s) ''' % (", ".join(["?" for x in range(8)]))
-            self.conn.executemany(insert_connections_stmt, connection_list)
+            self.conn.executemany(insert_legs_stmt, connection_list)
+            self.parameters["target_list"] += (str(target_stop) + ",")
             self.conn.commit()
 
     def _collect_connection_data(self, journey_id, label):
@@ -335,15 +337,21 @@ class JourneyDataManager:
                          journey_id INTEGER PRIMARY KEY,
                          from_stop_I INT,
                          to_stop_I INT,
+                         from_stop_pair_I INT,
+                         to_stop_pair_I INT,
                          dep_time INT,
                          arr_time INT,
                          n_boardings INT,
                          movement_duration INT,
                          route TEXT,
-                         time_to_prev_journey_fp INT,
+                         travel_time INT,
+                         pre_journey_wait_fp INT,
+                         in_vehicle_time INT,
+                         transfer_wait_time INT,
+                         walking_time INT,
                          fastest_path INT)''')
 
-            self.conn.execute('''CREATE TABLE IF NOT EXISTS connections(
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS legs(
                          journey_id INT,
                          from_stop_I INT,
                          to_stop_I INT,
@@ -352,6 +360,27 @@ class JourneyDataManager:
                          trip_I INT,
                          seq INT,
                          leg_stops TEXT)''')
+
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS nodes(
+                         stop_I INT,
+                         agg_temp_distances INT,
+                         agg_travel_time INT,
+                         agg_boardings INT,
+                         agg_transfer_wait INT,
+                         agg_pre_journey_wait INT,
+                         agg_walking_time INT)''')
+
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS node_pairs(
+                         from_stop_I INT,
+                         to_stop_I INT,
+                         from_stop_pair_I INT,
+                         to_stop_pair_I INT,
+                         avg_temp_distance INT,
+                         agg_travel_time INT,
+                         agg_boardings INT,
+                         agg_transfer_wait INT,
+                         agg_pre_journey_wait INT,
+                         agg_walking_time INT)''')
         else:
             self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
                          journey_id INTEGER PRIMARY KEY,
@@ -362,6 +391,8 @@ class JourneyDataManager:
                          n_boardings INT,
                          time_to_prev_journey_fp INT,
                          fastest_path INT)''')
+
+
         self.conn.commit()
 
     def _initialize_parameter_table(self):
@@ -378,7 +409,7 @@ class JourneyDataManager:
                       "start_date",
                       "end_date"]:
             parameters[param] = self.gtfs_meta[param]
-
+        parameters["target_list"] = ","
         for key, value in self.routing_params.items():
             parameters[key] = value
         self.conn.commit()
@@ -416,10 +447,10 @@ class JourneyDataManager:
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_fid ON journeys (from_stop_I)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_tid ON journeys (to_stop_I)')
         if self.track_route:
-            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_jid ON connections (journey_id)')
-            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_trid ON connections (trip_I)')
-            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_fid ON connections (from_stop_I)')
-            cur.execute('CREATE INDEX IF NOT EXISTS idx_connections_tid ON connections (to_stop_I)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_jid ON legs (journey_id)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_trid ON legs (trip_I)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_fid ON legs (from_stop_I)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_tid ON legs (to_stop_I)')
         self.conn.commit()
 """
 
@@ -460,14 +491,14 @@ class Parameters(object):
 
     def __getitem__(self, key):
         cur = self._conn.cursor()
-        cur.execute("SELECT 'value' FROM parameters WHERE 'key'=?", (key,))
+        cur.execute("SELECT value FROM parameters WHERE key=?", (key,))
         val = cur.fetchone()
         if not val:
             raise KeyError("This journey db does not have parameter: %s" % key)
         return val[0]
 
     def __delitem__(self, key):
-        self._conn.execute("DELETE FROM parameters WHERE 'key'=?", (key,))
+        self._conn.execute("DELETE FROM parameters WHERE key=?", (key,))
         self._conn.commit()
 
     def __iter__(self):
