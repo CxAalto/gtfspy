@@ -261,11 +261,7 @@ def temporal_network(gtfs,
     Returns
     -------
     events_df: pandas.DataFrame
-<<<<<<< HEAD
-        Columns: departure_stop, arrival_stop, departure_time_ut, arrival_time_ut, route_type, route_I, mode
-=======
         Columns: departure_stop, arrival_stop, departure_time_ut, arrival_time_ut, route_type, route_I, trip_I
->>>>>>> cda12f649cb3dfe532680d49765aca7be26c2e0f
     """
     events_df = gtfs.get_transit_events(start_time_ut=start_time_ut,
                                         end_time_ut=end_time_ut,
@@ -273,20 +269,14 @@ def temporal_network(gtfs,
     events_df.drop('to_seq', 1, inplace=True)
     events_df.drop('shape_id', 1, inplace=True)
     events_df.drop('duration', 1, inplace=True)
-<<<<<<< HEAD
-=======
     events_df.drop('route_id', 1, inplace=True)
->>>>>>> cda12f649cb3dfe532680d49765aca7be26c2e0f
     events_df.rename(
         columns={
             'from_seq': "seq"
         },
         inplace=True
     )
-<<<<<<< HEAD
-=======
     events_df.drop('seq', 1, inplace=True)
->>>>>>> cda12f649cb3dfe532680d49765aca7be26c2e0f
     return events_df
 
 # def cluster_network_stops(stop_to_stop_net, distance):
