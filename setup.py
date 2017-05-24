@@ -41,10 +41,10 @@ setup(
         "Cython",
         "six",
         "geoindex",
-        "osmread==0.1dev-r0"
-    ],
-    dependency_links = [
-        'git+https://github.com/rmkujala/osmread.git#egg=osmread-0.1dev-r0@ee5929b001b30fe07ffa6656de1ab72276caee6e'
+        "osmread==0.2",
+        "geopandas>=0.2.1",
+        "shapely",
+        "geojson"
     ],
     ext_modules=[
         Extension(

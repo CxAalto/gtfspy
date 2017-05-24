@@ -6,4 +6,7 @@ nose
 Cython
 six
 geoindex
-git+https://github.com/rmkujala/osmread.git#egg=osmread
+osmread
+geopandas
+geojson
+shapely

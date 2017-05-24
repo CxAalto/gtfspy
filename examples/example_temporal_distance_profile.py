@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from matplotlib import rc
 import example_import
 
-G = example_import.load_or_import_gtfs()
+G = example_import.load_or_import_example_gtfs()
 
 from_stop_name = "Ahkiotie 2 E"
 to_stop_name = "Kauppahalli P"

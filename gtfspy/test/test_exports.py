@@ -6,12 +6,14 @@ import shutil
 import networkx
 import numpy
 import pandas
+import geojson
 
 from gtfspy.gtfs import GTFS
 from gtfspy import networks
+from gtfspy.networks import ALL_STOP_TO_STOP_LINK_ATTRIBUTES
 from gtfspy.route_types import BUS
-from gtfspy.calc_transfers import calc_transfers
 from gtfspy import exports
+from gtfspy.util import makedirs
 
 
 class ExportsTest(unittest.TestCase):
@@ -28,8 +30,8 @@ class ExportsTest(unittest.TestCase):
         self.gtfs_source_dir = self.__class__.gtfs_source_dir
         self.gtfs = self.__class__.G
         self.extract_output_dir = os.path.join(self.gtfs_source_dir, "../", "test_gtfspy_extracts_8211231/")
-        if os.path.exists(self.extract_output_dir):
-            shutil.rmtree(self.extract_output_dir)
+        if not os.path.exists(self.extract_output_dir):
+            makedirs(self.extract_output_dir)
 
     def tearDown(self):
         if os.path.exists(self.extract_output_dir):
@@ -40,27 +42,30 @@ class ExportsTest(unittest.TestCase):
         self.assertGreater(len(walk_net.nodes()), 0)
         self.assertGreater(len(walk_net.edges()), 1)
         for form_node, to_node, data_dict in walk_net.edges(data=True):
-            self.assertIn("d_walk", data_dict)
-            self.assertGreater(data_dict["d_walk"], 0)
+            self.assertIn("d", data_dict)
+            self.assertGreaterEqual(data_dict["d"], 0)
         threshold = 670
         walk_net = networks.walk_transfer_stop_to_stop_network(self.gtfs, max_link_distance=threshold)
         self.assertEqual(len(walk_net.edges()), 2)
         for form_node, to_node, data_dict in walk_net.edges(data=True):
-            self.assertLess(data_dict['d_walk'], threshold)
+            self.assertLess(data_dict['d'], threshold)
 
     def test_write_stop_to_stop_networks(self):
-        exports.write_stop_to_stop_networks(self.gtfs, self.extract_output_dir)
-        self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "walk_with_data.edg")))
-        self.assertTrue(os.path.exists(os.path.join(self.extract_output_dir + "bus_with_data.edg")))
+        exports.write_static_networks(self.gtfs, self.extract_output_dir)
+        self.assertTrue(os.path.exists(self.extract_output_dir + "network_walk.edg"))
+        self.assertTrue(os.path.exists(self.extract_output_dir + "network_bus.edg"))
+        self.assertFalse(os.path.exists(self.extract_output_dir + "network_gondola.edg"))
 
     def test_write_combined_stop_to_stop_networks(self):
-        exports.write_combined_transit_stop_to_stop_network(self.gtfs, self.extract_output_dir)
-        combined_file_name = os.path.join(self.extract_output_dir + "combined_with_data.edg")
-        self.assertTrue(os.path.exists(combined_file_name))
+        output = os.path.join(self.extract_output_dir + "network_combined.edg")
+        exports.write_combined_transit_stop_to_stop_network(self.gtfs, output)
+        self.assertTrue(os.path.exists(output))
 
     def test_stop_to_stop_network_by_route_type(self):
         # test that distance works
-        nxGraph = networks.stop_to_stop_network_for_route_type(self.gtfs, BUS)
+        nxGraph = networks.stop_to_stop_network_for_route_type(self.gtfs,
+                                                               BUS,
+                                                               link_attributes=ALL_STOP_TO_STOP_LINK_ATTRIBUTES)
         self.assertTrue(isinstance(nxGraph, networkx.DiGraph), type(nxGraph))
         nodes = nxGraph.nodes(data=True)
         self.assertGreater(len(nodes), 0)
@@ -85,13 +90,11 @@ class ExportsTest(unittest.TestCase):
             self.assertLessEqual(linkData['duration_avg'], linkData["duration_max"])
             self.assertLessEqual(linkData['duration_median'], linkData["duration_max"])
             self.assertGreaterEqual(linkData['duration_median'], linkData["duration_min"])
-            self.assertTrue(isinstance(linkData['distance_great_circle'], float),
-                            "straight line distance should always exist and be a float")
-            self.assertGreater(linkData['distance_great_circle'],
-                               0,
-                               "straight line distance should be always greater than 0 (?)")
+            self.assertTrue(isinstance(linkData['d'], int), "straight line distance should always exist and be an int")
+            self.assertGreaterEqual(linkData['d'], 0,
+                               "straight line distance should be always greater than or equal to 0 (?)")
             n_veh = linkData["n_vehicles"]
-            route_ids = linkData["route_ids"]
+            route_ids = linkData["route_I_counts"]
             route_ids_sum = sum([count for route_type, count in route_ids.items()])
             self.assertTrue(n_veh, route_ids_sum)
 
@@ -113,10 +116,9 @@ class ExportsTest(unittest.TestCase):
         self.assertTrue(os.path.exists(path))
         df = pandas.read_csv(path)
         columns_should_exist = ["dep_time_ut", "arr_time_ut", "from_stop_I", "to_stop_I",
-                                "route_type", "route_id", "trip_I"]
+                                "route_type", "trip_I"]
         for col in columns_should_exist:
             self.assertIn(col, df.columns.values)
-
 
     def test_write_temporal_networks_by_route_type(self):
         exports.write_temporal_networks_by_route_type(self.gtfs, self.extract_output_dir)
@@ -210,24 +212,71 @@ class ExportsTest(unittest.TestCase):
 
     def test_write_gtfs(self):
         # A simple import-output-import test"
-        from gtfspy.import_gtfs import import_gtfs
-        UUID = "36167f3012fe11e793ae92361f002671"
-        sqlite_fname = "test.sqlite"
-        test_output_dir = "./test_output_dir_" + UUID
-        try:
-            shutil.rmtree(test_output_dir)
-        except FileNotFoundError:
-            pass
-        os.mkdir(test_output_dir)
-        try:
-            assert(os.path.exists(test_output_dir))
-            exports.write_gtfs(self.gtfs, test_output_dir, stop_distances=False)
-            G = import_gtfs(test_output_dir, os.path.join(test_output_dir, sqlite_fname))
-        finally:
-            shutil.rmtree(test_output_dir)
+        for ending in ["", ".zip"]:
+            from gtfspy.import_gtfs import import_gtfs
+            UUID = "36167f3012fe11e793ae92361f002671"
+            sqlite_fname = "test_" + UUID + ".sqlite"
+            test_output_dir = "./test_output_dir_" + UUID
+            try:
+                shutil.rmtree(test_output_dir)
+            except FileNotFoundError:
+                pass
+
+            try:
+                exports.write_gtfs(self.gtfs, test_output_dir + ending)
+                self.assertTrue(os.path.exists(test_output_dir + ending))
+                try:
+                    G = import_gtfs(test_output_dir + ending, os.path.join(sqlite_fname))
+                    self.assertTrue(os.path.exists(sqlite_fname))
+                finally:
+                    os.remove(sqlite_fname)
+            finally:
+                if ending == "":
+                    shutil.rmtree(test_output_dir + ending)
+                else:
+                    os.remove(test_output_dir + ending)
+
+    def test_write_stops_geojson(self):
+        in_memory_file = io.StringIO()
+        exports.write_stops_geojson(self.gtfs, in_memory_file)
+        in_memory_file.seek(0)
+        self.assertTrue(geojson.is_valid(in_memory_file.read(-1)))
+        in_memory_file.seek(0)
+        gjson = geojson.loads(in_memory_file.read(-1))
+        gjson_properties = gjson['features'][0]['properties']
+        self.assertIn("name", gjson_properties.keys())
+        self.assertIn("stop_I", gjson_properties.keys())
+
+    def test_write_sections_geojson(self):
+        in_memory_file = io.StringIO()
+        exports.write_sections_geojson(self.gtfs, in_memory_file)
+        in_memory_file.seek(0)
+        self.assertTrue(geojson.is_valid(in_memory_file.read(-1)))
+        in_memory_file.seek(0)
+        gjson = geojson.loads(in_memory_file.read(-1))
+        gjson_properties = gjson['features'][0]['properties']
+        self.assertIn("from_stop_I", gjson_properties.keys())
+        self.assertIn("to_stop_I", gjson_properties.keys())
+        self.assertIn("n_vehicles", gjson_properties.keys())
+        self.assertIn("duration_avg", gjson_properties.keys())
+        self.assertIn("route_I_counts", gjson_properties.keys())
+        self.assertIn("route_type", gjson_properties.keys())
+
+    def test_write_routes_geojson(self):
+        in_memory_file = io.StringIO()
+        exports.write_routes_geojson(self.gtfs, in_memory_file)
+        in_memory_file.seek(0)
+        self.assertTrue(geojson.is_valid(in_memory_file.read(-1)))
+        in_memory_file.seek(0)
+        gjson = geojson.loads(in_memory_file.read(-1))
+        gjson_properties = gjson['features'][0]['properties']
+        self.assertIn("route_type", gjson_properties.keys())
+        self.assertIn("route_I", gjson_properties.keys())
+        self.assertIn("route_name", gjson_properties.keys())
 
 
-    # def test_clustered_stops_network(self):
+
+        # def test_clustered_stops_network(self):
     #     orig_net = networks.undirected_stop_to_stop_network_with_route_information(self.gtfs)
     #     aggregate_net = networks.aggregate_route_network(self.gtfs, 1000)
     #     self.assertGreater(len(orig_net.nodes()), len(aggregate_net.nodes()))

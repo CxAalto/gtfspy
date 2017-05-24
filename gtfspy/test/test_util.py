@@ -37,8 +37,8 @@ class TestUtil(unittest.TestCase):
         import pandas as pd
         source_dir = os.path.join(os.path.dirname(__file__), "test_data")
         txtnames = ['agency', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
-        df = util.txt_to_pandas(source_dir, txtnames[3])
+        df = util.source_table_txt_to_pandas(source_dir, txtnames[3])
         self.assertIsInstance(df, pd.DataFrame)
         source_zip = os.path.join(os.path.dirname(__file__), "test_data/test_gtfs.zip")
-        df = util.txt_to_pandas(source_zip, txtnames[4])
+        df = util.source_table_txt_to_pandas(source_zip, txtnames[4])
         self.assertIsInstance(df, pd.DataFrame)

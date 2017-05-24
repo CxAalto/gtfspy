@@ -133,7 +133,7 @@ class TestGTFS(unittest.TestCase):
 
     def test_get_trip_trajectory_data_within_timespan(self):
         # untested, really
-        s, e = self.gtfs.get_conservative_gtfs_time_span_in_ut()
+        s, e = self.gtfs.get_approximate_schedule_time_span_in_ut()
         res = self.gtfs.get_trip_trajectories_within_timespan(s, s + 3600 * 24)
         self.assertTrue(isinstance(res, dict))
         # TODO! Not properly tested yet.
@@ -233,7 +233,7 @@ class TestGTFS(unittest.TestCase):
         self.assertTrue(isinstance(type_, int))
 
     def test_get_trip_stop_time_data(self):
-        start_ut, end_ut = self.gtfs.get_conservative_gtfs_time_span_in_ut()
+        start_ut, end_ut = self.gtfs.get_approximate_schedule_time_span_in_ut()
         dsut_dict = self.gtfs.get_tripIs_within_range_by_dsut(start_ut, end_ut)
         dsut, trip_Is = list(dsut_dict.items())[0]
         df = self.gtfs.get_trip_stop_time_data(trip_Is[0], dsut)
@@ -259,7 +259,7 @@ class TestGTFS(unittest.TestCase):
         self.assertGreater(len(data), 0)
 
     def test_get_conservative_gtfs_time_span_in_ut(self):
-        start_ut, end_ut = self.gtfs.get_conservative_gtfs_time_span_in_ut()
+        start_ut, end_ut = self.gtfs.get_approximate_schedule_time_span_in_ut()
         start_dt = datetime.datetime(2007, 1, 1)
         start_ut_comp = self.gtfs.unlocalized_datetime_to_ut_seconds(start_dt)
         end_dt = datetime.datetime(2010, 12, 31)
