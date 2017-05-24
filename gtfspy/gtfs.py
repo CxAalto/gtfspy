@@ -19,11 +19,6 @@ from gtfspy.route_types import WALK
 from gtfspy.util import wgs84_distance, difference_of_pandas_dfs
 
 
-if sys.getdefaultencoding() != 'utf-8':
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
-
-
 class GTFS(object):
 
     def __init__(self, fname):
@@ -185,9 +180,9 @@ class GTFS(object):
 
         Alters os.environ['TZ']
         """
-        # TODO!: This is dangerous (?). We should get rid of this IMHO (RK)
         TZ = self.conn.execute('SELECT timezone FROM agencies LIMIT 1').fetchall()[0][0]
         # print TZ
+        # TODO!: This is dangerous (?). In my opinion, we should get rid of this (RK):
         os.environ['TZ'] = TZ
         time.tzset()  # Cause C-library functions to notice the update.
 
@@ -203,8 +198,7 @@ class GTFS(object):
         timezone_name : str
             name of the time zone, e.g. "Europe/Helsinki"
         """
-        tz_name = self.conn.execute('SELECT timezone FROM agencies LIMIT 1'
-                                    ).fetchone()
+        tz_name = self.conn.execute('SELECT timezone FROM agencies LIMIT 1').fetchone()
         if tz_name is None:
             raise ValueError("This database does not have a timezone defined.")
         return tz_name[0]
@@ -653,6 +647,24 @@ class GTFS(object):
                     return row.date_str
 
     def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9):
+        """
+        Find the weekly extract start date (monday).
+        The weekdays should contain at least 0.9 of the total maximum of trips.
+
+        Parameters
+        ----------
+        ut
+        weekdays_at_least_of_max
+
+        Returns
+        -------
+        date
+
+        Raises
+        ------
+        error: RuntimeError
+            If no download date could be found.
+        """
         daily_trips = self.get_trip_counts_per_day()
         download_date_str = self.meta['download_date']
         if download_date_str == "":
@@ -662,7 +674,17 @@ class GTFS(object):
         threshold = weekdays_at_least_of_max * max_trip_count
         threshold_fulfilling_days = daily_trips['trip_counts'] > threshold
 
+        # from matplotlib import pyplot as plt
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # ax.plot(daily_trips['date'], daily_trips["trip_counts"])
+        # ax.axvline(download_date)
+        # ax.axhline(median_trip_count)
+        # ax.axhline(median_trip_count * 0.9)
+        # plt.show()
+
         next_monday = download_date + timedelta(days=(7 - download_date.weekday()))
+        # look forward first
         monday_index = daily_trips[daily_trips['date'] == next_monday].index[0]
         while len(daily_trips.index) >= monday_index + 7:
             if all(threshold_fulfilling_days[monday_index:monday_index + 5]):
@@ -672,7 +694,17 @@ class GTFS(object):
                 else:
                     return row['date']
             monday_index += 7
-        raise RuntimeError("No suitable date could be found!")
+        monday_index = daily_trips[daily_trips['date'] == next_monday].index[0] - 7
+        # then backwards
+        while monday_index >= 0:
+            if all(threshold_fulfilling_days[monday_index:monday_index + 5]):
+                row = daily_trips.iloc[monday_index]
+                if ut:
+                    return self.get_day_start_ut(row.date_str)
+                else:
+                    return row['date']
+            monday_index -= 7
+        raise RuntimeError("No suitable weekly extract start date could be specified!")
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
