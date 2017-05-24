@@ -290,7 +290,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
  
     @_check_for_no_labels_for_n_veh_counts
     def n_boardings_on_fastest_trip(self):
-        return min(self._labels_within_time_frame, key=lambda label: label.arrival_time - label.departure_time).n_boardings 
+        return min(self._labels_within_time_frame, key=lambda label: label.arrival_time_target - label.departure_time).n_boardings 
 
     @_if_no_labels_return_inf
     def min_temporal_distance(self):
