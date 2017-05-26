@@ -29,6 +29,7 @@ class JourneyDataManager:
         self.gtfs._dont_close = True
         print('location_name: ', self.gtfs_meta["location_name"])
         self.conn = None
+        self.od_pairs = None
         if journey_db_dir:
             if os.path.isfile(journey_db_dir):
                 self.conn = sqlite3.connect(journey_db_dir)
@@ -48,7 +49,7 @@ class JourneyDataManager:
         cur = self.conn.cursor()
         self.conn.isolation_level = 'EXCLUSIVE'
         cur.execute('PRAGMA synchronous = OFF;')
-        if not "," + str(target_stop) + "," in self.parameters["target_list"]:
+        if not self.target_in_db(target_stop):
             if self.track_route:
                 self._insert_journeys_with_route_into_db(stop_profiles, target_stop=target_stop)
             else:
@@ -58,6 +59,9 @@ class JourneyDataManager:
                 self.conn.close()
 
         print("Finished import process")
+
+    def target_in_db(self, target_stop):
+        return "," + str(target_stop) + "," in self.parameters["target_list"]
 
     def _check_that_dbs_match(self):
         for key, value in self.parameters.items():
@@ -266,56 +270,77 @@ class JourneyDataManager:
         route_stops = ','.join([str(x) for x in route_stops])
         return target_stop, value_list, route_stops
 
+    def populate_additional_journey_columns(self):
+        self.add_fastest_path_column()
+        self.add_time_to_prev_journey_fp_column()
+
+    def get_stop_pairs(self):
+        cur = self.conn.cursor()
+        cur.execute('SELECT from_stop_I, to_stop_I FROM journeys GROUP BY from_stop_I, to_stop_I')
+        self.od_pairs = cur.fetchall()
+
+    def get_targets(self):
+        cur = self.conn.cursor()
+        cur.execute('SELECT to_stop_I FROM journeys GROUP BY to_stop_I')
+        return cur.fetchall()
+
+    def get_origins(self):
+        cur = self.conn.cursor()
+        cur.execute('SELECT from_stop_I FROM journeys GROUP BY from_stop_I')
+        return cur.fetchall()
+
     @timeit
     def add_fastest_path_column(self):
-
+        if not self.od_pairs:
+            self.get_stop_pairs()
         cur = self.conn.cursor()
-        # Select all distinct O-D pairs
-        # For O-D pair in O-D pairs, create pareto-front
-        cur.execute('SELECT from_stop_I, to_stop_I FROM journeys GROUP BY from_stop_I, to_stop_I')
-        od_pairs = cur.fetchall()
-        # cur.execute('SELECT journey_id FROM journeys ORDER BY journey_id')
-        # all_journey_ids = cur.fetchall()
         fastest_path_journey_ids = []
-        for pair in od_pairs:
+        for i, pair in enumerate(self.od_pairs):
             cur.execute('SELECT dep_time, arr_time, journey_id FROM journeys '
                         'WHERE from_stop_I = ? AND to_stop_I = ? '
                         'ORDER BY dep_time ASC', (pair[0], pair[1]))
             all_trips = cur.fetchall()
-            all_labels = [LabelTimeAndRoute(x[0], x[1], x[2], False) for x in all_trips]
+            all_labels = [LabelTimeAndRoute(x[0], x[1], x[2], False) for x in all_trips] #putting journey_id as movement_duration
             all_fp_labels = compute_pareto_front(all_labels, finalization=False, ignore_n_boardings=True)
             fastest_path_journey_ids.append(all_fp_labels)
-        # all_rows = [1 if x in fastest_path_journey_ids else 0 for x in all_journey_ids]
-        fastest_path_journey_ids = [(1, x.n_boardings) for sublist in fastest_path_journey_ids for x in sublist]
+
+        fastest_path_journey_ids = [(1, x.movement_duration) for sublist in fastest_path_journey_ids for x in sublist]
         cur.executemany("UPDATE journeys SET fastest_path = ? WHERE journey_id = ?", fastest_path_journey_ids)
         self.conn.commit()
 
     @timeit
     def add_time_to_prev_journey_fp_column(self):
+        if not self.od_pairs:
+            self.get_stop_pairs()
         cur = self.conn.cursor()
-        cur.execute('SELECT journey_id, from_stop_I, to_stop_I, dep_time FROM journeys '
-                    'WHERE fastest_path = 1 '
-                    'ORDER BY from_stop_I, to_stop_I, dep_time ')
+        for pair in self.od_pairs:
 
-        all_trips = cur.fetchall()
-        time_to_prev_journey = []
-        prev_dep_time = None
-        prev_origin = None
-        prev_destination = None
-        for trip in all_trips:
-            journey_id = trip[0]
-            from_stop_I = trip[1]
-            to_stop_I = trip[2]
-            dep_time = trip[3]
-            if prev_origin != from_stop_I or prev_destination != to_stop_I:
-                prev_dep_time = None
-            if prev_dep_time:
-                time_to_prev_journey.append((dep_time - prev_dep_time, journey_id))
-            prev_origin = from_stop_I
-            prev_destination = to_stop_I
-            prev_dep_time = dep_time
-        cur.executemany("UPDATE journeys SET time_to_prev_journey_fp = ? WHERE journey_id = ?", time_to_prev_journey)
+            cur.execute('SELECT journey_id, from_stop_I, to_stop_I, dep_time FROM journeys '
+                        'WHERE fastest_path = 1 AND from_stop_I = ? AND to_stop_I = ? '
+                        'ORDER BY from_stop_I, to_stop_I, dep_time ', (pair[0], pair[1]))
+
+            all_trips = cur.fetchall()
+            time_to_prev_journey = []
+            prev_dep_time = None
+            prev_origin = None
+            prev_destination = None
+            for trip in all_trips:
+                journey_id = trip[0]
+                from_stop_I = trip[1]
+                to_stop_I = trip[2]
+                dep_time = trip[3]
+                if prev_origin != from_stop_I or prev_destination != to_stop_I:
+                    prev_dep_time = None
+                if prev_dep_time:
+                    time_to_prev_journey.append((dep_time - prev_dep_time, journey_id))
+                prev_origin = from_stop_I
+                prev_destination = to_stop_I
+                prev_dep_time = dep_time
+            cur.executemany("UPDATE journeys SET pre_journey_wait_fp = ? WHERE journey_id = ?", time_to_prev_journey)
         self.conn.commit()
+
+    def add_time_measures_to_journey(self):
+        pass
 
     def initialize_database(self, journey_db_dir):
         assert not os.path.isfile(journey_db_dir)
@@ -333,12 +358,11 @@ class JourneyDataManager:
                      key TEXT UNIQUE,
                      value BLOB)''')
         if self.track_route:
+
             self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
                          journey_id INTEGER PRIMARY KEY,
                          from_stop_I INT,
                          to_stop_I INT,
-                         from_stop_pair_I INT,
-                         to_stop_pair_I INT,
                          dep_time INT,
                          arr_time INT,
                          n_boardings INT,
@@ -370,17 +394,33 @@ class JourneyDataManager:
                          agg_pre_journey_wait INT,
                          agg_walking_time INT)''')
 
-            self.conn.execute('''CREATE TABLE IF NOT EXISTS node_pairs(
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS od_pairs(
                          from_stop_I INT,
                          to_stop_I INT,
-                         from_stop_pair_I INT,
-                         to_stop_pair_I INT,
                          avg_temp_distance INT,
                          agg_travel_time INT,
                          agg_boardings INT,
                          agg_transfer_wait INT,
                          agg_pre_journey_wait INT,
                          agg_walking_time INT)''')
+
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS sections(
+                         from_stop_I INT,
+                         to_stop_I INT,
+                         from_stop_pair_I INT,
+                         to_stop_pair_I INT,
+                         avg_temp_distance INT,
+                         avg_travel_time INT,
+                         n_trips INT)''')
+
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS transfer_nodes(
+                         from_stop_I INT,
+                         to_stop_I INT,
+                         from_stop_pair_I INT,
+                         to_stop_pair_I INT,
+                         avg_waiting_time INT,
+                         n_trips INT)''')
+
         else:
             self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
                          journey_id INTEGER PRIMARY KEY,
@@ -391,7 +431,6 @@ class JourneyDataManager:
                          n_boardings INT,
                          time_to_prev_journey_fp INT,
                          fastest_path INT)''')
-
 
         self.conn.commit()
 
