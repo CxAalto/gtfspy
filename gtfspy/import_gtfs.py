@@ -1531,6 +1531,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     cur.execute('PRAGMA page_size = 4096;')
     cur.execute('PRAGMA mmap_size = 1073741824;')
     cur.execute('PRAGMA cache_size = -2000000;')
+    cur.execute('PRAGMA temp_store=2;')
     # Changes of isolation level are python3.6 workarounds -
     # eventually will probably be fixed and this can be removed.
     conn.isolation_level = None  # change to autocommit mode (former default)

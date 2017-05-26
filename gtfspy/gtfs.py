@@ -670,7 +670,10 @@ class GTFS(object):
         if download_date_str == "":
             raise RuntimeError("Download date is not speficied. Cannot find a suitable start date for week extract")
         download_date = datetime.datetime.strptime(download_date_str, "%Y-%m-%d")
-        max_trip_count = daily_trips['trip_counts'].max()
+
+        max_trip_count = daily_trips['trip_counts'].quantile(0.95)
+        # Take 95th percentile to omit special days, if any exist.
+
         threshold = weekdays_at_least_of_max * max_trip_count
         threshold_fulfilling_days = daily_trips['trip_counts'] > threshold
 
@@ -685,26 +688,38 @@ class GTFS(object):
 
         next_monday = download_date + timedelta(days=(7 - download_date.weekday()))
         # look forward first
-        monday_index = daily_trips[daily_trips['date'] == next_monday].index[0]
-        while len(daily_trips.index) >= monday_index + 7:
-            if all(threshold_fulfilling_days[monday_index:monday_index + 5]):
-                row = daily_trips.iloc[monday_index]
+        monday_index = None
+        while monday_index is None and next_monday >= daily_trips['date'].min():
+            monday_trips = daily_trips[daily_trips['date'] == next_monday]
+            if len(monday_trips) > 0:
+                monday_index = monday_trips.index[0]
+
+        error = RuntimeError("No suitable weekly extract start date could be determined!")
+        if monday_index is None:
+            raise error
+
+        while_loop_monday_index = monday_index
+        while len(daily_trips.index) >= while_loop_monday_index + 7:
+            if all(threshold_fulfilling_days[while_loop_monday_index:while_loop_monday_index + 5]):
+                row = daily_trips.iloc[while_loop_monday_index]
                 if ut:
                     return self.get_day_start_ut(row.date_str)
                 else:
                     return row['date']
-            monday_index += 7
-        monday_index = daily_trips[daily_trips['date'] == next_monday].index[0] - 7
+            while_loop_monday_index += 7
+
+        while_loop_monday_index = monday_index - 7
         # then backwards
-        while monday_index >= 0:
-            if all(threshold_fulfilling_days[monday_index:monday_index + 5]):
-                row = daily_trips.iloc[monday_index]
+        while while_loop_monday_index >= 0:
+            if all(threshold_fulfilling_days[while_loop_monday_index:while_loop_monday_index + 5]):
+                row = daily_trips.iloc[while_loop_monday_index]
                 if ut:
                     return self.get_day_start_ut(row.date_str)
                 else:
                     return row['date']
-            monday_index -= 7
-        raise RuntimeError("No suitable weekly extract start date could be specified!")
+            while_loop_monday_index -= 7
+
+        raise error
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
