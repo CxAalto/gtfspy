@@ -17,7 +17,6 @@ DEFAULT_STOP_TO_STOP_LINK_ATTRIBUTES = [
     "d", "route_I_counts"
 ]
 
-
 def walk_transfer_stop_to_stop_network(gtfs, max_link_distance=None):
     """
     Construct the walk network.
@@ -141,13 +140,13 @@ def stop_to_stop_network_for_route_type(gtfs,
             if "capacity_estimate" in link_attributes:
                 link_data['capacity_estimate'] = route_types.ROUTE_TYPE_TO_APPROXIMATE_CAPACITY[route_type] \
                                                  * int(link_events.shape[0])
-            if "distance_great_circle" in link_attributes:
+            if "d" in link_attributes:
                 from_lat = net.node[from_stop_I]['lat']
                 from_lon = net.node[from_stop_I]['lon']
                 to_lat = net.node[to_stop_I]['lat']
                 to_lon = net.node[to_stop_I]['lon']
                 distance = wgs84_distance(from_lat, from_lon, to_lat, to_lon)
-                link_data['d'] = distance
+                link_data['d'] = int(distance)
             if "distance_shape" in link_attributes:
                 assert "shape_id" in link_events.columns.values
                 found = None
@@ -262,7 +261,7 @@ def temporal_network(gtfs,
     Returns
     -------
     events_df: pandas.DataFrame
-        Columns: departure_stop, arrival_stop, departure_time_ut, arrival_time_ut, route_type, route_I, mode
+        Columns: departure_stop, arrival_stop, departure_time_ut, arrival_time_ut, route_type, route_I, trip_I
     """
     events_df = gtfs.get_transit_events(start_time_ut=start_time_ut,
                                         end_time_ut=end_time_ut,
@@ -270,12 +269,14 @@ def temporal_network(gtfs,
     events_df.drop('to_seq', 1, inplace=True)
     events_df.drop('shape_id', 1, inplace=True)
     events_df.drop('duration', 1, inplace=True)
+    events_df.drop('route_id', 1, inplace=True)
     events_df.rename(
         columns={
             'from_seq': "seq"
         },
         inplace=True
     )
+    events_df.drop('seq', 1, inplace=True)
     return events_df
 
 # def cluster_network_stops(stop_to_stop_net, distance):

@@ -257,6 +257,15 @@ def source_table_txt_to_pandas(path, table, args=None):
     :return: pandas dataframe
     """
 
+    # except KeyError:
+    #     if attempt == 0:
+    #         args = {"sep": '\s*,\s*'}
+    #         print(args)
+    #     elif attempt == 1:
+    #         args["engine"] ='python'
+    #         print(args)
+
+
     import os
     import zipfile
     import pandas

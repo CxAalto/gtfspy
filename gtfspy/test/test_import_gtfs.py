@@ -491,13 +491,13 @@ class TestImport(unittest.TestCase):
             self.assertIs(row[0], 1)
 
     def test_sources_required(self):
-        self.fdict.pop("calendar.txt")
+        self.fdict.pop("stops.txt")
         with self.assertRaises(AssertionError):
             import_gtfs(self.fdict, self.conn)
 
     def test_sources_required_multiple(self):
         fdict_copy = dict(self.fdict)
-        fdict_copy.pop("calendar.txt")
+        fdict_copy.pop("stops.txt")
         with self.assertRaises(AssertionError):
             import_gtfs([self.fdict, fdict_copy], self.conn)
 
