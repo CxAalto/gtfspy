@@ -63,5 +63,6 @@ print("Plotting...")
 rc("text", usetex=True)
 fig1 = analyzer.plot_new_transfer_temporal_distance_profile(timezone=timezone_pytz,
                                                             format_string="%H:%M")
+fig2 = analyzer.plot_temporal_distance_pdf_horizontal(use_minutes=True)
 print("Showing...")
 plt.show()

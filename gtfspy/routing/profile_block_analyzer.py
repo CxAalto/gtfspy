@@ -3,14 +3,22 @@ from collections import namedtuple
 import numpy
 from collections import defaultdict
 
-_profile_block = namedtuple('ProfileBlock',
-                            ['start_time',
-                             'end_time',
-                             'distance_start',
-                             'distance_end'])
+# _profile_block = namedtuple('ProfileBlock',
+#                             ['start_time',
+#                              'end_time',
+#                              'distance_start',
+#                              'distance_end'])
 
 
-class ProfileBlock(_profile_block):
+class ProfileBlock():
+
+    def __init__(self, start_time, end_time, distance_start, distance_end, **extra_properties):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.distance_start = distance_start
+        self.distance_end = distance_end
+        self.extra_properties = extra_properties
+
     def area(self):
         return self.width() * self.mean()
 
@@ -25,6 +33,21 @@ class ProfileBlock(_profile_block):
 
     def min(self):
         return min(self.distance_start, self.distance_end)
+
+    def is_flat(self):
+        return self.distance_start == self.distance_end
+
+    def __getitem__(self, extra_property_name):
+        return self.extra_properties[extra_property_name]
+
+    def __str__(self):
+        parts = []
+        parts.append(self.start_time)
+        parts.append(self.end_time)
+        parts.append(self.distance_start)
+        parts.append(self.distance_end)
+        parts.append(self.extra_properties)
+        return str(parts)
 
 
 class ProfileBlockAnalyzer:
