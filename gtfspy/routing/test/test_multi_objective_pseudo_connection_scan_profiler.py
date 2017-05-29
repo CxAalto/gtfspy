@@ -349,6 +349,27 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         self.assertEqual(0, len(stop_profile_3.get_final_optimal_labels()))
         self.assertEqual(1, len(stop_profile_1.get_final_optimal_labels()))
 
+    def test_possible_transfer_margin_bug_with_multiple_arrivals(self):
+        walk_speed = 1
+        target_stop = 3
+        start_time = 0
+        end_time = 200
+        transfer_margin = 2
+        transit_connections = [
+            Connection(0, 1, 100, 101, "trip_0"),
+            Connection(4, 1, 102, 104, "trip_1"),
+            Connection(2, 3, 106, 108, "trip_2")
+        ]
+        walk_network = networkx.Graph()
+        walk_network.add_edge(1, 2, {"d_walk": 1})
+        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
+                                                      start_time, end_time, transfer_margin,
+                                                      walk_network, walk_speed)
+        csa_profile.run()
+        profile = csa_profile.stop_profiles[4]
+        self.assertEqual(len(profile.get_final_optimal_labels()), 0)
+        profile = csa_profile.stop_profiles[0]
+        self.assertEqual(len(profile.get_final_optimal_labels()), 1)
 
     def test_transfer_margin_with_walk(self):
         walk_speed = 1
