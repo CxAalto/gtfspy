@@ -30,6 +30,8 @@ class JourneyDataManager:
         print('location_name: ', self.gtfs_meta["location_name"])
         self.conn = None
         self.od_pairs = None
+        self.targets = None
+        self.origins = None
         if journey_db_dir:
             if os.path.isfile(journey_db_dir):
                 self.conn = sqlite3.connect(journey_db_dir)
@@ -217,6 +219,8 @@ class JourneyDataManager:
         connection = None
         leg_departure_time = None
         leg_departure_stop = None
+        leg_arrival_time = None
+        leg_arrival_stop = None
         while True:
             if isinstance(cur_label.connection, Connection):
                 connection = cur_label.connection
@@ -230,12 +234,13 @@ class JourneyDataManager:
                     route_stops.append(connection.departure_stop)
                     if prev_trip_id:
                         leg_stops.append(connection.departure_stop)
+
                         values = (
                             int(journey_id),
                             int(leg_departure_stop),
-                            int(connection.departure_stop),
+                            int(leg_arrival_stop),
                             int(leg_departure_time),
-                            int(connection.departure_time),
+                            int(leg_arrival_time),
                             int(prev_trip_id),
                             int(seq),
                             ','.join([str(x) for x in leg_stops])
@@ -246,6 +251,8 @@ class JourneyDataManager:
 
                     leg_departure_stop = connection.departure_stop
                     leg_departure_time = connection.departure_time
+                leg_arrival_time = connection.arrival_time
+                leg_arrival_stop = connection.arrival_stop
                 leg_stops.append(connection.departure_stop)
                 target_stop = connection.arrival_stop
                 prev_trip_id = trip_id
@@ -255,9 +262,9 @@ class JourneyDataManager:
                 values = (
                     int(journey_id),
                     int(leg_departure_stop),
-                    int(connection.arrival_stop),
+                    int(leg_arrival_stop),
                     int(leg_departure_time),
-                    int(connection.arrival_time),
+                    int(leg_arrival_time),
                     int(prev_trip_id),
                     int(seq),
                     ','.join([str(x) for x in leg_stops])
@@ -273,11 +280,12 @@ class JourneyDataManager:
     def populate_additional_journey_columns(self):
         self.add_fastest_path_column()
         self.add_time_to_prev_journey_fp_column()
+        self.add_time_measures_to_journey()
 
     def get_stop_pairs(self):
         cur = self.conn.cursor()
         cur.execute('SELECT from_stop_I, to_stop_I FROM journeys GROUP BY from_stop_I, to_stop_I')
-        self.od_pairs = cur.fetchall()
+        return cur.fetchall()
 
     def get_targets(self):
         cur = self.conn.cursor()
@@ -291,33 +299,38 @@ class JourneyDataManager:
 
     @timeit
     def add_fastest_path_column(self):
-        if not self.od_pairs:
-            self.get_stop_pairs()
+        print("adding fastest path column")
+        if not self.targets:
+            self.targets = self.get_targets()
+        if not self.origins:
+            self.origins = self.get_origins()
         cur = self.conn.cursor()
-        fastest_path_journey_ids = []
-        for i, pair in enumerate(self.od_pairs):
-            cur.execute('SELECT dep_time, arr_time, journey_id FROM journeys '
-                        'WHERE from_stop_I = ? AND to_stop_I = ? '
-                        'ORDER BY dep_time ASC', (pair[0], pair[1]))
-            all_trips = cur.fetchall()
-            all_labels = [LabelTimeAndRoute(x[0], x[1], x[2], False) for x in all_trips] #putting journey_id as movement_duration
-            all_fp_labels = compute_pareto_front(all_labels, finalization=False, ignore_n_boardings=True)
-            fastest_path_journey_ids.append(all_fp_labels)
+        for target in self.targets:
+            fastest_path_journey_ids = []
+            for origin in self.origins:
+                cur.execute('SELECT dep_time, arr_time, journey_id FROM journeys '
+                            'WHERE from_stop_I = ? AND to_stop_I = ? '
+                            'ORDER BY dep_time ASC', (origin[0], target[0]))
+                all_trips = cur.fetchall()
+                all_labels = [LabelTimeAndRoute(x[0], x[1], x[2], False) for x in all_trips] #putting journey_id as movement_duration
+                all_fp_labels = compute_pareto_front(all_labels, finalization=False, ignore_n_boardings=True)
+                fastest_path_journey_ids.append(all_fp_labels)
 
-        fastest_path_journey_ids = [(1, x.movement_duration) for sublist in fastest_path_journey_ids for x in sublist]
-        cur.executemany("UPDATE journeys SET fastest_path = ? WHERE journey_id = ?", fastest_path_journey_ids)
+            fastest_path_journey_ids = [(1, x.movement_duration) for sublist in fastest_path_journey_ids for x in sublist]
+            cur.executemany("UPDATE journeys SET fastest_path = ? WHERE journey_id = ?", fastest_path_journey_ids)
         self.conn.commit()
 
     @timeit
     def add_time_to_prev_journey_fp_column(self):
-        if not self.od_pairs:
-            self.get_stop_pairs()
+        print("adding pre journey waiting time")
+        if not self.targets:
+            self.get_targets()
         cur = self.conn.cursor()
-        for pair in self.od_pairs:
+        for target in self.targets:
 
             cur.execute('SELECT journey_id, from_stop_I, to_stop_I, dep_time FROM journeys '
-                        'WHERE fastest_path = 1 AND from_stop_I = ? AND to_stop_I = ? '
-                        'ORDER BY from_stop_I, to_stop_I, dep_time ', (pair[0], pair[1]))
+                        'WHERE fastest_path = 1 AND to_stop_I = ? '
+                        'ORDER BY from_stop_I, to_stop_I, dep_time ', (target[0],))
 
             all_trips = cur.fetchall()
             time_to_prev_journey = []
@@ -339,8 +352,27 @@ class JourneyDataManager:
             cur.executemany("UPDATE journeys SET pre_journey_wait_fp = ? WHERE journey_id = ?", time_to_prev_journey)
         self.conn.commit()
 
+    @timeit
     def add_time_measures_to_journey(self):
-        pass
+        print("adding journey components")
+        cur = self.conn.cursor()
+        cur.execute("UPDATE journeys SET travel_time = arr_time - dep_time")
+        cur.execute("UPDATE journeys "
+                    "SET "
+                    "in_vehicle_time = "
+                    "(SELECT sum(arr_time - dep_time) AS in_vehicle_time FROM legs WHERE journeys.journey_id = legs.journey_id AND trip_I != -1 GROUP BY journey_id)")
+        cur.execute("UPDATE journeys "
+                    "SET "
+                    "walking_time = "
+                    "(SELECT sum(arr_time - dep_time) AS walking_time FROM legs WHERE journeys.journey_id = legs.journey_id AND trip_I = -1 GROUP BY journey_id) - transfer_wait_time")
+        cur.execute("UPDATE journeys SET transfer_wait_time = travel_time - in_vehicle_time - walking_time")
+
+        """
+        in_vehicle_time
+        transfer_wait_time
+        walking_time
+        """
+        self.conn.commit()
 
     def initialize_database(self, journey_db_dir):
         assert not os.path.isfile(journey_db_dir)
