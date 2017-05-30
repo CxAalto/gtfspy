@@ -8,12 +8,13 @@
 
 ## Core features:
 * Import one or multiple GTFS feeds into a [SQLite](https://www.sqlite.org/) database.
-* Update this sqlite database using Open Street Map (OSM) data.
-* Compute summary statistics
-* Filter databases spatially and temporally
+* Augment the sqlite with real walking distances between PT stops using Open Street Map (OSM) data.
+* Compute simple statistics for the public transport networks (number of stops, routes, network length).
+* Filter databases spatially and temporally to match your area and time region of interst.
 * Perform accessibility analyses using a routing/profiling engine
-    - Routing implementation [Connection Scan Algorithm](http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf) (CSA).
-    - Used for computing travel times and transfers between origin-destination pairs
+    - Adapted from the [Connection Scan Algorithm](http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf) (CSA).
+    - Compute all Pareto-optimal journey alternatives between an origin-destination pair, and summarize connectivity with measures on travel time and number of transfers.
+
 
 ## Prerequisites
 * [Python 3.5 (or above)](https://www.python.org/)
@@ -90,11 +91,14 @@ If you use this code for scientific purposes, please cite our paper [TO BE ANNOU
 
 * The development of this Python package has benefited from the support by Academy of Finland through the DeCoNet project.
 
+## Bugs
+
+If you have a problem using ``gtfspy``please create an issue in GitHub.  
+
+## Other questions on 
+
+If you have any questions on regarding ``gtfspy``, feel free to send the package maintainers, see above) an e-mail!
 
 ## See also
 
 Code using (an old version of) ``gtfspy``: (https://github.com/rmkujala/ptn_temporal_distances)
-
-## Questions
-
-If you have any questions on regarding ``gtfspy``, feel free to send us (the package maintainers, see above) an e-mail!
