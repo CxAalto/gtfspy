@@ -648,17 +648,20 @@ class GTFS(object):
 
     def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9):
         """
-        Find the weekly extract start date (monday).
-        The weekdays should contain at least 0.9 of the total maximum of trips.
+        Find a suitable weekly extract start date (monday).
+        The goal is to obtain as 'usual' week as possible.
+        The weekdays of the weekly extract week should contain
+        at least 0.9 of the total maximum of trips.
 
         Parameters
         ----------
-        ut
+        ut: boolean
+            return
         weekdays_at_least_of_max
 
         Returns
         -------
-        date
+        date: int or str
 
         Raises
         ------

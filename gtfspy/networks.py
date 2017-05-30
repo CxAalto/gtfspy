@@ -189,8 +189,7 @@ def stop_to_stop_networks_by_type(gtfs):
     assert len(route_type_to_network) == len(route_types.ALL_ROUTE_TYPES)
     return route_type_to_network
 
-
-def combined_stop_to_stop_transit_network(gtfs):
+def combined_stop_to_stop_transit_network(gtfs, start_time_ut=None, end_time_ut=None):
     """
     Compute stop-to-stop networks for all travel modes and combine them into a single network.
     The modes of transport are encoded to a single network.
@@ -208,13 +207,13 @@ def combined_stop_to_stop_transit_network(gtfs):
     """
     multi_di_graph = networkx.MultiDiGraph()
     for route_type in route_types.TRANSIT_ROUTE_TYPES:
-        graph = stop_to_stop_network_for_route_type(gtfs, route_type)
+        graph = stop_to_stop_network_for_route_type(gtfs, route_type,
+                                                    start_time_ut=start_time_ut, end_time_ut=end_time_ut)
         for from_node, to_node, data in graph.edges(data=True):
             data['route_type'] = route_type
         multi_di_graph.add_edges_from(graph.edges(data=True))
         multi_di_graph.add_nodes_from(graph.nodes(data=True))
     return multi_di_graph
-
 
 def _add_stops_to_net(net, stops):
     """
@@ -232,7 +231,6 @@ def _add_stops_to_net(net, stops):
             "name": stop.name
         }
         net.add_node(stop.stop_I, data)
-
 
 def temporal_network(gtfs,
                      start_time_ut=None,

@@ -42,12 +42,12 @@ Remember to also add the ``gtfspy`` directory to your ``PYTHONPATH`` environment
 
 ## Examples
 - [Importing a GTFS feed into a sqlite database](examples/example_import.py)
-- [Validating an imported feed TODO!](examples/example_validation.py)
+- [TODO: Validate an imported feed](examples/example_validation.py)
 - [Computing and plotting temporal distance profiles between an origin--destination pair](examples/example_temporal_distance_profile.py)
 - [Visualizing the public transport network on map](examples/example_map_visualization.py)
 - [Filter GTFS feed spatially and temporally](examples/example_filter.py)
-- [TODO! Extracting a temporal network (and other formats)](examples/example_export.py)
-- [TODO! Running a simple accessibility analysis pipeline!](examples/example_accessibility_analysis.py)
+- [Extract a temporal network from the GTFS database](examples/example_export.py)
+- [TODO! Run a simple accessibility analysis pipeline!](examples/example_accessibility_analysis.py)
 
 
 ## Contributing
