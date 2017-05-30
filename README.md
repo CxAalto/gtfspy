@@ -47,7 +47,7 @@ Remember to also add the ``gtfspy`` directory to your ``PYTHONPATH`` environment
 - [Compute and plot temporal distance profiles between an origin--destination pair](examples/example_temporal_distance_profile.py)
 - [Visualizing the public transport network on map](examples/example_map_visualization.py)
 - [Filter GTFS feed spatially and temporally](examples/example_filter.py)
-- [Extract a temporal network from the GTFS database](examples/example_export.py)
+- [Extract a network / a temporal network from the GTFS database](examples/example_export.py)
 - [TODO! Run a simple accessibility analysis pipeline!](examples/example_accessibility_analysis.py)
 
 
