@@ -30,6 +30,17 @@ def get_spatial_bounds(gtfs):
     lat_max = stats['lat_max']
     return lon_min, lon_max, lat_min, lat_max
 
+
+def get_percentile_stop_bounds(gtfs, percentile):
+    stops = gtfs.get_table("stops")
+    percentile = min(percentile, 100 - percentile)
+    lat_min = numpy.percentile(stops['lat'].values, percentile)
+    lat_max = numpy.percentile(stops['lat'].values, 100 - percentile)
+    lon_min = numpy.percentile(stops['lon'].values, percentile)
+    lon_max = numpy.percentile(stops['lon'].values, 100 - percentile)
+    return lon_min, lon_max, lat_min, lat_max
+
+
 def get_median_lat_lon_of_stops(gtfs):
     """
     Get median latitude AND longitude of stops
@@ -47,7 +58,6 @@ def get_median_lat_lon_of_stops(gtfs):
     median_lat = numpy.percentile(stops['lat'].values, 50)
     median_lon = numpy.percentile(stops['lon'].values, 50)
     return median_lat, median_lon
-
 
 def get_centroid_of_stops(gtfs):
     """

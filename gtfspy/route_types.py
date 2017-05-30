@@ -14,6 +14,18 @@ FUNICULAR = 7
 ALL_ROUTE_TYPES = {WALK, TRAM, SUBWAY, RAIL, BUS, FERRY, CABLE_CAR, GONDOLA, FUNICULAR}
 TRANSIT_ROUTE_TYPES = ALL_ROUTE_TYPES.difference({WALK})
 
+ROUTE_TYPE_TO_ZORDER = {
+    WALK: 2,
+    BUS: 3,
+    RAIL: 4,
+    SUBWAY: 5,
+    TRAM: 6,
+    FERRY: 7,
+    CABLE_CAR: 8,
+    GONDOLA: 9,
+    FUNICULAR: 10
+}
+
 ROUTE_TYPE_TO_DESCRIPTION = {
     WALK: "Walk, pedestrian travel",
     SUBWAY: "Subway, Metro. Any underground rail system within a metropolitan area.",

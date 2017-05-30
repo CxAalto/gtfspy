@@ -38,7 +38,6 @@ def _if_no_labels_return_inf(func):
             return func(self)
         else:
             return float('inf')
-
     return wrapper
 
 
