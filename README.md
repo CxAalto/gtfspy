@@ -8,12 +8,13 @@
 
 ## Core features:
 * Import one or multiple GTFS feeds into a [SQLite](https://www.sqlite.org/) database.
-* Update this sqlite database using Open Street Map (OSM) data.
-* Compute summary statistics
-* Filter databases spatially and temporally
+* Augment the sqlite with real walking distances between PT stops using Open Street Map (OSM) data.
+* Compute simple statistics for the public transport networks (number of stops, routes, network length).
+* Filter databases spatially and temporally to match your area and time region of interst.
 * Perform accessibility analyses using a routing/profiling engine
-    - Routing implementation [Connection Scan Algorithm](http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf) (CSA).
-    - Used for computing travel times and transfers between origin-destination pairs
+    - Adapted from the [Connection Scan Algorithm](http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf) (CSA).
+    - Compute all Pareto-optimal journey alternatives between an origin-destination pair, and summarize connectivity with measures on travel time and number of transfers.
+
 
 ## Prerequisites
 * [Python 3.5 (or above)](https://www.python.org/)
@@ -43,7 +44,7 @@ Remember to also add the ``gtfspy`` directory to your ``PYTHONPATH`` environment
 ## Examples
 - [Importing a GTFS feed into a sqlite database](examples/example_import.py)
 - [TODO: Validate an imported feed](examples/example_validation.py)
-- [Computing and plotting temporal distance profiles between an origin--destination pair](examples/example_temporal_distance_profile.py)
+- [Compute and plot temporal distance profiles between an origin--destination pair](examples/example_temporal_distance_profile.py)
 - [Visualizing the public transport network on map](examples/example_map_visualization.py)
 - [Filter GTFS feed spatially and temporally](examples/example_filter.py)
 - [Extract a temporal network from the GTFS database](examples/example_export.py)
@@ -57,6 +58,7 @@ In your pull request, please also add yourself as a contributor in the list belo
 
 ## Versioning
 
+As this library is not yet stabilised, and new features are being developed, code organization and interfaces may change at a fast pace. More precise versioning scheme will be decided upon later.
 
 ## Authors
 
@@ -68,7 +70,6 @@ In your pull request, please also add yourself as a contributor in the list belo
 
 ### Other contributors
 * You?
-
 
 ## Licenses
 
@@ -90,7 +91,14 @@ If you use this code for scientific purposes, please cite our paper [TO BE ANNOU
 
 * The development of this Python package has benefited from the support by Academy of Finland through the DeCoNet project.
 
+## Bugs
+
+If you have a problem using ``gtfspy``please create an issue in GitHub.  
+
+## Other questions on 
+
+If you have any questions on regarding ``gtfspy``, feel free to send the package maintainers, see above) an e-mail!
 
 ## See also
 
-Code using (an older version of) ``gtfspy``: (https://github.com/rmkujala/ptn_temporal_distances)
+Code using (an old version of) ``gtfspy``: (https://github.com/rmkujala/ptn_temporal_distances)
