@@ -255,3 +255,6 @@ class ProfileBlockAnalyzer:
                 vertical_lines.append(dict(x=[block.start_time, block.start_time],
                                            y=[previous_duration_minutes, distance_start_minutes]))
         return vertical_lines, slopes
+
+    def get_blocks(self):
+        return self._profile_blocks
