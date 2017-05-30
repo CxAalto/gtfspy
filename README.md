@@ -42,12 +42,12 @@ Remember to also add the ``gtfspy`` directory to your ``PYTHONPATH`` environment
 
 ## Examples
 - [Importing a GTFS feed into a sqlite database](examples/example_import.py)
-- [Validating an imported feed TODO!](examples/example_validation.py)
-- [Computing and plotting temporal distance profiles between an origin--destination pair](examples/example_temporal_distance_profile.py)
+- [TODO: Validating an imported feed](examples/example_validation.py)
 - [Visualizing the public transport network on map](examples/example_map_visualization.py)
-- [TODO! Filtering GTFS feed spatially and in time-domain](examples/example_filter.py)
+- [Filter GTFS feed spatially and temporally](examples/example_filter.py)
 - [TODO! Extracting a temporal network (and other formats)](examples/example_export.py)
-- [TODO! Running a simple accessibility analysis pipeline!](examples/example_accessibility_analysis.py)
+- [Compute and plot temporal distance profiles between an origin--destination pair](examples/example_temporal_distance_profile.py)
+- [TODO! Run a simple accessibility analysis pipeline!](examples/example_accessibility_analysis.py)
 
 
 ## Contributing
@@ -57,6 +57,7 @@ In your pull request, please also add yourself as a contributor in the list belo
 
 ## Versioning
 
+As this library is not yet stabilised, and new features are being developed, code organization and interfaces may change at a fast pace. More precise versioning scheme will be decided upon later.
 
 ## Authors
 
@@ -68,7 +69,6 @@ In your pull request, please also add yourself as a contributor in the list belo
 
 ### Other contributors
 * You?
-
 
 ## Licenses
 
@@ -93,4 +93,8 @@ If you use this code for scientific purposes, please cite our paper [TO BE ANNOU
 
 ## See also
 
-Code using (an older version of) ``gtfspy``: (https://github.com/rmkujala/ptn_temporal_distances)
+Code using (an old version of) ``gtfspy``: (https://github.com/rmkujala/ptn_temporal_distances)
+
+## Questions
+
+If you have any questions on regarding ``gtfspy``, feel free to send us (the package maintainers, see above) an e-mail!
