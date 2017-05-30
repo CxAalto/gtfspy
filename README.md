@@ -7,7 +7,7 @@
 ``gtfspy`` is a Python package for working with public transport timetable data provided in the [General Transit Feeds Specification](https://developers.google.com/transit/gtfs/) (GTFS) format.
 
 ## Core features:
-* Import one or multiple GTFS feeds into a [SQLite](https://www.sqlite.org/) database.
+* Import one or multiple GTFS feeds into a [SQLite](https://www.sqlite.org/) database for efficient querying of the data.
 * Augment the sqlite with real walking distances between PT stops using Open Street Map (OSM) data.
 * Compute simple statistics for the public transport networks (number of stops, routes, network length).
 * Filter databases spatially and temporally to match your area and time region of interst.
