@@ -16,3 +16,4 @@ nohup.out
 doc/*html
 *.sqlite
 gtfspy/routing/label.c
+examples/test_thumbnail.jpg
