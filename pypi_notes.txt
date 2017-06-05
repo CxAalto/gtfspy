@@ -1,11 +1,13 @@
+# Clear dist directory
+rm -rf dist/
 
-# Source distribution
+# Source distribution (required)
 python setup.py sdist
 
-# Wheel distribution:
+# Wheel distribution (required)
 python setup.py bdist_wheel
 
-# To register
+# To register (only required on first upload)
 twine register dist/mypkg.whl -r pypi
 
 # To upload

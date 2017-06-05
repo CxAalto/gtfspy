@@ -76,7 +76,8 @@ As this library is not yet stabilised, and new features are being developed, cod
 ### Code
 This source code of this project licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
 
-### Data
+### Example data (regarding examples)
+
 The OpenStreetMap data (.osm.pbf file(s) under examples/data) is licenced under the [Open Data Commons Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL) by the [OpenStreetMap Foundation](http://osmfoundation.org/) (OSMF).
 
 The GTFS data used for the examples is provided by the City of Kuopio (Finland), and have been downloaded from [http://bussit.kuopio.fi/gtfs/gtfs.zip](http://bussit.kuopio.fi/gtfs/gtfs.zip) [data licensed [under CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed)].
@@ -93,7 +94,7 @@ If you use this code for scientific purposes, please cite our paper [TO BE ANNOU
 
 ## Bugs
 
-If you have a problem using ``gtfspy``please create an issue in GitHub.  
+If you have any problems using ``gtfspy`` please create an issue in GitHub.  
 
 ## Other questions on 
 
