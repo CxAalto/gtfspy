@@ -5,8 +5,6 @@ import uuid
 
 import networkx
 import pandas
-import geopandas
-from shapely.geometry import Point
 
 from gtfspy import route_types
 from gtfspy.gtfs import GTFS
@@ -59,23 +57,41 @@ def write_stops_geojson(gtfs, out_file, fields=None):
     nodes = gtfs.get_table("stops")
     if fields is None:
         fields = {'name': 'stop_name', 'stop_I': 'stop_I', 'lat':'lat', 'lon':'lon'}
-    assert(fields['lat'] == 'lat' and fields['lon']=='lon')
+    assert(fields['lat'] == 'lat' and fields['lon'] == 'lon')
     nodes = nodes[list(fields.keys())]
     nodes.replace(list(fields.keys()), [fields[key] for key in fields.keys()], inplace=True)
     assert('lat' in nodes.columns)
     assert('lon' in nodes.columns)
-    geometries = nodes.apply(lambda x: Point((x.lon, x.lat)), axis=1)
-    nodes = nodes[[col for col in nodes.columns if col not in ['lat', 'lon']]]
-    nodes['geometry'] = geometries
-    gdf = geopandas.GeoDataFrame(nodes, geometry='geometry')
-    gdf.crs = {'init': 'epsg:4326'}
+
+    features = []
+    for i, node_tuple in enumerate(nodes.itertuples()):
+        print(i)
+        feature = {"type": "Feature",
+                    "id": str(i),
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [
+                            node_tuple.lon,
+                            node_tuple.lat
+                        ]
+                    },
+                "properties": {
+                    "stop_I": str(node_tuple.stop_I),
+                    "name": node_tuple.name
+                    }
+                }
+        features.append(feature)
+    geojson = {
+        "type": "FeatureCollection",
+        "features": features
+    }
 
     if hasattr(out_file, "write"):
-        out_file.write(gdf.to_json())
+        out_file.write(json.dumps(geojson))
     else:
         with util.create_file(out_file, tmpdir=True, keepext=True) as tmpfile_path:
             tmpfile = open(tmpfile_path, 'w')
-            tmpfile.write(gdf.to_json())
+            tmpfile.write(json.dumps(geojson))
 
 
 def write_combined_transit_stop_to_stop_network(gtfs, output_path, fmt=None):

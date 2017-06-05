@@ -12,7 +12,7 @@ import pandas
 
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
-from gtfspy.route_types import BUS, TRAM
+from gtfspy.route_types import BUS, TRAM, ALL_ROUTE_TYPES
 
 
 class TestGTFS(unittest.TestCase):
@@ -273,3 +273,16 @@ class TestGTFS(unittest.TestCase):
         # self.assertEqual(location_name, "test_data")
         self.assertTrue(isinstance(location_name, string_types), type(location_name))
         self.assertGreater(len(location_name), 0)
+
+    def test_get_n_stop_counts(self):
+        self.assertEqual(self.G.get_n_stops(), 9)
+
+    def test_get_modes(self):
+        modes = self.G.get_modes()
+        self.assertIsInstance(modes, list)
+        for mode in modes:
+            self.assertIn(mode, ALL_ROUTE_TYPES)
+        for r_type in [2, 3]:
+            self.assertIn(r_type, modes)
+
+

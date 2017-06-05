@@ -42,7 +42,6 @@ setup(
         "six",
         "geoindex",
         "osmread==0.2",
-        "geopandas>=0.2.1",
         "shapely",
         "geojson"
     ],

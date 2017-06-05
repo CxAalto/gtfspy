@@ -64,4 +64,4 @@ class StatsTest(unittest.TestCase):
         df = stats.trip_stats(self.gtfs, True)
         self.assertTrue(isinstance(df, dict))
         # assuming test data only has one mode type
-        self.assertTrue(len(df.keys()) == 1)
+        self.assertTrue(len(df.keys()) == 2)

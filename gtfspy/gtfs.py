@@ -1203,6 +1203,13 @@ class GTFS(object):
         """
         return pd.read_sql_query("SELECT * FROM stops WHERE stop_I={stop_I}".format(stop_I=stop_I), self.conn)
 
+    def get_n_stops(self):
+        return pd.read_sql_query("SELECT count(*) from stops;", self.conn).values[0,0]
+
+    def get_modes(self):
+        modes = list(pd.read_sql_query("SELECT distinct(type) from routes;", self.conn).values.flatten())
+        return modes
+
     def get_stops_for_route_type(self, route_type):
         """
         Parameters
