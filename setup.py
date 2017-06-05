@@ -43,7 +43,8 @@ setup(
         "geoindex",
         "osmread==0.2",
         "shapely",
-        "geojson"
+        "geojson",
+        "pyproj"
     ],
     ext_modules=[
         Extension(

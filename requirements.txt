@@ -9,3 +9,4 @@ geoindex
 osmread
 geojson
 shapely
+pyproj
