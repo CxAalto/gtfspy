@@ -5,7 +5,7 @@ import smopy
 import matplotlib.pyplot as plt
 from gtfspy.gtfs import GTFS
 from gtfspy.stats import get_spatial_bounds, get_percentile_stop_bounds, get_median_lat_lon_of_stops
-from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_ZORDER
+from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_ZORDER, ROUTE_TYPE_TO_SHORT_DESCRIPTION
 import matplotlib as mpl
 from matplotlib_scalebar.scalebar import ScaleBar
 from gtfspy import util
@@ -13,6 +13,7 @@ from gtfspy import util
 """
 This module contains functions for plotting (static) visualizations of the public transport networks using matplotlib.
 """
+from gtfspy.extended_route_types import ROUTE_TYPE_CONVERSION
 
 smopy.TILE_SERVER = "https://cartodb-basemaps-1.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
 
@@ -27,7 +28,8 @@ def _get_median_centered_plot_bounds(g):
     plot_lat_max = lat_median + lat_diff
     return plot_lon_min, plot_lon_max, plot_lat_min, plot_lat_max
 
-def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True):
+def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
+                       return_smopy_map=False):
     """
     Parameters
     ----------
@@ -35,6 +37,10 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=
         Where to get the data from?
     ax: matplotlib.Axes object, optional
         If None, a new figure and an axis is created
+    spatial_bounds: dict, optional
+        with str keys: lon_min, lon_max, lat_min, lat_max
+    return_smopy_map: bool, optional
+        defaulting to false
 
     Returns
     -------
@@ -60,21 +66,32 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=
     bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                                          numpy.array([lon_min, lon_max]))
 
-
+    route_types_to_lines = {}
     for shape in route_shapes:
-        route_type = shape['type']
+        route_type = ROUTE_TYPE_CONVERSION[shape['type']]
         lats = numpy.array(shape['lats'])
         lons = numpy.array(shape['lons'])
         xs, ys = smopy_map.to_pixels(lats, lons)
-        ax.plot(xs, ys, color=ROUTE_TYPE_TO_COLOR[route_type], zorder=ROUTE_TYPE_TO_ZORDER[route_type])
-        # update pixel bounds
+        line, = ax.plot(xs, ys, color=ROUTE_TYPE_TO_COLOR[route_type], zorder=ROUTE_TYPE_TO_ZORDER[route_type])
+        route_types_to_lines[route_type] = line
+
+    if legend:
+        lines = list(route_types_to_lines.values())
+        labels = [ROUTE_TYPE_TO_SHORT_DESCRIPTION[route_type] for route_type in route_types_to_lines.keys()]
+        ax.legend(lines, labels)
 
     if scalebar:
         _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
 
+    ax.set_xticks([])
+    ax.set_yticks([])
+
     ax.set_xlim(bound_pixel_xs.min(), bound_pixel_xs.max())
     ax.set_ylim(bound_pixel_ys.max(), bound_pixel_ys.min())
-    return ax
+    if return_smopy_map:
+        return ax, smopy_map
+    else:
+        return ax
 
 def _add_scale_bar(ax, lat, lon_min, lon_max, width_pixels):
     distance_m = util.wgs84_distance(lat, lon_min, lat, lon_max)
@@ -101,7 +118,7 @@ def plot_route_network_thumbnail(g):
     fig = plt.figure(figsize=(width/dpi, height/dpi))
     ax = fig.add_subplot(111)
     plt.subplots_adjust(bottom=0.0, left=0.0, right=1.0, top=1.0)
-    return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False)
+    return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
 
 
 def plot_all_stops(g, ax=None, scalebar=False):
@@ -154,5 +171,6 @@ def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None):
                                "\n Please check that the tile server exists and "
                                "that your are connected to the internet.")
     return get_smopy_map.maps[args]
+
 
 get_smopy_map.maps = {}
