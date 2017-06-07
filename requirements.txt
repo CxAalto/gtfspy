@@ -10,3 +10,4 @@ osmread
 geojson
 shapely
 pyproj
+matplotlib-scalebar

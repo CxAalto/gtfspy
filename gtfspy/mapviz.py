@@ -7,6 +7,8 @@ from gtfspy.gtfs import GTFS
 from gtfspy.stats import get_spatial_bounds, get_percentile_stop_bounds, get_median_lat_lon_of_stops
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_ZORDER
 import matplotlib as mpl
+from matplotlib_scalebar.scalebar import ScaleBar
+from gtfspy import util
 
 """
 This module contains functions for plotting (static) visualizations of the public transport networks using matplotlib.
@@ -25,8 +27,7 @@ def _get_median_centered_plot_bounds(g):
     plot_lat_max = lat_median + lat_diff
     return plot_lon_min, plot_lon_max, plot_lat_min, plot_lat_max
 
-
-def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8):
+def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True):
     """
     Parameters
     ----------
@@ -37,7 +38,7 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8):
 
     Returns
     -------
-    ax: matplotlib
+    ax: matplotlib.Axes
 
     """
     assert(isinstance(g, GTFS))
@@ -52,8 +53,8 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8):
         fig = plt.figure()
         ax = fig.add_subplot(111)
     route_shapes = g.get_all_route_shapes()
-    print(lat_min, lat_max)
-    print(lon_min, lon_max)
+    # print(lat_min, lat_max)
+    # print(lon_min, lon_max)
     smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=map_alpha)
     bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
@@ -68,10 +69,17 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8):
         ax.plot(xs, ys, color=ROUTE_TYPE_TO_COLOR[route_type], zorder=ROUTE_TYPE_TO_ZORDER[route_type])
         # update pixel bounds
 
+    if scalebar:
+        _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
+
     ax.set_xlim(bound_pixel_xs.min(), bound_pixel_xs.max())
     ax.set_ylim(bound_pixel_ys.max(), bound_pixel_ys.min())
     return ax
 
+def _add_scale_bar(ax, lat, lon_min, lon_max, width_pixels):
+    distance_m = util.wgs84_distance(lat, lon_min, lat, lon_max)
+    scalebar = ScaleBar(distance_m / width_pixels)  # 1 pixel = 0.2 meter
+    ax.add_artist(scalebar)
 
 def plot_route_network_thumbnail(g):
     width = 512  # pixels
@@ -82,7 +90,6 @@ def plot_route_network_thumbnail(g):
     width_m = width * scale
     height_m = height * scale
     median_lat, median_lon = get_median_lat_lon_of_stops(g)
-    from gtfspy import util
     dlat = util.wgs84_height(height_m)
     dlon = util.wgs84_width(width_m, median_lat)
     spatial_bounds = {
@@ -94,26 +101,26 @@ def plot_route_network_thumbnail(g):
     fig = plt.figure(figsize=(width/dpi, height/dpi))
     ax = fig.add_subplot(111)
     plt.subplots_adjust(bottom=0.0, left=0.0, right=1.0, top=1.0)
-    return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0)
+    return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False)
 
 
-def plot_all_stops(g, ax=None):
+def plot_all_stops(g, ax=None, scalebar=False):
     """
     Parameters
     ----------
     g: A gtfspy.gtfs.GTFS object
     ax: matplotlib.Axes object, optional
         If None, a new figure and an axis is created, otherwise results are plotted on the axis.
+    scalebar: bool, optional
+        Whether to include a scalebar to the plot.
 
     Returns
     -------
-    ax: matplotlib
+    ax: matplotlib.Axes
 
     """
     assert(isinstance(g, GTFS))
     stats = g.get_stats()
-    for key, val in stats.items():
-        print(key, val)
     lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
     smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
     if ax is None:

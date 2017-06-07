@@ -44,7 +44,8 @@ setup(
         "osmread==0.2",
         "shapely",
         "geojson",
-        "pyproj"
+        "pyproj",
+        "matplotlib-scalebar==0.3.1"
     ],
     ext_modules=[
         Extension(
