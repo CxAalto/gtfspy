@@ -3,7 +3,7 @@ from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
 from gtfspy.routing.profile_block_analyzer import ProfileBlock, ProfileBlockAnalyzer
 
 
-class FastestPathAnalyzer():
+class FastestPathAnalyzer:
 
     def __init__(self, labels, start_time_dep, end_time_dep, cutoff_duration=float('inf'), label_props_to_consider=None):
         """
@@ -20,7 +20,7 @@ class FastestPathAnalyzer():
             assert (hasattr(label, "arrival_time_target"))
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
-        self.cutoff_duration =cutoff_duration
+        self.cutoff_duration = cutoff_duration
         if label_props_to_consider is None:
             self.label_props = []
         else:
@@ -34,7 +34,7 @@ class FastestPathAnalyzer():
     def _compute_fastest_path_labels(self, labels):
         labels_within_interval = [label for label in labels if
                            (self.start_time_dep <= label.departure_time <= self.end_time_dep)]
-        final_labels = list(reversed(compute_pareto_front(labels, ignore_n_boardings=True)))
+        final_labels = list(reversed(compute_pareto_front(labels_within_interval, ignore_n_boardings=True)))
         # assert ordered:
         for i in range(len(final_labels) - 1):
             assert (final_labels[i].departure_time <= final_labels[i + 1].departure_time)
