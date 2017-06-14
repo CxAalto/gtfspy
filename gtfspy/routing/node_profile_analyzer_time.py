@@ -297,9 +297,11 @@ class NodeProfileAnalyzerTime:
         return ax.figure
 
     def plot_temporal_distance_pdf_horizontal(self, use_minutes=True,
-                                              color="green", ax=None,
+                                              color="green",
+                                              ax=None,
                                               duration_divider=60.0,
-                                              legend_font_size=None):
+                                              legend_font_size=None,
+                                              legend_loc=None):
         """
         Plot the temporal distance probability density function.
 
@@ -362,10 +364,12 @@ class NodeProfileAnalyzerTime:
         if delta_peaks:
             if legend_font_size is None:
                 legend_font_size = 12
-            ax.legend(loc="best", prop={'size': legend_font_size})
+            if legend_loc is None:
+                legend_loc = "best"
+            ax.legend(loc=legend_loc, prop={'size': legend_font_size})
 
 
-        if True: #
+        if True:
             line_tyles = ["-.", "--", "-"][::-1]
             to_plot_funcs = [self.max_temporal_distance, self.mean_temporal_distance, self.min_temporal_distance]
 
@@ -373,7 +377,8 @@ class NodeProfileAnalyzerTime:
             for to_plot_func, ls in zip(to_plot_funcs, line_tyles):
                 y = to_plot_func() / duration_divider
                 assert y < float('inf')
-                ax.plot([xmin, xmax], [y, y], color="black", ls=ls, lw=1)
+                # factor of 10 just to be safe that the lines cover the whole region.
+                ax.plot([xmin, xmax*10], [y, y], color="black", ls=ls, lw=1)
 
         return ax.figure
 
@@ -389,7 +394,8 @@ class NodeProfileAnalyzerTime:
                                        format_string="%Y-%m-%d %H:%M:%S",
                                        plot_journeys=False,
                                        duration_divider=60.0,
-                                       fill_color="green"):
+                                       fill_color="green",
+                                       journey_letters=None):
         """
         Parameters
         ----------
@@ -476,9 +482,11 @@ class NodeProfileAnalyzerTime:
             xs = [_ut_to_unloc_datetime(x) for x in self.trip_departure_times]
             ys = self.trip_durations
             ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
-            for x, y, letter in zip(xs, ys, "ABCDEFGHIJKLM"):
-                ax.text(x + datetime.timedelta(seconds=20),
-                        y / duration_divider - 0.5, letter, va="center", ha="left")
+            if journey_letters is None:
+                journey_letters = "ABCDEFGHIJKLM"
+            for x, y, letter in zip(xs, ys, journey_letters):
+                ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 60),
+                        (y - self._walk_time_to_target / 30) / duration_divider, letter, va="top", ha="left")
 
         fill_between_x = []
         fill_between_y = []

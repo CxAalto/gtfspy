@@ -71,7 +71,7 @@ class _Block:
         return str(parts)
 
     def is_walk(self):
-        return self.tdist_end == self.tdist_start
+        return (self.tdist_end == self.tdist_start) and self.tdist_end < float('inf')
 
     def width(self):
         return self.end_time - self.start_time
@@ -555,8 +555,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             for (x, y), letter in zip(journeys, journey_letters):
                 if x < _ut_to_unloc_datetime(self.end_time_dep):
                     ax.plot(x, y, "o", ms=8, color="k")
-                    ax.text(x + datetime.timedelta(seconds=0.2),
-                            y / duration_divider - 0.5, letter, va="center", ha="left")
+                    ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 40.),
+                            y, letter, va="center", ha="left")
             p = lines.Line2D([0, 0], [1, 1], ls="", marker="o", ms=8, color="k", label="journeys")
             legend_patches.append(p)
 
@@ -596,10 +596,9 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                           self.end_time_dep - self.start_time_dep)
         )
 
-        fill_colors, line_colors = self._get_fill_and_line_colors(self.min_n_boardings(),
-                                                                  self.max_n_boardings_on_shortest_paths())
-
-
+        min_n_boardings = int(self.min_n_boardings())
+        max_n_boardings = int(self.max_finite_n_boardings_on_fastest_paths())
+        fill_colors, line_colors = self._get_fill_and_line_colors(min_n_boardings, max_n_boardings)
 
         temporal_distance_values_to_plot = []
         for x in distance_split_points_ordered:
@@ -610,7 +609,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         pdf_values_to_plot_by_n_boardings = {}
         pdf_areas = {}
 
-        for n_boardings in range(self.min_n_boardings_on_shortest_paths(), self.max_n_boardings_on_shortest_paths() + 1):
+        for n_boardings in range(min_n_boardings, max_n_boardings + 1):
             blocks_now = [block for block in non_walk_blocks if block.n_boardings >= n_boardings]
             journey_counts = numpy.zeros(len(temporal_distance_split_widths))
             for block_now in blocks_now:
@@ -633,8 +632,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             ax.plot([0, 10], [self._walk_to_target_duration / duration_divider, self._walk_to_target_duration / duration_divider], color=line_colors[0],
                     lw=5, label=text, zorder=10)
 
-        for n_boardings in range(max(1, self.min_n_boardings_on_shortest_paths()), self.max_n_boardings_on_shortest_paths() + 1):
-            if n_boardings is self.max_n_boardings_on_shortest_paths():
+        for n_boardings in range(max(1, min_n_boardings), max_n_boardings + 1):
+            if n_boardings is max_n_boardings:
                 prob = pdf_areas[n_boardings]
             else:
                 prob = pdf_areas[n_boardings] - pdf_areas[n_boardings+1]
