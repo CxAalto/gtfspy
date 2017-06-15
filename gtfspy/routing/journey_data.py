@@ -372,15 +372,7 @@ class JourneyDataManager:
         self.conn.commit()
 
     def journey_label_generator(self):
-        """
-        def dict_factory(cursor, row):
-            d = {}
-            for idx, col in enumerate(cursor.description):
-                d[col[0]] = row[idx]
-            return d
-        """
         conn = self.conn
-        #conn.row_factory = dict_factory
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
@@ -394,14 +386,25 @@ class JourneyDataManager:
                 if not journey:
                     break
                 else:
-                    print(dict(journey))
                     journey_labels.append(LabelGeneric(dict(journey)))
-            yield journey_labels
+            yield journey_labels, pairs
 
     def od_pair_data(self, start_time_dep, end_time_dep):
-        for journey_labels in self.journey_label_generator():
-            fpa = FastestPathAnalyzer(journey_labels, start_time_dep, end_time_dep)
-            profile_block = fpa.get_prop_analyzer_flat()
+        for journey_labels, pairs in self.journey_label_generator():
+            kwargs = {"from_stop_I": pairs[0], "to_stop_I": pairs[1]}
+            fpa = FastestPathAnalyzer(journey_labels,
+                                      start_time_dep,
+                                      end_time_dep,
+                                      cutoff_duration=float('inf'),
+                                      label_props_to_consider=["n_boardings", "travel_time"],
+                                      **kwargs)
+            parameters = [
+                ("n_boardings", 0, 0),
+                ("travel_time", float("inf"), float("inf"))
+            ]
+            for parameter in parameters:
+                profile_block = fpa.get_prop_analyzer_flat(parameter[0], parameter[1], parameter[2])
+                print(profile_block.measures_as_dict())
 
     def initialize_database(self, journey_db_dir):
         assert not os.path.isfile(journey_db_dir)

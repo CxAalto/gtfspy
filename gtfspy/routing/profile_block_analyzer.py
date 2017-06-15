@@ -51,7 +51,7 @@ class ProfileBlock():
 
 
 class ProfileBlockAnalyzer:
-    def __init__(self, profile_blocks, cutoff_distance=None):
+    def __init__(self, profile_blocks, cutoff_distance=None, **kwargs):
         """
         Parameters
         ----------
@@ -68,6 +68,15 @@ class ProfileBlockAnalyzer:
         self._cutoff_distance = cutoff_distance
         if cutoff_distance is not None:
             self._apply_cutoff(cutoff_distance)
+
+        self.from_stop_I = None
+        self.to_stop_I = None
+
+        for key, value in kwargs.items():
+            if key == "from_stop_I":
+                self.from_stop_I = value
+            if key == "to_stop_I":
+                self.to_stop_I = value
 
     def _apply_cutoff(self, cutoff_distance):
         print("cutoff?")
@@ -154,6 +163,14 @@ class ProfileBlockAnalyzer:
             return max(distances)
         else:
             return None
+
+    def measures_as_dict(self):
+        return {"from_stop_I": self.from_stop_I,
+                "to_stop_I": self.to_stop_I,
+                "max": self.max(),
+                "min": self.min(),
+                "mean": self.mean(),
+                "median": self.median()}
 
     def _temporal_distance_cdf(self):
         """

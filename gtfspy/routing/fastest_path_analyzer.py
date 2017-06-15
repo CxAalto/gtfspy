@@ -5,7 +5,7 @@ from gtfspy.routing.profile_block_analyzer import ProfileBlock, ProfileBlockAnal
 
 class FastestPathAnalyzer:
 
-    def __init__(self, labels, start_time_dep, end_time_dep, cutoff_duration=float('inf'), label_props_to_consider=None):
+    def __init__(self, labels, start_time_dep, end_time_dep, cutoff_duration=float('inf'), label_props_to_consider=None, **kwargs):
         """
         Parameters
         ----------
@@ -31,6 +31,8 @@ class FastestPathAnalyzer:
             for prop in self.label_props:
                 assert (hasattr(label, prop))
 
+        self.kwargs = kwargs
+
     def _compute_fastest_path_labels(self, labels):
         labels_within_interval = [label for label in labels if
                            (self.start_time_dep <= label.departure_time <= self.end_time_dep)]
@@ -44,11 +46,11 @@ class FastestPathAnalyzer:
             smallest_dep_time_after_end_time = float('inf')
             smallest_dep_time_label = None
             for label in labels:
-                if label.departure_time > self.end_time_dep and label.departure_time < smallest_dep_time_after_end_time:
+                if self.end_time_dep < label.departure_time < smallest_dep_time_after_end_time:
                     smallest_dep_time_after_end_time = label.departure_time
                     smallest_dep_time_label = label
             if smallest_dep_time_label is not None:
-                final_labels.append()
+                final_labels.append(smallest_dep_time_label)
         return final_labels
 
     def get_fastest_path_labels(self, include_next_label_outside_interval=False):
@@ -144,6 +146,7 @@ class FastestPathAnalyzer:
         -------
         ProfileBlockAnalyzer
         """
+        kwargs = self.kwargs
         fp_blocks = self.get_fastest_path_blocks()
         prop_blocks = []
         for b in fp_blocks:
@@ -156,7 +159,7 @@ class FastestPathAnalyzer:
                 prop_value = b[property]
             prop_block = ProfileBlock(b.start_time, b.end_time, prop_value, prop_value)
             prop_blocks.append(prop_block)
-        return ProfileBlockAnalyzer(prop_blocks)
+        return ProfileBlockAnalyzer(prop_blocks, **kwargs)
 
 
 
