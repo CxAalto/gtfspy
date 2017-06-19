@@ -18,9 +18,9 @@ class TestJourneyData(TestCase):
 
     def setUp(self):
         event_list_raw_data = [
-            (1, 2, 0, 10, "trip_1"),
-            (2, 3, 10, 20, "trip_2"),
-            (4, 5, 30, 40, "trip_3"),
+            (1, 2, 0, 10, "trip_1", 1),
+            (2, 3, 10, 20, "trip_2", 1),
+            (4, 5, 30, 40, "trip_3", 1),
 
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
@@ -41,7 +41,7 @@ class TestJourneyData(TestCase):
         csa_profile.run()
 
         self.profiles = dict(csa_profile.stop_profiles)
-        self.jdm = JourneyDataManager()
+        # self.jdm = JourneyDataManager()
 
     def test_import_with_route_to_db(self):
         pass

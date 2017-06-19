@@ -186,7 +186,8 @@ class NodeProfileMultiObjective:
                                                  self.closest_target,
                                                  departure_time,
                                                  departure_time + self._walk_to_target_duration,
-                                                 trip_id=None,
+                                                 Connection.WALK_TRIP_ID,
+                                                 Connection.WALK_SEQ,
                                                  is_walk=True
                                                  )
                 else:
@@ -284,7 +285,8 @@ class NodeProfileMultiObjective:
                                             departure_arrival_tuple[1],
                                             departure_time,
                                             arrival_time,
-                                            trip_id=None,
+                                            Connection.WALK_TRIP_ID,
+                                            Connection.WALK_SEQ,
                                             is_walk=True)
                     labels_from_neighbors.append(label.get_copy_with_walk_added(walk_duration, connection))
                 else:

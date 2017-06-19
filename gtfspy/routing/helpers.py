@@ -23,7 +23,7 @@ def get_transit_connections(gtfs, start_time_ut, end_time_ut):
     assert (isinstance(gtfs, GTFS))
     events_df = temporal_network(gtfs, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
     assert (isinstance(events_df, pandas.DataFrame))
-    return list(map(lambda e: Connection(e.from_stop_I, e.to_stop_I, e.dep_time_ut, e.arr_time_ut, e.trip_I),
+    return list(map(lambda e: Connection(e.from_stop_I, e.to_stop_I, e.dep_time_ut, e.arr_time_ut, e.trip_I, e.seq),
                     events_df.itertuples()
                     )
                 )

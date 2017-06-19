@@ -39,11 +39,12 @@ def compute_pseudo_connections(transit_connections, start_time_dep,
                 walk_dep_time = walk_arr_time - data['d_walk'] / float(walk_speed)
                 if walk_dep_time > end_time_dep or walk_dep_time < start_time_dep:
                     continue
-                pseudo_connection = Connection(departure_stop=walk_dep_stop,
-                                               arrival_stop=walk_arr_stop,
-                                               departure_time=walk_dep_time,
-                                               arrival_time=walk_arr_time,
-                                               trip_id=None,
+                pseudo_connection = Connection(walk_dep_stop,
+                                               walk_arr_stop,
+                                               walk_dep_time,
+                                               walk_arr_time,
+                                               Connection.WALK_TRIP_ID,
+                                               Connection.WALK_SEQ,
                                                is_walk=True)
                 pseudo_connection_set.add(pseudo_connection)
     return pseudo_connection_set
