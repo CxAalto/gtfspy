@@ -13,7 +13,7 @@ import pyximport
 pyximport.install()
 
 
-class TestMultiObjectivePseudoCSAProfiler(TestCase):
+class TestJourneyData(TestCase):
     # noinspection PyAttributeOutsideInit
 
     def setUp(self):

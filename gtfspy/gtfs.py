@@ -1240,6 +1240,7 @@ class GTFS(object):
         from gtfspy.networks import temporal_network
         df = temporal_network(self, start_time_ut=start_time_ut, end_time_ut=end_time_ut, route_type=route_type)
         df.sort_values("dep_time_ut", ascending=False, inplace=True)
+
         for row in df.itertuples():
             yield row
 
@@ -1507,8 +1508,37 @@ class GTFS(object):
         self.conn.commit()
         print("finished")
 
+    def replace_stop_i_with_stop_pair_i(self):
+        cur = self.conn.cursor()
+        queries = [
+            "UPDATE stop_times SET stop_I = "
+            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = stop_I)",
+
+            "UPDATE stop_distances SET from_stop_I = "
+            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = from_stop_I)",
+
+            "UPDATE stop_distances SET to_stop_I = "
+            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = to_stop_I)",
+
+            "ALTER TABLE stops RENAME TO stops_old",
+            "CREATE TABLE stops (stop_I INTEGER PRIMARY KEY, stop_id TEXT UNIQUE NOT NULL, code TEXT, name TEXT, "
+            "desc TEXT, lat REAL, lon REAL, parent_I INT, location_type INT, wheelchair_boarding BOOL, "
+            "self_or_parent_I INT, old_stop_I INT)",
+
+            "INSERT INTO stops(stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
+            "wheelchair_boarding, self_or_parent_I, old_stop_I) "
+            "SELECT stop_pair_I AS stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
+            "wheelchair_boarding, self_or_parent_I, stop_I AS old_stop_I "
+            "FROM stops_old;",
+
+            "DROP TABLE stops_old",
+
+            "CREATE INDEX idx_stops_sid ON stops (stop_I)"]
+        for query in queries:
+            cur.execute(query)
+
     def add_stops_from_csv(self, csv_dir):
-        # TODO: this should be generalized for other use cases
+        # TODO: this could be generalized for other use cases
         cur = self.conn.cursor()
 
         stops_to_add = pd.read_csv(csv_dir, encoding='utf-8')

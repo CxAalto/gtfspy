@@ -277,3 +277,6 @@ class TestGTFS(unittest.TestCase):
     def test_homogenize_stops_table_with_other_db(self):
         # TODO: testing this would require creating temp databases or something, joining inmemory databases might be impossible?
         pass
+
+    def test_get_transit_events(self):
+        self.G.get_transit_events()

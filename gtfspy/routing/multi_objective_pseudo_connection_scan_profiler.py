@@ -55,6 +55,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             whether to consider time in the set of pareto_optimal
         """
         AbstractRoutingAlgorithm.__init__(self)
+        assert (len(transit_events) == len(set(transit_events)))
         self._transit_connections = transit_events
         if start_time_ut is None:
             start_time_ut = transit_events[-1].departure_time

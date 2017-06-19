@@ -19,3 +19,13 @@ class Connection:
     def __str__(self):
         return pformat(self.__dict__)
 
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+    def __repr__(self):
+        return '<%s:%s:%s:%s:%s:%s:%s:%s>' % (
+            self.__class__.__name__, self.departure_stop, self.arrival_stop,
+            self.departure_time, self.arrival_time, self.trip_id, self.is_walk, self.arrival_stop_next_departure_time)
+
+    def __hash__(self):
+        return hash(self.__repr__())

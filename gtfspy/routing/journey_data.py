@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import pandas as pd
 
 from gtfspy.routing.connection import Connection
 from gtfspy.gtfs import GTFS
@@ -376,35 +377,61 @@ class JourneyDataManager:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
-        for pairs in self.get_od_pairs():
-            cur.execute("SELECT journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, travel_time, \
-                        in_vehicle_time, transfer_wait_time, walking_time, departure_time, arrival_time_target "
-                        "FROM journeys WHERE from_stop_I = ? AND to_stop_I = ?", (pairs[0], pairs[1]))
-            journey_labels = []
-            while True:
-                journey = cur.fetchone()
-                if not journey:
-                    break
-                else:
-                    journey_labels.append(LabelGeneric(dict(journey)))
-            yield journey_labels, pairs
+        for target in self.get_targets():
+            sql = """SELECT journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, travel_time,
+                      in_vehicle_time, transfer_wait_time, walking_time, departure_time, arrival_time_target
+                      FROM journeys WHERE to_stop_I = %s""" % target[0]
+
+            df = pd.read_sql_query(sql, self.conn)
+            for origin in self.get_origins():
+
+                selection = df.loc[df['from_stop_I'] == origin[0]]
+                journey_labels = []
+                for journey in selection.to_dict(orient='records'):
+                    journey_labels.append(LabelGeneric(journey))
+                yield journey_labels, (origin[0], target[0])
 
     def od_pair_data(self, start_time_dep, end_time_dep):
+        data_dict = {}
+        parameters = [ # value_no_next_journey, value_cutoff (value when walking directly)
+            ("n_boardings", float("inf"), 0),
+            ("travel_time", walking_time, walking_time),
+            ("in_vehicle_time", float('inf'), 0),
+            ("transfer_wait_time", float('inf'), 0),
+            ("walking_time", walking_time, walking_time)
+        ]
+        for parameter in parameters:
+            data_dict[parameter[0]] = []
+
         for journey_labels, pairs in self.journey_label_generator():
             kwargs = {"from_stop_I": pairs[0], "to_stop_I": pairs[1]}
             fpa = FastestPathAnalyzer(journey_labels,
                                       start_time_dep,
                                       end_time_dep,
-                                      cutoff_duration=float('inf'),
-                                      label_props_to_consider=["n_boardings", "travel_time"],
+                                      cutoff_duration=float('inf'),  # walking time
+                                      label_props_to_consider=["n_boardings", "travel_time"],  # TODO: change travel_time and others to journey_duration and *_duration
                                       **kwargs)
-            parameters = [
-                ("n_boardings", 0, 0),
-                ("travel_time", float("inf"), float("inf"))
-            ]
+
             for parameter in parameters:
                 profile_block = fpa.get_prop_analyzer_flat(parameter[0], parameter[1], parameter[2])
-                print(profile_block.measures_as_dict())
+                data_dict[parameter[0]].append(profile_block.measures_as_dict())
+
+        for key, value in data_dict.items():
+            self.profile_block_to_database(key, value)
+
+    def profile_block_to_database(self, table, data):
+        self.conn.execute("CREATE TABLE IF NOT EXISTS " + table + " (from_stop_I, to_stop_I, min, max, median, mean)")
+        data_tuple = [(x["from_stop_I"], x["to_stop_I"], x["min"], x["max"], x["median"], x["mean"]) for x in data]
+        insert_legs_stmt = '''INSERT INTO ''' + table + ''' (
+                              from_stop_I,
+                              to_stop_I,
+                              min,
+                              max,
+                              median,
+                              mean) VALUES (?, ?, ?, ?, ?, ?) '''
+        print(data_tuple)
+        self.conn.executemany(insert_legs_stmt, data_tuple)
+        self.conn.commit()
 
     def initialize_database(self, journey_db_dir):
         assert not os.path.isfile(journey_db_dir)
