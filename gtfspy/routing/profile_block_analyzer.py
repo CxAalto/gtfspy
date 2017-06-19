@@ -170,7 +170,7 @@ class ProfileBlockAnalyzer:
                 "max": self.max(),
                 "min": self.min(),
                 "mean": self.mean(),
-                "median": int(self.median())}
+                "median": self.median()}
 
     def _temporal_distance_cdf(self):
         """
