@@ -1,6 +1,6 @@
 import networkx
 import pandas as pd
-
+from math import isnan
 from gtfspy import route_types
 from gtfspy.util import wgs84_distance
 from warnings import warn
@@ -54,11 +54,15 @@ def walk_transfer_stop_to_stop_network(gtfs, max_link_distance=None):
     for stop_distance_tuple in stop_distances.itertuples():
         from_node = stop_distance_tuple.from_stop_I
         to_node = stop_distance_tuple.to_stop_I
-        if stop_distance_tuple.d > max_link_distance:
-            continue
-        data = {'d': stop_distance_tuple.d}
+
         if osm_distances_available:
-            data['d_walk'] = stop_distance_tuple.d_walk
+            if stop_distance_tuple.d_walk > max_link_distance or isnan(stop_distance_tuple.d_walk):
+                continue
+            data = {'d': stop_distance_tuple.d, 'd_walk': stop_distance_tuple.d_walk}
+        else:
+            if stop_distance_tuple.d > max_link_distance:
+                continue
+            data = {'d': stop_distance_tuple.d}
         net.add_edge(from_node, to_node, data)
     return net
 

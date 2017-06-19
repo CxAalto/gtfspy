@@ -285,4 +285,6 @@ class TestGTFS(unittest.TestCase):
         for r_type in [2, 3]:
             self.assertIn(r_type, modes)
 
-
+    def test_homogenize_stops_table_with_other_db(self):
+        # TODO: testing this would require creating temp databases or something, joining inmemory databases might be impossible?
+        pass

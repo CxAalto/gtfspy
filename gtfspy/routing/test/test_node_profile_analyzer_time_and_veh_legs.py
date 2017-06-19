@@ -121,6 +121,18 @@ class TestNodeProfileAnalyzerTimeAndVehLegs(TestCase):
         analyzer = self._get_analyzer(labels, 0, 5, walk_to_target_duration=float('inf'))
         self.assertEqual(analyzer.mean_temporal_distance_with_min_n_boardings(), 2.5 + 5 + 26 - 10)
 
+    def test_n_boardings_on_fastest_trip(self):
+        labels = [
+            LabelTimeWithBoardingsCount(departure_time=10, arrival_time_target=22, n_boardings=4,
+                                        first_leg_is_walk=False),
+            LabelTimeWithBoardingsCount(departure_time=10, arrival_time_target=24, n_boardings=2,
+                                        first_leg_is_walk=False),
+            LabelTimeWithBoardingsCount(departure_time=10, arrival_time_target=26, n_boardings=1,
+                                        first_leg_is_walk=False)
+        ]
+        analyzer = self._get_analyzer(labels, start_time=0, end_time=11, walk_to_target_duration=float('inf'))
+        self.assertEqual(analyzer.n_boardings_on_fastest_trip(), 4)
+
     @unittest.skip
     def test_plot(self):
         labels = [

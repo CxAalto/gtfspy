@@ -16,7 +16,7 @@ from six import string_types
 from gtfspy import shapes
 from gtfspy.route_types import ALL_ROUTE_TYPES
 from gtfspy.route_types import WALK
-from gtfspy.util import wgs84_distance
+from gtfspy.util import wgs84_distance, difference_of_pandas_dfs
 
 
 class GTFS(object):
@@ -789,6 +789,12 @@ class GTFS(object):
                 min_stop_I = stop_I
         return min_stop_I
 
+    def get_stop_coordinates(self, stop_I):
+        cur = self.conn.cursor()
+        results = cur.execute("SELECT lat, lon FROM stops WHERE stop_I={stop_I}".format(stop_I=stop_I))
+        lat, lon = results.fetchone()
+        return lat, lon
+
     def get_route_name_and_type_of_tripI(self, trip_I):
         """
         Get route short name and type
@@ -1259,6 +1265,7 @@ class GTFS(object):
         from gtfspy.networks import temporal_network
         df = temporal_network(self, start_time_ut=start_time_ut, end_time_ut=end_time_ut, route_type=route_type)
         df.sort_values("dep_time_ut", ascending=False, inplace=True)
+
         for row in df.itertuples():
             yield row
 
@@ -1319,9 +1326,7 @@ class GTFS(object):
                 event_query += where_clause
         # ordering is required for later stages
         event_query += " ORDER BY trip_I, day_start_ut+dep_time_ds;"
-
         events_result = pd.read_sql_query(event_query, self.conn)
-
         # 'filter' results so that only real "events" are taken into account
         from_indices = numpy.nonzero(
             (events_result['trip_I'][:-1].values == events_result['trip_I'][1:].values) *
@@ -1455,6 +1460,146 @@ class GTFS(object):
             table_name = "day_trips"
         return table_name
 
+    # TODO: The following methods could be moved to a "edit gtfs" -module
+    def homogenize_stops_table_with_other_db(self, source):
+        """
+        This function takes an external database, looks of common stops and adds the missing stops to both databases.
+        In addition the stop_pair_I column is added. This id links the stops between these two sources.
+        :param source: directory of external database
+        :return:
+        """
+        cur = self.conn.cursor()
+        self.attach_gtfs_database(source)
+
+        query_inner_join = """SELECT t1.*
+                              FROM stops t1
+                              INNER JOIN other.stops t2
+                              ON t1.stop_id=t2.stop_id
+                              AND find_distance(t1.lon, t1.lat, t2.lon, t2.lat) <= 50"""
+        df_inner_join = self.execute_custom_query_pandas(query_inner_join)
+        print(len(df_inner_join.index))
+        df_not_in_other = self.execute_custom_query_pandas("SELECT * FROM stops EXCEPT " + query_inner_join)
+        print(len(df_not_in_other.index))
+        df_not_in_self = self.execute_custom_query_pandas("SELECT * FROM other.stops EXCEPT " +
+                                                          query_inner_join.replace("t1.*", "t2.*"))
+        print(len(df_not_in_self.index))
+        try:
+            self.execute_custom_query("""ALTER TABLE stops ADD COLUMN stop_pair_I INT """)
+
+            self.execute_custom_query("""ALTER TABLE other.stops ADD COLUMN stop_pair_I INT """)
+        except sqlite3.OperationalError:
+            pass
+        stop_id_stub = "added_stop_"
+        counter = 0
+        rows_to_update_self = []
+        rows_to_update_other = []
+        rows_to_add_to_self = []
+        rows_to_add_to_other = []
+
+        for items in df_inner_join.itertuples(index=False):
+            rows_to_update_self.append((counter, items[1]))
+            rows_to_update_other.append((counter, items[1]))
+            counter += 1
+
+        for items in df_not_in_other.itertuples(index=False):
+            rows_to_update_self.append((counter, items[1]))
+            rows_to_add_to_other.append((stop_id_stub + str(counter),) + tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9])
+                                        + (counter,))
+            counter += 1
+
+        for items in df_not_in_self.itertuples(index=False):
+            rows_to_update_other.append((counter, items[1]))
+            rows_to_add_to_self.append((stop_id_stub + str(counter),) + tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9])
+                                       + (counter,))
+            counter += 1
+
+        query_add_row = """INSERT INTO stops(
+                                    stop_id,
+                                    code,
+                                    name,
+                                    desc,
+                                    lat,
+                                    lon,
+                                    location_type,
+                                    wheelchair_boarding,
+                                    stop_pair_I) VALUES (%s) """ % (", ".join(["?" for x in range(9)]))
+
+        query_update_row = """UPDATE stops SET stop_pair_I=? WHERE stop_id=?"""
+        print("adding rows to databases")
+        cur.executemany(query_add_row, rows_to_add_to_self)
+        cur.executemany(query_update_row, rows_to_update_self)
+        cur.executemany(query_add_row.replace("stops", "other.stops"), rows_to_add_to_other)
+        cur.executemany(query_update_row.replace("stops", "other.stops"), rows_to_update_other)
+        self.conn.commit()
+        print("finished")
+
+    def replace_stop_i_with_stop_pair_i(self):
+        cur = self.conn.cursor()
+        queries = [
+            "UPDATE stop_times SET stop_I = "
+            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = stop_I)",
+
+            "UPDATE stop_distances SET from_stop_I = "
+            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = from_stop_I)",
+
+            "UPDATE stop_distances SET to_stop_I = "
+            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = to_stop_I)",
+
+            "ALTER TABLE stops RENAME TO stops_old",
+            "CREATE TABLE stops (stop_I INTEGER PRIMARY KEY, stop_id TEXT UNIQUE NOT NULL, code TEXT, name TEXT, "
+            "desc TEXT, lat REAL, lon REAL, parent_I INT, location_type INT, wheelchair_boarding BOOL, "
+            "self_or_parent_I INT, old_stop_I INT)",
+
+            "INSERT INTO stops(stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
+            "wheelchair_boarding, self_or_parent_I, old_stop_I) "
+            "SELECT stop_pair_I AS stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
+            "wheelchair_boarding, self_or_parent_I, stop_I AS old_stop_I "
+            "FROM stops_old;",
+
+            "DROP TABLE stops_old",
+
+            "CREATE INDEX idx_stops_sid ON stops (stop_I)"]
+        for query in queries:
+            cur.execute(query)
+
+    def add_stops_from_csv(self, csv_dir):
+        # TODO: this could be generalized for other use cases
+        cur = self.conn.cursor()
+
+        stops_to_add = pd.read_csv(csv_dir, encoding='utf-8')
+        assert all([x in stops_to_add.columns for x in ["stop_id", "code", "name", "desc", "lat", "lon"]])
+
+        stops_to_add["stop_id"] = stops_to_add["stop_id"].astype(str)
+        stops_to_add["code"] = stops_to_add["code"].astype(str)
+        stops_to_add["name"] = stops_to_add["name"].astype(str)
+        stops_to_add["desc"] = stops_to_add["desc"].astype(str)
+
+        query_add_row = """INSERT INTO stops(
+                                    stop_id,
+                                    code,
+                                    name,
+                                    desc,
+                                    lat,
+                                    lon) VALUES (%s) """ % (", ".join(["?" for x in range(6)]))
+
+        """rows_to_add = []
+        for row in stops_to_add.itertuples():
+            rows_to_add.append((row.stop_id, row.desc, row.lat, row.lon))
+        """
+        cur.executemany(query_add_row,
+                        stops_to_add[["stop_id", "code", "name", "desc", "lat", "lon"]].itertuples(index=False))
+        self.conn.commit()
+
+    def recalculate_stop_distances(self, max_distance):
+        from gtfspy.calc_transfers import calc_transfers
+        calc_transfers(self.conn, max_distance)
+
+    def attach_gtfs_database(self, gtfs_dir):
+        cur = self.conn.cursor()
+        cur.execute("ATTACH '%s' AS 'other'" % str(gtfs_dir))
+        cur.execute("PRAGMA database_list")
+        print("GTFS database attached:", cur.fetchall())
+
 
 class GTFSMetadata(object):
     """
@@ -1505,6 +1650,14 @@ class GTFSMetadata(object):
 
     def items(self):
         cur = self._conn.execute('SELECT key, value FROM metadata ORDER BY key')
+        return cur
+
+    def keys(self):
+        cur = self._conn.execute('SELECT key FROM metadata ORDER BY key')
+        return cur
+
+    def values(self):
+        cur = self._conn.execute('SELECT value FROM metadata ORDER BY key')
         return cur
 
     def update(self, dict_):

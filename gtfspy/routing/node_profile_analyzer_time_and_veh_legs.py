@@ -11,11 +11,12 @@ from matplotlib import lines
 from matplotlib import dates as md
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
+from gtfspy.routing.fastest_path_analyzer import FastestPathAnalyzer
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.routing.label import LabelTimeWithBoardingsCount, compute_pareto_front, LabelTimeSimple
 from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
 from gtfspy.routing.node_profile_simple import NodeProfileSimple
-from gtfspy.routing.profile_block_analyzer import ProfileBlock, ProfileBlockAnalyzer
+from gtfspy.routing.profile_block_analyzer import ProfileBlockAnalyzer
 
 
 def _check_for_no_labels_for_n_veh_counts(func):
@@ -53,28 +54,28 @@ def _truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
     return new_cmap
 
 
-class _Block:
-    def __init__(self, start_time=None, end_time=None, tdist_start=None, tdist_end=None, n_boardings=None):
-        self.start_time = start_time
-        self.end_time = end_time
-        self.tdist_start = tdist_start
-        self.tdist_end = tdist_end
-        self.n_boardings = n_boardings
-
-    def __str__(self):
-        parts = []
-        parts.append(self.start_time)
-        parts.append(self.end_time)
-        parts.append(self.tdist_start)
-        parts.append(self.tdist_end)
-        parts.append(self.n_boardings)
-        return str(parts)
-
-    def is_walk(self):
-        return (self.tdist_end == self.tdist_start) and self.tdist_end < float('inf')
-
-    def width(self):
-        return self.end_time - self.start_time
+# class _Block:
+#     def __init__(self, start_time=None, end_time=None, tdist_start=None, tdist_end=None, n_boardings=None):
+#         self.start_time = start_time
+#         self.end_time = end_time
+#         self.tdist_start = tdist_start
+#         self.tdist_end = tdist_end
+#         self.n_boardings = n_boardings
+#
+#     def __str__(self):
+#         parts = []
+#         parts.append(self.start_time)
+#         parts.append(self.end_time)
+#         parts.append(self.tdist_start)
+#         parts.append(self.tdist_end)
+#         parts.append(self.n_boardings)
+#         return str(parts)
+#
+#     def is_walk(self):
+#         return (self.tdist_end == self.tdist_start) and self.tdist_end < float('inf')
+#
+#     def width(self):
+#         return self.end_time - self.start_time
 
 
 class NodeProfileAnalyzerTimeAndVehLegs:
@@ -113,106 +114,15 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         self._n_boardings_to_simple_time_analyzers = {}
         self._transfers_on_fastest_paths_analyzer = self._get_transfers_on_fastest_path_analyzer()
 
+    def __get_fastest_path_analyzer(self):
+        return FastestPathAnalyzer(self.all_labels, self.start_time_dep, self.end_time_dep,
+                                                  cutoff_duration=self._walk_to_target_duration,
+                                                  label_props_to_consider=["n_boardings"]
+                                                  )
+
     def _get_transfers_on_fastest_path_analyzer(self):
-        """
-        TODO: Use _get_fastest_path_blocks to reduce code duplication!
-
-        Returns
-        -------
-
-        """
-        labels = list(reversed(compute_pareto_front(self.all_labels, ignore_n_boardings=True)))
-
-        # assert ordered:
-        for i in range(len(labels) - 1):
-            assert (labels[i].departure_time <= labels[i + 1].departure_time)
-
-        previous_dep_time = self.start_time_dep
-        profile_blocks = []
-        for label in labels:
-            if previous_dep_time > self.end_time_dep:
-                break
-            end_time = min(label.departure_time, self.end_time_dep)
-            assert (end_time >= previous_dep_time)
-            distance_start = label.duration() + (label.departure_time - previous_dep_time)
-            if distance_start > self._walk_to_target_duration:
-                split_point_x_computed = label.departure_time - (self._walk_to_target_duration - label.duration())
-                split_point_x = min(split_point_x_computed, end_time)
-                walk_block = ProfileBlock(start_time=previous_dep_time, end_time=split_point_x, distance_start=0,
-                                          distance_end=0)
-                assert (previous_dep_time <= split_point_x)
-                profile_blocks.append(walk_block)
-                if split_point_x < end_time:
-                    assert (split_point_x <= end_time)
-                    trip_block = ProfileBlock(start_time=split_point_x, end_time=end_time,
-                                              distance_start=label.n_boardings, distance_end=label.n_boardings)
-                    profile_blocks.append(trip_block)
-            else:
-                journey_block = ProfileBlock(start_time=previous_dep_time, end_time=end_time,
-                                             distance_start=label.n_boardings, distance_end=label.n_boardings)
-                profile_blocks.append(journey_block)
-            previous_dep_time = profile_blocks[-1].end_time
-        if previous_dep_time < self.end_time_dep:
-            if self._walk_to_target_duration < float('inf'):
-                n_boardings = 0
-            else:
-                n_boardings = float('inf')
-            profile_blocks.append(ProfileBlock(start_time=previous_dep_time, end_time=self.end_time_dep,
-                                               distance_start=n_boardings, distance_end=n_boardings))
-        return ProfileBlockAnalyzer(profile_blocks)
-
-    def _get_fastest_path_blocks(self):
-        """
-
-        Returns
-        -------
-        blocks: list[_Block]
-        """
-        labels = list(reversed(compute_pareto_front(self.all_labels, ignore_n_boardings=True)))
-        # assert ordered:
-        for i in range(len(labels) - 1):
-            assert (labels[i].departure_time <= labels[i + 1].departure_time)
-
-        previous_dep_time = self.start_time_dep
-        blocks = []
-        for label in labels:
-            if previous_dep_time >= self.end_time_dep:
-                break
-            end_time = min(label.departure_time, self.end_time_dep)
-            assert (end_time >= previous_dep_time)
-            distance_start = label.duration() + (label.departure_time - previous_dep_time)
-            if distance_start > self._walk_to_target_duration:
-                split_point_x_computed = label.departure_time - (self._walk_to_target_duration - label.duration())
-                split_point_x = min(split_point_x_computed, end_time)
-                walk_block = _Block(start_time=previous_dep_time, end_time=split_point_x,
-                                    tdist_start=self._walk_to_target_duration, tdist_end=self._walk_to_target_duration,
-                                    n_boardings=0)
-                assert (previous_dep_time <= split_point_x)
-                blocks.append(walk_block)
-                if split_point_x < end_time:
-                    assert (split_point_x <= end_time)
-                    trip_block = _Block(start_time=split_point_x, end_time=end_time,
-                                        tdist_start=label.duration() + (end_time - split_point_x),
-                                        tdist_end=label.duration(),
-                                        n_boardings=label.n_boardings)
-                    blocks.append(trip_block)
-            else:
-                journey_block = _Block(start_time=previous_dep_time, end_time=end_time,
-                                       n_boardings=label.n_boardings,
-                                       tdist_end=distance_start - (end_time - previous_dep_time),
-                                       tdist_start=distance_start)
-                blocks.append(journey_block)
-            previous_dep_time = blocks[-1].end_time
-        if previous_dep_time < self.end_time_dep:
-            if self._walk_to_target_duration < float('inf'):
-                n_boardings = 0
-            else:
-                n_boardings = float('inf')
-            last_block = _Block(start_time=previous_dep_time, end_time=self.end_time_dep,
-                                tdist_start=self._walk_to_target_duration, tdist_end=self._walk_to_target_duration,
-                                n_boardings=n_boardings)
-            blocks.append(last_block)
-        return blocks
+        fp_analyzer = self.__get_fastest_path_analyzer()
+        return fp_analyzer.get_prop_analyzer_flat("n_boardings", float('inf'), 0)
 
     def min_n_boardings(self):
         if self._walk_to_target_duration < float('inf'):
@@ -243,6 +153,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         Parameters
         ----------
         max_n_boardings: int
+            The maximum number of boardings allowed for the labels used to construct the "temporal distance profile"
 
         Returns
         -------
@@ -285,6 +196,10 @@ class NodeProfileAnalyzerTimeAndVehLegs:
     @_check_for_no_labels_for_n_veh_counts
     def median_trip_n_boardings(self):
         return numpy.median([label.n_boardings for label in self._labels_within_time_frame])
+ 
+    @_check_for_no_labels_for_n_veh_counts
+    def n_boardings_on_fastest_trip(self):
+        return min(self._labels_within_time_frame, key=lambda label: label.arrival_time_target - label.departure_time).n_boardings 
 
     @_if_no_labels_return_inf
     def min_temporal_distance(self):
@@ -574,18 +489,19 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-        blocks = self._get_fastest_path_blocks()
+
+        blocks = self.__get_fastest_path_analyzer().get_fastest_path_blocks()
 
         walking_is_fastest_time = 0
         non_walk_blocks = []
         tdist_split_points = set()
         for block in blocks:
-            if block.is_walk():
+            if block.is_flat(): # test for walk
                 walking_is_fastest_time += block.width()
             else:
                 non_walk_blocks.append(block)
-                tdist_split_points.add(block.tdist_end)
-                tdist_split_points.add(block.tdist_start)
+                tdist_split_points.add(block.distance_end)
+                tdist_split_points.add(block.distance_start)
 
         distance_split_points_ordered = numpy.array(sorted(list(tdist_split_points)))
         temporal_distance_split_widths = distance_split_points_ordered[1:] - distance_split_points_ordered[:-1]
@@ -600,6 +516,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         max_n_boardings = int(self.max_finite_n_boardings_on_fastest_paths())
         fill_colors, line_colors = self._get_fill_and_line_colors(min_n_boardings, max_n_boardings)
 
+
         temporal_distance_values_to_plot = []
         for x in distance_split_points_ordered:
             temporal_distance_values_to_plot.append(x)
@@ -611,10 +528,11 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
         for n_boardings in range(min_n_boardings, max_n_boardings + 1):
             blocks_now = [block for block in non_walk_blocks if block.n_boardings >= n_boardings]
+
             journey_counts = numpy.zeros(len(temporal_distance_split_widths))
             for block_now in blocks_now:
-                start_index = numpy.searchsorted(distance_split_points_ordered, block_now.tdist_end)
-                end_index = numpy.searchsorted(distance_split_points_ordered, block_now.tdist_start)
+                start_index = numpy.searchsorted(distance_split_points_ordered, block_now.distance_start)
+                end_index = numpy.searchsorted(distance_split_points_ordered, block_now.distance_end)
                 journey_counts[start_index:end_index] += 1
 
             part_pdf = journey_counts / (self.end_time_dep - self.start_time_dep)

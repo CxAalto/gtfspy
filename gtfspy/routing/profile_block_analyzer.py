@@ -3,14 +3,22 @@ from collections import namedtuple
 import numpy
 from collections import defaultdict
 
-_profile_block = namedtuple('ProfileBlock',
-                            ['start_time',
-                             'end_time',
-                             'distance_start',
-                             'distance_end'])
+# _profile_block = namedtuple('ProfileBlock',
+#                             ['start_time',
+#                              'end_time',
+#                              'distance_start',
+#                              'distance_end'])
 
 
-class ProfileBlock(_profile_block):
+class ProfileBlock():
+
+    def __init__(self, start_time, end_time, distance_start, distance_end, **extra_properties):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.distance_start = distance_start
+        self.distance_end = distance_end
+        self.extra_properties = extra_properties
+
     def area(self):
         return self.width() * self.mean()
 
@@ -26,9 +34,24 @@ class ProfileBlock(_profile_block):
     def min(self):
         return min(self.distance_start, self.distance_end)
 
+    def is_flat(self):
+        return self.distance_start == self.distance_end
+
+    def __getitem__(self, extra_property_name):
+        return self.extra_properties[extra_property_name]
+
+    def __str__(self):
+        parts = []
+        parts.append(self.start_time)
+        parts.append(self.end_time)
+        parts.append(self.distance_start)
+        parts.append(self.distance_end)
+        parts.append(self.extra_properties)
+        return str(parts)
+
 
 class ProfileBlockAnalyzer:
-    def __init__(self, profile_blocks, cutoff_distance=None):
+    def __init__(self, profile_blocks, cutoff_distance=None, **kwargs):
         """
         Parameters
         ----------
@@ -45,6 +68,15 @@ class ProfileBlockAnalyzer:
         self._cutoff_distance = cutoff_distance
         if cutoff_distance is not None:
             self._apply_cutoff(cutoff_distance)
+
+        self.from_stop_I = None
+        self.to_stop_I = None
+
+        for key, value in kwargs.items():
+            if key == "from_stop_I":
+                self.from_stop_I = value
+            if key == "to_stop_I":
+                self.to_stop_I = value
 
     def _apply_cutoff(self, cutoff_distance):
         print("cutoff?")
@@ -131,6 +163,14 @@ class ProfileBlockAnalyzer:
             return max(distances)
         else:
             return None
+
+    def measures_as_dict(self):
+        return {"from_stop_I": self.from_stop_I,
+                "to_stop_I": self.to_stop_I,
+                "max": self.max(),
+                "min": self.min(),
+                "mean": self.mean(),
+                "median": int(self.median())}
 
     def _temporal_distance_cdf(self):
         """
@@ -232,3 +272,6 @@ class ProfileBlockAnalyzer:
                 vertical_lines.append(dict(x=[block.start_time, block.start_time],
                                            y=[previous_duration_minutes, distance_start_minutes]))
         return vertical_lines, slopes
+
+    def get_blocks(self):
+        return self._profile_blocks

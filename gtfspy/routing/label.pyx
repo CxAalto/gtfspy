@@ -172,7 +172,7 @@ cdef class LabelTimeWithBoardingsCount:
         """
         self_tuple = self._tuple_for_ordering()
         other_tuple = other._tuple_for_ordering()
-        return all([(s >= o) for s, o in zip(self_tuple, other_tuple)])
+        return not any([(s < o) for s, o in zip(self_tuple, other_tuple)])
 
     cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeWithBoardingsCount other):
         dominates = (
@@ -446,3 +446,437 @@ def min_n_vehicle_trips(label_list):
         return min(label_list, key=lambda label: label.n_vehicle_trips).n_vehicle_trips
     else:
         return None
+
+cdef class LabelTimeBoardingsAndRoute:
+    # Label with implemented added constraint for cases when two labels are tied:
+    # The trip with minimal "movement time" should be chosen = maximizing the waiting time for robustness
+    cdef:
+        public double departure_time
+        public double arrival_time_target
+        public int n_boardings
+        public int movement_duration
+        public bint first_leg_is_walk
+        public object previous_label
+        public object connection
+
+
+    def __init__(self, double departure_time, double arrival_time_target,
+                 int n_boardings, int movement_duration, bint first_leg_is_walk, object connection=None, object previous_label=None):
+        self.departure_time = departure_time
+        self.arrival_time_target = arrival_time_target
+        self.n_boardings = n_boardings
+        self.movement_duration = movement_duration
+        self.first_leg_is_walk = first_leg_is_walk
+        self.previous_label = previous_label
+        self.connection = connection
+
+    def __getstate__(self):
+        return self.departure_time, self.arrival_time_target, self.n_boardings, self.movement_duration, self.connection, self.previous_label
+
+    def __setstate__(self, state):
+        self.departure_time, self.arrival_time_target, self.n_boardings, self.movement_duration, self.connection, self.previous_label = state
+
+    def _tuple_for_ordering(self):
+        return self.departure_time, -self.arrival_time_target, -self.n_boardings, not self.first_leg_is_walk, -self.movement_duration
+
+    def __richcmp__(LabelTimeBoardingsAndRoute self, LabelTimeBoardingsAndRoute other, int op):
+        self_tuple = self._tuple_for_ordering()
+        other_tuple = other._tuple_for_ordering()
+        if op == 2:  # ==
+            return self_tuple == other_tuple
+        if op == 3:  # !=
+            return self_tuple != other_tuple
+        if op == 0:  # less than
+            return self_tuple < other_tuple
+        elif op == 4:  # greater than
+            return self_tuple > other_tuple
+        elif op == 1:  # <=
+            return self_tuple <= other_tuple
+        elif op == 5:  # >=
+            return self_tuple >= other_tuple
+
+    cpdef int dominates(self, LabelTimeBoardingsAndRoute other):
+        """
+        Compute whether this LabelWithNumberVehicles dominates the other LabelWithNumberVehicles
+        Parameters
+        ----------
+        other: LabelTimeBoardingsAndRoute
+        Returns
+        -------
+        dominates: bint
+            True if this ParetoTuple dominates the other, otherwise False
+        """
+        self_tuple = self._tuple_for_ordering()
+        other_tuple = other._tuple_for_ordering()
+        if any([(s < o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]):
+            return False
+        elif all([(s == o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]) and self_tuple[-1] < other_tuple[-1]:
+            return False
+        else:
+            return True
+
+    cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeBoardingsAndRoute other):
+        dominates = (
+            (self.arrival_time_target <= other.arrival_time_target and
+             self.n_boardings <= other.n_boardings)
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_dep_time(self, LabelTimeBoardingsAndRoute other):
+        cdef:
+            int dominates
+        dominates = (
+            (self.arrival_time_target <= other.arrival_time_target and
+            self.first_leg_is_walk <= other.first_leg_is_walk and
+             self.n_boardings <= other.n_boardings) or
+            (self.arrival_time_target == other.arrival_time_target and
+             self.n_boardings == other.n_boardings and
+            self.first_leg_is_walk == other.first_leg_is_walk and
+             self.movement_duration <= other.movement_duration)
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_time(self, LabelTimeBoardingsAndRoute other):
+        cdef:
+            int dominates
+        dominates = (
+            self.movement_duration <= other.movement_duration and
+             self.n_boardings <= other.n_boardings and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_dep_time_and_n_boardings(self, LabelTimeBoardingsAndRoute other):
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
+
+    cpdef get_label_with_connection_added(self, connection):
+        return LabelTimeBoardingsAndRoute(self.departure_time, self.arrival_time_target,
+                                           self.n_boardings, self.movement_duration, self.first_leg_is_walk, connection=connection, previous_label=self)
+    cpdef get_copy(self):
+        return LabelTimeBoardingsAndRoute(self.departure_time, self.arrival_time_target,
+                                           self.n_boardings, self.movement_duration, self.first_leg_is_walk, self.connection, previous_label=self.previous_label)
+
+    cpdef get_copy_with_specified_departure_time(self, departure_time):
+        return LabelTimeBoardingsAndRoute(departure_time, self.arrival_time_target,
+                                           self.n_boardings, self.movement_duration, self.first_leg_is_walk, self.connection, previous_label=self.previous_label)
+
+    cpdef double duration(self):
+        return self.arrival_time_target - self.departure_time
+
+    @staticmethod
+    def direct_walk_label(departure_time, walk_duration):
+        return LabelTimeBoardingsAndRoute(departure_time, departure_time + walk_duration, 0, True)
+
+    cpdef LabelTimeBoardingsAndRoute get_copy_with_walk_added(self, double walk_duration, object connection):
+        return LabelTimeBoardingsAndRoute(self.departure_time - walk_duration,
+                                           self.arrival_time_target, self.n_boardings, self.movement_duration+walk_duration, True, connection=connection, previous_label=self)
+
+    def __str__(self):
+        return str((self.departure_time, self.arrival_time_target, self.n_boardings, self.movement_duration, self.first_leg_is_walk, self.previous_label, self.connection))
+
+cdef class LabelTimeAndRoute:
+    # implement added constraint for cases when two labels are tied:
+    # The trip with minimal "movement time" should be chosen = maximizing the waiting time for robustness
+    cdef:
+        public double departure_time
+        public double arrival_time_target
+        public int movement_duration
+        public bint first_leg_is_walk
+        public object previous_label
+        public object connection
+
+
+    def __init__(self, double departure_time, double arrival_time_target,
+                 int movement_duration, bint first_leg_is_walk, object connection=None, object previous_label=None):
+        self.departure_time = departure_time
+        self.arrival_time_target = arrival_time_target
+        self.movement_duration = movement_duration
+        self.first_leg_is_walk = first_leg_is_walk
+        self.previous_label = previous_label
+        self.connection = connection
+
+    def __getstate__(self):
+        return self.departure_time, self.arrival_time_target, self.movement_duration, self.connection, self.previous_label
+
+    def __setstate__(self, state):
+        self.departure_time, self.arrival_time_target, self.movement_duration, self.connection, self.previous_label = state
+
+    def _tuple_for_ordering(self):
+        return self.departure_time, -self.arrival_time_target, not self.first_leg_is_walk, -self.movement_duration
+
+    def __richcmp__(LabelTimeAndRoute self, LabelTimeAndRoute other, int op):
+        self_tuple = self._tuple_for_ordering()
+        other_tuple = other._tuple_for_ordering()
+        if op == 2:  # ==
+            return self_tuple == other_tuple
+        if op == 3:  # !=
+            return self_tuple != other_tuple
+        if op == 0:  # less than
+            return self_tuple < other_tuple
+        elif op == 4:  # greater than
+            return self_tuple > other_tuple
+        elif op == 1:  # <=
+            return self_tuple <= other_tuple
+        elif op == 5:  # >=
+            return self_tuple >= other_tuple
+
+    cpdef int dominates(self, LabelTimeAndRoute other):
+        """
+        Compute whether this LabelWithNumberVehicles dominates the other LabelWithNumberVehicles
+        Parameters
+        ----------
+        other: LabelTimeAndRoute
+        Returns
+        -------
+        dominates: bint
+            True if this ParetoTuple dominates the other, otherwise False
+        """
+        self_tuple = self._tuple_for_ordering()
+        other_tuple = other._tuple_for_ordering()
+        if any([(s < o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]):
+            return False
+        elif all([(s == o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]) and self_tuple[-1] < other_tuple[-1]:
+            return False
+        else:
+            return True
+
+    cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeAndRoute other):
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_dep_time(self, LabelTimeAndRoute other):
+        cdef:
+            int dominates
+        dominates = (
+            (self.arrival_time_target <= other.arrival_time_target and
+            self.first_leg_is_walk <= other.first_leg_is_walk) or
+            (self.arrival_time_target == other.arrival_time_target and
+            self.first_leg_is_walk == other.first_leg_is_walk and self.movement_duration <= other.movement_duration)
+
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_time(self, LabelTimeAndRoute other):
+        cdef:
+            int dominates
+        dominates = (
+            self.movement_duration <= other.movement_duration and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_dep_time_and_n_boardings(self, LabelTimeAndRoute other):
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
+
+    cpdef get_label_with_connection_added(self, connection):
+        return LabelTimeAndRoute(self.departure_time, self.arrival_time_target,
+                                           self.movement_duration, self.first_leg_is_walk, connection=connection, previous_label=self)
+    cpdef get_copy(self):
+        return LabelTimeAndRoute(self.departure_time, self.arrival_time_target,
+                                           self.movement_duration, self.first_leg_is_walk, self.connection, previous_label=self.previous_label)
+
+    cpdef get_copy_with_specified_departure_time(self, departure_time):
+        return LabelTimeAndRoute(departure_time, self.arrival_time_target,
+                                           self.movement_duration, self.first_leg_is_walk, self.connection, previous_label=self.previous_label)
+
+    cpdef double duration(self):
+        return self.arrival_time_target - self.departure_time
+
+    @staticmethod
+    def direct_walk_label(departure_time, walk_duration):
+        return LabelTimeAndRoute(departure_time, departure_time + walk_duration, 0, True)
+
+    cpdef LabelTimeAndRoute get_copy_with_walk_added(self, double walk_duration, object connection):
+        return LabelTimeAndRoute(self.departure_time - walk_duration,
+                                           self.arrival_time_target, self.movement_duration+walk_duration, True, connection=connection, previous_label=self)
+
+    def __str__(self):
+        return str((self.departure_time, self.arrival_time_target, self.movement_duration, self.first_leg_is_walk, self.previous_label, self.connection))
+
+"""
+cdef class LabelGeneric:
+    # This class is used only for the analysis stage, when the data has been stored in a database
+    cdef:
+        public int journey_id
+        public int from_stop_I
+        public int to_stop_I
+        public double departure_time
+        public double arrival_time_target
+        public int movement_duration
+        public int n_boardings
+        public str route
+        public int travel_time
+        public int pre_journey_wait_fp
+        public int in_vehicle_time
+        public int transfer_wait_time
+        public int walking_time
+        public bint fastest_path
+
+    def __init__(self,
+                 journey_id,
+                 from_stop_I,
+                 to_stop_I,
+                 departure_time,
+                 arrival_time_target,
+                 n_boardings,
+                 movement_duration,
+                 route,
+                 travel_time,
+                 pre_journey_wait_fp,
+                 in_vehicle_time,
+                 transfer_wait_time,
+                 walking_time,
+                 fastest_path):
+
+        self.journey_id = journey_id
+        self.from_stop_I = from_stop_I
+        self.to_stop_I = to_stop_I
+        self.departure_time = departure_time
+        self.arrival_time_target = arrival_time_target
+        self.n_boardings = n_boardings
+        self.movement_duration = movement_duration
+        self.route = route
+        self.travel_time = travel_time
+        self.pre_journey_wait_fp = pre_journey_wait_fp
+        self.in_vehicle_time = in_vehicle_time
+        self.transfer_wait_time = transfer_wait_time
+        self.walking_time = walking_time
+        self.fastest_path = fastest_path
+
+    def __init__(self, double departure_time, double arrival_time_target,
+                 int movement_duration, bint first_leg_is_walk, object connection=None, object previous_label=None):
+        self.departure_time = departure_time
+        self.arrival_time_target = arrival_time_target
+        self.movement_duration = movement_duration
+        self.first_leg_is_walk = first_leg_is_walk
+        self.previous_label = previous_label
+        self.connection = connection
+"""
+cdef class LabelGeneric:
+    # This class is used only for the analysis stage, when the data has been stored in a database
+    cdef public int journey_id,  from_stop_I, to_stop_I, n_boardings, movement_duration, travel_time, \
+        in_vehicle_time, transfer_wait_time, walking_time
+    cdef public double departure_time, arrival_time_target
+
+    def __init__(self, journey_dict):
+        for key in journey_dict:
+            setattr(self, key, journey_dict[key])
+
+        # Assert that key attributes are present
+
+    def __getstate__(self):
+        return self.departure_time, self.arrival_time_target, self.movement_duration, self.connection, self.previous_label
+
+    def __setstate__(self, state):
+        self.departure_time, self.arrival_time_target, self.movement_duration, self.connection, self.previous_label = state
+
+    def _tuple_for_ordering(self):
+        return self.departure_time, -self.arrival_time_target, -self.movement_duration
+
+    def __richcmp__(LabelGeneric self, LabelGeneric other, int op):
+        self_tuple = self._tuple_for_ordering()
+        other_tuple = other._tuple_for_ordering()
+        if op == 2:  # ==
+            return self_tuple == other_tuple
+        if op == 3:  # !=
+            return self_tuple != other_tuple
+        if op == 0:  # less than
+            return self_tuple < other_tuple
+        elif op == 4:  # greater than
+            return self_tuple > other_tuple
+        elif op == 1:  # <=
+            return self_tuple <= other_tuple
+        elif op == 5:  # >=
+            return self_tuple >= other_tuple
+
+    cpdef int dominates(self, LabelGeneric other):
+        """
+        Compute whether this LabelWithNumberVehicles dominates the other LabelWithNumberVehicles
+        Parameters
+        ----------
+        other: LabelGeneric
+        Returns
+        -------
+        dominates: bint
+            True if this ParetoTuple dominates the other, otherwise False
+        """
+        self_tuple = self._tuple_for_ordering()
+        other_tuple = other._tuple_for_ordering()
+        if any([(s < o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]):
+            return False
+        elif all([(s == o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]) and self_tuple[-1] < other_tuple[-1]:
+            return False
+        else:
+            return True
+
+    cpdef int dominates_ignoring_dep_time_finalization(self, LabelGeneric other):
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_dep_time(self, LabelGeneric other):
+        cdef:
+            int dominates
+        dominates = (
+            (self.arrival_time_target <= other.arrival_time_target) or
+            (self.arrival_time_target == other.arrival_time_target and self.movement_duration <= other.movement_duration)
+
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_time(self, LabelGeneric other):
+        cdef:
+            int dominates
+        dominates = (
+            self.movement_duration <= other.movement_duration
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_dep_time_and_n_boardings(self, LabelGeneric other):
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target
+        )
+        return dominates
+
+    cpdef get_label_with_connection_added(self, connection):
+        return LabelGeneric(self.departure_time, self.arrival_time_target,
+                                           self.movement_duration, connection=connection, previous_label=self)
+    cpdef get_copy(self):
+        return LabelGeneric(self.departure_time, self.arrival_time_target,
+                                           self.movement_duration, self.connection, previous_label=self.previous_label)
+
+    cpdef get_copy_with_specified_departure_time(self, departure_time):
+        return LabelGeneric(departure_time, self.arrival_time_target,
+                                           self.movement_duration, self.connection, previous_label=self.previous_label)
+
+    cpdef double duration(self):
+        return self.arrival_time_target - self.departure_time
+
+    @staticmethod
+    def direct_walk_label(departure_time, walk_duration):
+        return LabelGeneric(departure_time, departure_time + walk_duration, 0, True)
+
+    cpdef LabelGeneric get_copy_with_walk_added(self, double walk_duration, object connection):
+        return LabelGeneric(self.departure_time - walk_duration,
+                                           self.arrival_time_target, self.movement_duration+walk_duration, True, connection=connection, previous_label=self)
+
+    def __str__(self):
+        return str((self.departure_time, self.arrival_time_target, self.movement_duration, self.previous_label, self.connection))
+
