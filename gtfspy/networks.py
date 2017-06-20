@@ -274,7 +274,7 @@ def temporal_network(gtfs,
         },
         inplace=True
     )
-    events_df.drop('seq', 1, inplace=True)
+    # events_df.drop('seq', 1, inplace=True)
     return events_df
 
 # def cluster_network_stops(stop_to_stop_net, distance):
