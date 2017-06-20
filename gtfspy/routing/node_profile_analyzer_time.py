@@ -22,6 +22,7 @@ def _if_no_trips_return_inf(func):
 
 
 class NodeProfileAnalyzerTime:
+
     def __init__(self, node_profile, start_time_dep, end_time_dep):
         """
         Initialize the data structures required by
@@ -91,15 +92,17 @@ class NodeProfileAnalyzerTime:
             trip_waiting_time = waiting_time - walking_wait_time
 
             if trip_waiting_time > 0:
-                trip_block = ProfileBlock(start_time=dep_previous + walking_wait_time,
+                try:
+                    trip_block = ProfileBlock(start_time=dep_previous + walking_wait_time,
                                           end_time=dep_previous + walking_wait_time + trip_waiting_time,
                                           distance_start=distance_end_trip + trip_waiting_time,
-                                          distance_end=distance_end_trip
-                                          )
-                assert(trip_block.start_time <= trip_block.end_time)
-                assert(trip_block.distance_end <= trip_block.distance_start)
-                self._profile_blocks.append(trip_block)
-
+                                          distance_end=distance_end_trip)
+                    assert (trip_block.start_time <= trip_block.end_time)
+                    assert (trip_block.distance_end <= trip_block.distance_start)
+                    self._profile_blocks.append(trip_block)
+                except AssertionError as e:
+                    # the error was due to a very small waiting timesmall numbers
+                    assert(trip_waiting_time < 10**-5)
 
         # TODO? Refactor to use the cutoff_distance feature in ProfileBlockAnalyzer?
         self.profile_block_analyzer = ProfileBlockAnalyzer(profile_blocks=self._profile_blocks)

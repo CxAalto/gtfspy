@@ -79,6 +79,7 @@ def _truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
 
 
 class NodeProfileAnalyzerTimeAndVehLegs:
+
     def __init__(self, node_profile, start_time_dep, end_time_dep):
         """
         Initialize the data structures required by
@@ -115,14 +116,20 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         self._transfers_on_fastest_paths_analyzer = self._get_transfers_on_fastest_path_analyzer()
 
     def __get_fastest_path_analyzer(self):
-        return FastestPathAnalyzer(self.all_labels, self.start_time_dep, self.end_time_dep,
-                                                  cutoff_duration=self._walk_to_target_duration,
-                                                  label_props_to_consider=["n_boardings"]
-                                                  )
+        return FastestPathAnalyzer(self.all_labels,
+                                   self.start_time_dep,
+                                   self.end_time_dep,
+                                   cutoff_duration=self._walk_to_target_duration,
+                                   label_props_to_consider=["n_boardings"])
+
 
     def _get_transfers_on_fastest_path_analyzer(self):
         fp_analyzer = self.__get_fastest_path_analyzer()
-        return fp_analyzer.get_prop_analyzer_flat("n_boardings", float('inf'), 0)
+        if self._walk_to_target_duration < float('inf'):
+            cutoff_value = 0
+        else:
+            cutoff_value = float('inf')
+        return fp_analyzer.get_prop_analyzer_flat("n_boardings", float('inf'), cutoff_value)
 
     def min_n_boardings(self):
         if self._walk_to_target_duration < float('inf'):
@@ -143,7 +150,11 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         return self._transfers_on_fastest_paths_analyzer.largest_finite_distance()
 
     def mean_n_boardings_on_shortest_paths(self):
-        return self._transfers_on_fastest_paths_analyzer.mean()
+        import math
+        mean = self._transfers_on_fastest_paths_analyzer.mean()
+        if math.isnan(mean):
+            mean = self._transfers_on_fastest_paths_analyzer.mean()
+        return mean
 
     def median_n_boardings_on_shortest_paths(self):
         return self._transfers_on_fastest_paths_analyzer.median()
@@ -490,7 +501,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        blocks = self.__get_fastest_path_analyzer().get_fastest_path_blocks()
+        blocks = self.__get_fastest_path_analyzer().get_fastest_path_temporal_distance_blocks()
 
         walking_is_fastest_time = 0
         non_walk_blocks = []
@@ -527,7 +538,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         pdf_areas = {}
 
         for n_boardings in range(min_n_boardings, max_n_boardings + 1):
-            blocks_now = [block for block in non_walk_blocks if block.n_boardings >= n_boardings]
+            # if walking, the block has no "n_boardings" attribute
+            blocks_now = [block for block in non_walk_blocks if block["n_boardings"] >= n_boardings]
 
             journey_counts = numpy.zeros(len(temporal_distance_split_widths))
             for block_now in blocks_now:

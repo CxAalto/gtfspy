@@ -3,18 +3,13 @@ from collections import namedtuple
 import numpy
 from collections import defaultdict
 
-# _profile_block = namedtuple('ProfileBlock',
-#                             ['start_time',
-#                              'end_time',
-#                              'distance_start',
-#                              'distance_end'])
-
 
 class ProfileBlock():
 
     def __init__(self, start_time, end_time, distance_start, distance_end, **extra_properties):
         self.start_time = start_time
         self.end_time = end_time
+        assert(self.start_time < self.end_time)
         self.distance_start = distance_start
         self.distance_end = distance_end
         self.extra_properties = extra_properties
@@ -51,6 +46,7 @@ class ProfileBlock():
 
 
 class ProfileBlockAnalyzer:
+
     def __init__(self, profile_blocks, cutoff_distance=None, **kwargs):
         """
         Parameters
@@ -58,7 +54,7 @@ class ProfileBlockAnalyzer:
         profile_blocks: list[ProfileBlock]
         """
         for i, block in enumerate(profile_blocks[:-1]):
-            assert block.start_time <= block.end_time
+            assert block.start_time < block.end_time
             assert block.end_time == profile_blocks[i + 1].start_time
             assert block.distance_start >= block.distance_end
 
@@ -79,7 +75,6 @@ class ProfileBlockAnalyzer:
                 self.to_stop_I = value
 
     def _apply_cutoff(self, cutoff_distance):
-        print("cutoff?")
         for block in list(self._profile_blocks):
             block_max = max(block.distance_start, block.distance_end)
             if block_max > cutoff_distance:

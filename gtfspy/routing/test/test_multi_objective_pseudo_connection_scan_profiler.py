@@ -11,7 +11,6 @@ from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 import pyximport
 pyximport.install()
 
-
 class TestMultiObjectivePseudoCSAProfiler(TestCase):
     # noinspection PyAttributeOutsideInit
 
@@ -33,7 +32,6 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         self.transfer_margin = 0
         self.start_time = 0
         self.end_time = 50
-
 
     def test_pseudo_connections(self):
         event_list_raw_data = [
@@ -106,8 +104,6 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         self.assertEqual(transfer_connection.departure_time, 42 - 10)
         self.assertEqual(transfer_connection.is_walk, True)
         self.assertEqual(transfer_connection.arrival_time, 42)
-
-        print(transfer_connection)
 
     def test_basics(self):
         csa_profile = MultiObjectivePseudoCSAProfiler(self.transit_connections, self.target_stop,
@@ -183,8 +179,10 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         source_stop_labels = source_stop_profile.get_final_optimal_labels()
 
         labels = list()
-        labels.append(LabelTimeWithBoardingsCount(departure_time=20, arrival_time_target=50,
-                                                  n_boardings=1, first_leg_is_walk=True))
+        labels.append(LabelTimeWithBoardingsCount(departure_time=20,
+                                                  arrival_time_target=50,
+                                                  n_boardings=1,
+                                                  first_leg_is_walk=True))
 
         self._assert_label_sets_equal(
             labels,
@@ -220,7 +218,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             (0, 1, 0, 10, "trip_1", 1)
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
-        walk_speed = 2
+        walk_speed = 0.5
         source_stop = 0
         target_stop = 1
         transfer_margin = 0
@@ -234,7 +232,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
                                                       walk_network, walk_speed)
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
-        self.assertEqual(min_arrival_time_target(source_profile.evaluate(0, first_leg_can_be_walk=True)), 0.5)
+        self.assertEqual(min_arrival_time_target(source_profile.evaluate(0, first_leg_can_be_walk=True)), 2)
         found_tuples = source_profile.get_final_optimal_labels()
         self.assertEqual(len(found_tuples), 0)
 
@@ -375,22 +373,22 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         walk_speed = 1
         target_stop = 3
         start_time = 0
-        end_time = 200
+        end_time = 2000
         transit_connections = [
-            Connection(0, 1, 100, 101, "trip__2", 1),
-            Connection(0, 1, 101, 102, "trip__1", 1),
-            Connection(0, 1, 102, 103, "trip_0", 1),
-            Connection(0, 1, 100, 101, "trip_1", 1),
-            Connection(0, 1, 101, 102, "trip_2", 1),
-            Connection(0, 1, 102, 103, "trip_3", 1),
-            Connection(0, 1, 103, 104, "trip_4", 1),
-            Connection(2, 3, 106, 107, "trip_6", 1),
+            Connection(0, 1, 1000, 1010, "trip__2", 1),
+            Connection(0, 1, 1010, 1020, "trip__1", 1),
+            Connection(0, 1, 1020, 1030, "trip_0", 1),
+            Connection(0, 1, 1000, 1010, "trip_1", 1),
+            Connection(0, 1, 1010, 1020, "trip_2", 1),
+            Connection(0, 1, 1020, 1030, "trip_3", 1),
+            Connection(0, 1, 1030, 1040, "trip_4", 1),
+            Connection(2, 3, 1060, 1070, "trip_6", 1),
         ]
 
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 0.5})
-        transfer_margins = [1, 2, 3, 4, 0]
-        journey_dep_times = [103, 102, 101, 100, 103]
+        walk_network.add_edge(1, 2, {"d_walk": 5})
+        transfer_margins = [10, 20, 30, 40, 0]
+        journey_dep_times = [1030, 1020, 1010, 1000, 1030]
 
         for transfer_margin, dep_time in zip(transfer_margins, journey_dep_times):
             csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,

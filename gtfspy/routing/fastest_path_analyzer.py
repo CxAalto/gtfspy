@@ -34,24 +34,25 @@ class FastestPathAnalyzer:
         self.kwargs = kwargs
 
     def _compute_fastest_path_labels(self, labels):
-        labels_within_interval = [label for label in labels if
-                           (self.start_time_dep <= label.departure_time <= self.end_time_dep)]
-        final_labels = list(reversed(compute_pareto_front(labels_within_interval, ignore_n_boardings=True)))
-        # assert ordered:
-        for i in range(len(final_labels) - 1):
-            assert (final_labels[i].departure_time <= final_labels[i + 1].departure_time)
-
-        if len(final_labels) is 0 or final_labels[-1].departure_time < self.end_time_dep:
+        fp_labels = [label for label in labels if
+                           (self.start_time_dep < label.departure_time <= self.end_time_dep)]
+        if len(fp_labels) is 0 or fp_labels[-1].departure_time < self.end_time_dep:
             # add an after label
-            smallest_dep_time_after_end_time = float('inf')
-            smallest_dep_time_label = None
+            smallest_arr_time_after_end_time = float('inf')
+            smallest_arr_time_label = None
             for label in labels:
-                if self.end_time_dep < label.departure_time < smallest_dep_time_after_end_time:
-                    smallest_dep_time_after_end_time = label.departure_time
-                    smallest_dep_time_label = label
-            if smallest_dep_time_label is not None:
-                final_labels.append(smallest_dep_time_label)
-        return final_labels
+                if self.end_time_dep < label.departure_time and (label.arrival_time_target < smallest_arr_time_after_end_time):
+                    smallest_arr_time_after_end_time = label.arrival_time_target
+                    smallest_arr_time_label = label
+            if smallest_arr_time_label is not None:
+                fp_labels.append(smallest_arr_time_label)
+
+        fp_labels = list(reversed(compute_pareto_front(fp_labels, ignore_n_boardings=True)))
+        # assert ordered:
+        for i in range(len(fp_labels) - 1):
+            assert (fp_labels[i].departure_time <= fp_labels[i + 1].departure_time)
+
+        return fp_labels
 
     def get_fastest_path_labels(self, include_next_label_outside_interval=False):
         if include_next_label_outside_interval:
@@ -62,8 +63,7 @@ class FastestPathAnalyzer:
             else:
                 return self._fastest_path_labels[:-1]
 
-
-    def get_fastest_path_blocks(self):
+    def get_fastest_path_temporal_distance_blocks(self):
         """
         Returns
         -------
@@ -87,12 +87,14 @@ class FastestPathAnalyzer:
             if distance_start > self.cutoff_duration:
                 split_point_x_computed = label.departure_time - (self.cutoff_duration - label.duration())
                 split_point_x = min(split_point_x_computed, end_time)
-                walk_block = ProfileBlock(previous_dep_time,
-                                          split_point_x,
-                                          self.cutoff_duration,
-                                          self.cutoff_duration)
-                assert (previous_dep_time <= split_point_x)
-                blocks.append(walk_block)
+                if (previous_dep_time < split_point_x):
+                    # add walk block, only if it is required
+                    walk_block = ProfileBlock(previous_dep_time,
+                                              split_point_x,
+                                              self.cutoff_duration,
+                                              self.cutoff_duration,
+                                              **_label_to_prop_dict(label))
+                    blocks.append(walk_block)
                 if split_point_x < end_time:
                     assert (split_point_x <= end_time)
                     trip_block = ProfileBlock(split_point_x, end_time,
@@ -147,7 +149,7 @@ class FastestPathAnalyzer:
         ProfileBlockAnalyzer
         """
         kwargs = self.kwargs
-        fp_blocks = self.get_fastest_path_blocks()
+        fp_blocks = self.get_fastest_path_temporal_distance_blocks()
         prop_blocks = []
         for b in fp_blocks:
             if b.is_flat():
