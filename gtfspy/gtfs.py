@@ -1563,31 +1563,16 @@ class GTFS(object):
             cur.execute(query)
 
     def add_stops_from_csv(self, csv_dir):
-        # TODO: this could be generalized for other use cases
-        cur = self.conn.cursor()
-
         stops_to_add = pd.read_csv(csv_dir, encoding='utf-8')
         assert all([x in stops_to_add.columns for x in ["stop_id", "code", "name", "desc", "lat", "lon"]])
+        for s in stops_to_add.itertuples():
+            self.add_stop(s.stop_id, s.code, s.name, s.desc, s.lat, s.lon)
 
-        stops_to_add["stop_id"] = stops_to_add["stop_id"].astype(str)
-        stops_to_add["code"] = stops_to_add["code"].astype(str)
-        stops_to_add["name"] = stops_to_add["name"].astype(str)
-        stops_to_add["desc"] = stops_to_add["desc"].astype(str)
-
-        query_add_row = """INSERT INTO stops(
-                                    stop_id,
-                                    code,
-                                    name,
-                                    desc,
-                                    lat,
-                                    lon) VALUES (%s) """ % (", ".join(["?" for x in range(6)]))
-
-        """rows_to_add = []
-        for row in stops_to_add.itertuples():
-            rows_to_add.append((row.stop_id, row.desc, row.lat, row.lon))
-        """
-        cur.executemany(query_add_row,
-                        stops_to_add[["stop_id", "code", "name", "desc", "lat", "lon"]].itertuples(index=False))
+    def add_stop(self, stop_id, code, name, desc, lat, lon):
+        cur = self.conn.cursor()
+        query_add_row = 'INSERT INTO stops( stop_id, code, name, desc, lat, lon) ' \
+                        'VALUES (?, ?, ?, ?, ?, ?)'
+        cur.executemany(query_add_row, [[stop_id, code, name, desc, lat, lon]])
         self.conn.commit()
 
     def recalculate_stop_distances(self, max_distance):
