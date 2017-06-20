@@ -130,6 +130,13 @@ class GTFS(object):
         distance_query = query_template.format(trip_I=trip_I, from_stop_seq=from_stop_seq, to_stop_seq=to_stop_seq)
         return self.conn.execute(distance_query).fetchone()[0]
 
+    def get_stop_distance(self, from_stop_I, to_stop_I):
+        query_template = "SELECT d_walk FROM stop_distances WHERE from_stop_I={from_stop_I} AND to_stop_I={to_stop_I} "
+        q = query_template.format(from_stop_I=from_stop_I, to_stop_I=to_stop_I)
+        if self.conn.execute(q).fetchone():
+            return self.conn.execute(q).fetchone()[0]
+        else:
+            return None
 
     def get_cursor(self):
         """
@@ -1477,12 +1484,12 @@ class GTFS(object):
                               ON t1.stop_id=t2.stop_id
                               AND find_distance(t1.lon, t1.lat, t2.lon, t2.lat) <= 50"""
         df_inner_join = self.execute_custom_query_pandas(query_inner_join)
-        print(len(df_inner_join.index))
+        print("number of common stops: ", len(df_inner_join.index))
         df_not_in_other = self.execute_custom_query_pandas("SELECT * FROM stops EXCEPT " + query_inner_join)
-        print(len(df_not_in_other.index))
+        print("number of stops missing in second feed: ", len(df_not_in_other.index))
         df_not_in_self = self.execute_custom_query_pandas("SELECT * FROM other.stops EXCEPT " +
                                                           query_inner_join.replace("t1.*", "t2.*"))
-        print(len(df_not_in_self.index))
+        print("number of stops missing in first feed: ", len(df_not_in_self.index))
         try:
             self.execute_custom_query("""ALTER TABLE stops ADD COLUMN stop_pair_I INT """)
 
@@ -1537,15 +1544,32 @@ class GTFS(object):
         cur = self.conn.cursor()
         queries = [
             "UPDATE stop_times SET stop_I = "
-            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = stop_I)",
+            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = stop_times.stop_I)",
+            # Replace stop_distances
+            "ALTER TABLE stop_distances RENAME TO stop_distances_old",
 
-            "UPDATE stop_distances SET from_stop_I = "
-            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = from_stop_I)",
+            "CREATE TABLE stop_distances (from_stop_I INT, to_stop_I INT, d INT, d_walk INT, min_transfer_time INT, "
+            "timed_transfer INT, UNIQUE (from_stop_I, to_stop_I))",
 
-            "UPDATE stop_distances SET to_stop_I = "
-            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = to_stop_I)",
+            "INSERT INTO stop_distances(from_stop_I, to_stop_I, d, d_walk, min_transfer_time, timed_transfer) "
+            "SELECT f_stop.stop_pair_I AS from_stop_I, t_stop.stop_pair_I AS to_stop_I, d, d_walk, min_transfer_time, "
+            "timed_transfer "
+            "FROM "
+            "(SELECT from_stop_I, to_stop_I, d, d_walk, min_transfer_time, "
+            "timed_transfer "
+            "FROM stop_distances_old) sd_o "
+            "LEFT JOIN "
+            "(SELECT stop_I, stop_pair_I FROM stops) f_stop "
+            "ON sd_o.from_stop_I = f_stop.stop_I "
+            " JOIN "
+            "(SELECT stop_I, stop_pair_I FROM stops) t_stop "
+            "ON sd_o.to_stop_I = t_stop.stop_I ;",
 
+            "DROP TABLE stop_distances_old",
+
+            # Replace stops table with other
             "ALTER TABLE stops RENAME TO stops_old",
+
             "CREATE TABLE stops (stop_I INTEGER PRIMARY KEY, stop_id TEXT UNIQUE NOT NULL, code TEXT, name TEXT, "
             "desc TEXT, lat REAL, lon REAL, parent_I INT, location_type INT, wheelchair_boarding BOOL, "
             "self_or_parent_I INT, old_stop_I INT)",
@@ -1561,6 +1585,7 @@ class GTFS(object):
             "CREATE INDEX idx_stops_sid ON stops (stop_I)"]
         for query in queries:
             cur.execute(query)
+        self.conn.commit()
 
     def add_stops_from_csv(self, csv_dir):
         stops_to_add = pd.read_csv(csv_dir, encoding='utf-8')

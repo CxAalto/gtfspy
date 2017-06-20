@@ -359,16 +359,16 @@ class JourneyDataManager:
     def add_time_measures_to_journey(self):
         print("adding journey components")
         cur = self.conn.cursor()
-        cur.execute("UPDATE journeys SET travel_time = arrival_time_target - departure_time")
+        cur.execute("UPDATE journeys SET journey_duration = arrival_time_target - departure_time")
         cur.execute("UPDATE journeys "
                     "SET "
-                    "in_vehicle_time = "
-                    "(SELECT sum(arrival_time_target - departure_time) AS in_vehicle_time FROM legs WHERE journeys.journey_id = legs.journey_id AND trip_I != -1 GROUP BY journey_id)")
+                    "in_vehicle_duration = "
+                    "(SELECT sum(arrival_time_target - departure_time) AS in_vehicle_duration FROM legs WHERE journeys.journey_id = legs.journey_id AND trip_I != -1 GROUP BY journey_id)")
         cur.execute("UPDATE journeys "
                     "SET "
-                    "walking_time = "
-                    "(SELECT sum(arrival_time_target - departure_time) AS walking_time FROM legs WHERE journeys.journey_id = legs.journey_id AND trip_I < 0 GROUP BY journey_id)")
-        cur.execute("UPDATE journeys SET transfer_wait_time = travel_time - in_vehicle_time - walking_time")
+                    "walking_duration = "
+                    "(SELECT sum(arrival_time_target - departure_time) AS walking_duration FROM legs WHERE journeys.journey_id = legs.journey_id AND trip_I < 0 GROUP BY journey_id)")
+        cur.execute("UPDATE journeys SET transfer_wait_duration = journey_duration - in_vehicle_duration - walking_duration")
 
         self.conn.commit()
 
@@ -378,8 +378,8 @@ class JourneyDataManager:
         cur = conn.cursor()
 
         for target in self.get_targets():
-            sql = """SELECT journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, travel_time,
-                      in_vehicle_time, transfer_wait_time, walking_time, departure_time, arrival_time_target
+            sql = """SELECT journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, journey_duration,
+                      in_vehicle_duration, transfer_wait_duration, walking_duration, departure_time, arrival_time_target
                       FROM journeys WHERE to_stop_I = %s""" % target[0]
 
             df = pd.read_sql_query(sql, self.conn)
@@ -393,28 +393,41 @@ class JourneyDataManager:
 
     def od_pair_data(self, start_time_dep, end_time_dep):
         data_dict = {}
-        parameters = [ # value_no_next_journey, value_cutoff (value when walking directly)
+        parameters = [  # value_no_next_journey, value_cutoff (value when walking directly)
             ("n_boardings", float("inf"), 0),
-            ("travel_time", walking_time, walking_time),
-            ("in_vehicle_time", float('inf'), 0),
-            ("transfer_wait_time", float('inf'), 0),
-            ("walking_time", walking_time, walking_time)
+            ("journey_duration", "t_walk", "t_walk"),
+            ("in_vehicle_duration", float('inf'), 0),
+            ("transfer_wait_duration", float('inf'), 0),
+            ("walking_duration", "t_walk", "t_walk")
         ]
-        for parameter in parameters:
-            data_dict[parameter[0]] = []
+        parameters = {
+            "n_boardings": (float("inf"), 0),
+            "journey_duration": ("t_walk", "t_walk"),
+            "in_vehicle_duration": (float('inf'), 0),
+            "transfer_wait_duration": (float('inf'), 0),
+            "walking_duration": ("t_walk", "t_walk")}
+
+        for prop in parameters.keys():
+            data_dict[prop] = []
 
         for journey_labels, pairs in self.journey_label_generator():
             kwargs = {"from_stop_I": pairs[0], "to_stop_I": pairs[1]}
+            walking_distance = self.gtfs.get_stop_distance(pairs[0], pairs[1])
+            if walking_distance:
+                walking_duration = walking_distance / self.routing_params["walking_speed"]
+            else:
+                walking_duration = float("inf")
             fpa = FastestPathAnalyzer(journey_labels,
                                       start_time_dep,
                                       end_time_dep,
                                       cutoff_duration=float('inf'),  # walking time
-                                      label_props_to_consider=["n_boardings", "travel_time"],  # TODO: change travel_time and others to journey_duration and *_duration
+                                      label_props_to_consider=list(parameters.keys()),
                                       **kwargs)
 
-            for parameter in parameters:
-                profile_block = fpa.get_prop_analyzer_flat(parameter[0], parameter[1], parameter[2])
-                data_dict[parameter[0]].append(profile_block.measures_as_dict())
+            for key, value in parameters.items():
+                value = [walking_duration if x == "t_walk" else x for x in value]
+                profile_block = fpa.get_prop_analyzer_flat(key, value[0], value[1])
+                data_dict[key].append(profile_block.measures_as_dict())
 
         for key, value in data_dict.items():
             self.profile_block_to_database(key, value)
@@ -429,7 +442,6 @@ class JourneyDataManager:
                               max,
                               median,
                               mean) VALUES (?, ?, ?, ?, ?, ?) '''
-        print(data_tuple)
         self.conn.executemany(insert_legs_stmt, data_tuple)
         self.conn.commit()
 
@@ -459,11 +471,11 @@ class JourneyDataManager:
                          n_boardings INT,
                          movement_duration INT,
                          route TEXT,
-                         travel_time INT,
+                         journey_duration INT,
                          pre_journey_wait_fp INT,
-                         in_vehicle_time INT,
-                         transfer_wait_time INT,
-                         walking_time INT,
+                         in_vehicle_duration INT,
+                         transfer_wait_duration INT,
+                         walking_duration INT,
                          fastest_path INT)''')
 
             self.conn.execute('''CREATE TABLE IF NOT EXISTS legs(
@@ -479,21 +491,21 @@ class JourneyDataManager:
             self.conn.execute('''CREATE TABLE IF NOT EXISTS nodes(
                          stop_I INT,
                          agg_temp_distances REAL,
-                         agg_travel_time REAL,
+                         agg_journey_duration REAL,
                          agg_boardings REAL,
                          agg_transfer_wait REAL,
                          agg_pre_journey_wait REAL,
-                         agg_walking_time REAL)''')
+                         agg_walking_duration REAL)''')
 
             self.conn.execute('''CREATE TABLE IF NOT EXISTS od_pairs(
                          from_stop_I INT,
                          to_stop_I INT,
                          avg_temp_distance REAL,
-                         agg_travel_time REAL,
+                         agg_journey_duration REAL,
                          agg_boardings REAL,
                          agg_transfer_wait REAL,
                          agg_pre_journey_wait REAL,
-                         agg_walking_time REAL)''')
+                         agg_walking_duration REAL)''')
 
             """
             self.conn.execute('''CREATE TABLE IF NOT EXISTS sections(
@@ -502,7 +514,7 @@ class JourneyDataManager:
                          from_stop_pair_I INT,
                          to_stop_pair_I INT,
                          avg_temp_distance INT,
-                         avg_travel_time INT,
+                         avg_journey_duration INT,
                          n_trips INT)''')
 
             self.conn.execute('''CREATE TABLE IF NOT EXISTS transfer_nodes(

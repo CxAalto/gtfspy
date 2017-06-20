@@ -707,69 +707,11 @@ cdef class LabelTimeAndRoute:
     def __str__(self):
         return str((self.departure_time, self.arrival_time_target, self.movement_duration, self.first_leg_is_walk, self.previous_label, self.connection))
 
-"""
+
 cdef class LabelGeneric:
     # This class is used only for the analysis stage, when the data has been stored in a database
-    cdef:
-        public int journey_id
-        public int from_stop_I
-        public int to_stop_I
-        public double departure_time
-        public double arrival_time_target
-        public int movement_duration
-        public int n_boardings
-        public str route
-        public int travel_time
-        public int pre_journey_wait_fp
-        public int in_vehicle_time
-        public int transfer_wait_time
-        public int walking_time
-        public bint fastest_path
-
-    def __init__(self,
-                 journey_id,
-                 from_stop_I,
-                 to_stop_I,
-                 departure_time,
-                 arrival_time_target,
-                 n_boardings,
-                 movement_duration,
-                 route,
-                 travel_time,
-                 pre_journey_wait_fp,
-                 in_vehicle_time,
-                 transfer_wait_time,
-                 walking_time,
-                 fastest_path):
-
-        self.journey_id = journey_id
-        self.from_stop_I = from_stop_I
-        self.to_stop_I = to_stop_I
-        self.departure_time = departure_time
-        self.arrival_time_target = arrival_time_target
-        self.n_boardings = n_boardings
-        self.movement_duration = movement_duration
-        self.route = route
-        self.travel_time = travel_time
-        self.pre_journey_wait_fp = pre_journey_wait_fp
-        self.in_vehicle_time = in_vehicle_time
-        self.transfer_wait_time = transfer_wait_time
-        self.walking_time = walking_time
-        self.fastest_path = fastest_path
-
-    def __init__(self, double departure_time, double arrival_time_target,
-                 int movement_duration, bint first_leg_is_walk, object connection=None, object previous_label=None):
-        self.departure_time = departure_time
-        self.arrival_time_target = arrival_time_target
-        self.movement_duration = movement_duration
-        self.first_leg_is_walk = first_leg_is_walk
-        self.previous_label = previous_label
-        self.connection = connection
-"""
-cdef class LabelGeneric:
-    # This class is used only for the analysis stage, when the data has been stored in a database
-    cdef public int journey_id,  from_stop_I, to_stop_I, n_boardings, movement_duration, travel_time, \
-        in_vehicle_time, transfer_wait_time, walking_time
+    cdef public int journey_id,  from_stop_I, to_stop_I, n_boardings, movement_duration, journey_duration, \
+        in_vehicle_duration, transfer_wait_duration, walking_duration
     cdef public double departure_time, arrival_time_target
 
     def __init__(self, journey_dict):
