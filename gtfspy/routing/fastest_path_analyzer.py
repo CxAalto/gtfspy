@@ -5,7 +5,8 @@ from gtfspy.routing.profile_block_analyzer import ProfileBlock, ProfileBlockAnal
 
 class FastestPathAnalyzer:
 
-    def __init__(self, labels, start_time_dep, end_time_dep, cutoff_duration=float('inf'), label_props_to_consider=None, **kwargs):
+    def __init__(self, labels, start_time_dep, end_time_dep, cutoff_duration=float('inf'), label_props_to_consider=None,
+                 **kwargs):
         """
         Parameters
         ----------
@@ -70,7 +71,7 @@ class FastestPathAnalyzer:
         blocks: list[ProfileBlock]
         """
         def _label_to_prop_dict(label):
-            return {prop:getattr(label, prop) for prop in self.label_props}
+            return {prop: getattr(label, prop) for prop in self.label_props}
 
         labels = self._fastest_path_labels
         for i in range(len(labels) - 1):
@@ -83,11 +84,13 @@ class FastestPathAnalyzer:
                 break
             end_time = min(label.departure_time, self.end_time_dep)
             assert (end_time >= previous_dep_time)
-            distance_start = label.duration() + (label.departure_time - previous_dep_time)
-            if distance_start > self.cutoff_duration:
+
+            temporal_distance_start = label.duration() + (label.departure_time - previous_dep_time)
+
+            if temporal_distance_start > self.cutoff_duration:
                 split_point_x_computed = label.departure_time - (self.cutoff_duration - label.duration())
                 split_point_x = min(split_point_x_computed, end_time)
-                if (previous_dep_time < split_point_x):
+                if previous_dep_time < split_point_x:
                     # add walk block, only if it is required
                     walk_block = ProfileBlock(previous_dep_time,
                                               split_point_x,
@@ -96,7 +99,6 @@ class FastestPathAnalyzer:
                                               **_label_to_prop_dict(label))
                     blocks.append(walk_block)
                 if split_point_x < end_time:
-                    assert (split_point_x <= end_time)
                     trip_block = ProfileBlock(split_point_x, end_time,
                                               label.duration() + (end_time - split_point_x),
                                               label.duration(),
@@ -106,8 +108,8 @@ class FastestPathAnalyzer:
                 journey_block = ProfileBlock(
                     previous_dep_time,
                     end_time,
-                    distance_start - (end_time - previous_dep_time),
-                    distance_start,
+                    temporal_distance_start,
+                    temporal_distance_start - (end_time - previous_dep_time),
                     **_label_to_prop_dict(label))
                 blocks.append(journey_block)
             previous_dep_time = blocks[-1].end_time
@@ -130,6 +132,10 @@ class FastestPathAnalyzer:
 
     def get_props(self):
         return list(self.label_props)
+
+    def get_temporal_distance_analyzer(self):
+        kwargs = self.kwargs
+        return ProfileBlockAnalyzer(self.get_fastest_path_temporal_distance_blocks(), **kwargs)
 
     def get_prop_analyzer_flat(self, property, value_no_next_journey, value_cutoff):
         """
