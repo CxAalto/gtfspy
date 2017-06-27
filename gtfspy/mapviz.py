@@ -17,6 +17,7 @@ from gtfspy.extended_route_types import ROUTE_TYPE_CONVERSION
 
 smopy.TILE_SERVER = "https://cartodb-basemaps-1.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
 
+
 def _get_median_centered_plot_bounds(g):
     lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
     lat_median, lon_median = get_median_lat_lon_of_stops(g)
@@ -27,6 +28,7 @@ def _get_median_centered_plot_bounds(g):
     plot_lat_min = lat_median - lat_diff
     plot_lat_max = lat_median + lat_diff
     return plot_lon_min, plot_lon_max, plot_lat_min, plot_lat_max
+
 
 def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
                        return_smopy_map=False):
@@ -93,10 +95,12 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=
     else:
         return ax
 
+
 def _add_scale_bar(ax, lat, lon_min, lon_max, width_pixels):
     distance_m = util.wgs84_distance(lat, lon_min, lat, lon_max)
     scalebar = ScaleBar(distance_m / width_pixels)  # 1 pixel = 0.2 meter
     ax.add_artist(scalebar)
+
 
 def plot_route_network_thumbnail(g):
     width = 512  # pixels
@@ -121,6 +125,28 @@ def plot_route_network_thumbnail(g):
     return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
 
 
+def plot_stops_with_attributes(lats, lons, attribute, colorbar=True, ax=None, cmap=None, norm=None):
+
+    lon_min = min(lons)
+    lon_max = max(lons)
+    lat_min = min(lats)
+    lat_max = max(lats)
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+    ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=0.8)
+
+    xs, ys = smopy_map.to_pixels(lats, lons)
+    cax = ax.scatter(xs, ys, c=attribute, s=0.5, cmap=cmap, norm=norm)
+
+    ax.set_xlim(min(xs), max(xs))
+    ax.set_ylim(max(ys), min(ys))
+    if colorbar:
+        return ax, cax
+    return ax
+
+
 def plot_all_stops(g, ax=None, scalebar=False):
     """
     Parameters
@@ -137,7 +163,6 @@ def plot_all_stops(g, ax=None, scalebar=False):
 
     """
     assert(isinstance(g, GTFS))
-    stats = g.get_stats()
     lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
     smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
     if ax is None:

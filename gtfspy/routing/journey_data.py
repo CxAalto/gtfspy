@@ -315,7 +315,6 @@ class JourneyDataManager:
             self.origins = cur.fetchall()
         return self.origins
 
-    @timeit
     def add_coordinates(self, df, join_column='from_stop_I'):
         stops_df = self.gtfs.stops()
         return pd.merge(stops_df, df, left_on='stop_I', right_on=join_column)
@@ -439,6 +438,8 @@ class JourneyDataManager:
             data_dict["temporal_distance"].append(profile_block.measures_as_dict())
 
             for key, value in self.journey_parameters.items():
+                if value == (None, None):
+                    next()
                 value = [walking_duration if x == "t_walk" else x for x in value]
                 profile_block = fpa.get_prop_analyzer_flat(key, value[0], value[1])
                 data_dict[key].append(profile_block.measures_as_dict())
