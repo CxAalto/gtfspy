@@ -1,5 +1,7 @@
-from shapely.geometry import MultiPoint
+import geopandas as gp
+from shapely.geometry import Point, MultiPoint
 from pyproj import Proj
+
 
 def get_convex_hull_coordinates(gtfs):
     """
@@ -48,4 +50,29 @@ def approximate_convex_hull_area(lons, lats):
     lon_lat_meters = list(zip(lon_meters, lat_meters))
     return MultiPoint(lon_lat_meters).convex_hull.area / 1000 ** 2
 
+def get_buffered_area_of_stops(gtfs, buffer_meters, resolution):
+    """
 
+    Compute the total area of all buffered stops in PT network.
+
+    Parameters
+    ----------
+    gtfs: gtfs.GTFS
+    buffer_meters: meters around the stop to buffer.
+    resolution: increases the accuracy of the calculated area with computation time. Default = 16 
+
+    Returns
+    -------
+    Total area covered by the buffered stops in square meters.
+    """
+    lons, lats = _get_stop_lat_lons(gtfs)
+    a = compute_buffered_area_of_stops(lats, lons, buffer_meters, resolution)
+    return a
+
+def compute_buffered_area_of_stops(lats, lons, buffer_meters, resolution=16):
+    geo_series = gp.GeoSeries([Point(lon, lat) for lon, lat in zip(lons, lats)])
+    geo_series.crs = {'init' :'epsg:4326'}
+    geo_series = geo_series.to_crs({'init' :'epsg:3857'})
+    circles = geo_series.buffer(buffer_meters, resolution=resolution)
+    multi_points = circles.unary_union
+    return multi_points.area
