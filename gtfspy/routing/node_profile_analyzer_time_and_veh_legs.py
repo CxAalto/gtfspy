@@ -1,11 +1,13 @@
 from __future__ import print_function
 
+import warnings
 from collections import defaultdict
 
 import datetime
 import matplotlib
 import numpy
 import matplotlib.pyplot as plt
+import pytz
 from matplotlib import lines
 
 from matplotlib import dates as md
@@ -370,6 +372,10 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             ax = fig.add_subplot(111)
         fig = ax.figure
         assert (isinstance(ax, matplotlib.axes.Axes))
+
+        if timezone is None:
+            warnings.warn("Warning: No timezone specified, defaulting to UTC")
+            timezone = pytz.timezone("Etc/UTC")
 
         def _ut_to_unloc_datetime(ut):
             dt = datetime.datetime.fromtimestamp(ut, timezone)
