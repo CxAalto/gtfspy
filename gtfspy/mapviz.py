@@ -125,7 +125,7 @@ def plot_route_network_thumbnail(g):
     return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
 
 
-def plot_stops_with_attributes(lats, lons, attribute, colorbar=True, ax=None, cmap=None, norm=None):
+def plot_stops_with_attributes(lats, lons, attribute, colorbar=False, ax=None, cmap=None, norm=None):
 
     lon_min = min(lons)
     lon_max = max(lons)

@@ -516,45 +516,78 @@ cdef class LabelTimeBoardingsAndRoute:
             return True
 
     cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeBoardingsAndRoute other):
-        dominates = (
-            (self.arrival_time_target <= other.arrival_time_target and
+        if any([self.arrival_time_target > other.arrival_time_target, self.n_boardings > other.n_boardings]):
+            return False
+        if all([self.arrival_time_target == other.arrival_time_target, self.n_boardings == other.n_boardings]) \
+                and self.movement_duration > other.movement_duration:
+            return False
+        else:
+            return True
+        """
+        if (self.arrival_time_target == other.arrival_time_target and
+             self.n_boardings == other.n_boardings):
+            return self.movement_duration <= other.movement_duration
+        else:
+            return (self.arrival_time_target <= other.arrival_time_target and
              self.n_boardings <= other.n_boardings)
-        )
-        return dominates
-
+        """
     cpdef int dominates_ignoring_dep_time(self, LabelTimeBoardingsAndRoute other):
-        cdef:
-            int dominates
-        dominates = (
-            (self.arrival_time_target <= other.arrival_time_target and
-            self.first_leg_is_walk <= other.first_leg_is_walk and
-             self.n_boardings <= other.n_boardings) or
-            (self.arrival_time_target == other.arrival_time_target and
-             self.n_boardings == other.n_boardings and
-            self.first_leg_is_walk == other.first_leg_is_walk and
-             self.movement_duration <= other.movement_duration)
-        )
-        return dominates
+        if any([self.arrival_time_target > other.arrival_time_target,
+                self.n_boardings > other.n_boardings,
+                self.first_leg_is_walk > other.first_leg_is_walk]):
+            return False
+        if all([self.arrival_time_target == other.arrival_time_target,
+                self.n_boardings == other.n_boardings,
+                self.first_leg_is_walk == other.first_leg_is_walk]) and self.movement_duration > other.movement_duration:
+            return False
+        else:
+            return True
+        """
+        if (self.arrival_time_target == other.arrival_time_target and
+            self.n_boardings == other.n_boardings and
+            self.first_leg_is_walk == other.first_leg_is_walk):
+            return self.movement_duration <= other.movement_duration
 
+        else:
+            return (self.arrival_time_target <= other.arrival_time_target and
+            self.first_leg_is_walk <= other.first_leg_is_walk and
+            self.n_boardings <= other.n_boardings)
+            """
     cpdef int dominates_ignoring_time(self, LabelTimeBoardingsAndRoute other):
-        cdef:
-            int dominates
-        dominates = (
-            self.movement_duration <= other.movement_duration and
-             self.n_boardings <= other.n_boardings and
-            self.first_leg_is_walk <= other.first_leg_is_walk
-        )
-        return dominates
+        if any([self.n_boardings > other.n_boardings,
+                self.first_leg_is_walk > other.first_leg_is_walk]):
+            return False
+        if all([self.n_boardings == other.n_boardings,
+                self.first_leg_is_walk == other.first_leg_is_walk]) and self.movement_duration > other.movement_duration:
+            return False
+        else:
+            return True
+        """
+        if (self.n_boardings == other.n_boardings and
+            self.first_leg_is_walk == other.first_leg_is_walk):
+            return self.movement_duration <= other.movement_duration
+        else:
+            return (self.n_boardings <= other.n_boardings and
+            self.first_leg_is_walk <= other.first_leg_is_walk)
+        """
 
     cpdef int dominates_ignoring_dep_time_and_n_boardings(self, LabelTimeBoardingsAndRoute other):
-        cdef:
-            int dominates
-        dominates = (
-            self.arrival_time_target <= other.arrival_time_target and
-            self.first_leg_is_walk <= other.first_leg_is_walk
-        )
-        return dominates
-
+        if any([self.arrival_time_target > other.arrival_time_target,
+                self.first_leg_is_walk > other.first_leg_is_walk]):
+            return False
+        if all([self.arrival_time_target == other.arrival_time_target,
+                self.first_leg_is_walk == other.first_leg_is_walk]) and self.movement_duration > other.movement_duration:
+            return False
+        else:
+            return True
+        """
+        if (self.arrival_time_target == other.arrival_time_target and
+            self.first_leg_is_walk == other.first_leg_is_walk):
+            return self.movement_duration <= other.movement_duration
+        else:
+            return (self.arrival_time_target <= other.arrival_time_target and
+            self.first_leg_is_walk <= other.first_leg_is_walk)
+        """
     cpdef get_label_with_connection_added(self, connection):
         return LabelTimeBoardingsAndRoute(self.departure_time, self.arrival_time_target,
                                            self.n_boardings, self.movement_duration, self.first_leg_is_walk, connection=connection, previous_label=self)
@@ -711,14 +744,16 @@ cdef class LabelTimeAndRoute:
 cdef class LabelGeneric:
     # This class is used only for the analysis stage, when the data has been stored in a database
     cdef public int journey_id,  from_stop_I, to_stop_I, n_boardings, movement_duration, journey_duration, \
-        in_vehicle_duration, transfer_wait_duration, walking_duration
+        in_vehicle_duration, transfer_wait_duration, walking_duration, pre_journey_wait_fp
     cdef public double departure_time, arrival_time_target
 
     def __init__(self, journey_dict):
         for key in journey_dict:
             setattr(self, key, journey_dict[key])
-
         # Assert that key attributes are present
+        assert hasattr(self, "journey_id")
+        assert hasattr(self, "from_stop_I")
+        assert hasattr(self, "to_stop_I")
 
     def __getstate__(self):
         return self.departure_time, self.arrival_time_target, self.movement_duration, self.connection, self.previous_label

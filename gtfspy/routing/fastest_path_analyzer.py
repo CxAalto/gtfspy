@@ -5,14 +5,14 @@ from gtfspy.routing.profile_block_analyzer import ProfileBlock, ProfileBlockAnal
 
 class FastestPathAnalyzer:
 
-    def __init__(self, labels, start_time_dep, end_time_dep, cutoff_duration=float('inf'), label_props_to_consider=None,
+    def __init__(self, labels, start_time_dep, end_time_dep, walk_duration=float('inf'), label_props_to_consider=None,
                  **kwargs):
         """
         Parameters
         ----------
         labels: list
             List of labels (each label should at least have attributes "departure_time" and "arrival_time")
-        cutoff_duration: float
+        walk_duration: float
             What is the maximum duration for a journey to be considered.
         label_props_to_consider: list
         """
@@ -21,7 +21,7 @@ class FastestPathAnalyzer:
             assert (hasattr(label, "arrival_time_target"))
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
-        self.cutoff_duration = cutoff_duration
+        self.walk_duration = walk_duration
         if label_props_to_consider is None:
             self.label_props = []
         else:
@@ -64,6 +64,15 @@ class FastestPathAnalyzer:
             else:
                 return self._fastest_path_labels[:-1]
 
+    def calculate_pre_journey_waiting_times(self):
+        previous_label = None
+        for label in self._fastest_path_labels:
+            if previous_label:
+                label.pre_journey_wait_fp = label.departure_time - previous_label.departure_time
+            else:
+                label.pre_journey_wait_fp = label.departure_time - self.start_time_dep
+            previous_label = label
+
     def get_fastest_path_temporal_distance_blocks(self):
         """
         Returns
@@ -87,15 +96,15 @@ class FastestPathAnalyzer:
 
             temporal_distance_start = label.duration() + (label.departure_time - previous_dep_time)
 
-            if temporal_distance_start > self.cutoff_duration:
-                split_point_x_computed = label.departure_time - (self.cutoff_duration - label.duration())
+            if temporal_distance_start > self.walk_duration:
+                split_point_x_computed = label.departure_time - (self.walk_duration - label.duration())
                 split_point_x = min(split_point_x_computed, end_time)
                 if previous_dep_time < split_point_x:
                     # add walk block, only if it is required
                     walk_block = ProfileBlock(previous_dep_time,
                                               split_point_x,
-                                              self.cutoff_duration,
-                                              self.cutoff_duration,
+                                              self.walk_duration,
+                                              self.walk_duration,
                                               **_label_to_prop_dict(label))
                     blocks.append(walk_block)
                 if split_point_x < end_time:
@@ -117,8 +126,8 @@ class FastestPathAnalyzer:
         if previous_dep_time < self.end_time_dep:
             last_block = ProfileBlock(previous_dep_time,
                                       self.end_time_dep,
-                                      self.cutoff_duration,
-                                      self.cutoff_duration)
+                                      self.walk_duration,
+                                      self.walk_duration)
             blocks.append(last_block)
         return blocks
 
@@ -128,7 +137,10 @@ class FastestPathAnalyzer:
         -------
         NodeProfileAnalyzerTime
         """
-        raise NotImplementedError
+        return NodeProfileAnalyzerTime(self._fastest_path_labels,
+                                       self.walk_duration,
+                                       self.start_time_dep,
+                                       self.end_time_dep)
 
     def get_props(self):
         return list(self.label_props)
@@ -159,7 +171,7 @@ class FastestPathAnalyzer:
         prop_blocks = []
         for b in fp_blocks:
             if b.is_flat():
-                if b.distance_end == self.cutoff_duration:
+                if b.distance_end == self.walk_duration:
                     prop_value = value_cutoff
                 else:
                     prop_value = value_no_next_journey

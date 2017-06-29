@@ -23,7 +23,15 @@ def _if_no_trips_return_inf(func):
 
 class NodeProfileAnalyzerTime:
 
-    def __init__(self, node_profile, start_time_dep, end_time_dep):
+    @classmethod
+    def from_profile(cls, node_profile, start_time_dep, end_time_dep):
+        assert isinstance(node_profile, NodeProfileSimple), type(node_profile)
+        return NodeProfileAnalyzerTime(node_profile.get_final_optimal_labels(),
+                                       node_profile.get_walk_to_target_duration(),
+                                       start_time_dep,
+                                       end_time_dep)
+
+    def __init__(self, labels, walk_time_to_target, start_time_dep, end_time_dep):
         """
         Initialize the data structures required by
 
@@ -34,12 +42,22 @@ class NodeProfileAnalyzerTime:
         """
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
-        assert isinstance(node_profile, NodeProfileSimple), type(node_profile)
         # used for computing temporal distances:
-        trip_pareto_optimal_tuples = [pt for pt in node_profile.get_final_optimal_labels() if
+        trip_pareto_optimal_tuples = [pt for pt in labels if
                                       (start_time_dep < pt.departure_time <= end_time_dep)]
         trip_pareto_optimal_tuples = sorted(trip_pareto_optimal_tuples, key=lambda ptuple: ptuple.departure_time)
-        self._walk_time_to_target = node_profile.get_walk_to_target_duration()
+
+        arrival_time_target_at_end_time = end_time_dep+walk_time_to_target
+        previous_trip = None
+        for trip_tuple in trip_pareto_optimal_tuples:
+            if previous_trip:
+                assert(trip_tuple.arrival_time_target > previous_trip.arrival_time_target)
+            if trip_tuple.departure_time > end_time_dep \
+                    and trip_tuple.arrival_time_target < arrival_time_target_at_end_time:
+                arrival_time_target_at_end_time = trip_tuple.arrival_time_target
+            previous_trip = trip_tuple
+
+        self._walk_time_to_target = walk_time_to_target
         self._profile_blocks = []
         previous_departure_time = start_time_dep
         self.trip_durations = []
@@ -75,7 +93,7 @@ class NodeProfileAnalyzerTime:
             else:
                 dep_previous = start_time_dep
             waiting_time = end_time_dep - dep_previous
-            arrival_time_target_at_end_time = node_profile.evaluate_earliest_arrival_time_at_target(end_time_dep, 0)
+
             distance_end_trip = arrival_time_target_at_end_time - end_time_dep
             walking_wait_time = min(end_time_dep - dep_previous,
                                     waiting_time - (self._walk_time_to_target - distance_end_trip))
@@ -509,7 +527,7 @@ class NodeProfileAnalyzerTime:
             ax.set_xlabel("Departure time")
 
         ax.set_ylabel(r"Temporal distance $\tau$ (min)")
-        return ax.figure
+        return ax
 
     def _temporal_distance_pdf(self):
         """

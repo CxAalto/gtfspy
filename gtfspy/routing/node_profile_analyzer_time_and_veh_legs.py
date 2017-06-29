@@ -119,7 +119,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         return FastestPathAnalyzer(self.all_labels,
                                    self.start_time_dep,
                                    self.end_time_dep,
-                                   cutoff_duration=self._walk_to_target_duration,
+                                   walk_duration=self._walk_to_target_duration,
                                    label_props_to_consider=["n_boardings"])
 
 
