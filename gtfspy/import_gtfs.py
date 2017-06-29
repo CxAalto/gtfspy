@@ -201,23 +201,10 @@ class TableLoader(object):
         # not have to depend on the particular ordering of fields, and
         # to make it easier to add more fields in the future.
         def _iter_file(file_obj):
-            # Python2 csv reading is stupid when it comes to UTF8.
-            # The input has to be strings. But some files have
-            # the UTF8 byte order mark, which needs to be removed.
             # This hack removes the BOM from the start of any
             # line.
-            version = sys.version_info[0]
             for line in file_obj:
-                if isinstance(line, bytes):
-                    yield line.lstrip(codecs.BOM_UTF8).decode("utf-8")
-                elif version == 2:  # python2.x
-                    if isinstance(line, str):
-                        yield line
-                    else:
-                        yield line.lstrip(codecs.BOM_UTF8)
-                else:
-                    assert(isinstance(line, str))
-                    yield line
+                yield line.lstrip(codecs.BOM_UTF8.decode("utf-8"))
 
         fs = []
         for source in self.gtfs_sources:
@@ -513,7 +500,7 @@ class RouteLoader(TableLoader):
         from gtfspy import extended_route_types
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
-                #print row
+                #print (row) 
                 yield dict(
                     route_id      = prefix + decode_six(row['route_id']),
                     _agency_id    = prefix + decode_six(row['agency_id']) if 'agency_id' in row else None,
