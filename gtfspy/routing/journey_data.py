@@ -35,10 +35,19 @@ class JourneyDataManager:
         self.od_pairs = None
         self.targets = None
         self.origins = None
+        self.journey_parameters = {
+            "n_boardings": (float("inf"), 0),
+            "journey_duration": ("t_walk", "t_walk"),
+            "in_vehicle_duration": (float('inf'), 0),
+            "transfer_wait_duration": (float('inf'), 0),
+            "walking_duration": ("t_walk", "t_walk")}
+        self.tables = list(self.journey_parameters.keys())
+        self.tables += ["temporal_distance"]
+
         if journey_db_dir:
             if os.path.isfile(journey_db_dir):
                 self.conn = sqlite3.connect(journey_db_dir)
-                self.parameters = Parameters(self.conn)
+                self.measure_parameters = Parameters(self.conn)
                 self._check_that_dbs_match()
 
             else:
@@ -66,10 +75,10 @@ class JourneyDataManager:
         print("Finished import process")
 
     def target_in_db(self, target_stop):
-        return "," + str(target_stop) + "," in self.parameters["target_list"]
+        return "," + str(target_stop) + "," in self.measure_parameters["target_list"]
 
     def _check_that_dbs_match(self):
-        for key, value in self.parameters.items():
+        for key, value in self.measure_parameters.items():
             if key in self.gtfs_meta.keys():
                 assert self.gtfs_meta[key] == value
 
@@ -208,7 +217,7 @@ class JourneyDataManager:
                                   seq,
                                   leg_stops) VALUES (%s) ''' % (", ".join(["?" for x in range(8)]))
             self.conn.executemany(insert_legs_stmt, connection_list)
-            self.parameters["target_list"] += (str(target_stop) + ",")
+            self.measure_parameters["target_list"] += (str(target_stop) + ",")
             self.conn.commit()
 
     def _collect_connection_data(self, journey_id, label):
@@ -306,6 +315,20 @@ class JourneyDataManager:
             self.origins = cur.fetchall()
         return self.origins
 
+    def add_coordinates(self, df, join_column='from_stop_I'):
+        stops_df = self.gtfs.stops()
+        return pd.merge(stops_df, df, left_on='stop_I', right_on=join_column)
+
+    def return_table_with_coordinates(self, table_name, target=None):
+        df = self.return_table_as_dataframe(table_name, target)
+        return self.add_coordinates(df)
+
+    def return_table_as_dataframe(self, table_name, target=None):
+        query = "SELECT * FROM " + table_name
+        if target:
+            query += " WHERE to_stop_I = %s" % target
+        return pd.read_sql_query(query, self.conn)
+
     @timeit
     def add_fastest_path_column(self):
         print("adding fastest path column")
@@ -391,23 +414,11 @@ class JourneyDataManager:
                     journey_labels.append(LabelGeneric(journey))
                 yield journey_labels, (origin[0], target[0])
 
-    def od_pair_data(self, start_time_dep, end_time_dep):
+    @timeit
+    def od_pair_data(self, analysis_start_time, analysis_end_time):
         data_dict = {}
-        parameters = [  # value_no_next_journey, value_cutoff (value when walking directly)
-            ("n_boardings", float("inf"), 0),
-            ("journey_duration", "t_walk", "t_walk"),
-            ("in_vehicle_duration", float('inf'), 0),
-            ("transfer_wait_duration", float('inf'), 0),
-            ("walking_duration", "t_walk", "t_walk")
-        ]
-        parameters = {
-            "n_boardings": (float("inf"), 0),
-            "journey_duration": ("t_walk", "t_walk"),
-            "in_vehicle_duration": (float('inf'), 0),
-            "transfer_wait_duration": (float('inf'), 0),
-            "walking_duration": ("t_walk", "t_walk")}
 
-        for prop in parameters.keys():
+        for prop in self.tables:
             data_dict[prop] = []
 
         for journey_labels, pairs in self.journey_label_generator():
@@ -418,13 +429,17 @@ class JourneyDataManager:
             else:
                 walking_duration = float("inf")
             fpa = FastestPathAnalyzer(journey_labels,
-                                      start_time_dep,
-                                      end_time_dep,
+                                      analysis_start_time,
+                                      analysis_end_time,
                                       cutoff_duration=float('inf'),  # walking time
-                                      label_props_to_consider=list(parameters.keys()),
+                                      label_props_to_consider=list(self.journey_parameters.keys()),
                                       **kwargs)
+            profile_block = fpa.get_temporal_distance_analyzer()
+            data_dict["temporal_distance"].append(profile_block.measures_as_dict())
 
-            for key, value in parameters.items():
+            for key, value in self.journey_parameters.items():
+                if value == (None, None):
+                    next()
                 value = [walking_duration if x == "t_walk" else x for x in value]
                 profile_block = fpa.get_prop_analyzer_flat(key, value[0], value[1])
                 data_dict[key].append(profile_block.measures_as_dict())
@@ -433,17 +448,49 @@ class JourneyDataManager:
             self.profile_block_to_database(key, value)
 
     def profile_block_to_database(self, table, data):
-        self.conn.execute("CREATE TABLE IF NOT EXISTS " + table + " (from_stop_I, to_stop_I, min, max, median, mean)")
+        print("creating table: ", table)
+        self.conn.execute("CREATE TABLE IF NOT EXISTS " + table + " (from_stop_I INT, "
+                                                                  "to_stop_I INT, "
+                                                                  "min INT, "
+                                                                  "max INT, "
+                                                                  "median INT, "
+                                                                  "mean REAL, "
+                                                                  "UNIQUE (from_stop_I, to_stop_I))")
         data_tuple = [(x["from_stop_I"], x["to_stop_I"], x["min"], x["max"], x["median"], x["mean"]) for x in data]
-        insert_legs_stmt = '''INSERT INTO ''' + table + ''' (
+        insert_stmt = '''INSERT OR REPLACE INTO ''' + table + ''' (
                               from_stop_I,
                               to_stop_I,
                               min,
                               max,
                               median,
                               mean) VALUES (?, ?, ?, ?, ?, ?) '''
-        self.conn.executemany(insert_legs_stmt, data_tuple)
+        self.conn.executemany(insert_stmt, data_tuple)
         self.conn.commit()
+
+    @timeit
+    def initialize_comparison_tables(self, before_db_dir):
+
+        self.attach_database(before_db_dir)
+        for table in self.tables:
+            self.conn.execute("CREATE TABLE IF NOT EXISTS diff_" + table +
+                              " (from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean)")
+            insert_stmt = "INSERT INTO diff_" + table + " (from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean) " \
+                                                        "SELECT t1.from_stop_I, t1.to_stop_I, " \
+                                                        "t1.min - t2.min AS diff_min, " \
+                                                        "t1.max - t2.max AS diff_max, " \
+                                                        "t1.median - t2.median AS diff_median, " \
+                                                        "t1.mean - t2.mean AS diff_mean " \
+                                                        "FROM " + table + " AS t1, other." + table + " AS t2 " \
+                                                        "WHERE t1.from_stop_I = t2.from_stop_I " \
+                                                        "AND t1.to_stop_I = t2.to_stop_I "
+            self.conn.execute(insert_stmt)
+            self.conn.commit()
+
+    def attach_database(self, other_db_dir):
+        cur = self.conn.cursor()
+        cur.execute("ATTACH '%s' AS 'other'" % str(other_db_dir))
+        cur.execute("PRAGMA database_list")
+        print("other database attached:", cur.fetchall())
 
     def initialize_database(self, journey_db_dir):
         assert not os.path.isfile(journey_db_dir)
@@ -487,7 +534,7 @@ class JourneyDataManager:
                          trip_I INT,
                          seq INT,
                          leg_stops TEXT)''')
-
+            """
             self.conn.execute('''CREATE TABLE IF NOT EXISTS nodes(
                          stop_I INT,
                          agg_temp_distances REAL,
@@ -507,7 +554,7 @@ class JourneyDataManager:
                          agg_pre_journey_wait REAL,
                          agg_walking_duration REAL)''')
 
-            """
+
             self.conn.execute('''CREATE TABLE IF NOT EXISTS sections(
                          from_stop_I INT,
                          to_stop_I INT,
