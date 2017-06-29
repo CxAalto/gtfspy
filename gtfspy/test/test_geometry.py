@@ -79,13 +79,34 @@ class GeometryTest(unittest.TestCase):
         # Note: the points are "far away" to avoid overlap, but since they are points in the same city
         # a "really big buffer" could cause overlap and the test is going fail.
         buffer_nonoverlap = 100 #100 meters of radius
-        two_points_nonoverlap_true_area = 2 * 10000 * np.pi #area = pi * square radius
+        two_points_nonoverlap_true_area = 2 * buffer_nonoverlap ** 2 * np.pi #area = pi * square radius
         area_1_2 = compute_buffered_area_of_stops(lats_1_2, lons_1_2, buffer_nonoverlap) 
         confidence_2 = two_points_nonoverlap_true_area * 0.95
-        self.assertTrue(confidence_2 < area_1_2 < two_points_nonoverlap_true_area)
+        self.assertTrue(confidence_2 < area_1_2  and area_1_2 < two_points_nonoverlap_true_area)
         
         # Two points buffer with overlap
-        # Points so close that will overlap with a radius of 100 meters.
-        buffer_overlap = 100 #100 meters of radius
-        area_1_3 =  compute_buffered_area_of_stops(lats_1_3, lons_1_3, buffer_overlap) 
-        self.assertTrue(area_1 < area_1_3 < two_points_nonoverlap_true_area)
+        # Points so close that will overlap with a radius of 100 meters
+        buffer_overlap = 100  # 100 meters of radius
+        area_1_3 = compute_buffered_area_of_stops(lats_1_3, lons_1_3, buffer_overlap)
+        self.assertLess(area_1, area_1_3)
+        self.assertLess(area_1_3, two_points_nonoverlap_true_area)
+
+        # 'Half-overlap'
+        from gtfspy.util import wgs84_distance
+        lat1, lat3 = lats_1_3
+        lon1, lon3 = lons_1_3
+
+        distance = wgs84_distance(lat1, lon1, lat3, lon3)
+        # just a little overlap
+        buffer = distance / 2. + 1
+        area_1_3b = compute_buffered_area_of_stops(lats_1_3, lons_1_3, buffer, resolution=100)
+        one_point_true_area =  np.pi * buffer**2
+        self.assertLess(one_point_true_area * 1.5, area_1_3b)
+        self.assertLess(area_1_3b, 2 * one_point_true_area)
+
+        # no overlap
+        buffer = distance / 2. - 1
+        area_1_3b = compute_buffered_area_of_stops(lats_1_3, lons_1_3, buffer, resolution=100)
+        two_points_nonoverlap_true_area = 2 * buffer ** 2 * np.pi
+        self.assertGreater(area_1_3b, two_points_nonoverlap_true_area * 0.95)
+        self.assertLess(area_1_3b , two_points_nonoverlap_true_area)
