@@ -43,16 +43,22 @@ class NodeProfileAnalyzerTime:
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
         # used for computing temporal distances:
-        trip_pareto_optimal_tuples = [pt for pt in labels if
-                                      (start_time_dep < pt.departure_time <= end_time_dep)]
-        trip_pareto_optimal_tuples = sorted(trip_pareto_optimal_tuples, key=lambda ptuple: ptuple.departure_time)
+        all_pareto_optimal_tuples = [pt for pt in labels if
+                                      (start_time_dep < pt.departure_time < end_time_dep)]
 
-        arrival_time_target_at_end_time = end_time_dep+walk_time_to_target
+        labels_after_dep_time = [label for label in labels if label.departure_time >= self.end_time_dep]
+        if labels_after_dep_time:
+            next_label_after_end_time = min(labels_after_dep_time, key=lambda el: el.arrival_time_target)
+            all_pareto_optimal_tuples.append(next_label_after_end_time)
+
+        all_pareto_optimal_tuples = sorted(all_pareto_optimal_tuples, key=lambda ptuple: ptuple.departure_time)
+
+        arrival_time_target_at_end_time = end_time_dep + walk_time_to_target
         previous_trip = None
-        for trip_tuple in trip_pareto_optimal_tuples:
+        for trip_tuple in all_pareto_optimal_tuples:
             if previous_trip:
                 assert(trip_tuple.arrival_time_target > previous_trip.arrival_time_target)
-            if trip_tuple.departure_time > end_time_dep \
+            if trip_tuple.departure_time > self.end_time_dep \
                     and trip_tuple.arrival_time_target < arrival_time_target_at_end_time:
                 arrival_time_target_at_end_time = trip_tuple.arrival_time_target
             previous_trip = trip_tuple
@@ -62,7 +68,9 @@ class NodeProfileAnalyzerTime:
         previous_departure_time = start_time_dep
         self.trip_durations = []
         self.trip_departure_times = []
-        for trip_pareto_tuple in trip_pareto_optimal_tuples:
+        for trip_pareto_tuple in all_pareto_optimal_tuples:
+            if trip_pareto_tuple.departure_time > self.end_time_dep:
+                continue
             if self._walk_time_to_target <= trip_pareto_tuple.duration():
                 assert(self._walk_time_to_target > trip_pareto_tuple.duration())
             effective_trip_previous_departure_time = max(

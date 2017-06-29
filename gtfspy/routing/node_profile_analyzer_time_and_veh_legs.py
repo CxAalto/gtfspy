@@ -188,7 +188,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             profile = NodeProfileSimple(self._walk_to_target_duration)
             for valid in valids:
                 profile.update_pareto_optimal_tuples(valid)
-            npat = NodeProfileAnalyzerTime(profile, self.start_time_dep, self.end_time_dep)
+            npat = NodeProfileAnalyzerTime.from_profile(profile, self.start_time_dep, self.end_time_dep)
             self._n_boardings_to_simple_time_analyzers[max_n_boardings] = npat
         return self._n_boardings_to_simple_time_analyzers[max_n_boardings]
 
