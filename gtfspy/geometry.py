@@ -36,7 +36,7 @@ def approximate_convex_hull_area(lons, lats):
     lon_lat_meters = list(zip(lon_meters, lat_meters))
     return MultiPoint(lon_lat_meters).convex_hull.area / 1000 ** 2
 
-def _get_lon_lat_meters(lats, lons):
+def _get_lon_lat_meters(lons, lats):
     lat_min = min(lats)
     lat_max = max(lats)
     lat_mean = (lat_max + lat_min) / 2.
