@@ -51,7 +51,7 @@ class FastestPathAnalyzer:
         fp_labels = list(reversed(compute_pareto_front(fp_labels, ignore_n_boardings=True)))
         # assert ordered:
         for i in range(len(fp_labels) - 1):
-            assert (fp_labels[i].departure_time <= fp_labels[i + 1].departure_time)
+            assert (fp_labels[i].departure_time < fp_labels[i + 1].departure_time)
 
         return fp_labels
 
@@ -84,7 +84,7 @@ class FastestPathAnalyzer:
 
         labels = self._fastest_path_labels
         for i in range(len(labels) - 1):
-            assert (labels[i].departure_time <= labels[i + 1].departure_time)
+            assert (labels[i].departure_time < labels[i + 1].departure_time)
 
         previous_dep_time = self.start_time_dep
         blocks = []

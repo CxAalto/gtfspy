@@ -424,7 +424,7 @@ class TestLabelTimeBoardingsAndRoute(TestCase):
         self.assertTrue(labelb.dominates(labela))
         self.assertFalse(labela.dominates(labelb))
 
-        """
+    """
     def test_dominates_ignoring_dep_time_finalization_equal(self):
         labela = LabelTimeBoardingsAndRoute(departure_time=11, arrival_time_target=10, movement_duration=1,
                                    first_leg_is_walk=False)
