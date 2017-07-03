@@ -96,6 +96,47 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=
         return ax
 
 
+def plot_route_network_with_attributes(from_lats, from_lons, to_lats, to_lons, attributes, cmap=None, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True,
+                                       return_smopy_map=False, c=None, linewidth=None):
+
+    if spatial_bounds is None:
+        lon_min = min(list(from_lons) + list(to_lons))
+        lon_max = max(list(from_lons) + list(to_lons))
+        lat_min = min(list(from_lats) + list(to_lats))
+        lat_max = max(list(from_lats) + list(to_lats))
+    else:
+        lon_min = spatial_bounds['lon_min']
+        lon_max = spatial_bounds['lon_max']
+        lat_min = spatial_bounds['lat_min']
+        lat_max = spatial_bounds['lat_max']
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+    # print(lat_min, lat_max)
+    # print(lon_min, lon_max)
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=map_alpha)
+    bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
+                                                         numpy.array([lon_min, lon_max]))
+
+    for from_lat, from_lon, to_lat, to_lon, attribute in zip(from_lats, from_lons, to_lats, to_lons, attributes):
+        xs, ys = smopy_map.to_pixels(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]))
+        ax.plot(xs, ys, c=c, linewidth=linewidth)
+
+    if scalebar:
+        _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    ax.set_xlim(bound_pixel_xs.min(), bound_pixel_xs.max())
+    ax.set_ylim(bound_pixel_ys.max(), bound_pixel_ys.min())
+    if return_smopy_map:
+        return ax, smopy_map
+    else:
+        return ax
+
+
 def _add_scale_bar(ax, lat, lon_min, lon_max, width_pixels):
     distance_m = util.wgs84_distance(lat, lon_min, lat, lon_max)
     scalebar = ScaleBar(distance_m / width_pixels)  # 1 pixel = 0.2 meter
@@ -125,7 +166,7 @@ def plot_route_network_thumbnail(g):
     return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
 
 
-def plot_stops_with_attributes(lats, lons, attribute, colorbar=False, ax=None, cmap=None, norm=None):
+def plot_stops_with_attributes(lats, lons, attribute, colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
 
     lon_min = min(lons)
     lon_max = max(lons)
@@ -138,12 +179,12 @@ def plot_stops_with_attributes(lats, lons, attribute, colorbar=False, ax=None, c
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=0.8)
 
     xs, ys = smopy_map.to_pixels(lats, lons)
-    cax = ax.scatter(xs, ys, c=attribute, s=0.5, cmap=cmap, norm=norm)
+    cax = ax.scatter(xs, ys, c=attribute, s=0.5, cmap=cmap, norm=norm, alpha=alpha)
 
     ax.set_xlim(min(xs), max(xs))
     ax.set_ylim(max(ys), min(ys))
     if colorbar:
-        return ax, cax
+        return ax, cax, smopy_map
     return ax
 
 

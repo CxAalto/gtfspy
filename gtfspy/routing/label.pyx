@@ -497,7 +497,7 @@ cdef class LabelTimeBoardingsAndRoute:
 
     cpdef int dominates(self, LabelTimeBoardingsAndRoute other):
         """
-        Compute whether this LabelWithNumberVehicles dominates the other LabelWithNumberVehicles
+        Compute whether this LabelTimeBoardingsAndRoute dominates the other LabelTimeBoardingsAndRoute
         Parameters
         ----------
         other: LabelTimeBoardingsAndRoute
@@ -518,76 +518,44 @@ cdef class LabelTimeBoardingsAndRoute:
     cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeBoardingsAndRoute other):
         if any([self.arrival_time_target > other.arrival_time_target, self.n_boardings > other.n_boardings]):
             return False
-        if all([self.arrival_time_target == other.arrival_time_target, self.n_boardings == other.n_boardings]) \
+        elif all([self.arrival_time_target == other.arrival_time_target, self.n_boardings == other.n_boardings]) \
                 and self.movement_duration > other.movement_duration:
             return False
         else:
             return True
-        """
-        if (self.arrival_time_target == other.arrival_time_target and
-             self.n_boardings == other.n_boardings):
-            return self.movement_duration <= other.movement_duration
-        else:
-            return (self.arrival_time_target <= other.arrival_time_target and
-             self.n_boardings <= other.n_boardings)
-        """
+
     cpdef int dominates_ignoring_dep_time(self, LabelTimeBoardingsAndRoute other):
         if any([self.arrival_time_target > other.arrival_time_target,
                 self.n_boardings > other.n_boardings,
                 self.first_leg_is_walk > other.first_leg_is_walk]):
             return False
-        if all([self.arrival_time_target == other.arrival_time_target,
+        elif all([self.arrival_time_target == other.arrival_time_target,
                 self.n_boardings == other.n_boardings,
                 self.first_leg_is_walk == other.first_leg_is_walk]) and self.movement_duration > other.movement_duration:
             return False
         else:
             return True
-        """
-        if (self.arrival_time_target == other.arrival_time_target and
-            self.n_boardings == other.n_boardings and
-            self.first_leg_is_walk == other.first_leg_is_walk):
-            return self.movement_duration <= other.movement_duration
 
-        else:
-            return (self.arrival_time_target <= other.arrival_time_target and
-            self.first_leg_is_walk <= other.first_leg_is_walk and
-            self.n_boardings <= other.n_boardings)
-            """
     cpdef int dominates_ignoring_time(self, LabelTimeBoardingsAndRoute other):
         if any([self.n_boardings > other.n_boardings,
                 self.first_leg_is_walk > other.first_leg_is_walk]):
             return False
-        if all([self.n_boardings == other.n_boardings,
+        elif all([self.n_boardings == other.n_boardings,
                 self.first_leg_is_walk == other.first_leg_is_walk]) and self.movement_duration > other.movement_duration:
             return False
         else:
             return True
-        """
-        if (self.n_boardings == other.n_boardings and
-            self.first_leg_is_walk == other.first_leg_is_walk):
-            return self.movement_duration <= other.movement_duration
-        else:
-            return (self.n_boardings <= other.n_boardings and
-            self.first_leg_is_walk <= other.first_leg_is_walk)
-        """
 
     cpdef int dominates_ignoring_dep_time_and_n_boardings(self, LabelTimeBoardingsAndRoute other):
         if any([self.arrival_time_target > other.arrival_time_target,
                 self.first_leg_is_walk > other.first_leg_is_walk]):
             return False
-        if all([self.arrival_time_target == other.arrival_time_target,
+        elif all([self.arrival_time_target == other.arrival_time_target,
                 self.first_leg_is_walk == other.first_leg_is_walk]) and self.movement_duration > other.movement_duration:
             return False
         else:
             return True
-        """
-        if (self.arrival_time_target == other.arrival_time_target and
-            self.first_leg_is_walk == other.first_leg_is_walk):
-            return self.movement_duration <= other.movement_duration
-        else:
-            return (self.arrival_time_target <= other.arrival_time_target and
-            self.first_leg_is_walk <= other.first_leg_is_walk)
-        """
+
     cpdef get_label_with_connection_added(self, connection):
         return LabelTimeBoardingsAndRoute(self.departure_time, self.arrival_time_target,
                                            self.n_boardings, self.movement_duration, self.first_leg_is_walk, connection=connection, previous_label=self)
