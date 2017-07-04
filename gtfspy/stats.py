@@ -5,6 +5,7 @@ import pandas as pd
 
 import numpy
 import sys
+import os
 
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
@@ -78,7 +79,7 @@ def get_centroid_of_stops(gtfs):
     return mean_lat, mean_lon
 
 
-def write_stats_as_csv(gtfs, path_to_csv):
+def write_stats_as_csv(gtfs, path_to_csv, re_write=False):
     """
     Writes data from get_stats to csv file
 
@@ -87,21 +88,19 @@ def write_stats_as_csv(gtfs, path_to_csv):
     gtfs: GTFS
     path_to_csv: str
         filepath to the csv file to be generated
+    re_write:
+        insted of appending, create a new one.
     """
     stats_dict = get_stats(gtfs)
     # check if file exist
-    """if not os.path.isfile(path_to_csv):
+    if re_write:
+            os.remove(path_to_csv)
+    
+    if not os.path.isfile(path_to_csv):
         is_new = True
     else:
-        is_new = False"""
-    is_new = True
-    with open(path_to_csv, 'r') as csvfile:
-        for line in csvfile:
-            if line:
-                is_new = False
-            else:
-                is_new = True
-
+        is_new = False
+    
     with open(path_to_csv, 'a') as csvfile:
         if (sys.version_info > (3, 0)):
             delimiter = u","
