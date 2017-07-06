@@ -96,11 +96,20 @@ def write_stats_as_csv(gtfs, path_to_csv, re_write=False):
     if re_write:
             os.remove(path_to_csv)
     
-    if not os.path.isfile(path_to_csv):
-        is_new = True
-    else:
-        is_new = False
+    #if not os.path.isfile(path_to_csv):
+     #   is_new = True
+    #else:
+     #   is_new = False
     
+    is_new = True
+    mode = 'r' if os.path.exists(path_to_csv) else 'w+'
+    with open(path_to_csv, mode) as csvfile:
+        for line in csvfile:
+           if line:
+               is_new = False
+           else:
+               is_new = True
+
     with open(path_to_csv, 'a') as csvfile:
         if (sys.version_info > (3, 0)):
             delimiter = u","
