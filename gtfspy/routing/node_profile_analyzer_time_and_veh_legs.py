@@ -549,9 +549,9 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
             journey_counts = numpy.zeros(len(temporal_distance_split_widths))
             for block_now in blocks_now:
-                start_index = numpy.searchsorted(distance_split_points_ordered, block_now.distance_start)
-                end_index = numpy.searchsorted(distance_split_points_ordered, block_now.distance_end)
-                journey_counts[start_index:end_index] += 1
+                first_index = numpy.searchsorted(distance_split_points_ordered, block_now.distance_end)
+                last_index = numpy.searchsorted(distance_split_points_ordered, block_now.distance_start)
+                journey_counts[first_index:last_index] += 1
 
             part_pdf = journey_counts / (self.end_time_dep - self.start_time_dep)
             pdf_areas[n_boardings] = sum(part_pdf * temporal_distance_split_widths)
