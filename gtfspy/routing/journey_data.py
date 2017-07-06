@@ -317,13 +317,9 @@ class JourneyDataManager:
             self.origins = cur.fetchall()
         return self.origins
 
-    def add_coordinates(self, df, join_column='from_stop_I'):
-        stops_df = self.gtfs.stops()
-        return pd.merge(stops_df, df, left_on='stop_I', right_on=join_column)
-
     def get_table_with_coordinates(self, table_name, target=None):
         df = self.get_table_as_dataframe(table_name, target)
-        return self.add_coordinates(df)
+        return self.gtfs.add_coordinates_to_df(df, join_column='from_stop_I')
 
     def get_table_as_dataframe(self, table_name, target=None):
         query = "SELECT * FROM " + table_name
@@ -465,6 +461,8 @@ class JourneyDataManager:
     def calculate_pre_journey_waiting_time(self):
         all_fp_labels = []
         for journey_labels, pairs in self.journey_label_generator():
+            if not journey_labels:
+                continue
             fpa = FastestPathAnalyzer(journey_labels,
                                       self.measure_parameters["routing_start_time_dep"],
                                       self.measure_parameters["routing_end_time_dep"],
@@ -671,22 +669,37 @@ class JourneyDataManager:
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_tid ON legs (to_stop_I)')
         self.conn.commit()
 
+    def get_journey_legs_to_target(self, target, fastest_path=True, min_boardings=False, all_leg_sections=True):
+        assert not (fastest_path and min_boardings)
+        if min_boardings:
+            raise NotImplementedError
+        added_constraint = ""
+        if fastest_path:
+            added_constraint = "AND journeys.pre_journey_wait_fp>=0"
+        self.attach_database(self.gtfs_dir)
+        query = """SELECT from_stop_I, to_stop_I, type, count(*) AS n_trips FROM
+                    (SELECT legs.*, routes.type AS type
+                    FROM legs, journeys, other.trips, other.routes
+                    WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s
+                    AND legs.trip_I = trips.trip_I AND trips.route_I = routes.route_I %s) sq1
+                    GROUP BY from_stop_I, to_stop_I, type""" % (str(target), added_constraint)
+        return pd.read_sql_query(query, self.conn)
+
 
 class DiffDataManager:
-    def __init__(self, tables, diff_db_path, before_db_tuple, after_db_tuple):
-        self.tables = tables
+    def __init__(self, diff_db_path):
         self.conn = sqlite3.connect(diff_db_path)
-        self.before_db_path = before_db_tuple[0]
-        self.before_db_name = before_db_tuple[1]
-        self.after_db_path = after_db_tuple[0]
-        self.after_db_name = after_db_tuple[1]
 
-        self.conn = self.attach_database(self.before_db_path, name=self.before_db_name)
-        self.conn = self.attach_database(self.after_db_path, name=self.after_db_name)
+    def initialize_comparison_tables(self, tables, before_db_tuple, after_db_tuple):
+        before_db_path = before_db_tuple[0]
+        before_db_name = before_db_tuple[1]
+        after_db_path = after_db_tuple[0]
+        after_db_name = after_db_tuple[1]
 
-    def initialize_comparison_tables(self):
+        self.conn = self.attach_database(before_db_path, name=before_db_name)
+        self.conn = self.attach_database(after_db_path, name=after_db_name)
 
-        for table in self.tables:
+        for table in tables:
             self.conn.execute("CREATE TABLE IF NOT EXISTS diff_" + table +
                               " (from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean)")
             insert_stmt = "INSERT OR REPLACE INTO diff_" + table + \
@@ -694,8 +707,8 @@ class DiffDataManager:
                           "SELECT t1.from_stop_I, t1.to_stop_I, t1.min - t2.min AS diff_min, " \
                           "t1.max - t2.max AS diff_max, t1.median - t2.median AS diff_median, " \
                           "t1.mean - t2.mean AS diff_mean " \
-                          "FROM " + self.after_db_name + "." + table + " AS t1, "\
-                          + self.before_db_name + "." + table + \
+                          "FROM " + after_db_name + "." + table + " AS t1, "\
+                          + before_db_name + "." + table + \
                           " AS t2 WHERE t1.from_stop_I = t2.from_stop_I AND t1.to_stop_I = t2.to_stop_I "
             self.conn.execute(insert_stmt)
             self.conn.commit()
@@ -706,6 +719,16 @@ class DiffDataManager:
         cur.execute("PRAGMA database_list")
         print("other database attached:", cur.fetchall())
         return self.conn
+
+    def get_table_with_coordinates(self, gtfs, table_name, target=None):
+        df = self.get_table_as_dataframe(table_name, target)
+        return gtfs.add_coordinates_to_df(df, join_column='from_stop_I')
+
+    def get_table_as_dataframe(self, table_name, target=None):
+        query = "SELECT * FROM " + table_name
+        if target:
+            query += " WHERE to_stop_I = %s" % target
+        return pd.read_sql_query(query, self.conn)
 
 
 class Parameters(object):

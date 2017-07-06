@@ -88,3 +88,11 @@ ROUTE_TYPE_TO_COLOR = {
     GONDOLA: "#b15928",
     FUNICULAR: "#fb9a99"
 }
+
+
+def route_type_to_color_iterable(type):
+    return [ROUTE_TYPE_TO_COLOR[x] for x in type]
+
+
+def route_type_to_zorder(type):
+    return [ROUTE_TYPE_TO_ZORDER[x] for x in type]

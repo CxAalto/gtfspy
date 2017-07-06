@@ -1216,6 +1216,14 @@ class GTFS(object):
         """
         return pd.read_sql_query("SELECT * FROM stops WHERE stop_I={stop_I}".format(stop_I=stop_I), self.conn)
 
+    def add_coordinates_to_df(self, df, join_column='stop_I', lat_name="lat", lon_name="lon"):
+        stops_df = self.stops()
+        coord_df = stops_df[["stop_I", "lat", "lon"]]
+        df_merged = pd.merge(coord_df, df, left_on='stop_I', right_on=join_column)
+        df_merged.drop(["stop_I"], axis=1, inplace=True)
+        df_merged3 = df_merged.rename(columns={"lat": lat_name, "lon": lon_name})
+        return df_merged3
+
     def get_n_stops(self):
         return pd.read_sql_query("SELECT count(*) from stops;", self.conn).values[0,0]
 
