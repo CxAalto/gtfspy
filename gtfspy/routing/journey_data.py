@@ -669,6 +669,22 @@ class JourneyDataManager:
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_tid ON legs (to_stop_I)')
         self.conn.commit()
 
+    def get_journey_legs_to_target(self, target, fastest_path=True, min_boardings=False, all_leg_sections=True):
+        assert not (fastest_path and min_boardings)
+        if min_boardings:
+            raise NotImplementedError
+        added_constraint = ""
+        if fastest_path:
+            added_constraint = "AND journeys.pre_journey_wait_fp>=0"
+        self.attach_database(self.gtfs_dir)
+        query = """SELECT from_stop_I, to_stop_I, type, count(*) AS n_trips FROM
+                    (SELECT legs.*, routes.type AS type
+                    FROM legs, journeys, other.trips, other.routes
+                    WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s
+                    AND legs.trip_I = trips.trip_I AND trips.route_I = routes.route_I %s) sq1
+                    GROUP BY from_stop_I, to_stop_I, type""" % (str(target), added_constraint)
+        return pd.read_sql_query(query, self.conn)
+
 
 class DiffDataManager:
     def __init__(self, diff_db_path):

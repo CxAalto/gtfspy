@@ -3,6 +3,7 @@ from urllib.error import URLError
 import numpy
 import smopy
 import matplotlib.pyplot as plt
+import math
 from gtfspy.gtfs import GTFS
 from gtfspy.stats import get_spatial_bounds, get_percentile_stop_bounds, get_median_lat_lon_of_stops
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_ZORDER, ROUTE_TYPE_TO_SHORT_DESCRIPTION
@@ -96,8 +97,25 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=
         return ax
 
 
-def plot_route_network_with_attributes(from_lats, from_lons, to_lats, to_lons, attributes, cmap=None, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True,
-                                       return_smopy_map=False, c=None, linewidth=None):
+def plot_route_network_with_attributes(from_lats, from_lons, to_lats, to_lons, attributes=None, color_attributes=None,
+                                       zorders=None,
+                                       ax=None,
+                                       spatial_bounds=None,
+                                       alpha=1,
+                                       map_alpha=0.8,
+                                       scalebar=True,
+                                       return_smopy_map=False,
+                                       c=None, linewidth=None,
+                                       linewidth_multiplier=1,
+                                       use_log_scale=False):
+    if attributes is None:
+        attributes = len(list(from_lats))*[None]
+        assert linewidth
+    if color_attributes is None:
+        color_attributes = len(list(from_lats))*[None]
+        assert c
+    if zorders is None:
+        zorders = len(list(from_lats))*[None]
 
     if spatial_bounds is None:
         lon_min = min(list(from_lons) + list(to_lons))
@@ -112,16 +130,27 @@ def plot_route_network_with_attributes(from_lats, from_lons, to_lats, to_lons, a
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    # print(lat_min, lat_max)
-    # print(lon_min, lon_max)
+
     smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=map_alpha)
     bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                                          numpy.array([lon_min, lon_max]))
 
-    for from_lat, from_lon, to_lat, to_lon, attribute in zip(from_lats, from_lons, to_lats, to_lons, attributes):
+    for from_lat, from_lon, to_lat, to_lon, attribute, color_attribute, zorder in zip(from_lats,
+                                                                                      from_lons,
+                                                                                      to_lats,
+                                                                                      to_lons,
+                                                                                      attributes,
+                                                                                      color_attributes,
+                                                                                      zorders):
+        if not color_attribute:
+            color_attribute = c
+        if not attribute:
+            attribute = linewidth
+        if use_log_scale:
+            attribute = math.log10(attribute)
         xs, ys = smopy_map.to_pixels(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]))
-        ax.plot(xs, ys, c=c, linewidth=linewidth)
+        ax.plot(xs, ys, c=color_attribute, linewidth=attribute*linewidth_multiplier, zorder=zorder, alpha=alpha)
 
     if scalebar:
         _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
