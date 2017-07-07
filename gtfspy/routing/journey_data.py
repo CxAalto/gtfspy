@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import pandas as pd
+import numpy as np
 
 from gtfspy.routing.connection import Connection
 from gtfspy.gtfs import GTFS
@@ -384,12 +385,15 @@ class JourneyDataManager:
         cur.execute("UPDATE journeys "
                     "SET "
                     "in_vehicle_duration = "
-                    "(SELECT sum(arrival_time_target - departure_time) AS in_vehicle_duration FROM legs WHERE journeys.journey_id = legs.journey_id AND trip_I != -1 GROUP BY journey_id)")
+                    "(SELECT sum(arrival_time_target - departure_time) AS in_vehicle_duration FROM legs "
+                    "WHERE journeys.journey_id = legs.journey_id AND trip_I != -1 GROUP BY journey_id)")
         cur.execute("UPDATE journeys "
                     "SET "
                     "walking_duration = "
-                    "(SELECT sum(arrival_time_target - departure_time) AS walking_duration FROM legs WHERE journeys.journey_id = legs.journey_id AND trip_I < 0 GROUP BY journey_id)")
-        cur.execute("UPDATE journeys SET transfer_wait_duration = journey_duration - in_vehicle_duration - walking_duration")
+                    "(SELECT sum(arrival_time_target - departure_time) AS walking_duration FROM legs "
+                    "WHERE journeys.journey_id = legs.journey_id AND trip_I < 0 GROUP BY journey_id)")
+        cur.execute("UPDATE journeys "
+                    "SET transfer_wait_duration = journey_duration - in_vehicle_duration - walking_duration")
         self.conn.commit()
 
     def journey_label_generator(self):
@@ -512,16 +516,16 @@ class JourneyDataManager:
             self.diff_conn.execute("CREATE TABLE IF NOT EXISTS diff_" + table +
                                    " (from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean)")
             insert_stmt = "INSERT OR REPLACE INTO diff_" + table + \
-                            " (from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean) " \
-                            "SELECT t1.from_stop_I, t1.to_stop_I, " \
-                            "t1.min - t2.min AS diff_min, " \
-                            "t1.max - t2.max AS diff_max, " \
-                            "t1.median - t2.median AS diff_median, " \
-                            "t1.mean - t2.mean AS diff_mean " \
-                            "FROM " + before_db_tuple[1] + "." + table + " AS t1, "\
-                            + before_db_tuple[1] + "." + table + " AS t2 " \
-                            "WHERE t1.from_stop_I = t2.from_stop_I " \
-                            "AND t1.to_stop_I = t2.to_stop_I "
+                          "(from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean) " \
+                          "SELECT t1.from_stop_I, t1.to_stop_I, " \
+                          "t1.min - t2.min AS diff_min, " \
+                          "t1.max - t2.max AS diff_max, " \
+                          "t1.median - t2.median AS diff_median, " \
+                          "t1.mean - t2.mean AS diff_mean " \
+                          "FROM " + before_db_tuple[1] + "." + table + " AS t1, " \
+                          + before_db_tuple[1] + "." + table + " AS t2 " \
+                                                               "WHERE t1.from_stop_I = t2.from_stop_I " \
+                                                               "AND t1.to_stop_I = t2.to_stop_I "
             self.diff_conn.execute(insert_stmt)
             self.diff_conn.commit()
 
@@ -669,21 +673,65 @@ class JourneyDataManager:
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_tid ON legs (to_stop_I)')
         self.conn.commit()
 
-    def get_journey_legs_to_target(self, target, fastest_path=True, min_boardings=False, all_leg_sections=True):
+    def get_journey_legs_to_target(self, target, fastest_path=True, min_boardings=False, all_leg_sections=True,
+                                   ignore_walk=False):
         assert not (fastest_path and min_boardings)
         if min_boardings:
             raise NotImplementedError
-        added_constraint = ""
-        if fastest_path:
-            added_constraint = "AND journeys.pre_journey_wait_fp>=0"
         self.attach_database(self.gtfs_dir)
-        query = """SELECT from_stop_I, to_stop_I, type, count(*) AS n_trips FROM
-                    (SELECT legs.*, routes.type AS type
-                    FROM legs, journeys, other.trips, other.routes
-                    WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s
-                    AND legs.trip_I = trips.trip_I AND trips.route_I = routes.route_I %s) sq1
-                    GROUP BY from_stop_I, to_stop_I, type""" % (str(target), added_constraint)
-        return pd.read_sql_query(query, self.conn)
+        added_constraints = ""
+        if fastest_path:
+            added_constraints += " AND journeys.pre_journey_wait_fp>=0"
+        if ignore_walk:
+            added_constraints += " AND legs.trip_I >= 0"
+        if all_leg_sections:
+            df = self._get_journey_legs_to_target_with_all_sections(target, added_constraints)
+        else:
+
+            query = """SELECT from_stop_I, to_stop_I, coalesce(type, -1) AS type,
+                        count(*) AS n_trips
+                        FROM
+                        (SELECT legs.* FROM legs, journeys
+                        WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s %s) q1
+                        LEFT JOIN (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
+                        ON q1.trip_I = q2.trip_I
+                        GROUP BY from_stop_I, to_stop_I, type""" % (str(target), added_constraints)
+            df = pd.read_sql_query(query, self.conn)
+
+        return df
+
+    def _get_journey_legs_to_target_with_all_sections(self, target, added_constraint):
+        def gen_pairs(stop_lists):
+            for stop_list in stop_lists:
+                prev_stop = None
+                stop_pair_list = []
+                for stop in stop_list:
+                    if prev_stop:
+                        stop_pair_list.append((int(prev_stop), int(stop)))
+                    prev_stop = stop
+                yield stop_pair_list
+
+        query = """SELECT leg_stops, coalesce(type, -1) AS type, count(*) AS n_trips FROM
+                  (SELECT legs.* FROM legs, journeys
+                  WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s %s) q1
+                    LEFT JOIN (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
+                    ON q1.trip_I = q2.trip_I
+                    GROUP BY leg_stops, type""" % (str(target), added_constraint)
+        orig_df = pd.read_sql_query(query, self.conn)
+
+        df = pd.DataFrame([x for x in gen_pairs(orig_df.leg_stops.str.split(',').tolist())],
+                          index=[orig_df.type, orig_df.n_trips]).stack()
+
+        df = df.reset_index()
+        df = df.rename(columns={0: "stop_tuple"})
+        df[['from_stop_I', 'to_stop_I']] = df['stop_tuple'].apply(pd.Series)
+
+        df = df.groupby(['from_stop_I', 'to_stop_I', 'type']).agg({'n_trips': [np.sum]})
+        df = df.reset_index()
+        df.columns = df.columns.droplevel(1)
+        df_to_return = df[['from_stop_I', 'to_stop_I', 'type', 'n_trips']]
+
+        return df_to_return
 
 
 class DiffDataManager:
@@ -701,12 +749,23 @@ class DiffDataManager:
 
         for table in tables:
             self.conn.execute("CREATE TABLE IF NOT EXISTS diff_" + table +
-                              " (from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean)")
+                              "(from_stop_I INT, to_stop_I INT, "
+                              "diff_min INT, diff_max INT, diff_median INT, diff_mean INT, "
+                              "rel_diff_min REAL, rel_diff_max REAL, rel_diff_median REAL, rel_diff_mean REAL)")
             insert_stmt = "INSERT OR REPLACE INTO diff_" + table + \
-                          " (from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean) " \
-                          "SELECT t1.from_stop_I, t1.to_stop_I, t1.min - t2.min AS diff_min, " \
-                          "t1.max - t2.max AS diff_max, t1.median - t2.median AS diff_median, " \
-                          "t1.mean - t2.mean AS diff_mean " \
+                          " (from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean, " \
+                          "rel_diff_min, rel_diff_max, rel_diff_median, rel_diff_mean) " \
+                          "SELECT " \
+                          "t1.from_stop_I, " \
+                          "t1.to_stop_I, " \
+                          "t1.min - t2.min AS diff_min, " \
+                          "t1.max - t2.max AS diff_max, " \
+                          "t1.median - t2.median AS diff_median, " \
+                          "t1.mean - t2.mean AS diff_mean, " \
+                          "(t1.min - t2.min)*1.0/t2.min AS rel_diff_min, " \
+                          "(t1.max - t2.max)*1.0/t2.max AS rel_diff_max, " \
+                          "(t1.median - t2.median)*1.0/t2.median AS rel_diff_median, " \
+                          "(t1.mean - t2.mean)*1.0/t2.mean AS rel_diff_mean " \
                           "FROM " + after_db_name + "." + table + " AS t1, "\
                           + before_db_name + "." + table + \
                           " AS t2 WHERE t1.from_stop_I = t2.from_stop_I AND t1.to_stop_I = t2.to_stop_I "
@@ -720,15 +779,21 @@ class DiffDataManager:
         print("other database attached:", cur.fetchall())
         return self.conn
 
-    def get_table_with_coordinates(self, gtfs, table_name, target=None):
-        df = self.get_table_as_dataframe(table_name, target)
+    def get_table_with_coordinates(self, gtfs, table_name, target=None, use_relative=False):
+        df = self.get_table_as_dataframe(table_name, use_relative, target)
         return gtfs.add_coordinates_to_df(df, join_column='from_stop_I')
 
-    def get_table_as_dataframe(self, table_name, target=None):
-        query = "SELECT * FROM " + table_name
+    def get_table_as_dataframe(self, table_name, use_relative, target=None):
+        if use_relative:
+            query = "SELECT from_stop_I, to_stop_I, rel_diff_min, rel_diff_max, rel_diff_median, rel_diff_mean FROM "\
+                    + table_name
+        else:
+            query = "SELECT from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean FROM " + table_name
         if target:
             query += " WHERE to_stop_I = %s" % target
         return pd.read_sql_query(query, self.conn)
+
+
 
 
 class Parameters(object):
