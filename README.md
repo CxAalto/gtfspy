@@ -103,4 +103,5 @@ If you have any questions on regarding ``gtfspy``, feel free to send the package
 ## See also
 
 [Code for a research project using ``gtfspy``:](https://github.com/rmkujala/ptn_temporal_distances)
+
 [Web-visualization tool utilizing gtfspy (gtfspy-webviz)](https://github.com/CxAalto/gtfspy-webviz)
