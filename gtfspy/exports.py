@@ -65,7 +65,6 @@ def write_stops_geojson(gtfs, out_file, fields=None):
 
     features = []
     for i, node_tuple in enumerate(nodes.itertuples()):
-        print(i)
         feature = {"type": "Feature",
                     "id": str(i),
                     "geometry": {

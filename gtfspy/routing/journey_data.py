@@ -793,7 +793,37 @@ class DiffDataManager:
             query += " WHERE to_stop_I = %s" % target
         return pd.read_sql_query(query, self.conn)
 
-
+    def get_largest_component(self):
+        query = """select
+                    diff_pre_journey_wait_fp.from_stop_I, diff_pre_journey_wait_fp.to_stop_I,
+                    CASE
+                    WHEN abs(diff_pre_journey_wait_fp.diff_mean)<180 AND abs(diff_in_vehicle_duration.diff_mean)<180
+                    AND   abs(diff_transfer_wait_duration.diff_mean)<180 AND   abs(diff_walking_duration.diff_mean)<180
+                    THEN "equal"
+                    WHEN abs(diff_pre_journey_wait_fp.diff_mean) > abs(diff_in_vehicle_duration.diff_mean)
+                    AND  abs(diff_pre_journey_wait_fp.diff_mean) > abs(diff_transfer_wait_duration.diff_mean)
+                    AND  abs(diff_pre_journey_wait_fp.diff_mean) > abs(diff_walking_duration.diff_mean)
+                    THEN "journey_wait_fp"
+                    WHEN abs(diff_in_vehicle_duration.diff_mean) > abs(diff_pre_journey_wait_fp.diff_mean)
+                    AND  abs(diff_in_vehicle_duration.diff_mean) > abs(diff_transfer_wait_duration.diff_mean)
+                    AND  abs(diff_in_vehicle_duration.diff_mean) > abs(diff_walking_duration.diff_mean)
+                    THEN "in_vehicle_duration"
+                    WHEN abs(diff_transfer_wait_duration.diff_mean) > abs(diff_in_vehicle_duration.diff_mean)
+                    AND  abs(diff_transfer_wait_duration.diff_mean) > abs(diff_pre_journey_wait_fp.diff_mean)
+                     AND  abs(diff_transfer_wait_duration.diff_mean) > abs(diff_walking_duration.diff_mean)
+                     THEN "transfer_wait_duration"
+                    WHEN abs(diff_walking_duration.diff_mean) > abs(diff_in_vehicle_duration.diff_mean)
+                    AND  abs(diff_walking_duration.diff_mean) > abs(diff_transfer_wait_duration.diff_mean)
+                    AND  abs(diff_walking_duration.diff_mean) > abs(diff_pre_journey_wait_fp.diff_mean)
+                    THEN "walking_duration"
+                    ELSE "equal"
+                    END as largest_change
+                    from diff_pre_journey_wait_fp, diff_in_vehicle_duration, diff_transfer_wait_duration, diff_walking_duration
+                    where diff_pre_journey_wait_fp.rowid =diff_in_vehicle_duration.rowid
+                    AND diff_pre_journey_wait_fp.rowid = diff_transfer_wait_duration.rowid
+                    AND diff_pre_journey_wait_fp.rowid = diff_walking_duration.rowid
+                    AND diff_pre_journey_wait_fp.to_stop_I = 7193"""
+        pass
 
 
 class Parameters(object):
