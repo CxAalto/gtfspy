@@ -65,3 +65,12 @@ class StatsTest(unittest.TestCase):
         self.assertTrue(isinstance(df, dict))
         # assuming test data only has one mode type
         self.assertTrue(len(df.keys()) == 2)
+
+    def test_hourly_frequencies(self):
+        # Selectiong a randome time frame
+        df = stats.hourly_frequencies(self.gtfs, st=21600, et=45000, route_type=3)
+        self.assertTrue(isinstance(df, pd.DataFrame))
+        self.assertTrue(isinstance(df, object))
+        self.assertTrue(len(df.columns), 4)
+
+
