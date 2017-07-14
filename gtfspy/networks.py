@@ -87,10 +87,10 @@ def stop_to_stop_network_for_route_type(gtfs,
             "duration_max" : maximum travel time between stops
             "duration_median" : median travel time between stops
             "duration_avg" : average travel time between stops
-            "d_great_circle" : distance along straight line (wgs84_distance)
+            "d" : distance along straight line (wgs84_distance)
             "distance_shape" : minimum distance along shape
             "capacity_estimate" : approximate capacity passed through the stop
-            "route_ids" : route id
+            "route_I_counts" : dict from route_I to counts
     start_time_ut: int
         start time of the time span (in unix time)
     end_time_ut: int
