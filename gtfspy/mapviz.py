@@ -12,8 +12,6 @@ import matplotlib as mpl
 This module contains functions for plotting (static) visualizations of the public transport networks using matplotlib.
 """
 
-smopy.TILE_SERVER = "https://cartodb-basemaps-1.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
-
 def _get_median_centered_plot_bounds(g):
     lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
     lat_median, lon_median = get_median_lat_lon_of_stops(g)
@@ -134,6 +132,8 @@ def plot_all_stops(g, ax=None):
 
 
 def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None):
+    OLD_SMOPY_TILE_SERVER = smopy.TILE_SERVER
+    smopy.TILE_SERVER = "https://cartodb-basemaps-1.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
     args = (lat_min, lat_max, lon_min, lon_max, z)
     if args not in get_smopy_map.maps:
         kwargs = {}
@@ -146,6 +146,7 @@ def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None):
             raise RuntimeError("\n Could not load background map from the tile server: " + smopy.TILE_SERVER +
                                "\n Please check that the tile server exists and "
                                "that your are connected to the internet.")
+    smopy.TILE_SERVER = OLD_SMOPY_TILE_SERVER
     return get_smopy_map.maps[args]
 
 get_smopy_map.maps = {}
