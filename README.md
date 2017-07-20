@@ -91,6 +91,7 @@ If you use this code for scientific purposes, please cite our paper [TO BE ANNOU
 ## Acknowledgments
 
 * The development of this Python package has benefited from the support by Academy of Finland through the DeCoNet project.
+* For running the Java routing, we use the [Graphhopper routing library](https://github.com/graphhopper/graphhopper).
 
 ## Bugs
 
