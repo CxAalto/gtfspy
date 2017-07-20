@@ -1070,12 +1070,13 @@ class FrequenciesLoader(TableLoader):
                     arr_time = util.day_seconds_to_str_time(arr_time_ds)
                     dep_time = util.day_seconds_to_str_time(dep_time_ds)
                     cur.execute(query, (int(trip_I), int(stop_I), arr_time, dep_time, int(seq + 1),
-                                        int(arr_time_hour), shape_break, int(arr_time_ds), int(dep_time_ds)))
+                                        int(arr_time_hour), int(shape_break), int(arr_time_ds), int(dep_time_ds)))
 
         trip_Is = frequencies_df['trip_I'].unique()
         for trip_I in trip_Is:
             for table in ["trips", "stop_times"]:
                 cur.execute("DELETE FROM {table} WHERE trip_I={trip_I}".format(table=table, trip_I=trip_I))
+        self._conn.commit()
 
 
 class FeedInfoLoader(TableLoader):
@@ -1526,13 +1527,14 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     # Do the actual importing.
     loaders = [L(gtfssource=gtfs_sources, print_progress=print_progress, **kwargs) for L in Loaders]
 
-    for Loader in loaders:
-        Loader.assert_exists_if_required()
+    for loader in loaders:
+        loader.assert_exists_if_required()
 
     # Do initial import.  This consists of making tables, raw insert
     # of the CSVs, and then indexing.
-    for Loader in loaders:
-        Loader.import_(conn)
+
+    for loader in loaders:
+        loader.import_(conn)
 
     # Do any operations that require all tables present.
     for Loader in loaders:
