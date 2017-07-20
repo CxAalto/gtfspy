@@ -1390,7 +1390,6 @@ def calculate_trip_shape_breakpoints(conn):
         cache_key = (shape_id, tuple(x['stop_I'] for x in stop_points))
         if cache_key in breakpoints_cache:
             breakpoints = breakpoints_cache[cache_key]
-
         else:
             # Must re-calculate breakpoints:
 
@@ -1427,7 +1426,7 @@ def calculate_trip_shape_breakpoints(conn):
         assert len(breakpoints) == len(stop_points)
         cur.executemany('UPDATE stop_times SET shape_break=? '
                         'WHERE trip_I=? AND seq=? ',
-                        ((bkpt, trip_I, stpt['seq'])
+                        ((int(bkpt), int(trip_I), int(stpt['seq']))
                          for bkpt, stpt in zip(breakpoints, stop_points)))
     if count_bad_shape_fit > 0:
         print(" Shape trip breakpoints: %s bad fits" % count_bad_shape_fit)
