@@ -642,7 +642,6 @@ class StopTimesLoader(TableLoader):
         # Resequence seq value to increments of 1 starting from 1
         rows = cur.execute('SELECT ROWID, trip_I, seq FROM stop_times ORDER BY trip_I, seq').fetchall()
 
-
         old_trip_I = ''
         for row in rows:
             rowid = row[0]
@@ -655,8 +654,6 @@ class StopTimesLoader(TableLoader):
                 cur.execute('UPDATE stop_times SET seq = ? WHERE ROWID = ?', (correct_seq, rowid))
             old_trip_I = trip_I
             correct_seq += 1
-
-
 
     @classmethod
     def index(cls, cur):
@@ -1384,9 +1381,8 @@ def calculate_trip_shape_breakpoints(conn):
                             lon=row[2],
                             stop_I=row[3])
                        for row in cur if row[1] and row[2]]
-        # Calculate a cache key for this sequence.  If shape_id and
-        # all stop_Is are the same, then we assume that it is the same
-        # route and re-use existing breakpoints.
+        # Calculate a cache key for this sequence.
+        # If both shape_id, and all stop_Is are same, then we can re-use existing breakpoints:
         cache_key = (shape_id, tuple(x['stop_I'] for x in stop_points))
         if cache_key in breakpoints_cache:
             breakpoints = breakpoints_cache[cache_key]
