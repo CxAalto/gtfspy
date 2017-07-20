@@ -1057,8 +1057,18 @@ class FrequenciesLoader(TableLoader):
                 dep_times_ds = dep_times_ds - min(dep_times_ds) + start_time
                 arr_times_ds = stop_time_data['arr_time_ds']
                 arr_times_ds = arr_times_ds - min(arr_times_ds) + start_time
-                shape_breaks = stop_time_data['shape_break']
+                shape_breaks_series = stop_time_data['shape_break']
                 stop_Is = stop_time_data['stop_I']
+
+                shape_breaks = []
+                for shape_break in shape_breaks_series:
+                    value = None
+                    try:
+                        value = int(shape_break)
+                    except Exception:
+                        pass
+                    shape_breaks.append(value)
+
                 for seq, (dep_time_ds, arr_time_ds, shape_break, stop_I) in enumerate(zip(dep_times_ds,
                                                                                           arr_times_ds,
                                                                                           shape_breaks,
@@ -1069,8 +1079,9 @@ class FrequenciesLoader(TableLoader):
                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
                     arr_time = util.day_seconds_to_str_time(arr_time_ds)
                     dep_time = util.day_seconds_to_str_time(dep_time_ds)
+
                     cur.execute(query, (int(trip_I), int(stop_I), arr_time, dep_time, int(seq + 1),
-                                        int(arr_time_hour), int(shape_break), int(arr_time_ds), int(dep_time_ds)))
+                                        int(arr_time_hour), shape_break, int(arr_time_ds), int(dep_time_ds)))
 
         trip_Is = frequencies_df['trip_I'].unique()
         for trip_I in trip_Is:
