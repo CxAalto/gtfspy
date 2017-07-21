@@ -9,6 +9,7 @@ from gtfspy.filter import FilterExtract
 from gtfspy.import_gtfs import import_gtfs
 import hashlib
 
+
 class TestGTFSfilter(unittest.TestCase):
 
     def setUp(self):

@@ -19,6 +19,7 @@ class FilterExtract(object):
                  G,
                  copy_db_path,
                  buffer_distance=None,
+                 hard_buffer_distance=None,
                  buffer_lat=None,
                  buffer_lon=None,
                  update_metadata=True,
@@ -92,6 +93,7 @@ class FilterExtract(object):
         self.buffer_lat = buffer_lat
         self.buffer_lon = buffer_lon
         self.buffer_distance = buffer_distance
+        self.hard_buffer_distance = hard_buffer_distance
         self.update_metadata = update_metadata
 
         if agency_distance is not None:
@@ -136,8 +138,10 @@ class FilterExtract(object):
         if (self.start_date is not None) and (self.end_date is not None):
             start_date_ut = self.gtfs.get_day_start_ut(self.start_date)
             end_date_ut = self.gtfs.get_day_start_ut(self.end_date)
-            if self.copy_db_conn.execute("select count(*) from day_trips2 where start_time_ut is null or end_time_ut is null").fetchone() != (0,):
-                raise ValueError("Missing information in day_trips2 (start_time_ut and/or end_time_ut), check trips.start_time_ds and trips.end_time_ds.")
+            if self.copy_db_conn.execute("SELECT count(*) FROM day_trips2 WHERE start_time_ut IS null "
+                                         "OR end_time_ut IS null").fetchone() != (0,):
+                raise ValueError("Missing information in day_trips2 (start_time_ut and/or end_time_ut), "
+                                 "check trips.start_time_ds and trips.end_time_ds.")
             logging.info("Filtering based on agency_ids")
             # negated from import_gtfs
             table_to_remove_map = {
@@ -225,7 +229,6 @@ class FilterExtract(object):
 
             logging.info("Making date extract")
 
-
             start_date_query = "UPDATE calendar " \
                                "SET start_date='{start_date}' " \
                                "WHERE start_date<'{start_date}' ".format(start_date=self.start_date)
@@ -239,20 +242,20 @@ class FilterExtract(object):
 
             # then recursively delete further data:
             self.copy_db_conn.execute('DELETE FROM trips WHERE '
-                                 'trip_I NOT IN (SELECT trip_I FROM days)')
+                                      'trip_I NOT IN (SELECT trip_I FROM days)')
             self.copy_db_conn.execute('DELETE FROM shapes WHERE '
-                                 'shape_id NOT IN (SELECT shape_id FROM trips)')
+                                      'shape_id NOT IN (SELECT shape_id FROM trips)')
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
-                                 'trip_I NOT IN (SELECT trip_I FROM trips)')
+                                      'trip_I NOT IN (SELECT trip_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM stops WHERE '
-                                 'stop_I NOT IN (SELECT stop_I FROM stop_times)')
+                                      'stop_I NOT IN (SELECT stop_I FROM stop_times)')
             self.copy_db_conn.execute('DELETE FROM stop_distances WHERE '
-                                 '   from_stop_I NOT IN (SELECT stop_I FROM stops) '
-                                 'OR to_stop_I   NOT IN (SELECT stop_I FROM stops)')
+                                      '   from_stop_I NOT IN (SELECT stop_I FROM stops) '
+                                      'OR to_stop_I   NOT IN (SELECT stop_I FROM stops)')
             self.copy_db_conn.execute('DELETE FROM routes WHERE '
-                                 'route_I NOT IN (SELECT route_I FROM trips)')
+                                      'route_I NOT IN (SELECT route_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM agencies WHERE '
-                                 'agency_I NOT IN (SELECT agency_I FROM routes)')
+                                      'agency_I NOT IN (SELECT agency_I FROM routes)')
             self.copy_db_conn.commit()
         return
 
@@ -275,23 +278,23 @@ class FilterExtract(object):
                 self.copy_db_conn.execute('DELETE FROM agencies WHERE agency_id=?', (agency_id,))
             # and remove recursively related to the agencies:
             self.copy_db_conn.execute('DELETE FROM routes WHERE '
-                                 'agency_I NOT IN (SELECT agency_I FROM agencies)')
+                                      'agency_I NOT IN (SELECT agency_I FROM agencies)')
             self.copy_db_conn.execute('DELETE FROM trips WHERE '
-                                 'route_I NOT IN (SELECT route_I FROM routes)')
+                                      'route_I NOT IN (SELECT route_I FROM routes)')
             self.copy_db_conn.execute('DELETE FROM calendar WHERE '
-                                 'service_I NOT IN (SELECT service_I FROM trips)')
+                                      'service_I NOT IN (SELECT service_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM calendar_dates WHERE '
-                                 'service_I NOT IN (SELECT service_I FROM trips)')
+                                      'service_I NOT IN (SELECT service_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM days WHERE '
-                                 'trip_I NOT IN (SELECT trip_I FROM trips)')
+                                      'trip_I NOT IN (SELECT trip_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
-                                 'trip_I NOT IN (SELECT trip_I FROM trips)')
+                                      'trip_I NOT IN (SELECT trip_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
-                                 'trip_I NOT IN (SELECT trip_I FROM trips)')
+                                      'trip_I NOT IN (SELECT trip_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM shapes WHERE '
-                                 'shape_id NOT IN (SELECT shape_id FROM trips)')
+                                      'shape_id NOT IN (SELECT shape_id FROM trips)')
             self.copy_db_conn.execute('DELETE FROM day_trips2 WHERE '
-                                 'trip_I NOT IN (SELECT trip_I FROM trips)')
+                                      'trip_I NOT IN (SELECT trip_I FROM trips)')
             self.copy_db_conn.commit()
         return
 
@@ -309,6 +312,9 @@ class FilterExtract(object):
         :param buffer_distance: in kilometers
         :return:
         """
+        print("filtering with lat: " + str(self.buffer_lat) +
+              " lon: " + str(self.buffer_lon) +
+              " buffer distance: " + str(self.buffer_distance))
 
         if (self.buffer_lat is not None) and (self.buffer_lon is not None) and (self.buffer_distance is not None):
             _buffer_distance = self.buffer_distance * 1000
@@ -318,41 +324,62 @@ class FilterExtract(object):
             # that are within the buffer_distance from the buffer_lon and buffer_lat.
             # Then delete all stops that are not between the min_seq and max_seq for any trip_I,
             # Note that if a trip is OUT-IN-OUT-IN-OUT, the process preserves the part IN-OUT-IN of the trip.
+            print("stops before filtering: ", self.copy_db_conn.execute("SELECT count(*) FROM stops").fetchone()[0])
+
             self.copy_db_conn.execute('DELETE FROM stops '
-                                 'WHERE stop_I NOT IN '
-                                 '(SELECT stops.stop_I FROM stop_times, stops, '
-                                 '(SELECT trip_I, min(seq) AS min_seq, max(seq) AS max_seq FROM stop_times, stops '
-                                 'WHERE stop_times.stop_I = stops.stop_I '
-                                 'AND CAST(find_distance(lat, lon, ?, ?) AS INT) < ? '
-                                    'GROUP BY trip_I) q1 '
-                                 'WHERE stop_times.stop_I = stops.stop_I '
-                                    'AND stop_times.trip_I = q1.trip_I '
-                                 'AND seq >= min_seq '
-                                 'AND seq <= max_seq '
-                                 ')', (self.buffer_lat, self.buffer_lon, _buffer_distance))
+                                      'WHERE stop_I NOT IN '
+                                      '(SELECT stops.stop_I FROM stop_times, stops, '
+                                      '(SELECT trip_I, min(seq) AS min_seq, max(seq) AS max_seq FROM stop_times, stops '
+                                      'WHERE stop_times.stop_I = stops.stop_I '
+                                      'AND CAST(find_distance(lat, lon, ?, ?) AS INT) < ? '
+                                      'GROUP BY trip_I) q1 '
+                                      'WHERE stop_times.stop_I = stops.stop_I '
+                                      'AND stop_times.trip_I = q1.trip_I '
+                                      'AND seq >= min_seq '
+                                      'AND seq <= max_seq '
+                                      ')', (self.buffer_lat, self.buffer_lon, _buffer_distance))
+            print("stops after first filtering: ", self.copy_db_conn.execute("SELECT count(*) FROM stops").fetchone()[0])
+
+            if self.hard_buffer_distance:
+                print("filtering with hard buffer")
+                _hard_buffer_distance = self.hard_buffer_distance * 1000
+                self.copy_db_conn.execute('DELETE FROM stops '
+                                          'WHERE stop_I NOT IN '
+                                          '(SELECT stop_I FROM stops '
+                                          'WHERE CAST(find_distance(lat, lon, ?, ?) AS INT) < ?) ',
+                                          (self.buffer_lat, self.buffer_lon, _hard_buffer_distance))
+
+            print("stops after second filtering: ", self.copy_db_conn.execute("SELECT count(*) FROM stops").fetchone()[0])
 
             # Delete all stop_times for uncovered stops
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
-                                 'stop_I NOT IN (SELECT stop_I FROM stops)')
+                                      'stop_I NOT IN (SELECT stop_I FROM stops)')
             # Delete trips with only one stop
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
-                                 'trip_I IN (SELECT trip_I FROM '
-                                 '(SELECT trip_I, count(*) AS N_stops from stop_times '
-                                 'GROUP BY trip_I) q1 '
-                                 'WHERE N_stops = 1)')
-
+                                      'trip_I IN (SELECT trip_I FROM '
+                                      '(SELECT trip_I, count(*) AS N_stops from stop_times '
+                                      'GROUP BY trip_I) q1 '
+                                      'WHERE N_stops = 1)')
+            # Delete trips with only one stop but several instances in stop_times
+            self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
+                                      'trip_I IN (SELECT q1.trip_I AS trip_I FROM '
+                                        '(SELECT trip_I, stop_I, count(*) AS stops_per_stop FROM stop_times '
+                                        'GROUP BY trip_I, stop_I) q1, '
+                                        '(SELECT trip_I, count(*) as n_stops FROM stop_times '
+                                        'GROUP BY trip_I) q2 '
+                                        'WHERE q1.trip_I = q2.trip_I AND n_stops = stops_per_stop)')
             # Consecutively delete all the rest remaining.
             self.copy_db_conn.execute('DELETE FROM trips WHERE '
-                                 'trip_I NOT IN (SELECT trip_I FROM stop_times)')
+                                      'trip_I NOT IN (SELECT trip_I FROM stop_times)')
             self.copy_db_conn.execute('DELETE FROM routes WHERE '
-                                 'route_I NOT IN (SELECT route_I FROM trips)')
+                                      'route_I NOT IN (SELECT route_I FROM trips)')
             self.copy_db_conn.execute('DELETE FROM agencies WHERE '
-                                 'agency_I NOT IN (SELECT agency_I FROM routes)')
+                                      'agency_I NOT IN (SELECT agency_I FROM routes)')
             self.copy_db_conn.execute('DELETE FROM shapes WHERE '
-                                 'shape_id NOT IN (SELECT shape_id FROM trips)')
+                                      'shape_id NOT IN (SELECT shape_id FROM trips)')
             self.copy_db_conn.execute('DELETE FROM stop_distances WHERE '
-                                 'from_stop_I NOT IN (SELECT stop_I FROM stops)'
-                                 'OR to_stop_I NOT IN (SELECT stop_I FROM stops)')
+                                      'from_stop_I NOT IN (SELECT stop_I FROM stops)'
+                                      'OR to_stop_I NOT IN (SELECT stop_I FROM stops)')
             self.copy_db_conn.commit()
         return
 

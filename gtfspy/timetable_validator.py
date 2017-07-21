@@ -131,7 +131,8 @@ class TimetableValidator(object):
             route_types.FERRY    : 80,
             route_types.CABLE_CAR: 50,
             route_types.GONDOLA  : 50,
-            route_types.FUNICULAR: 50
+            route_types.FUNICULAR: 50,
+            route_types.AIRCRAFT : 1000
         }
         max_trip_time = 7200  # seconds
         self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)

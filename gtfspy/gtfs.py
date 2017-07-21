@@ -1348,7 +1348,7 @@ class GTFS(object):
         from_indices = numpy.nonzero(
             (events_result['trip_I'][:-1].values == events_result['trip_I'][1:].values) *
             (events_result['seq'][:-1].values < events_result['seq'][1:].values)
-        )[0]
+            )[0]
         to_indices = from_indices + 1
         # these should have same trip_ids
         assert (events_result['trip_I'][from_indices].values == events_result['trip_I'][to_indices].values).all()
@@ -1620,6 +1620,18 @@ class GTFS(object):
         cur.execute("PRAGMA database_list")
         print("GTFS database attached:", cur.fetchall())
 
+    def update_stop_coordinates(self, stop_updates):
+        """
+
+        :param stop_updates: DataFrame
+        :return:
+        """
+        cur = self.conn.cursor()
+
+        stop_values = [(values.lat, values.lon, values.stop_id) for values in stop_updates.itertuples()]
+        cur.executemany("""UPDATE stops SET lat = ?, lon = ? WHERE stop_id = ?""", stop_values)
+        self.conn.commit()
+
 
 class GTFSMetadata(object):
     """
@@ -1763,7 +1775,7 @@ def main(cmd, args):
             data = g.get_all_route_shapes(use_shapes=True)
 
         elif cmd == 'export_shapefile_segment_counts':
-            date = args[2] # '2016-04-06'
+            date = args[2]  # '2016-04-06'
             d = datetime.datetime.strptime(date, '%Y-%m-%d').date()
             day_start = g.get_day_start_ut(d + datetime.timedelta(7 - d.isoweekday() + 1))
             start_time = day_start + 3600 * 7
