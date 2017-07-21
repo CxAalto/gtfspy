@@ -1,5 +1,4 @@
-from gtfspy.import_gtfs import decode_six
-from gtfspy.import_loaders.table_loader import TableLoader
+from gtfspy.import_loaders.table_loader import TableLoader, decode_six
 
 
 class RouteLoader(TableLoader):

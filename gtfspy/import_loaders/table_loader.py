@@ -1,12 +1,12 @@
 import codecs
 import csv
 import os
+import sys
 import zipfile
 
 from six import string_types
 
 from gtfspy import util
-from gtfspy.import_gtfs import ignore_tables
 
 
 class TableLoader(object):
@@ -396,3 +396,15 @@ class TableLoader(object):
     @classmethod
     def post_import_round2(cls, conn):
         pass
+
+
+ignore_tables = set()
+
+
+def decode_six(string):
+    version = sys.version_info[0]
+    if version == 2:
+        return string.decode('utf-8')
+    else:
+        assert(isinstance(string, str))
+        return string

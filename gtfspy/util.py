@@ -5,7 +5,6 @@ import contextlib
 import datetime
 import io
 import math
-import pandas as pd
 import os
 import shutil
 import sys
@@ -15,6 +14,7 @@ from math import cos
 
 import networkx
 import numpy
+import pandas as pd
 import shapefile as shp
 
 """
@@ -410,6 +410,4 @@ def difference_of_pandas_dfs(df_self, df_other, col_names=None):
     df_gpby = df_diff.groupby(col_names)
     idx = [x[0] for x in list(df_gpby.groups.values()) if len(x) == 2]
     df_diff = df_diff.reindex(idx)
-
     return df_diff
-

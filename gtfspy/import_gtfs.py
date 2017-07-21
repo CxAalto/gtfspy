@@ -4,11 +4,10 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import sys
-
 from gtfspy.import_loaders import AgencyLoader, CalendarDatesLoader, CalendarLoader, DayLoader, \
     DayTripsMaterializer, FeedInfoLoader, FrequenciesLoader, TripLoader, MetadataLoader, RouteLoader, \
     ShapeLoader, StopDistancesLoader, StopLoader, StopTimesLoader, TransfersLoader
+from gtfspy.import_loaders.table_loader import ignore_tables, decode_six
 
 """
 Importing GTFS into a sqlite database.
@@ -24,34 +23,6 @@ from six import string_types
 from gtfspy import stats
 from gtfspy import util
 from gtfspy.gtfs import GTFS
-
-
-def decode_six(string):
-    version = sys.version_info[0]
-    if version == 2:
-        return string.decode('utf-8')
-    else:
-        assert(isinstance(string, str))
-        return string
-
-
-def validate_day_start_ut(conn):
-    """This validates the day_start_ut of the days table."""
-    G = GTFS(conn)
-    cur = conn.execute('SELECT date, day_start_ut FROM days')
-    for date, day_start_ut in cur:
-        #print date, day_start_ut
-        assert day_start_ut == G.get_day_start_ut(date)
-
-
-def main_make_views(gtfs_fname):
-    """Re-create all views.
-    """
-    print("creating views")
-    conn = GTFS(fname=gtfs_fname).conn
-    for L in Loaders:
-        L(None).make_views(conn)
-    conn.commit()
 
 
 Loaders = [AgencyLoader,  # deps: -
@@ -72,8 +43,7 @@ Loaders = [AgencyLoader,  # deps: -
            ]
 postprocessors = [
     #validate_day_start_ut,
-    ]
-ignore_tables = set()
+]
 
 
 def import_gtfs(gtfs_sources, output, preserve_connection=False,
@@ -95,7 +65,6 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     location_name: str, optional
         set the location of this database
     """
-
     if isinstance(output, sqlite3.Connection):
         conn = output
     else:
@@ -204,9 +173,23 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     if not (preserve_connection is True):
         conn.close()
 
+def validate_day_start_ut(conn):
+    """This validates the day_start_ut of the days table."""
+    G = GTFS(conn)
+    cur = conn.execute('SELECT date, day_start_ut FROM days')
+    for date, day_start_ut in cur:
+        #print date, day_start_ut
+        assert day_start_ut == G.get_day_start_ut(date)
 
 
-
+def main_make_views(gtfs_fname):
+    """Re-create all views.
+    """
+    print("creating views")
+    conn = GTFS(fname=gtfs_fname).conn
+    for L in Loaders:
+        L(None).make_views(conn)
+    conn.commit()
 
 def main():
     import argparse
