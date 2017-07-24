@@ -56,7 +56,7 @@ class FastestPathAnalyzer:
         return fp_labels
 
     def get_fastest_path_labels(self, include_next_label_outside_interval=False):
-        if include_next_label_outside_interval:
+        if include_next_label_outside_interval or not self._fastest_path_labels:
             return self._fastest_path_labels
         else:
             if self._fastest_path_labels[-1].departure_time == self.end_time_dep:

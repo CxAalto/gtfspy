@@ -462,6 +462,7 @@ class JourneyDataManager:
         for key, value in data_dict.items():
             self.profile_block_to_database(key, value)
 
+    @timeit
     def calculate_pre_journey_waiting_time(self):
         all_fp_labels = []
         for journey_labels, pairs in self.journey_label_generator():
@@ -473,6 +474,7 @@ class JourneyDataManager:
                                       walk_duration=float('inf'))
             fpa.calculate_pre_journey_waiting_times()
             all_fp_labels += fpa.get_fastest_path_labels()
+
         self.update_journey_from_labels(all_fp_labels, "pre_journey_wait_fp")
 
     def update_journey_from_labels(self, labels, attribute):

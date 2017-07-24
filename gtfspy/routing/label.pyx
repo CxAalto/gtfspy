@@ -823,5 +823,5 @@ cdef class LabelGeneric:
                                            self.arrival_time_target, self.movement_duration+walk_duration, True, connection=connection, previous_label=self)
 
     def __str__(self):
-        return str((self.departure_time, self.arrival_time_target, self.movement_duration, self.previous_label, self.connection))
+        return str((self.departure_time, self.arrival_time_target, self.movement_duration))
 
