@@ -195,7 +195,7 @@ def plot_route_network_thumbnail(g):
     return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
 
 
-def plot_stops_with_attributes(lats, lons, attribute, colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
+def plot_stops_with_attributes(lats, lons, attribute, s=0.5,  colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
 
     lon_min = min(lons)
     lon_max = max(lons)
@@ -208,7 +208,7 @@ def plot_stops_with_attributes(lats, lons, attribute, colorbar=False, ax=None, c
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=0.8)
 
     xs, ys = smopy_map.to_pixels(lats, lons)
-    cax = ax.scatter(xs, ys, c=attribute, s=0.5, cmap=cmap, norm=norm, alpha=alpha)
+    cax = ax.scatter(xs, ys, c=attribute, s=s, cmap=cmap, norm=norm, alpha=alpha)
 
     ax.set_xlim(min(xs), max(xs))
     ax.set_ylim(max(ys), min(ys))
