@@ -8,9 +8,8 @@ from gtfspy.gtfs import GTFS
 from gtfspy.routing.label import LabelTimeAndRoute, LabelTimeWithBoardingsCount, LabelTimeBoardingsAndRoute, \
     compute_pareto_front, LabelGeneric
 from gtfspy.routing.fastest_path_analyzer import FastestPathAnalyzer
-from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
+from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAnalyzerTimeAndVehLegs
 from gtfspy.util import timeit
-
 
 class JourneyDataManager:
 
@@ -22,7 +21,6 @@ class JourneyDataManager:
                  track_route=False,
                  track_vehicle_legs=True):
         """
-
         :param gtfs: GTFS object
         :param list_of_stop_profiles: dict of NodeProfileMultiObjective
         :param multitarget_routing: bool
@@ -42,14 +40,18 @@ class JourneyDataManager:
         self.targets = None
         self.origins = None
         self.diff_conn = None
-        self.journey_parameters = {
-            "n_boardings": (float("inf"), 0),
-            "journey_duration": ("t_walk", "t_walk"),
-            "in_vehicle_duration": (float('inf'), 0),
-            "transfer_wait_duration": (float('inf'), 0),
-            "walking_duration": ("t_walk", "t_walk"),
-            "pre_journey_wait_fp": (float('inf'), 0)}
-        self.tables = list(self.journey_parameters.keys())
+        self.journey_properties = {"journey_duration": ("t_walk", "t_walk")}
+        if self.routing_params['track_vehicle_legs']:
+            self.journey_properties["n_boardings"] = (float("inf"), 0)
+        if self.track_route:
+            additional_journey_parameters = {
+                "in_vehicle_duration": (float('inf'), 0),
+                "transfer_wait_duration": (float('inf'), 0),
+                "walking_duration": ("t_walk", "t_walk"),
+                "pre_journey_wait_fp": (float('inf'), 0)
+            }
+            self.journey_properties.update(additional_journey_parameters)
+        self.tables = list(self.journey_properties.keys())
         self.tables += ["temporal_distance"]
 
         if not os.path.isfile(journey_db_path):
@@ -70,13 +72,12 @@ class JourneyDataManager:
         cur.execute('PRAGMA synchronous = OFF;')
         if not self.target_in_db(target_stop):
             if self.track_route:
-                self._insert_journeys_with_route_into_db(stop_profiles, target_stop=target_stop)
+                self._insert_journeys_with_route_into_db(stop_profiles, target_stop=int(target_stop))
             else:
-                self._insert_journeys_into_db_no_route(stop_profiles, target_stop=target_stop)
+                self._insert_journeys_into_db_no_route(stop_profiles, target_stop=int(target_stop))
 
             if self.close_connection:
                 self.conn.close()
-
         print("Finished import process")
 
     def target_in_db(self, target_stop):
@@ -111,13 +112,15 @@ class JourneyDataManager:
                 assert (isinstance(label, LabelTimeWithBoardingsCount))
                 if self.multitarget_routing:
                     target_stop = None
+                else:
+                    target_stop = int(target_stop)
 
-                values = [journey_id,
-                          origin_stop,
+                values = [int(journey_id),
+                          int(origin_stop),
                           target_stop,
                           int(label.departure_time),
                           int(label.arrival_time_target),
-                          label.n_boardings]
+                          int(label.n_boardings)]
 
                 journey_list.append(values)
                 journey_id += 1
@@ -297,8 +300,8 @@ class JourneyDataManager:
     def populate_additional_journey_columns(self):
         # self.add_fastest_path_column()
         # self.add_time_to_prev_journey_fp_column()
-        self.add_time_measures_to_journey()
-        self.calculate_pre_journey_waiting_time()
+        self.compute_journey_time_components()
+        self.calculate_pre_journey_waiting_times_ignoring_direct_walk()
 
     def get_od_pairs(self):
         cur = self.conn.cursor()
@@ -311,14 +314,14 @@ class JourneyDataManager:
         cur = self.conn.cursor()
         if not self.targets:
             cur.execute('SELECT to_stop_I FROM journeys GROUP BY to_stop_I')
-            self.targets = cur.fetchall()
+            self.targets = [target[0] for target in cur.fetchall()]
         return self.targets
 
     def get_origins(self):
         cur = self.conn.cursor()
         if not self.origins:
             cur.execute('SELECT from_stop_I FROM journeys GROUP BY from_stop_I')
-            self.origins = cur.fetchall()
+            self.origins = [origin[0] for origin in cur.fetchall()]
         return self.origins
 
     def get_table_with_coordinates(self, table_name, target=None):
@@ -340,7 +343,7 @@ class JourneyDataManager:
             for origin in self.get_origins():
                 cur.execute('SELECT departure_time, arrival_time_target, journey_id FROM journeys '
                             'WHERE from_stop_I = ? AND to_stop_I = ? '
-                            'ORDER BY departure_time ASC', (origin[0], target[0]))
+                            'ORDER BY departure_time ASC', (origin, target))
                 all_trips = cur.fetchall()
                 all_labels = [LabelTimeAndRoute(x[0], x[1], x[2], False) for x in all_trips] #putting journey_id as movement_duration
                 all_fp_labels = compute_pareto_front(all_labels, finalization=False, ignore_n_boardings=True)
@@ -381,44 +384,54 @@ class JourneyDataManager:
         self.conn.commit()
 
     @timeit
-    def add_time_measures_to_journey(self):
+    def compute_journey_time_components(self):
         print("adding journey components")
         cur = self.conn.cursor()
         cur.execute("UPDATE journeys SET journey_duration = arrival_time_target - departure_time")
-        cur.execute("UPDATE journeys "
-                    "SET "
-                    "in_vehicle_duration = "
-                    "(SELECT sum(arrival_time_target - departure_time) AS in_vehicle_duration FROM legs "
-                    "WHERE journeys.journey_id = legs.journey_id AND trip_I != -1 GROUP BY journey_id)")
-        cur.execute("UPDATE journeys "
-                    "SET "
-                    "walking_duration = "
-                    "(SELECT sum(arrival_time_target - departure_time) AS walking_duration FROM legs "
-                    "WHERE journeys.journey_id = legs.journey_id AND trip_I < 0 GROUP BY journey_id)")
-        cur.execute("UPDATE journeys "
-                    "SET transfer_wait_duration = journey_duration - in_vehicle_duration - walking_duration")
+
+        if self.track_route:
+            cur.execute("UPDATE journeys "
+                        "SET "
+                        "in_vehicle_duration = "
+                        "(SELECT sum(arrival_time_target - departure_time) AS in_vehicle_duration FROM legs "
+                        "WHERE journeys.journey_id = legs.journey_id AND trip_I != -1 GROUP BY journey_id)")
+            cur.execute("UPDATE journeys "
+                        "SET "
+                        "walking_duration = "
+                        "(SELECT sum(arrival_time_target - departure_time) AS walking_duration FROM legs "
+                        "WHERE journeys.journey_id = legs.journey_id AND trip_I < 0 GROUP BY journey_id)")
+            cur.execute("UPDATE journeys "
+                        "SET transfer_wait_duration = journey_duration - in_vehicle_duration - walking_duration")
         self.conn.commit()
+
 
     def journey_label_generator(self):
         conn = self.conn
         conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
 
         for target in self.get_targets():
-            sql = """SELECT journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, journey_duration,
-                      in_vehicle_duration, transfer_wait_duration, walking_duration, departure_time, arrival_time_target
-                      FROM journeys WHERE to_stop_I = %s""" % target[0]
+            if self.track_route:
+                label_features = "journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, " \
+                                 "journey_duration, in_vehicle_duration, transfer_wait_duration, walking_duration, " \
+                                 "departure_time, arrival_time_target"""
+            else:
+                label_features = "journey_id, from_stop_I, to_stop_I, n_boardings, departure_time, " \
+                                 "arrival_time_target"
+            sql = "SELECT " + label_features + " FROM journeys WHERE to_stop_I = %s" % target
 
             df = pd.read_sql_query(sql, self.conn)
             for origin in self.get_origins():
-                selection = df.loc[df['from_stop_I'] == origin[0]]
+                selection = df.loc[df['from_stop_I'] == origin]
                 journey_labels = []
                 for journey in selection.to_dict(orient='records'):
                     journey["pre_journey_wait_fp"] = -1
-                    journey_labels.append(LabelGeneric(journey))
-                yield journey_labels, (origin[0], target[0])
+                    try:
+                        journey_labels.append(LabelGeneric(journey))
+                    except:
+                        print(journey)
+                yield origin, target, journey_labels
 
-    def get_node_profile_analyzer(self, target, origin, start_time_dep, end_time_dep):
+    def get_node_profile_time_analyzer(self, target, origin, start_time_dep, end_time_dep):
         sql = """SELECT journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, journey_duration,
         in_vehicle_duration, transfer_wait_duration, walking_duration, departure_time, arrival_time_target
         FROM journeys WHERE to_stop_I = %s AND from_stop_I = %s""" % (target, origin)
@@ -431,53 +444,81 @@ class JourneyDataManager:
                                   start_time_dep,
                                   end_time_dep,
                                   walk_duration=float('inf'),  # walking time
-                                  label_props_to_consider=list(self.journey_parameters.keys()))
+                                  label_props_to_consider=list(self.journey_properties.keys()))
         return fpa.get_time_analyzer()
 
+
+    def _get_node_profile_analyzer_time_and_veh_legs(self, target, origin, start_time_dep, end_time_dep):
+        sql = """SELECT from_stop_I, to_stop_I, n_boardings, departure_time, arrival_time_target FROM journeys WHERE to_stop_I = %s AND from_stop_I = %s""" % (target, origin)
+        df = pd.read_sql_query(sql, self.conn)
+
+        journey_labels = []
+        for journey in df.itertuples():
+            departure_time = journey.departure_time
+            arrival_time_target = journey.arrival_time_target
+            n_boardings = journey.n_boardings
+            journey_labels.append(LabelTimeWithBoardingsCount(departure_time,
+                                                              arrival_time_target,
+                                                              n_boardings,
+                                                              first_leg_is_walk=float('nan')))
+
+        # This ought to be optimized...
+        query = """SELECT d, d_walk FROM stop_distances WHERE to_stop_I = %s AND from_stop_I = %s""" % (target, origin)
+        df = self.gtfs.execute_custom_query_pandas(query)
+        if len(df) > 0:
+            walk_duration = float(df['d_walk']) / self.routing_params['walk_speed']
+        else:
+            walk_duration = float('inf')
+        analyzer = NodeProfileAnalyzerTimeAndVehLegs(journey_labels,
+                                                     walk_duration,  # walking time
+                                                     start_time_dep,
+                                                     end_time_dep)
+        return analyzer
+
     @timeit
-    def od_pair_data(self, analysis_start_time, analysis_end_time):
+    def compute_travel_impedance_measures_for_od_pairs(self, analysis_start_time, analysis_end_time):
         data_dict = {}
 
         for prop in self.tables:
             data_dict[prop] = []
 
-        for journey_labels, pairs in self.journey_label_generator():
-            kwargs = {"from_stop_I": pairs[0], "to_stop_I": pairs[1]}
-            walking_distance = self.gtfs.get_stop_distance(pairs[0], pairs[1])
+        for origin, target, journey_labels in self.journey_label_generator():
+            kwargs = {"from_stop_I": origin, "to_stop_I": target}
+            walking_distance = self.gtfs.get_stop_distance(origin, target)
             if walking_distance:
-                walking_duration = walking_distance / self.routing_params["walking_speed"]
+                walking_duration = walking_distance / self.routing_params["walk_speed"]
             else:
                 walking_duration = float("inf")
             fpa = FastestPathAnalyzer(journey_labels,
                                       analysis_start_time,
                                       analysis_end_time,
-                                      walk_duration=float('inf'),  # walking time
-                                      label_props_to_consider=list(self.journey_parameters.keys()),
+                                      walk_duration=walking_duration,  # walking time
+                                      label_props_to_consider=list(self.journey_properties.keys()),
                                       **kwargs)
-            profile_block = fpa.get_temporal_distance_analyzer()
-            data_dict["temporal_distance"].append(profile_block.measures_as_dict())
-            fpa.calculate_pre_journey_waiting_times()
-            for key, value in self.journey_parameters.items():
+            temporal_distance_analyzer\
+                = fpa.get_temporal_distance_analyzer()
+            data_dict["temporal_distance"].append(temporal_distance_analyzer.summary_as_dict())
+            fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
+            for key, value in self.journey_properties.items():
                 value = [walking_duration if x == "t_walk" else x for x in value]
-                profile_block = fpa.get_prop_analyzer_flat(key, value[0], value[1])
-                data_dict[key].append(profile_block.measures_as_dict())
+                property_analyzer = fpa.get_prop_analyzer_flat(key, value[0], value[1])
+                data_dict[key].append(property_analyzer.summary_as_dict())
 
         for key, value in data_dict.items():
             self.profile_block_to_database(key, value)
 
     @timeit
-    def calculate_pre_journey_waiting_time(self):
+    def calculate_pre_journey_waiting_times_ignoring_direct_walk(self):
         all_fp_labels = []
-        for journey_labels, pairs in self.journey_label_generator():
+        for origin, target, journey_labels in self.journey_label_generator():
             if not journey_labels:
                 continue
             fpa = FastestPathAnalyzer(journey_labels,
                                       self.measure_parameters["routing_start_time_dep"],
                                       self.measure_parameters["routing_end_time_dep"],
                                       walk_duration=float('inf'))
-            fpa.calculate_pre_journey_waiting_times()
+            fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
             all_fp_labels += fpa.get_fastest_path_labels()
-
         self.update_journey_from_labels(all_fp_labels, "pre_journey_wait_fp")
 
     def update_journey_from_labels(self, labels, attribute):
@@ -630,6 +671,7 @@ class JourneyDataManager:
                          departure_time INT,
                          arrival_time_target INT,
                          n_boardings INT,
+                         journey_duration INT,
                          time_to_prev_journey_fp INT,
                          fastest_path INT)''')
 
@@ -654,7 +696,7 @@ class JourneyDataManager:
             parameters[key] = value
         self.conn.commit()
 
-    def create_indicies(self):
+    def create_indices(self):
         # Next 3 lines are python 3.6 work-arounds again.
         self.conn.isolation_level = None  # former default of autocommit mode
         cur = self.conn.cursor()

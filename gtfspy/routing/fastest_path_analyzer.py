@@ -5,8 +5,8 @@ from gtfspy.routing.profile_block_analyzer import ProfileBlock, ProfileBlockAnal
 
 class FastestPathAnalyzer:
 
-    def __init__(self, labels, start_time_dep, end_time_dep, walk_duration=float('inf'), label_props_to_consider=None,
-                 **kwargs):
+    def __init__(self, labels, start_time_dep, end_time_dep, walk_duration=float('inf'),
+                 label_props_to_consider=None, **kwargs):
         """
         Parameters
         ----------
@@ -64,7 +64,7 @@ class FastestPathAnalyzer:
             else:
                 return self._fastest_path_labels[:-1]
 
-    def calculate_pre_journey_waiting_times(self):
+    def calculate_pre_journey_waiting_times_ignoring_direct_walk(self):
         previous_label = None
         for label in self._fastest_path_labels:
             if previous_label:

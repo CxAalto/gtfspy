@@ -159,13 +159,16 @@ class ProfileBlockAnalyzer:
         else:
             return None
 
-    def measures_as_dict(self):
-        return {"from_stop_I": self.from_stop_I,
-                "to_stop_I": self.to_stop_I,
-                "max": self.max(),
-                "min": self.min(),
-                "mean": self.mean(),
-                "median": self.median()}
+    def summary_as_dict(self):
+        summary = {"max": self.max(),
+                   "min": self.min(),
+                   "mean": self.mean(),
+                   "median": self.median()}
+        if hasattr(self, "from_stop_I"):
+            summary['from_stop_I'] = self.from_stop_I
+        if hasattr(self, "to_stop_I"):
+            summary['to_stop_I'] = self.to_stop_I
+        return summary
 
     def _temporal_distance_cdf(self):
         """

@@ -46,7 +46,7 @@ profiles = mpCSA.stop_profiles
 
 stop_profile = profiles[from_stop_I]
 CUTOFF_TIME = 2 * 3600
-analyzer = NodeProfileAnalyzerTimeAndVehLegs(stop_profile, ROUTING_START_TIME_UT, ROUTING_END_TIME_UT - CUTOFF_TIME)
+analyzer = NodeProfileAnalyzerTimeAndVehLegs.from_profile(stop_profile, ROUTING_START_TIME_UT, ROUTING_END_TIME_UT - CUTOFF_TIME)
 
 stop_dict = G.stops().to_dict("index")
 print("Origin: ", stop_dict[from_stop_I])
