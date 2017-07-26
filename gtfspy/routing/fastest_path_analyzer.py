@@ -64,7 +64,7 @@ class FastestPathAnalyzer:
             else:
                 return self._fastest_path_labels[:-1]
 
-    def calculate_pre_journey_waiting_times(self):
+    def calculate_pre_journey_waiting_times_ignoring_direct_walk(self):
         previous_label = None
         for label in self._fastest_path_labels:
             if previous_label:

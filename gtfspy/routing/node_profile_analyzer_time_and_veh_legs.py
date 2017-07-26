@@ -56,33 +56,17 @@ def _truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
     return new_cmap
 
 
-# class _Block:
-#     def __init__(self, start_time=None, end_time=None, tdist_start=None, tdist_end=None, n_boardings=None):
-#         self.start_time = start_time
-#         self.end_time = end_time
-#         self.tdist_start = tdist_start
-#         self.tdist_end = tdist_end
-#         self.n_boardings = n_boardings
-#
-#     def __str__(self):
-#         parts = []
-#         parts.append(self.start_time)
-#         parts.append(self.end_time)
-#         parts.append(self.tdist_start)
-#         parts.append(self.tdist_end)
-#         parts.append(self.n_boardings)
-#         return str(parts)
-#
-#     def is_walk(self):
-#         return (self.tdist_end == self.tdist_start) and self.tdist_end < float('inf')
-#
-#     def width(self):
-#         return self.end_time - self.start_time
-
-
 class NodeProfileAnalyzerTimeAndVehLegs:
 
-    def __init__(self, node_profile, start_time_dep, end_time_dep):
+    @classmethod
+    def from_profile(cls, node_profile, start_time_dep, end_time_dep):
+        assert (node_profile.label_class == LabelTimeWithBoardingsCount)
+        return NodeProfileAnalyzerTimeAndVehLegs(node_profile.get_final_optimal_labels(),
+                                                 node_profile.get_walk_to_target_duration(),
+                                                 start_time_dep,
+                                                 end_time_dep)
+
+    def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep):
         """
         Initialize the data structures required by
 
@@ -90,15 +74,13 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         ----------
         node_profile: NodeProfileMultiObjective
         """
-        self.node_profile = node_profile
-        assert (self.node_profile.label_class == LabelTimeWithBoardingsCount)
+        self._node_profile_final_labels = labels
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
-        self.all_labels = [label for label in node_profile.get_final_optimal_labels() if
+        self.all_labels = [label for label in self._node_profile_final_labels if
                            (start_time_dep <= label.departure_time <= end_time_dep)]
-
-        after_label_candidates = [label for label in node_profile.get_final_optimal_labels()
-                                  if (label.departure_time > self.end_time_dep)]
+        after_label_candidates = [label for label in self._node_profile_final_labels if
+                                  (label.departure_time > self.end_time_dep)]
         after_label_candidates.sort(key=lambda el: (el.arrival_time_target, el.n_boardings))
         min_n_boardings_observed = float('inf')
         after_labels = []
@@ -113,7 +95,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         else:
             self._labels_within_time_frame = self.all_labels[:-len(after_labels)]
 
-        self._walk_to_target_duration = self.node_profile.get_walk_to_target_duration()
+        self._walk_to_target_duration = walk_to_target_duration
         self._n_boardings_to_simple_time_analyzers = {}
         self._transfers_on_fastest_paths_analyzer = self._get_transfers_on_fastest_path_analyzer()
 
@@ -180,7 +162,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                 valids = []
             else:
                 candidate_labels = [LabelTimeSimple(label.departure_time, label.arrival_time_target)
-                                    for label in self.node_profile.get_final_optimal_labels() if
+                                    for label in self._node_profile_final_labels if
                                     ((self.start_time_dep <= label.departure_time)
                                      and label.n_boardings <= max_n_boardings)]
                 valids = compute_pareto_front(candidate_labels)
