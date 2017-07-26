@@ -12,8 +12,17 @@ from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.util import timeit
 
 
+def attach_database(conn, other_db_path, name="other"):
+    cur = conn.cursor()
+
+    cur.execute("ATTACH '%s' AS '%s'" % (str(other_db_path), name))
+    cur.execute("PRAGMA database_list")
+    print("other database attached:", cur.fetchall())
+    return conn
+
+
 class JourneyDataManager:
-    def __init__(self, gtfs_dir, routing_params, journey_db_dir=None, multitarget_routing=False, close_connection=True,
+    def __init__(self, gtfs_path, routing_params, journey_db_path=None, multitarget_routing=False, close_connection=True,
                  track_route=False, track_vehicle_legs=True):
         """
 
@@ -26,8 +35,8 @@ class JourneyDataManager:
         self.multitarget_routing = multitarget_routing
         self.track_route = track_route
         self.track_vehicle_legs = track_vehicle_legs
-        self.gtfs_dir = gtfs_dir
-        self.gtfs = GTFS(self.gtfs_dir)
+        self.gtfs_path = gtfs_path
+        self.gtfs = GTFS(self.gtfs_path)
         self.gtfs_meta = self.gtfs.meta
         self.gtfs._dont_close = True
         print('location_name: ', self.gtfs_meta["location_name"])
@@ -46,9 +55,9 @@ class JourneyDataManager:
         self.tables = list(self.journey_parameters.keys())
         self.tables += ["temporal_distance"]
 
-        if journey_db_dir:
-            if os.path.isfile(journey_db_dir):
-                self.conn = sqlite3.connect(journey_db_dir)
+        if journey_db_path:
+            if os.path.isfile(journey_db_path):
+                self.conn = sqlite3.connect(journey_db_path)
                 self.measure_parameters = Parameters(self.conn)
                 self._check_that_dbs_match()
 
@@ -451,13 +460,13 @@ class JourneyDataManager:
                                       walk_duration=float('inf'),  # walking time
                                       label_props_to_consider=list(self.journey_parameters.keys()),
                                       **kwargs)
-            profile_block = fpa.get_temporal_distance_analyzer()
-            data_dict["temporal_distance"].append(profile_block.measures_as_dict())
+            profile_block_analyzer = fpa.get_temporal_distance_analyzer()
+            data_dict["temporal_distance"].append(profile_block_analyzer.measures_as_dict())
             fpa.calculate_pre_journey_waiting_times()
             for key, value in self.journey_parameters.items():
                 value = [walking_duration if x == "t_walk" else x for x in value]
-                profile_block = fpa.get_prop_analyzer_flat(key, value[0], value[1])
-                data_dict[key].append(profile_block.measures_as_dict())
+                profile_block_analyzer = fpa.get_prop_analyzer_flat(key, value[0], value[1])
+                data_dict[key].append(profile_block_analyzer.measures_as_dict())
 
         for key, value in data_dict.items():
             self.profile_block_to_database(key, value)
@@ -511,8 +520,8 @@ class JourneyDataManager:
     def initialize_comparison_tables(self, diff_db_path, before_db_tuple, after_db_tuple):
         self.diff_conn = sqlite3.connect(diff_db_path)
 
-        self.diff_conn = self.attach_database(before_db_tuple[0], name=before_db_tuple[1], conn=self.diff_conn)
-        self.diff_conn = self.attach_database(after_db_tuple[0], name=after_db_tuple[1], conn=self.diff_conn)
+        self.diff_conn = attach_database(self.diff_conn, before_db_tuple[0], name=before_db_tuple[1])
+        self.diff_conn = attach_database(self.diff_conn, after_db_tuple[0], name=after_db_tuple[1])
 
         for table in self.tables:
             self.diff_conn.execute("CREATE TABLE IF NOT EXISTS diff_" + table +
@@ -531,15 +540,6 @@ class JourneyDataManager:
             self.diff_conn.execute(insert_stmt)
             self.diff_conn.commit()
 
-    def attach_database(self, other_db_path, name="other", conn=None):
-        if conn:
-            cur = conn.cursor()
-        else:
-            cur = self.conn.cursor()
-        cur.execute("ATTACH '%s' AS '%s'" % (str(other_db_path), name))
-        cur.execute("PRAGMA database_list")
-        print("other database attached:", cur.fetchall())
-        return conn
 
     def initialize_database(self, journey_db_dir):
         assert not os.path.isfile(journey_db_dir)
@@ -639,7 +639,7 @@ class JourneyDataManager:
         parameters = Parameters(self.conn)
 
         parameters["multiple_targets"] = self.multitarget_routing
-        parameters["gtfs_dir"] = self.gtfs_dir
+        parameters["gtfs_dir"] = self.gtfs_path
         for param in ["location_name",
                       "lat_median",
                       "lon_median",
@@ -675,72 +675,12 @@ class JourneyDataManager:
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_tid ON legs (to_stop_I)')
         self.conn.commit()
 
-    def get_journey_legs_to_target(self, target, fastest_path=True, min_boardings=False, all_leg_sections=True,
-                                   ignore_walk=False):
-        assert not (fastest_path and min_boardings)
-        if min_boardings:
-            raise NotImplementedError
-        self.attach_database(self.gtfs_dir)
-        added_constraints = ""
-        if fastest_path:
-            added_constraints += " AND journeys.pre_journey_wait_fp>=0"
-        if ignore_walk:
-            added_constraints += " AND legs.trip_I >= 0"
-        if all_leg_sections:
-            df = self._get_journey_legs_to_target_with_all_sections(target, added_constraints)
-        else:
-
-            query = """SELECT from_stop_I, to_stop_I, coalesce(type, -1) AS type,
-                        count(*) AS n_trips
-                        FROM
-                        (SELECT legs.* FROM legs, journeys
-                        WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s %s) q1
-                        LEFT JOIN (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
-                        ON q1.trip_I = q2.trip_I
-                        GROUP BY from_stop_I, to_stop_I, type""" % (str(target), added_constraints)
-            df = pd.read_sql_query(query, self.conn)
-
-        return df
-
-    def _get_journey_legs_to_target_with_all_sections(self, target, added_constraint):
-        def gen_pairs(stop_lists):
-            for stop_list in stop_lists:
-                prev_stop = None
-                stop_pair_list = []
-                for stop in stop_list:
-                    if prev_stop:
-                        stop_pair_list.append((int(prev_stop), int(stop)))
-                    prev_stop = stop
-                yield stop_pair_list
-
-        query = """SELECT leg_stops, coalesce(type, -1) AS type, count(*) AS n_trips FROM
-                  (SELECT legs.* FROM legs, journeys
-                  WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s %s) q1
-                    LEFT JOIN (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
-                    ON q1.trip_I = q2.trip_I
-                    GROUP BY leg_stops, type""" % (str(target), added_constraint)
-        orig_df = pd.read_sql_query(query, self.conn)
-
-        df = pd.DataFrame([x for x in gen_pairs(orig_df.leg_stops.str.split(',').tolist())],
-                          index=[orig_df.type, orig_df.n_trips]).stack()
-
-        df = df.reset_index()
-        df = df.rename(columns={0: "stop_tuple"})
-        df[['from_stop_I', 'to_stop_I']] = df['stop_tuple'].apply(pd.Series)
-
-        df = df.groupby(['from_stop_I', 'to_stop_I', 'type']).agg({'n_trips': [np.sum]})
-        df = df.reset_index()
-        df.columns = df.columns.droplevel(1)
-        df_to_return = df[['from_stop_I', 'to_stop_I', 'type', 'n_trips']]
-
-        return df_to_return
-
 
 class DiffDataManager:
     def __init__(self, diff_db_path):
         self.conn = sqlite3.connect(diff_db_path)
 
-    def initialize_comparison_tables(self, tables, before_db_tuple, after_db_tuple):
+    def initialize_journey_comparison_tables(self, tables, before_db_tuple, after_db_tuple):
         before_db_path = before_db_tuple[0]
         before_db_name = before_db_tuple[1]
         after_db_path = after_db_tuple[0]
@@ -826,7 +766,6 @@ class DiffDataManager:
                     AND diff_pre_journey_wait_fp.rowid = diff_walking_duration.rowid
                     AND diff_pre_journey_wait_fp.to_stop_I = 7193"""
         pass
-
 
 class Parameters(object):
     """
