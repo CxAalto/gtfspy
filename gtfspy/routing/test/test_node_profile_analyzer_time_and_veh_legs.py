@@ -20,7 +20,7 @@ class TestNodeProfileAnalyzerTimeAndVehLegs(TestCase):
         for label in labels:
             p.update([label])
         p.finalize()
-        analyzer = NodeProfileAnalyzerTimeAndVehLegs(p, start_time, end_time)
+        analyzer = NodeProfileAnalyzerTimeAndVehLegs.from_profile(p, start_time, end_time)
         return analyzer
 
     def test_trip_duration_statistics_empty_profile(self):

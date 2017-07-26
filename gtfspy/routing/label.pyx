@@ -722,6 +722,9 @@ cdef class LabelGeneric:
         assert hasattr(self, "journey_id")
         assert hasattr(self, "from_stop_I")
         assert hasattr(self, "to_stop_I")
+        assert hasattr(self, "departure_time")
+        assert hasattr(self, "arrival_time_target")
+
 
     def __getstate__(self):
         return self.departure_time, self.arrival_time_target, self.movement_duration, self.connection, self.previous_label
