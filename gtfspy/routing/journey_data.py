@@ -13,8 +13,14 @@ from gtfspy.util import timeit
 
 
 class JourneyDataManager:
-    def __init__(self, gtfs_dir, routing_params, journey_db_dir=None, multitarget_routing=False, close_connection=True,
-                 track_route=False, track_vehicle_legs=True):
+
+    def __init__(self, gtfs_dir,
+                 routing_params,
+                 journey_db_path=None,
+                 multitarget_routing=False,
+                 close_connection=True,
+                 track_route=False,
+                 track_vehicle_legs=True):
         """
 
         :param gtfs: GTFS object
@@ -46,14 +52,11 @@ class JourneyDataManager:
         self.tables = list(self.journey_parameters.keys())
         self.tables += ["temporal_distance"]
 
-        if journey_db_dir:
-            if os.path.isfile(journey_db_dir):
-                self.conn = sqlite3.connect(journey_db_dir)
-                self.measure_parameters = Parameters(self.conn)
-                self._check_that_dbs_match()
-
-            else:
-                raise Exception("Database specified does not exist, use run_preparations() method first")
+        if not os.path.isfile(journey_db_path):
+            self.initialize_database(journey_db_path)
+        self.conn = sqlite3.connect(journey_db_path)
+        self.measure_parameters = Parameters(self.conn)
+        self._check_that_dbs_match()
 
     def __del__(self):
         self.gtfs._dont_close = False
@@ -541,10 +544,10 @@ class JourneyDataManager:
         print("other database attached:", cur.fetchall())
         return conn
 
-    def initialize_database(self, journey_db_dir):
-        assert not os.path.isfile(journey_db_dir)
+    def initialize_database(self, journey_db_path):
+        assert not os.path.isfile(journey_db_path)
 
-        self.conn = sqlite3.connect(journey_db_dir)
+        self.conn = sqlite3.connect(journey_db_path)
         self._set_up_database()
         self._initialize_parameter_table()
         print("Database initialized!")
@@ -552,27 +555,25 @@ class JourneyDataManager:
             self.conn.close()
 
     def _set_up_database(self):
-
         self.conn.execute('''CREATE TABLE IF NOT EXISTS parameters(
-                     key TEXT UNIQUE,
-                     value BLOB)''')
+                             key TEXT UNIQUE,
+                             value BLOB)''')
         if self.track_route:
-
             self.conn.execute('''CREATE TABLE IF NOT EXISTS journeys(
-                         journey_id INTEGER PRIMARY KEY,
-                         from_stop_I INT,
-                         to_stop_I INT,
-                         departure_time INT,
-                         arrival_time_target INT,
-                         n_boardings INT,
-                         movement_duration INT,
-                         route TEXT,
-                         journey_duration INT,
-                         pre_journey_wait_fp INT,
-                         in_vehicle_duration INT,
-                         transfer_wait_duration INT,
-                         walking_duration INT,
-                         fastest_path INT)''')
+                             journey_id INTEGER PRIMARY KEY,
+                             from_stop_I INT,
+                             to_stop_I INT,
+                             departure_time INT,
+                             arrival_time_target INT,
+                             n_boardings INT,
+                             movement_duration INT,
+                             route TEXT,
+                             journey_duration INT,
+                             pre_journey_wait_fp INT,
+                             in_vehicle_duration INT,
+                             transfer_wait_duration INT,
+                             walking_duration INT,
+                             fastest_path INT)''')
 
             self.conn.execute('''CREATE TABLE IF NOT EXISTS legs(
                          journey_id INT,
