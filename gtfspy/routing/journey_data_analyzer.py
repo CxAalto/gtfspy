@@ -1,136 +1,120 @@
 import os
 import sqlite3
+import numpy as np
 
-from geopandas import GeoDataFrame
-from pandas import read_sql_query
-from shapely.geometry import Point, LineString
-
+from pandas import read_sql_query, DataFrame, Series
+from gtfspy.gtfs import GTFS
 from gtfspy.util import timeit
-
+from gtfspy.routing.journey_data import attach_database
 
 class JourneyDataAnalyzer:
     # TODO: Transfer stops
     # TODO: circuity/directness
 
-    def __init__(self, journey_db_dir, gtfs_dir):
-        assert os.path.isfile(journey_db_dir)
-        assert os.path.isfile(gtfs_dir)
-        self.conn = sqlite3.connect(journey_db_dir)
-        self._attach_gtfs_database(gtfs_dir)
-        self._create_temporary_views()
+    def __init__(self, journey_db_path, gtfs_path):
+        assert os.path.isfile(journey_db_path)
+        assert os.path.isfile(gtfs_path)
+        self.conn = sqlite3.connect(journey_db_path)
+        self.g = GTFS(gtfs_path)
+        self.gtfs_path = gtfs_path
+        self.conn = attach_database(self.conn, self.gtfs_path)
 
     def __del__(self):
         self.conn.close()
 
-    def _attach_gtfs_database(self, gtfs_dir):
-        cur = self.conn.cursor()
-        cur.execute("ATTACH '%s' as 'gtfs'" % str(gtfs_dir))
-        cur.execute("PRAGMA database_list")
-        print("GTFS database attached:", cur.fetchall())
+    def get_journey_legs_to_target(self, target, fastest_path=True, min_boardings=False, all_leg_sections=True,
+                                   ignore_walk=False):
+        assert not (fastest_path and min_boardings)
+        if min_boardings:
+            raise NotImplementedError
 
-    def _create_temporary_views(self):
-        # could use self_or_parent_I for stop_I?
-        self.conn.execute('''CREATE TEMP VIEW IF NOT EXISTS extended_connections(journey_id,
-                     o_stop_I,
-                     d_stop_I,
-                     from_stop_I,
-                     to_stop_I,
-                     dep_time,
-                     arr_time,
-                     trip_I,
-                     seq,
-                     route,
-                     fastest_path,
-                     from_lat,
-                     from_lon,
-                     to_lat,
-                     to_lon,
-                     o_lat,
-                     o_lon,
-                     d_lat,
-                     d_lon,
-                     route_name,
-                     mode)
-                     AS
-                     SELECT
-                     c.journey_id AS journey_id,
-                     j.from_stop_I AS o_stop_I,
-                     j.to_stop_I AS d_stop_I,
-                     c.from_stop_I AS from_stop_I,
-                     c.to_stop_I AS to_stop_I,
-                     c.dep_time,
-                     c.arr_time,
-                     c.trip_I,
-                     c.seq,
-                     j.route,
-                     j.fastest_path,
-                     from_.lat AS from_lat,
-                     from_.lon AS from_lon,
-                     to_.lat AS to_lat,
-                     to_.lon AS to_lon,
-                     o_.lat AS o_lat,
-                     o_.lon AS o_lon,
-                     d_.lat AS d_lat,
-                     d_.lon AS d_lon,
-                     CASE WHEN c.trip_I = -1 THEN 'walk' ELSE name END AS route_name,
-                     CASE WHEN c.trip_I = -1 THEN -1 ELSE type END AS mode
-                     FROM
-                     (SELECT * FROM connections) c
-                     LEFT JOIN
-                     (SELECT trip_I, trips.route_I, name, type
-                     FROM gtfs.trips, gtfs.routes
-                     WHERE trips.route_I=routes.route_I) r ON c.trip_I = r.trip_I,
-                     (SELECT journey_id, from_stop_I, to_stop_I, route, fastest_path FROM journeys) j,
-                     (SELECT stop_I, lat, lon FROM gtfs.stops) from_,
-                     (SELECT stop_I, lat, lon FROM gtfs.stops) to_,
-                     (SELECT stop_I, lat, lon FROM gtfs.stops) o_,
-                     (SELECT stop_I, lat, lon FROM gtfs.stops) d_
-                     WHERE c.journey_id = j.journey_id
-                     AND c.from_stop_I = from_.stop_I AND c.to_stop_I = to_.stop_I
-                     AND j.from_stop_I = o_.stop_I AND j.to_stop_I = d_.stop_I
-                     ''')
+        added_constraints = ""
+        if fastest_path:
+            added_constraints += " AND journeys.pre_journey_wait_fp>=0"
+        if ignore_walk:
+            added_constraints += " AND legs.trip_I >= 0"
+        if all_leg_sections:
+            df = self._get_journey_legs_to_target_with_all_sections(target, added_constraints)
+        else:
 
-        self.conn.execute('''CREATE TEMP VIEW IF NOT EXISTS extended_journeys(journey_id,
-                     dep_time,
-                     arr_time,
-                     o_stop_I,
-                     d_stop_I,
-                     route,
-                     fastest_path,
-                     o_lat,
-                     o_lon,
-                     d_lat,
-                     d_lon)
-                     AS
-                     SELECT
-                     j.journey_id AS journey_id,
-                     j.dep_time,
-                     j.arr_time,
-                     j.from_stop_I AS o_stop_I,
-                     j.to_stop_I AS d_stop_I,
-                     j.route,
-                     j.fastest_path,
-                     o_.lat AS o_lat,
-                     o_.lon AS o_lon,
-                     d_.lat AS d_lat,
-                     d_.lon AS d_lon
-                     FROM
-                     (SELECT journey_id, dep_time, arr_time, from_stop_I, to_stop_I, route, fastest_path FROM journeys) j,
-                     (SELECT stop_I, lat, lon FROM gtfs.stops) o_,
-                     (SELECT stop_I, lat, lon FROM gtfs.stops) d_
-                     WHERE
-                     j.from_stop_I = o_.stop_I AND j.to_stop_I = d_.stop_I
-                     ''')
+            query = """SELECT from_stop_I, to_stop_I, coalesce(type, -1) AS type,
+                         count(*) AS n_trips
+                         FROM
+                         (SELECT legs.* FROM legs, journeys
+                         WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s %s) q1
+                         LEFT JOIN (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
+                         ON q1.trip_I = q2.trip_I
+                         GROUP BY from_stop_I, to_stop_I, type""" % (str(target), added_constraints)
+            df = read_sql_query(query, self.conn)
 
-    def journey_alternatives_per_stop(self, target=None):
-        query = 'SELECT o_stop_I AS stop_I, o_lat AS lat, o_lon AS lon, count(*) AS n_journeys FROM extended_journeys ' \
-                'GROUP BY o_stop_I'
+        return df
+
+    def _get_journey_legs_to_target_with_all_sections(self, target, added_constraint):
+        def gen_pairs(stop_lists):
+            for stop_list in stop_lists:
+                prev_stop = None
+                stop_pair_list = []
+                for stop in stop_list:
+                    if prev_stop:
+                        stop_pair_list.append((int(prev_stop), int(stop)))
+                    prev_stop = stop
+                yield stop_pair_list
+
+        query = """SELECT leg_stops, coalesce(type, -1) AS type, count(*) AS n_trips FROM
+                   (SELECT legs.* FROM legs, journeys
+                   WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s %s) q1
+                     LEFT JOIN (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
+                     ON q1.trip_I = q2.trip_I
+                     GROUP BY leg_stops, type""" % (str(target), added_constraint)
+        orig_df = read_sql_query(query, self.conn)
+
+        df = DataFrame([x for x in gen_pairs(orig_df.leg_stops.str.split(',').tolist())],
+                          index=[orig_df.type, orig_df.n_trips]).stack()
+
+        df = df.reset_index()
+        df = df.rename(columns={0: "stop_tuple"})
+        df[['from_stop_I', 'to_stop_I']] = df['stop_tuple'].apply(Series)
+
+        df = df.groupby(['from_stop_I', 'to_stop_I', 'type']).agg({'n_trips': [np.sum]})
+        df = df.reset_index()
+        df.columns = df.columns.droplevel(1)
+        df_to_return = df[['from_stop_I', 'to_stop_I', 'type', 'n_trips']]
+
+        return df_to_return
+
+    def journey_alternatives_per_stop_pair(self, target, start_time, end_time):
+        query = """SELECT from_stop_I, to_stop_I, ifnull(1.0*sum(n_sq)/(sum(n_trips)*(sum(n_trips)-1)), 1) AS simpson,
+                    sum(n_trips) AS n_trips, count(*) AS n_routes FROM 
+                    (SELECT from_stop_I, to_stop_I, count(*) AS n_trips, count(*)*(count(*)-1) AS n_sq 
+                    FROM journeys
+                    WHERE pre_journey_wait_fp > 0 AND to_stop_I = %s AND departure_time >= %s AND departure_time <= %s
+                    GROUP BY route) sq1
+                    GROUP BY from_stop_I, to_stop_I""" % (target, start_time, end_time)
         df = read_sql_query(query, self.conn)
+        df = self.g.add_coordinates_to_df(df, join_column="from_stop_I")
 
-        df['geometry'] = df.apply(lambda x: Point((x.lon, x.lat)), axis=1)
-        gdf = GeoDataFrame(df, geometry='geometry')
-        gdf.crs = {'init': 'epsg:4326'}
-        return gdf
+        return df
+
+    def journey_alternative_data_time_weighted(self, target, start_time, end_time):
+        query = """SELECT sum(p*p) AS simpson, sum(n_trips) AS n_trips, count(*) AS n_routes, from_stop_I, to_stop_I FROM
+                    (SELECT 1.0*sum(pre_journey_wait_fp)/total_time AS p, count(*) AS n_trips, route, 
+                    journeys.from_stop_I, journeys.to_stop_I FROM journeys,
+                    (SELECT sum(pre_journey_wait_fp) AS total_time, from_stop_I, to_stop_I FROM journeys
+                    WHERE departure_time >= %s AND departure_time <= %s
+                    GROUP BY from_stop_I, to_stop_I) sq1
+                    WHERE pre_journey_wait_fp > 0 AND sq1.to_stop_I=journeys.to_stop_I AND departure_time >= %s 
+                    AND departure_time <= %s AND journeys.to_stop_I = %s AND sq1.from_stop_I = journeys.from_stop_I 
+                    GROUP BY route) sq2
+                    GROUP BY from_stop_I, to_stop_I""" % (start_time, end_time, start_time, end_time, target)
+        df = read_sql_query(query, self.conn)
+        df = self.g.add_coordinates_to_df(df, join_column="from_stop_I")
+
+        return df
+
+    def _add_to_from_coordinates_to_df(self, df):
+        df = self.g.add_coordinates_to_df(df, join_column="from_stop_I", lat_name="from_lat", lon_name="from_lon")
+        df = self.g.add_coordinates_to_df(df, join_column="to_stop_I", lat_name="to_lat", lon_name="to_lon")
+        return df
 
     def passing_journeys_per_stop(self):
         """
@@ -144,60 +128,8 @@ class JourneyDataAnalyzer:
 
         :return:
         """
-        query = 'SELECT connections.from_stop_I AS from_stop_I, connections.to_stop_I AS to_stop_I, ' \
-                'from_.lat AS from_lat, from_.lon AS from_lon, ' \
-                'to_.lat AS to_lat, to_.lon AS to_lon, count(*) AS n_trip ' \
-                'FROM connections, ' \
-                '(SELECT stop_I, lat, lon  FROM gtfs.stops) from_, ' \
-                '(SELECT stop_I, lat, lon  FROM gtfs.stops) to_ ' \
-                'WHERE from_.stop_I = connections.from_stop_I AND to_.stop_I = connections.to_stop_I ' \
-                'GROUP BY connections.from_stop_I, connections.to_stop_I'
-
-        if time_weighted:
-            raise NotImplementedError
-        if fastest_path:
-            query = ', journeys WHERE connections.journey_id = journeys.journey_id AND journeys.fastest_path = 1 '
-            raise NotImplementedError
-
-        df = read_sql_query(query, self.conn)
-
-        df['geometry'] = df.apply(lambda x: LineString([(x.from_lon, x.from_lat), (x.to_lon, x.to_lat)]), axis=1)
-        gdf = GeoDataFrame(df, geometry='geometry')
-        gdf.crs = {'init': 'epsg:4326'}
-        #gdf.plot()
-        #plt.show()
-        return gdf
-
-    def to_geopandas(self):
         pass
 
-    @timeit
-    def n_route_alternatives(self):
-        """
-        Calculates the
-        :return:
-        """
-        query = "SELECT *, count(*) FROM " \
-                "(SELECT o_stop_I, d_stop_I, group_concat(route_name) AS route FROM " \
-                "(SELECT * FROM extended_connections WHERE fastest_path = 1 ORDER BY journey_id, seq) subquery " \
-                "GROUP BY journey_id) subquery2 " \
-                "GROUP BY route " \
-                "ORDER BY o_stop_I"
-
-        query = 'SELECT *, count(*) AS n_trips  FROM ' \
-                '(SELECT c1.journey_id, o_stop_I, d_stop_I, group_concat(to_stop_I) AS route FROM ' \
-                '(SELECT journey_id, to_stop_I, trip_I, o_stop_I, d_stop_I FROM extended_connections) c1, ' \
-                '(SELECT journey_id, from_stop_I, trip_I FROM extended_connections) c2 ' \
-                'WHERE c1.journey_id=c2.journey_id AND c1.to_stop_I=c2.from_stop_I ' \
-                'AND c1.trip_I != c2.trip_I ' \
-                'GROUP BY c1.journey_id) sq1 ' \
-                'GROUP BY o_stop_I, d_stop_I, route'
-
-        query = 'SELECT o_stop_I, d_stop_I, route, count(*) from extended_journeys ' \
-                'GROUP BY o_stop_I, d_stop_I, route'
-
-        df = read_sql_query(query, self.conn)
-        print(df.to_string)
     def n_departure_stop_alternatives(self):
         """
 
@@ -219,44 +151,11 @@ class JourneyDataAnalyzer:
 
     @timeit
     def get_transfer_stops(self, group_by_routes=False):
-        query = 'SELECT to_stop_I AS stop_I, lat, lon, count(*) AS n_journeys  FROM ' \
-                '(SELECT journey_id, to_stop_I, trip_I FROM connections) c1, ' \
-                '(SELECT journey_id, from_stop_I, trip_I FROM connections) c2, ' \
-                '(SELECT stop_I, lat, lon FROM gtfs.stops) gtfs ' \
-                'WHERE c1.journey_id=c2.journey_id AND c1.to_stop_I=c2.from_stop_I ' \
-                'AND c1.trip_I != c2.trip_I AND c1.to_stop_I=gtfs.stop_I AND c1.trip_I != -1 AND c2.trip_I != -1 ' \
-                'GROUP BY to_stop_I'
-
-        df = read_sql_query(query, self.conn)
-
-        df['geometry'] = df.apply(lambda x: Point((x.lon, x.lat)), axis=1)
-        gdf = GeoDataFrame(df, geometry='geometry')
-        gdf.crs = {'init': 'epsg:4326'}
-        return gdf
+        pass
 
     @timeit
     def get_transfer_walks(self, group_by_routes=False):
-        query = 'SELECT c2.from_stop_I AS from_stop_I, c2.to_stop_I AS to_stop_I, ' \
-                'gtfs1.lat AS from_lat, gtfs1.lon AS from_lon, gtfs2.lat AS to_lat, gtfs2.lon AS to_lon, ' \
-                'count(*) AS n_journeys  ' \
-                'FROM ' \
-                '(SELECT journey_id, to_stop_I, trip_I FROM connections) c1, ' \
-                '(SELECT journey_id, from_stop_I, to_stop_I, trip_I FROM connections) c2, ' \
-                '(SELECT journey_id, from_stop_I, trip_I FROM connections) c3, ' \
-                '(SELECT stop_I, lat, lon FROM gtfs.stops) gtfs1, ' \
-                '(SELECT stop_I, lat, lon FROM gtfs.stops) gtfs2 ' \
-                'WHERE c1.journey_id=c2.journey_id AND c2.journey_id=c3.journey_id ' \
-                'AND c1.to_stop_I=c2.from_stop_I AND c2.to_stop_I=c3.from_stop_I ' \
-                'AND c2.from_stop_I=gtfs1.stop_I AND c2.to_stop_I=gtfs2.stop_I ' \
-                'AND c1.trip_I > -1 AND c2.trip_I = -1 AND c3.trip_I > -1 ' \
-                'GROUP BY c2.from_stop_I, c2.to_stop_I'
-
-        df = read_sql_query(query, self.conn)
-        print(df)
-        df['geometry'] = df.apply(lambda x: LineString([(x.from_lon, x.from_lat), (x.to_lon, x.to_lat)]), axis=1)
-        gdf = GeoDataFrame(df, geometry='geometry')
-        gdf.crs = {'init': 'epsg:4326'}
-        return gdf
+        pass
 
     def get_journey_distance(self):
         pass
