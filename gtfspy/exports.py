@@ -251,7 +251,6 @@ def write_routes_geojson(G, output_file):
         features.append(feature)
     gjson['features'] = features
     if hasattr(output_file, "write"):
-        print(gjson)
         output_file.write(json.dumps(gjson))
     else:
         with open(output_file, 'w') as f:
