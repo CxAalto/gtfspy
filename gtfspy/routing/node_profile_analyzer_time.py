@@ -7,7 +7,8 @@ import pytz
 from matplotlib import dates as md, rcParams
 import matplotlib.pyplot as plt
 
-from gtfspy.routing.profile_block_analyzer import ProfileBlockAnalyzer, ProfileBlock
+from gtfspy.routing.profile_block_analyzer import ProfileBlockAnalyzer
+from gtfspy.routing.profile_block import ProfileBlock
 from gtfspy.routing.node_profile_simple import NodeProfileSimple
 
 
@@ -567,6 +568,11 @@ class NodeProfileAnalyzerTime:
         return numpy.array(non_delta_peak_split_points), \
                numpy.array(non_delta_peak_densities), \
                delta_peak_loc_to_probability_mass
+
+    def get_temporal_distance_at(self, dep_time):
+        return self.profile_block_analyzer.interpolate(dep_time)
+
+
 
     @staticmethod
     def all_measures_and_names_as_lists():

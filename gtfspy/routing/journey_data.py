@@ -43,7 +43,6 @@ class JourneyDataManager:
         self.gtfs = GTFS(self.gtfs_path)
         self.gtfs_meta = self.gtfs.meta
         self.gtfs._dont_close = True
-        print('location_name: ', self.gtfs_meta["location_name"])
         self.conn = None
         self.od_pairs = None
         self.targets = None
@@ -492,7 +491,9 @@ class JourneyDataManager:
         for prop in self.tables:
             data_dict[prop] = []
 
+        print("Computing total number of origins and targets..", end='', flush=True)
         n_pairs_tot = len(self.get_origins()) * len(self.get_targets())
+        print("\rComputing total number of origins and targets")
 
         for i, (origin, target, journey_labels) in enumerate(self.journey_label_generator()):
             print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3),
