@@ -1,6 +1,7 @@
 from gtfspy.routing.label import compute_pareto_front
 from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
-from gtfspy.routing.profile_block_analyzer import ProfileBlock, ProfileBlockAnalyzer
+from gtfspy.routing.profile_block_analyzer import ProfileBlockAnalyzer
+from gtfspy.routing.profile_block import ProfileBlock
 
 
 class FastestPathAnalyzer:
