@@ -23,28 +23,37 @@ class JourneyDataAnalyzer:
         self.conn.close()
 
     def get_journey_legs_to_target(self, target, fastest_path=True, min_boardings=False, all_leg_sections=True,
-                                   ignore_walk=False):
+                                                   ignore_walk=False, diff_threshold=None, diff_path=None):
         assert not (fastest_path and min_boardings)
         if min_boardings:
             raise NotImplementedError
+        if all_leg_sections and diff_threshold:
+            raise NotImplementedError
 
         added_constraints = ""
+        add_diff = ""
         if fastest_path:
             added_constraints += " AND journeys.pre_journey_wait_fp>=0"
         if ignore_walk:
             added_constraints += " AND legs.trip_I >= 0"
+        if diff_path and diff_threshold:
+            self.conn = attach_database(self.conn, diff_path, name="diff")
+            add_diff = ", diff.diff_temporal_distance"
+            added_constraints += " AND abs(diff_temporal_distance.diff_mean) >= %s " \
+                                 "AND diff_temporal_distance.from_stop_I = journeys.from_stop_I " \
+                                 "AND diff_temporal_distance.to_stop_I = journeys.to_stop_I" % (diff_threshold,)
+
         if all_leg_sections:
             df = self._get_journey_legs_to_target_with_all_sections(target, added_constraints)
         else:
-
             query = """SELECT from_stop_I, to_stop_I, coalesce(type, -1) AS type,
                          count(*) AS n_trips
                          FROM
-                         (SELECT legs.* FROM legs, journeys
+                         (SELECT legs.* FROM legs, journeys %s
                          WHERE journeys.journey_id = legs.journey_id AND journeys.to_stop_I = %s %s) q1
                          LEFT JOIN (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
                          ON q1.trip_I = q2.trip_I
-                         GROUP BY from_stop_I, to_stop_I, type""" % (str(target), added_constraints)
+                         GROUP BY from_stop_I, to_stop_I, type""" % (add_diff, str(target), added_constraints)
             df = read_sql_query(query, self.conn)
 
         return df
@@ -81,6 +90,43 @@ class JourneyDataAnalyzer:
         df_to_return = df[['from_stop_I', 'to_stop_I', 'type', 'n_trips']]
 
         return df_to_return
+
+    def get_journey_routes_not_in_other_db(self, target, other_journey_conn, fastest_path=True, min_boardings=False, all_leg_sections=True,
+                                           ignore_walk=False, diff_threshold=None, diff_path=None):
+        name = "ojdb"
+        added_constraints = ""
+        if fastest_path:
+            added_constraints += " AND journeys.pre_journey_wait_fp>=0"
+        if ignore_walk:
+            added_constraints += " AND legs.trip_I >= 0"
+
+        query = """SELECT from_stop_I, to_stop_I, coalesce(type, -1) AS type, route FROM 
+                    (SELECT legs.*, route FROM journeys, legs WHERE legs.journey_id=journeys.journey_id AND journeys.to_stop_I = %s %s) q1
+                    LEFT JOIN 
+                    (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
+                    ON q1.trip_I = q2.trip_I
+                    """ % (str(target), added_constraints)
+
+        df = read_sql_query(query, self.conn)
+
+        routes = other_journey_conn.execute("SELECT DISTINCT route FROM journeys WHERE to_stop_I = %s" % (str(target),)).fetchall()
+        routes = [x[0] for x in routes]
+        other_set = set(routes)
+        these_routes = self.conn.execute("SELECT DISTINCT route FROM journeys WHERE to_stop_I = %s" % (str(target),)).fetchall()
+        these_routes = [x[0] for x in these_routes]
+        this_set = set(these_routes)
+        print("n unique routes for this db: ", len(this_set))
+        print("n unique routes for other db: ", len(other_set))
+
+        union = other_set | this_set
+        intersection = other_set & this_set
+        print("n unique routes", len(union))
+        print("n common routes", len(intersection))
+
+        df = df.loc[~df['route'].isin(routes)]
+        df = df[["from_stop_I", "to_stop_I", "type"]]
+        df = DataFrame({"n_trips": df.groupby(["from_stop_I", "to_stop_I", "type"]).size()}).reset_index()
+        return df
 
     def journey_alternatives_per_stop_pair(self, target, start_time, end_time):
         query = """SELECT from_stop_I, to_stop_I, ifnull(1.0*sum(n_sq)/(sum(n_trips)*(sum(n_trips)-1)), 1) AS simpson,

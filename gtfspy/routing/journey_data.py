@@ -576,7 +576,6 @@ class JourneyDataManager:
             self.diff_conn.execute(insert_stmt)
             self.diff_conn.commit()
 
-
     def initialize_database(self, journey_db_path):
         assert not os.path.isfile(journey_db_path)
 
@@ -698,6 +697,7 @@ class JourneyDataManager:
         cur.execute('ANALYZE')
         print("Indexing")
         cur = self.conn.cursor()
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_route ON journeys (route)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_jid ON journeys (journey_id)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_fid ON journeys (from_stop_I)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_tid ON journeys (to_stop_I)')
@@ -769,37 +769,44 @@ class DiffDataManager:
             query += " WHERE to_stop_I = %s" % target
         return pd.read_sql_query(query, self.conn)
 
-    def get_largest_component(self):
-        query = """select
-                    diff_pre_journey_wait_fp.from_stop_I, diff_pre_journey_wait_fp.to_stop_I,
-                    CASE
-                    WHEN abs(diff_pre_journey_wait_fp.diff_mean)<180 AND abs(diff_in_vehicle_duration.diff_mean)<180
-                    AND   abs(diff_transfer_wait_duration.diff_mean)<180 AND   abs(diff_walking_duration.diff_mean)<180
-                    THEN "equal"
-                    WHEN abs(diff_pre_journey_wait_fp.diff_mean) > abs(diff_in_vehicle_duration.diff_mean)
-                    AND  abs(diff_pre_journey_wait_fp.diff_mean) > abs(diff_transfer_wait_duration.diff_mean)
-                    AND  abs(diff_pre_journey_wait_fp.diff_mean) > abs(diff_walking_duration.diff_mean)
-                    THEN "journey_wait_fp"
-                    WHEN abs(diff_in_vehicle_duration.diff_mean) > abs(diff_pre_journey_wait_fp.diff_mean)
-                    AND  abs(diff_in_vehicle_duration.diff_mean) > abs(diff_transfer_wait_duration.diff_mean)
-                    AND  abs(diff_in_vehicle_duration.diff_mean) > abs(diff_walking_duration.diff_mean)
-                    THEN "in_vehicle_duration"
-                    WHEN abs(diff_transfer_wait_duration.diff_mean) > abs(diff_in_vehicle_duration.diff_mean)
-                    AND  abs(diff_transfer_wait_duration.diff_mean) > abs(diff_pre_journey_wait_fp.diff_mean)
-                     AND  abs(diff_transfer_wait_duration.diff_mean) > abs(diff_walking_duration.diff_mean)
-                     THEN "transfer_wait_duration"
-                    WHEN abs(diff_walking_duration.diff_mean) > abs(diff_in_vehicle_duration.diff_mean)
-                    AND  abs(diff_walking_duration.diff_mean) > abs(diff_transfer_wait_duration.diff_mean)
-                    AND  abs(diff_walking_duration.diff_mean) > abs(diff_pre_journey_wait_fp.diff_mean)
-                    THEN "walking_duration"
-                    ELSE "equal"
-                    END as largest_change
-                    from diff_pre_journey_wait_fp, diff_in_vehicle_duration, diff_transfer_wait_duration, diff_walking_duration
-                    where diff_pre_journey_wait_fp.rowid =diff_in_vehicle_duration.rowid
+    def get_temporal_distance_change_o_d_pairs(self, target, threshold):
+        cur = self.conn.cursor()
+        query = """SELECT from_stop_I FROM diff_temporal_distance
+                    WHERE to_stop_I = %s AND abs(diff_mean) >= %s""" % (target, threshold)
+        rows = [x[0] for x in cur.execute(query).fetchall()]
+        return rows
+
+    def get_largest_component(self, target):
+        query = """SELECT diff_pre_journey_wait_fp.from_stop_I AS stop_I, 
+                    diff_pre_journey_wait_fp.diff_mean AS pre_journey_wait, 
+                    diff_in_vehicle_duration.diff_mean AS in_vehicle_duration,
+                    diff_transfer_wait_duration.diff_mean AS transfer_wait, 
+                    diff_walking_duration.diff_mean AS walking_duration,
+                    diff_temporal_distance.diff_mean AS temporal_distance
+                    FROM diff_pre_journey_wait_fp, diff_in_vehicle_duration, 
+                    diff_transfer_wait_duration, diff_walking_duration, diff_temporal_distance
+                    WHERE diff_pre_journey_wait_fp.rowid = diff_in_vehicle_duration.rowid
                     AND diff_pre_journey_wait_fp.rowid = diff_transfer_wait_duration.rowid
                     AND diff_pre_journey_wait_fp.rowid = diff_walking_duration.rowid
-                    AND diff_pre_journey_wait_fp.to_stop_I = 7193"""
-        pass
+                    AND diff_pre_journey_wait_fp.rowid = diff_temporal_distance.rowid
+                    AND diff_pre_journey_wait_fp.to_stop_I = %s""" % (target,)
+        df = pd.read_sql_query(query, self.conn)
+        df['max_component'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmax(axis=1)
+        df['max_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].max(axis=1)
+
+        mask = (df['max_value'] < 180)
+
+        df.loc[mask, 'max_component'] = "no_change_within_threshold"
+
+        df['min_component'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmin(axis=1)
+        df['min_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].min(axis=1)
+
+        mask = (df['min_value'] > -180)
+
+        df.loc[mask, 'min_component'] = "no_change_within_threshold"
+
+        return df
+
 
 class Parameters(object):
     """

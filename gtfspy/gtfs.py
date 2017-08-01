@@ -1374,6 +1374,41 @@ class GTFS(object):
         df = pd.DataFrame.from_records(data_tuples, columns=columns)
         return df
 
+    def get_section_difference_with_other_db(self, other_conn, start_time, end_time):
+        query = """SELECT from_stop_I, to_stop_I, sum(n_trips) AS n_trips, count(*) AS n_routes,
+                    group_concat(route_id) AS all_routes FROM
+                    (SELECT route_id, from_stop_I, to_stop_I, count(*) AS n_trips FROM
+                    (SELECT stop_I AS from_stop_I, seq, trip_I FROM stop_times
+                    WHERE dep_time_ds >= %s) t1,
+                    (SELECT stop_I AS to_stop_I, seq, trip_I  FROM stop_times
+                    WHERE arr_time_ds <= %s) t2,
+                    trips,
+                    routes
+                    WHERE t1.seq +1 = t2.seq AND t1.trip_I = t2.trip_I
+                    AND t1.trip_I = trips.trip_I AND trips.route_I = routes.route_I
+                    GROUP BY from_stop_I, to_stop_I, routes.route_I
+                    ORDER BY route_id) sq1
+                    GROUP BY from_stop_I, to_stop_I""" % (start_time, end_time)
+
+        prev_df = None
+        result = pd.DataFrame
+        for conn in [self.conn, other_conn]:
+            df = conn.execute_custom_query_pandas(query)
+            df.set_index(["from_stop_I", "to_stop_I"], inplace=True, drop=True)
+            if prev_df is not None:
+                result = prev_df.merge(df, how="outer", left_index=True, right_index=True, suffixes=["_old", "_new"])
+                break
+
+            prev_df = df
+        for suffix in ["_new", "_old"]:
+            result["all_routes" + suffix] = result["all_routes" + suffix].fillna(value="")
+            result["all_routes" + suffix] = result["all_routes" + suffix].apply(lambda x: x.split(","))
+        result.reset_index(inplace=True)
+        result.fillna(value=0, inplace=True)
+        for column in ["n_trips", "n_routes"]:
+            result["diff_" + column] = result[column + "_new"] - result[column + "_old"]
+        return result
+
     def get_straight_line_transfer_distances(self, stop_I=None):
         """
         Get (straight line) distances to stations that can be transferred to.
