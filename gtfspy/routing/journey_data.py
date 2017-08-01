@@ -47,7 +47,7 @@ class JourneyDataManager:
         self.conn = None
         self.od_pairs = None
         self.targets = None
-        self.origins = None
+        self._origins = None
         self.diff_conn = None
         self.journey_properties = {"journey_duration": ("t_walk", "t_walk")}
         if self.routing_params['track_vehicle_legs']:
@@ -329,10 +329,10 @@ class JourneyDataManager:
 
     def get_origins(self):
         cur = self.conn.cursor()
-        if not self.origins:
+        if not self._origins:
             cur.execute('SELECT from_stop_I FROM journeys GROUP BY from_stop_I')
-            self.origins = [origin[0] for origin in cur.fetchall()]
-        return self.origins
+            self._origins = [origin[0] for origin in cur.fetchall()]
+        return self._origins
 
     def get_table_with_coordinates(self, table_name, target=None):
         df = self.get_table_as_dataframe(table_name, target)
@@ -492,7 +492,13 @@ class JourneyDataManager:
         for prop in self.tables:
             data_dict[prop] = []
 
-        for origin, target, journey_labels in self.journey_label_generator():
+        n_pairs_tot = len(self.get_origins()) * len(self.get_targets())
+
+        for i, (origin, target, journey_labels) in enumerate(self.journey_label_generator()):
+            print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3),
+                  end='',
+                  flush=True)
+
             kwargs = {"from_stop_I": origin, "to_stop_I": target}
             walking_distance = self.gtfs.get_stop_distance(origin, target)
             if walking_distance:
