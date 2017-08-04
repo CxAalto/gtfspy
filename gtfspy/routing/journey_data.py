@@ -59,8 +59,8 @@ class JourneyDataManager:
                 "pre_journey_wait_fp": (float('inf'), 0)
             }
             self.journey_properties.update(additional_journey_parameters)
-        self.tables = list(self.journey_properties.keys())
-        self.tables += ["temporal_distance"]
+        self.travel_impedance_measure_names = list(self.journey_properties.keys())
+        self.travel_impedance_measure_names += ["temporal_distance"]
 
 
         if not os.path.isfile(journey_db_path):
@@ -486,14 +486,21 @@ class JourneyDataManager:
 
     @timeit
     def compute_travel_impedance_measures_for_od_pairs(self, analysis_start_time, analysis_end_time):
-        data_dict = {}
-
-        for prop in self.tables:
-            data_dict[prop] = []
+        results_dict = {}
+        for travel_impedance_measure in self.travel_impedance_measure_names:
+            self._create_travel_impedance_measure_table(travel_impedance_measure)
 
         print("Computing total number of origins and targets..", end='', flush=True)
         n_pairs_tot = len(self.get_origins()) * len(self.get_targets())
         print("\rComputing total number of origins and targets")
+
+        def _flush_data_to_db(results):
+            for key, value in results.items():
+                self._insert_travel_impedance_data_to_db(key, value)
+            for travel_impedance_measure in self.travel_impedance_measure_names:
+                results[travel_impedance_measure] = []
+
+        _flush_data_to_db(results_dict)
 
         for i, (origin, target, journey_labels) in enumerate(self.journey_label_generator()):
             print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3),
@@ -514,15 +521,19 @@ class JourneyDataManager:
                                       **kwargs)
             temporal_distance_analyzer\
                 = fpa.get_temporal_distance_analyzer()
-            data_dict["temporal_distance"].append(temporal_distance_analyzer.summary_as_dict())
+            # Note: the summary_as_dict automatically includes also the from_stop_I and to_stop_I -fields.
+            results_dict["temporal_distance"].append(temporal_distance_analyzer.summary_as_dict())
             fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
             for key, value in self.journey_properties.items():
                 value = [walking_duration if x == "t_walk" else x for x in value]
                 property_analyzer = fpa.get_prop_analyzer_flat(key, value[0], value[1])
-                data_dict[key].append(property_analyzer.summary_as_dict())
+                results_dict[key].append(property_analyzer.summary_as_dict())
 
-        for key, value in data_dict.items():
-            self.profile_block_to_database(key, value)
+            if i % 1000 == 0: # update in batches of 1000
+                _flush_data_to_db(results_dict)
+        # flush everything that remains
+        _flush_data_to_db(results_dict)
+
 
     @timeit
     def calculate_pre_journey_waiting_times_ignoring_direct_walk(self):
@@ -548,17 +559,20 @@ class JourneyDataManager:
         cur.executemany(sql, insert_tuples)
         self.conn.commit()
 
-    def profile_block_to_database(self, table, data):
-        print("creating table: ", table)
-        self.conn.execute("CREATE TABLE IF NOT EXISTS " + table + " (from_stop_I INT, "
+    def _create_travel_impedance_measure_table(self, travel_impedance_measure):
+        print("creating table: ", travel_impedance_measure)
+        self.conn.execute("CREATE TABLE IF NOT EXISTS " + travel_impedance_measure + " (from_stop_I INT, "
                                                                   "to_stop_I INT, "
                                                                   "min INT, "
                                                                   "max INT, "
                                                                   "median INT, "
                                                                   "mean REAL, "
                                                                   "UNIQUE (from_stop_I, to_stop_I))")
+
+    def _insert_travel_impedance_data_to_db(self, travel_impedance_measure_name, data):
+        self._create_travel_impedance_measure_table(travel_impedance_measure_name)
         data_tuple = [(x["from_stop_I"], x["to_stop_I"], x["min"], x["max"], x["median"], x["mean"]) for x in data]
-        insert_stmt = '''INSERT OR REPLACE INTO ''' + table + ''' (
+        insert_stmt = '''INSERT OR REPLACE INTO ''' + travel_impedance_measure_name + ''' (
                               from_stop_I,
                               to_stop_I,
                               min,
@@ -575,7 +589,7 @@ class JourneyDataManager:
         self.diff_conn = attach_database(self.diff_conn, before_db_tuple[0], name=before_db_tuple[1])
         self.diff_conn = attach_database(self.diff_conn, after_db_tuple[0], name=after_db_tuple[1])
 
-        for table in self.tables:
+        for table in self.travel_impedance_measure_names:
             self.diff_conn.execute("CREATE TABLE IF NOT EXISTS diff_" + table +
                                    " (from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean)")
             insert_stmt = "INSERT OR REPLACE INTO diff_" + table + \
