@@ -22,8 +22,9 @@ def attach_database(conn, other_db_path, name="other"):
 
 
 class JourneyDataManager:
-    def __init__(self, gtfs_path,
-                 routing_params,
+    def __init__(self,
+                 gtfs_path,
+                 routing_params=None,
                  journey_db_path=None,
                  multitarget_routing=False,
                  close_connection=True,
@@ -36,6 +37,8 @@ class JourneyDataManager:
         """
         self.close_connection = close_connection
         self.routing_params = routing_params
+        if not routing_params:
+            self.routing_params = dict()
         self.multitarget_routing = multitarget_routing
         self.track_route = track_route
         self.track_vehicle_legs = track_vehicle_legs
@@ -43,13 +46,21 @@ class JourneyDataManager:
         self.gtfs = GTFS(self.gtfs_path)
         self.gtfs_meta = self.gtfs.meta
         self.gtfs._dont_close = True
-        self.conn = None
         self.od_pairs = None
         self.targets = None
         self._origins = None
         self.diff_conn = None
+
+        assert os.path.exists(journey_db_path) or routing_params is not None
+        self.conn = sqlite3.connect(journey_db_path)
+        if not os.path.isfile(journey_db_path):
+            self.initialize_database(journey_db_path)
+
+        self.measure_parameters = Parameters(self.conn)
+
         self.journey_properties = {"journey_duration": ("t_walk", "t_walk")}
-        if self.routing_params['track_vehicle_legs']:
+        if self.routing_params.get('track_vehicle_legs', False) or \
+                self.measure_parameters.get('track_vehicle_legs', False):
             self.journey_properties["n_boardings"] = (float("inf"), 0)
         if self.track_route:
             additional_journey_parameters = {
@@ -62,12 +73,8 @@ class JourneyDataManager:
         self.travel_impedance_measure_names = list(self.journey_properties.keys())
         self.travel_impedance_measure_names += ["temporal_distance"]
 
-
-        if not os.path.isfile(journey_db_path):
-            self.initialize_database(journey_db_path)
         self.conn = sqlite3.connect(journey_db_path)
-        self.measure_parameters = Parameters(self.conn)
-        self._check_that_dbs_match()
+        self._check_that_journey_computation_paramaters_match()
 
     def __del__(self):
         self.gtfs._dont_close = False
@@ -92,7 +99,7 @@ class JourneyDataManager:
     def target_in_db(self, target_stop):
         return "," + str(target_stop) + "," in self.measure_parameters["target_list"]
 
-    def _check_that_dbs_match(self):
+    def _check_that_journey_computation_paramaters_match(self):
         for key, value in self.measure_parameters.items():
             if key in self.gtfs_meta.keys():
                 assert self.gtfs_meta[key] == value
@@ -456,7 +463,6 @@ class JourneyDataManager:
                                   label_props_to_consider=list(self.journey_properties.keys()))
         return fpa.get_time_analyzer()
 
-
     def _get_node_profile_analyzer_time_and_veh_legs(self, target, origin, start_time_dep, end_time_dep):
         sql = """SELECT from_stop_I, to_stop_I, n_boardings, departure_time, arrival_time_target FROM journeys WHERE to_stop_I = %s AND from_stop_I = %s""" % (target, origin)
         df = pd.read_sql_query(sql, self.conn)
@@ -483,6 +489,40 @@ class JourneyDataManager:
                                                      start_time_dep,
                                                      end_time_dep)
         return analyzer
+
+    def read_travel_impedance_measure_from_table(self, travel_impedance_measure,
+                                                 from_stop_I=None,
+                                                 to_stop_I=None,
+                                                 statistic=None):
+        """
+        Recover pre-computed travel_impedance between od-pairs from the database.
+
+        Returns
+        -------
+        values: number | Pandas DataFrame
+        """
+        to_select = []
+        where_clauses = []
+        to_select.append("from_stop_I")
+        to_select.append("to_stop_I")
+        if from_stop_I is not None:
+            where_clauses.append("from_stop_I=" + str(int(from_stop_I)))
+        if to_stop_I is not None:
+            where_clauses.append("to_stop_I=" + str(int(to_stop_I)))
+        where_clause = ""
+        if len(where_clauses) > 0:
+            where_clause = " WHERE " + " AND ".join(where_clauses)
+        if not statistic:
+            to_select.extend(["min", "mean", "median", "max"])
+        else:
+            to_select.append(statistic)
+        to_select_clause = ",".join(to_select)
+        if not to_select_clause:
+            to_select_clause = "*"
+        sql = "SELECT " + to_select_clause + " FROM " + travel_impedance_measure + where_clause + ";"
+        df = pd.read_sql(sql, self.conn)
+        return df
+
 
     @timeit
     def compute_travel_impedance_measures_for_od_pairs(self, analysis_start_time, analysis_end_time):
@@ -534,6 +574,8 @@ class JourneyDataManager:
         # flush everything that remains
         _flush_data_to_db(results_dict)
 
+        for travel_impedance_measure in self.travel_impedance_measure_names:
+            self._create_index_for_travel_impedance_measure_table(travel_impedance_measure)
 
     @timeit
     def calculate_pre_journey_waiting_times_ignoring_direct_walk(self):
@@ -582,6 +624,14 @@ class JourneyDataManager:
         self.conn.executemany(insert_stmt, data_tuple)
         self.conn.commit()
 
+    def _create_index_for_travel_impedance_measure_table(self, travel_impedance_measure_name):
+        table = travel_impedance_measure_name
+        sql_from = "CREATE INDEX IF NOT EXISTS " + table + "_from_stop_I ON " + table + " (from_stop_I)"
+        sql_to = "CREATE INDEX IF NOT EXISTS " + table + "_to_stop_I ON " + table + " (to_stop_I)"
+        self.conn.execute(sql_from)
+        self.conn.execute(sql_to)
+
+
     @timeit
     def initialize_comparison_tables(self, diff_db_path, before_db_tuple, after_db_tuple):
         self.diff_conn = sqlite3.connect(diff_db_path)
@@ -609,8 +659,6 @@ class JourneyDataManager:
 
     def initialize_database(self, journey_db_path):
         assert not os.path.isfile(journey_db_path)
-
-        self.conn = sqlite3.connect(journey_db_path)
         self._set_up_database()
         self._initialize_parameter_table()
         print("Database initialized!")
