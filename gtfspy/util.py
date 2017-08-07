@@ -14,6 +14,7 @@ from math import cos
 
 import networkx
 import numpy
+import pandas as pd
 import shapefile as shp
 
 """
@@ -229,7 +230,7 @@ def timeit(method):
         time_start = time.time()
         result = method(*args, **kw)
         time_end = time.time()
-        print('timeit: %r %2.2f sec (%r, %r) ' % (method.__name__, time_end - time_start, args, kw))
+        print('timeit: %r %2.2f sec ' % (method.__name__, time_end - time_start))
         return result
 
     return timed
@@ -299,6 +300,7 @@ def source_table_txt_to_pandas(path, table, args=None):
 
 
 def write_shapefile(data, shapefile_path):
+    from numpy import int64
     """
     :param data: list of dicts where dictionary contains the keys lons and lats
     :param shapefile_path: path where shapefile is saved
@@ -315,18 +317,21 @@ def write_shapefile(data, shapefile_path):
     # Create all attribute fields except for lats and lons. In addition the field names are saved for the
     # datastoring phase. Encode_strings stores .encode methods as strings for all fields that are strings
     if not fields:
-        for key, value in data[0].iteritems():
+        for key, value in data[0].items():
             if key != u'lats' and key != u'lons':
                 fields.append(key)
-                print(type(value))
+
                 if type(value) == float:
                     w.field(key.encode('ascii'), fieldType='N', size=11, decimal=3)
-
-                elif type(value) == int:
+                    print("float", type(value))
+                elif type(value) == int or type(value) == int64:
+                    print("int", type(value))
 
                     # encode_strings.append(".encode('ascii')")
                     w.field(key.encode('ascii'), fieldType='N', size=6, decimal=0)
                 else:
+                    print("other type", type(value))
+
                     w.field(key.encode('ascii'))
 
     for dict_item in data:
@@ -341,14 +346,14 @@ def write_shapefile(data, shapefile_path):
 
         # The shapefile records command is built up as strings to allow a differing number of columns
         for field in fields:
-            # records.append(dict_item[field])
             if records_string:
-                records_string += ", dict_item['" + str(field) + "']"
+                records_string += ", dict_item['" + field + "']"
             else:
-                records_string += "dict_item['" + str(field) + "']"
+                records_string += "dict_item['" + field + "']"
         method_string = "w.record(" + records_string + ")"
 
         # w.record(dict_item['name'], dict_item['agency'], dict_item['agency_name'], dict_item['type'], dict_item['lons'])
+        print(method_string)
         eval(method_string)
     w.save(shapefile_path)
 
@@ -390,3 +395,23 @@ def make_sure_path_exists(path):
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             raise
+
+def difference_of_pandas_dfs(df_self, df_other, col_names=None):
+    """
+    Returns a dataframe with all of df_other that are not in df_self, when considering the columns specified in col_names
+    :param df_self: pandas Dataframe
+    :param df_other: pandas Dataframe
+    :param col_names: list of column names
+    :return:
+    """
+    df = pd.concat([df_self, df_other])
+    df = df.reset_index(drop=True)
+    df_gpby = df.groupby(col_names)
+    idx = [x[0] for x in list(df_gpby.groups.values()) if len(x) == 1]
+    df_sym_diff = df.reindex(idx)
+    df_diff = pd.concat([df_other, df_sym_diff])
+    df_diff = df_diff.reset_index(drop=True)
+    df_gpby = df_diff.groupby(col_names)
+    idx = [x[0] for x in list(df_gpby.groups.values()) if len(x) == 2]
+    df_diff = df_diff.reindex(idx)
+    return df_diff

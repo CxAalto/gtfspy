@@ -7,7 +7,8 @@ import pytz
 from matplotlib import dates as md, rcParams
 import matplotlib.pyplot as plt
 
-from gtfspy.routing.profile_block_analyzer import ProfileBlockAnalyzer, ProfileBlock
+from gtfspy.routing.profile_block_analyzer import ProfileBlockAnalyzer
+from gtfspy.routing.profile_block import ProfileBlock
 from gtfspy.routing.node_profile_simple import NodeProfileSimple
 
 
@@ -22,7 +23,16 @@ def _if_no_trips_return_inf(func):
 
 
 class NodeProfileAnalyzerTime:
-    def __init__(self, node_profile, start_time_dep, end_time_dep):
+
+    @classmethod
+    def from_profile(cls, node_profile, start_time_dep, end_time_dep):
+        assert isinstance(node_profile, NodeProfileSimple), type(node_profile)
+        return NodeProfileAnalyzerTime(node_profile.get_final_optimal_labels(),
+                                       node_profile.get_walk_to_target_duration(),
+                                       start_time_dep,
+                                       end_time_dep)
+
+    def __init__(self, labels, walk_time_to_target, start_time_dep, end_time_dep):
         """
         Initialize the data structures required by
 
@@ -33,17 +43,35 @@ class NodeProfileAnalyzerTime:
         """
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
-        assert isinstance(node_profile, NodeProfileSimple), type(node_profile)
         # used for computing temporal distances:
-        trip_pareto_optimal_tuples = [pt for pt in node_profile.get_final_optimal_labels() if
-                                      (start_time_dep < pt.departure_time <= end_time_dep)]
-        trip_pareto_optimal_tuples = sorted(trip_pareto_optimal_tuples, key=lambda ptuple: ptuple.departure_time)
-        self._walk_time_to_target = node_profile.get_walk_to_target_duration()
+        all_pareto_optimal_tuples = [pt for pt in labels if
+                                      (start_time_dep < pt.departure_time < end_time_dep)]
+
+        labels_after_dep_time = [label for label in labels if label.departure_time >= self.end_time_dep]
+        if labels_after_dep_time:
+            next_label_after_end_time = min(labels_after_dep_time, key=lambda el: el.arrival_time_target)
+            all_pareto_optimal_tuples.append(next_label_after_end_time)
+
+        all_pareto_optimal_tuples = sorted(all_pareto_optimal_tuples, key=lambda ptuple: ptuple.departure_time)
+
+        arrival_time_target_at_end_time = end_time_dep + walk_time_to_target
+        previous_trip = None
+        for trip_tuple in all_pareto_optimal_tuples:
+            if previous_trip:
+                assert(trip_tuple.arrival_time_target > previous_trip.arrival_time_target)
+            if trip_tuple.departure_time > self.end_time_dep \
+                    and trip_tuple.arrival_time_target < arrival_time_target_at_end_time:
+                arrival_time_target_at_end_time = trip_tuple.arrival_time_target
+            previous_trip = trip_tuple
+
+        self._walk_time_to_target = walk_time_to_target
         self._profile_blocks = []
         previous_departure_time = start_time_dep
         self.trip_durations = []
         self.trip_departure_times = []
-        for trip_pareto_tuple in trip_pareto_optimal_tuples:
+        for trip_pareto_tuple in all_pareto_optimal_tuples:
+            if trip_pareto_tuple.departure_time > self.end_time_dep:
+                continue
             if self._walk_time_to_target <= trip_pareto_tuple.duration():
                 assert(self._walk_time_to_target > trip_pareto_tuple.duration())
             effective_trip_previous_departure_time = max(
@@ -74,7 +102,7 @@ class NodeProfileAnalyzerTime:
             else:
                 dep_previous = start_time_dep
             waiting_time = end_time_dep - dep_previous
-            arrival_time_target_at_end_time = node_profile.evaluate_earliest_arrival_time_at_target(end_time_dep, 0)
+
             distance_end_trip = arrival_time_target_at_end_time - end_time_dep
             walking_wait_time = min(end_time_dep - dep_previous,
                                     waiting_time - (self._walk_time_to_target - distance_end_trip))
@@ -91,15 +119,17 @@ class NodeProfileAnalyzerTime:
             trip_waiting_time = waiting_time - walking_wait_time
 
             if trip_waiting_time > 0:
-                trip_block = ProfileBlock(start_time=dep_previous + walking_wait_time,
+                try:
+                    trip_block = ProfileBlock(start_time=dep_previous + walking_wait_time,
                                           end_time=dep_previous + walking_wait_time + trip_waiting_time,
                                           distance_start=distance_end_trip + trip_waiting_time,
-                                          distance_end=distance_end_trip
-                                          )
-                assert(trip_block.start_time <= trip_block.end_time)
-                assert(trip_block.distance_end <= trip_block.distance_start)
-                self._profile_blocks.append(trip_block)
-
+                                          distance_end=distance_end_trip)
+                    assert (trip_block.start_time <= trip_block.end_time)
+                    assert (trip_block.distance_end <= trip_block.distance_start)
+                    self._profile_blocks.append(trip_block)
+                except AssertionError as e:
+                    # the error was due to a very small waiting timesmall numbers
+                    assert(trip_waiting_time < 10**-5)
 
         # TODO? Refactor to use the cutoff_distance feature in ProfileBlockAnalyzer?
         self.profile_block_analyzer = ProfileBlockAnalyzer(profile_blocks=self._profile_blocks)
@@ -297,9 +327,11 @@ class NodeProfileAnalyzerTime:
         return ax.figure
 
     def plot_temporal_distance_pdf_horizontal(self, use_minutes=True,
-                                              color="green", ax=None,
+                                              color="green",
+                                              ax=None,
                                               duration_divider=60.0,
-                                              legend_font_size=None):
+                                              legend_font_size=None,
+                                              legend_loc=None):
         """
         Plot the temporal distance probability density function.
 
@@ -362,10 +394,12 @@ class NodeProfileAnalyzerTime:
         if delta_peaks:
             if legend_font_size is None:
                 legend_font_size = 12
-            ax.legend(loc="best", prop={'size': legend_font_size})
+            if legend_loc is None:
+                legend_loc = "best"
+            ax.legend(loc=legend_loc, prop={'size': legend_font_size})
 
 
-        if True: #
+        if True:
             line_tyles = ["-.", "--", "-"][::-1]
             to_plot_funcs = [self.max_temporal_distance, self.mean_temporal_distance, self.min_temporal_distance]
 
@@ -373,7 +407,8 @@ class NodeProfileAnalyzerTime:
             for to_plot_func, ls in zip(to_plot_funcs, line_tyles):
                 y = to_plot_func() / duration_divider
                 assert y < float('inf')
-                ax.plot([xmin, xmax], [y, y], color="black", ls=ls, lw=1)
+                # factor of 10 just to be safe that the lines cover the whole region.
+                ax.plot([xmin, xmax*10], [y, y], color="black", ls=ls, lw=1)
 
         return ax.figure
 
@@ -389,7 +424,8 @@ class NodeProfileAnalyzerTime:
                                        format_string="%Y-%m-%d %H:%M:%S",
                                        plot_journeys=False,
                                        duration_divider=60.0,
-                                       fill_color="green"):
+                                       fill_color="green",
+                                       journey_letters=None):
         """
         Parameters
         ----------
@@ -476,9 +512,11 @@ class NodeProfileAnalyzerTime:
             xs = [_ut_to_unloc_datetime(x) for x in self.trip_departure_times]
             ys = self.trip_durations
             ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
-            for x, y, letter in zip(xs, ys, "ABCDEFGHIJKLM"):
-                ax.text(x + datetime.timedelta(seconds=20),
-                        y / duration_divider - 0.5, letter, va="center", ha="left")
+            if journey_letters is None:
+                journey_letters = "ABCDEFGHIJKLM"
+            for x, y, letter in zip(xs, ys, journey_letters):
+                ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 60),
+                        (y - self._walk_time_to_target / 30) / duration_divider, letter, va="top", ha="left")
 
         fill_between_x = []
         fill_between_y = []
@@ -498,7 +536,7 @@ class NodeProfileAnalyzerTime:
             ax.set_xlabel("Departure time")
 
         ax.set_ylabel(r"Temporal distance $\tau$ (min)")
-        return ax.figure
+        return ax
 
     def _temporal_distance_pdf(self):
         """
@@ -530,6 +568,11 @@ class NodeProfileAnalyzerTime:
         return numpy.array(non_delta_peak_split_points), \
                numpy.array(non_delta_peak_densities), \
                delta_peak_loc_to_probability_mass
+
+    def get_temporal_distance_at(self, dep_time):
+        return self.profile_block_analyzer.interpolate(dep_time)
+
+
 
     @staticmethod
     def all_measures_and_names_as_lists():

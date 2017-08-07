@@ -10,11 +10,11 @@ class ConnectionScanTest(unittest.TestCase):
 
     def setUp(self):
         event_list_raw_data = [
-            (1, 2, 0, 10, "trip_1"),
-            (1, 3, 1, 10, "trip_2"),
-            (2, 3, 10, 11, "trip_1"),
-            (3, 4, 11, 13, "trip_1"),
-            (3, 6, 12, 14, "trip_3")
+            (1, 2, 0, 10, "trip_1", 1),
+            (1, 3, 1, 10, "trip_2", 1),
+            (2, 3, 10, 11, "trip_1", 2),
+            (3, 4, 11, 13, "trip_1", 3),
+            (3, 6, 12, 14, "trip_3", 1)
         ]
         self.transit_connections = map(lambda el: Connection(*el), event_list_raw_data)
         self.walk_network = networkx.Graph()
@@ -79,7 +79,7 @@ class ConnectionScanTest(unittest.TestCase):
     def test_starts_with_walk(self):
         end_time = 11
         event_list_raw_data = [
-            (1, 2, 0, 10, "trip_1")
+            (1, 2, 0, 10, "trip_1", 1)
         ]
         transit_connections = map(lambda el: Connection(*el), event_list_raw_data)
         walk_network = networkx.Graph()

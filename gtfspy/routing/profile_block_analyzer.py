@@ -1,41 +1,20 @@
-from collections import namedtuple
-
-import numpy
 from collections import defaultdict
 
-_profile_block = namedtuple('ProfileBlock',
-                            ['start_time',
-                             'end_time',
-                             'distance_start',
-                             'distance_end'])
+import numpy
 
-
-class ProfileBlock(_profile_block):
-    def area(self):
-        return self.width() * self.mean()
-
-    def mean(self):
-        return 0.5 * (self.distance_start + self.distance_end)
-
-    def width(self):
-        return self.end_time - self.start_time
-
-    def max(self):
-        return max(self.distance_start, self.distance_end)
-
-    def min(self):
-        return min(self.distance_start, self.distance_end)
+from gtfspy.routing.profile_block import ProfileBlock
 
 
 class ProfileBlockAnalyzer:
-    def __init__(self, profile_blocks, cutoff_distance=None):
+
+    def __init__(self, profile_blocks, cutoff_distance=None, **kwargs):
         """
         Parameters
         ----------
-        profile_blocks: list[ProfileBlock]
+        profile_blocks: list[gtfspy.routing.profile_block.ProfileBlock]
         """
         for i, block in enumerate(profile_blocks[:-1]):
-            assert block.start_time <= block.end_time
+            assert block.start_time < block.end_time
             assert block.end_time == profile_blocks[i + 1].start_time
             assert block.distance_start >= block.distance_end
 
@@ -46,8 +25,16 @@ class ProfileBlockAnalyzer:
         if cutoff_distance is not None:
             self._apply_cutoff(cutoff_distance)
 
+        self.from_stop_I = None
+        self.to_stop_I = None
+
+        for key, value in kwargs.items():
+            if key == "from_stop_I":
+                self.from_stop_I = value
+            if key == "to_stop_I":
+                self.to_stop_I = value
+
     def _apply_cutoff(self, cutoff_distance):
-        print("cutoff?")
         for block in list(self._profile_blocks):
             block_max = max(block.distance_start, block.distance_end)
             if block_max > cutoff_distance:
@@ -131,6 +118,17 @@ class ProfileBlockAnalyzer:
             return max(distances)
         else:
             return None
+
+    def summary_as_dict(self):
+        summary = {"max": self.max(),
+                   "min": self.min(),
+                   "mean": self.mean(),
+                   "median": self.median()}
+        if hasattr(self, "from_stop_I"):
+            summary['from_stop_I'] = self.from_stop_I
+        if hasattr(self, "to_stop_I"):
+            summary['to_stop_I'] = self.to_stop_I
+        return summary
 
     def _temporal_distance_cdf(self):
         """
@@ -232,3 +230,14 @@ class ProfileBlockAnalyzer:
                 vertical_lines.append(dict(x=[block.start_time, block.start_time],
                                            y=[previous_duration_minutes, distance_start_minutes]))
         return vertical_lines, slopes
+
+    def get_blocks(self):
+        return self._profile_blocks
+
+    def interpolate(self, time):
+        assert(self._start_time <= time <= self._end_time)
+        for profile_block in self._profile_blocks:
+            # find the first block whose end time is larger than or equal to that of the queried time
+            if profile_block.end_time >= time:
+                return profile_block.interpolate(time)
+

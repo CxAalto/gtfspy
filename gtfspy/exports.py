@@ -65,7 +65,6 @@ def write_stops_geojson(gtfs, out_file, fields=None):
 
     features = []
     for i, node_tuple in enumerate(nodes.itertuples()):
-        print(i)
         feature = {"type": "Feature",
                     "id": str(i),
                     "geometry": {
@@ -252,7 +251,6 @@ def write_routes_geojson(G, output_file):
         features.append(feature)
     gjson['features'] = features
     if hasattr(output_file, "write"):
-        print(gjson)
         output_file.write(json.dumps(gjson))
     else:
         with open(output_file, 'w') as f:

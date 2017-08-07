@@ -12,12 +12,12 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
 
     def setUp(self):
         event_list_raw_data = [
-            (2, 4, 40, 50, "trip_6"),
-            (1, 3, 32, 40, "trip_5"),
-            (3, 4, 32, 35, "trip_4"),
-            (2, 3, 25, 30, "trip_3"),
-            (1, 2, 10, 20, "trip_2"),
-            (0, 1, 0, 10, "trip_1")
+            (2, 4, 40, 50, "trip_6", 1),
+            (1, 3, 32, 40, "trip_5", 1),
+            (3, 4, 32, 35, "trip_4", 1),
+            (2, 3, 25, 30, "trip_3", 1),
+            (1, 2, 10, 20, "trip_2", 1),
+            (0, 1, 0, 10, "trip_1", 1)
         ]
         self.transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         self.walk_network = networkx.Graph()
@@ -60,7 +60,7 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
 
     def test_simple(self):
         event_list_raw_data = [
-            (2, 4, 40, 50, "trip_5"),
+            (2, 4, 40, 50, "trip_5", 1),
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
@@ -90,7 +90,7 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
 
     def test_last_leg_is_walk(self):
         event_list_raw_data = [
-            (0, 1, 0, 10, "trip_1")
+            (0, 1, 0, 10, "trip_1", 1)
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
@@ -114,7 +114,7 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
 
     def test_walk_is_faster_than_by_trip(self):
         event_list_raw_data = [
-            (0, 1, 0, 10, "trip_1")
+            (0, 1, 0, 10, "trip_1", 1)
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_speed = 2
@@ -137,7 +137,7 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
 
     def test_target_node_not_in_walk_network(self):
         event_list_raw_data = [
-            (0, 1, 0, 10, "trip_1")
+            (0, 1, 0, 10, "trip_1", 1)
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_speed = 2

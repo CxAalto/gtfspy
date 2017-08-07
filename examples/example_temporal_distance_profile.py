@@ -46,7 +46,7 @@ profiles = mpCSA.stop_profiles
 
 stop_profile = profiles[from_stop_I]
 CUTOFF_TIME = 2 * 3600
-analyzer = NodeProfileAnalyzerTimeAndVehLegs(stop_profile, ROUTING_START_TIME_UT, ROUTING_END_TIME_UT - CUTOFF_TIME)
+analyzer = NodeProfileAnalyzerTimeAndVehLegs.from_profile(stop_profile, ROUTING_START_TIME_UT, ROUTING_END_TIME_UT - CUTOFF_TIME)
 
 stop_dict = G.stops().to_dict("index")
 print("Origin: ", stop_dict[from_stop_I])
@@ -63,5 +63,6 @@ print("Plotting...")
 rc("text", usetex=True)
 fig1 = analyzer.plot_new_transfer_temporal_distance_profile(timezone=timezone_pytz,
                                                             format_string="%H:%M")
+fig2 = analyzer.plot_temporal_distance_pdf_horizontal(use_minutes=True)
 print("Showing...")
 plt.show()

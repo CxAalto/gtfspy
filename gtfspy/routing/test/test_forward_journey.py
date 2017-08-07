@@ -9,7 +9,7 @@ class ForwardJourneyTest(unittest.TestCase):
     def test_add_leg(self):
         journey = ForwardJourney()
         leg1 = Connection(departure_stop=0, arrival_stop=1, departure_time=0, arrival_time=1,
-                          trip_id="tripI", is_walk=False)
+                          trip_id="tripI", seq=1, is_walk=False)
         journey.add_leg(leg1)
         self.assertEqual(len(journey.legs), 1)
         self.assertEqual(journey.departure_time, leg1.departure_time)
@@ -17,7 +17,7 @@ class ForwardJourneyTest(unittest.TestCase):
         self.assertEqual(journey.n_boardings, 1)
 
         leg2 = Connection(departure_stop=1, arrival_stop=2, departure_time=1, arrival_time=2,
-                          trip_id="tripI", is_walk=False)
+                          trip_id="tripI", seq=1, is_walk=False)
         journey.add_leg(leg2)
         self.assertEqual(len(journey.legs), 2)
         self.assertEqual(journey.departure_time, leg1.departure_time)
@@ -26,11 +26,11 @@ class ForwardJourneyTest(unittest.TestCase):
 
     def test_dominates(self):
         leg1 = Connection(departure_stop=0, arrival_stop=1, departure_time=0, arrival_time=1,
-                          trip_id="tripI", is_walk=False)
+                          trip_id="tripI", seq=1, is_walk=False)
         leg2 = Connection(departure_stop=1, arrival_stop=2, departure_time=1, arrival_time=2,
-                          trip_id="tripI", is_walk=False)
+                          trip_id="tripI", seq=1, is_walk=False)
         leg3 = Connection(departure_stop=1, arrival_stop=2, departure_time=1, arrival_time=3,
-                          trip_id="tripI", is_walk=False)
+                          trip_id="tripI", seq=1, is_walk=False)
         journey1 = ForwardJourney(legs=[leg1])
         journey2 = ForwardJourney(legs=[leg2])
         journey12 = ForwardJourney(legs=[leg1, leg2])
@@ -41,11 +41,11 @@ class ForwardJourneyTest(unittest.TestCase):
 
     def test_basics(self):
         event_list_raw_data = [
-            (0, 1, 0, 10, "trip_1"),
-            (1, 100, 32, 36, "trip_5"),
-            (100, 3, 36, 40, "trip_5"),
-            (3, 4, 40, 41, "trip_4"),
-            (4, 2, 44, 50, None)
+            (0, 1, 0, 10, "trip_1", 1),
+            (1, 100, 32, 36, "trip_5", 1),
+            (100, 3, 36, 40, "trip_5", 2),
+            (3, 4, 40, 41, "trip_4", 1),
+            (4, 2, 44, 50, None, 1)
         ]
         legs = list(map(lambda el: Connection(*el), event_list_raw_data))
         test_journey = ForwardJourney(legs)
@@ -62,12 +62,12 @@ class ForwardJourneyTest(unittest.TestCase):
 
     def test_transfer_stop_pairs(self):
         event_list_raw_data = [
-            (0, 1, 0, 10, "trip_1"),
-            (1, 100, 32, 36, "trip_5"),
-            (100, 3, 36, 40, "trip_5"),
-            (3, 4, 40, 41, "trip_4"),
-            (4, 2, 44, 50, None),
-            (10, 11, 52, 55, "trip_6")
+            (0, 1, 0, 10, "trip_1", 1),
+            (1, 100, 32, 36, "trip_5", 1),
+            (100, 3, 36, 40, "trip_5", 2),
+            (3, 4, 40, 41, "trip_4", 1),
+            (4, 2, 44, 50, None, 1),
+            (10, 11, 52, 55, "trip_6", 1)
         ]
         legs = list(map(lambda el: Connection(*el), event_list_raw_data))
         test_journey = ForwardJourney(legs)

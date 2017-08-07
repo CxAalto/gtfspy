@@ -47,7 +47,7 @@ def print_coords(rows, prefix=''):
 
 
 def find_segments(stops, shape):
-    """Find correspodning shape points for a list of stops and create shape break points.
+    """Find corresponding shape points for a list of stops and create shape break points.
 
     Parameters
     ----------

@@ -3,14 +3,22 @@ from urllib.error import URLError
 import numpy
 import smopy
 import matplotlib.pyplot as plt
+import math
 from gtfspy.gtfs import GTFS
 from gtfspy.stats import get_spatial_bounds, get_percentile_stop_bounds, get_median_lat_lon_of_stops
-from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_ZORDER
+from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_ZORDER, ROUTE_TYPE_TO_SHORT_DESCRIPTION
 import matplotlib as mpl
+from matplotlib_scalebar.scalebar import ScaleBar
+from gtfspy import util
 
 """
 This module contains functions for plotting (static) visualizations of the public transport networks using matplotlib.
 """
+from gtfspy.extended_route_types import ROUTE_TYPE_CONVERSION
+
+
+smopy.TILE_SERVER = "https://cartodb-basemaps-1.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
+
 
 def _get_median_centered_plot_bounds(g):
     lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
@@ -24,7 +32,8 @@ def _get_median_centered_plot_bounds(g):
     return plot_lon_min, plot_lon_max, plot_lat_min, plot_lat_max
 
 
-def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8):
+def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
+                       return_smopy_map=False):
     """
     Parameters
     ----------
@@ -32,10 +41,14 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8):
         Where to get the data from?
     ax: matplotlib.Axes object, optional
         If None, a new figure and an axis is created
+    spatial_bounds: dict, optional
+        with str keys: lon_min, lon_max, lat_min, lat_max
+    return_smopy_map: bool, optional
+        defaulting to false
 
     Returns
     -------
-    ax: matplotlib
+    ax: matplotlib.Axes
 
     """
     assert(isinstance(g, GTFS))
@@ -50,25 +63,114 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8):
         fig = plt.figure()
         ax = fig.add_subplot(111)
     route_shapes = g.get_all_route_shapes()
-    print(lat_min, lat_max)
-    print(lon_min, lon_max)
+    # print(lat_min, lat_max)
+    # print(lon_min, lon_max)
     smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=map_alpha)
     bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                                          numpy.array([lon_min, lon_max]))
 
-
+    route_types_to_lines = {}
     for shape in route_shapes:
-        route_type = shape['type']
+        route_type = ROUTE_TYPE_CONVERSION[shape['type']]
         lats = numpy.array(shape['lats'])
         lons = numpy.array(shape['lons'])
         xs, ys = smopy_map.to_pixels(lats, lons)
-        ax.plot(xs, ys, color=ROUTE_TYPE_TO_COLOR[route_type], zorder=ROUTE_TYPE_TO_ZORDER[route_type])
-        # update pixel bounds
+        line, = ax.plot(xs, ys, color=ROUTE_TYPE_TO_COLOR[route_type], zorder=ROUTE_TYPE_TO_ZORDER[route_type])
+        route_types_to_lines[route_type] = line
+
+    if legend:
+        lines = list(route_types_to_lines.values())
+        labels = [ROUTE_TYPE_TO_SHORT_DESCRIPTION[route_type] for route_type in route_types_to_lines.keys()]
+        ax.legend(lines, labels)
+
+    if scalebar:
+        _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
+
+    ax.set_xticks([])
+    ax.set_yticks([])
 
     ax.set_xlim(bound_pixel_xs.min(), bound_pixel_xs.max())
     ax.set_ylim(bound_pixel_ys.max(), bound_pixel_ys.min())
-    return ax
+    if return_smopy_map:
+        return ax, smopy_map
+    else:
+        return ax
+
+
+def plot_route_network_with_attributes(from_lats, from_lons, to_lats, to_lons, attributes=None, color_attributes=None,
+                                       zorders=None,
+                                       ax=None,
+                                       spatial_bounds=None,
+                                       alpha=1,
+                                       map_alpha=0.8,
+                                       scalebar=True,
+                                       return_smopy_map=False,
+                                       c=None, linewidth=None,
+                                       linewidth_multiplier=1,
+                                       use_log_scale=False):
+    if attributes is None:
+        attributes = len(list(from_lats))*[None]
+        assert linewidth
+    if color_attributes is None:
+        color_attributes = len(list(from_lats))*[None]
+        assert c
+    if zorders is None:
+        zorders = len(list(from_lats))*[None]
+
+    if spatial_bounds is None:
+        lon_min = min(list(from_lons) + list(to_lons))
+        lon_max = max(list(from_lons) + list(to_lons))
+        lat_min = min(list(from_lats) + list(to_lats))
+        lat_max = max(list(from_lats) + list(to_lats))
+    else:
+        lon_min = spatial_bounds['lon_min']
+        lon_max = spatial_bounds['lon_max']
+        lat_min = spatial_bounds['lat_min']
+        lat_max = spatial_bounds['lat_max']
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=map_alpha)
+    bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
+                                                         numpy.array([lon_min, lon_max]))
+
+    for from_lat, from_lon, to_lat, to_lon, attribute, color_attribute, zorder in zip(from_lats,
+                                                                                      from_lons,
+                                                                                      to_lats,
+                                                                                      to_lons,
+                                                                                      attributes,
+                                                                                      color_attributes,
+                                                                                      zorders):
+        if not color_attribute:
+            color_attribute = c
+        if not attribute:
+            attribute = linewidth
+        if use_log_scale:
+            attribute = math.log10(attribute)
+        xs, ys = smopy_map.to_pixels(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]))
+        ax.plot(xs, ys, c=color_attribute, linewidth=attribute*linewidth_multiplier, zorder=zorder, alpha=alpha)
+
+    if scalebar:
+        _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    ax.set_xlim(bound_pixel_xs.min(), bound_pixel_xs.max())
+    ax.set_ylim(bound_pixel_ys.max(), bound_pixel_ys.min())
+    if return_smopy_map:
+        return ax, smopy_map
+    else:
+        return ax
+
+
+def _add_scale_bar(ax, lat, lon_min, lon_max, width_pixels):
+    distance_m = util.wgs84_distance(lat, lon_min, lat, lon_max)
+    scalebar = ScaleBar(distance_m / width_pixels)  # 1 pixel = 0.2 meter
+    ax.add_artist(scalebar)
 
 
 def plot_route_network_thumbnail(g):
@@ -80,7 +182,6 @@ def plot_route_network_thumbnail(g):
     width_m = width * scale
     height_m = height * scale
     median_lat, median_lon = get_median_lat_lon_of_stops(g)
-    from gtfspy import util
     dlat = util.wgs84_height(height_m)
     dlon = util.wgs84_width(width_m, median_lat)
     spatial_bounds = {
@@ -92,26 +193,47 @@ def plot_route_network_thumbnail(g):
     fig = plt.figure(figsize=(width/dpi, height/dpi))
     ax = fig.add_subplot(111)
     plt.subplots_adjust(bottom=0.0, left=0.0, right=1.0, top=1.0)
-    return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0)
+    return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
 
 
-def plot_all_stops(g, ax=None):
+def plot_stops_with_attributes(lats, lons, attribute, s=0.5,  colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
+
+    lon_min = min(lons)
+    lon_max = max(lons)
+    lat_min = min(lats)
+    lat_max = max(lats)
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+    ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=0.8)
+
+    xs, ys = smopy_map.to_pixels(lats, lons)
+    cax = ax.scatter(xs, ys, c=attribute, s=s, cmap=cmap, norm=norm, alpha=alpha)
+
+    ax.set_xlim(min(xs), max(xs))
+    ax.set_ylim(max(ys), min(ys))
+    if colorbar:
+        return ax, cax, smopy_map
+    return ax
+
+
+def plot_all_stops(g, ax=None, scalebar=False):
     """
     Parameters
     ----------
     g: A gtfspy.gtfs.GTFS object
     ax: matplotlib.Axes object, optional
         If None, a new figure and an axis is created, otherwise results are plotted on the axis.
+    scalebar: bool, optional
+        Whether to include a scalebar to the plot.
 
     Returns
     -------
-    ax: matplotlib
+    ax: matplotlib.Axes
 
     """
     assert(isinstance(g, GTFS))
-    stats = g.get_stats()
-    for key, val in stats.items():
-        print(key, val)
     lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
     smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
     if ax is None:
@@ -148,5 +270,6 @@ def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None):
                                "that your are connected to the internet.")
     smopy.TILE_SERVER = OLD_SMOPY_TILE_SERVER
     return get_smopy_map.maps[args]
+
 
 get_smopy_map.maps = {}

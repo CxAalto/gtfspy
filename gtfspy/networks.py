@@ -1,6 +1,6 @@
 import networkx
 import pandas as pd
-
+from math import isnan
 from gtfspy import route_types
 from gtfspy.util import wgs84_distance
 from warnings import warn
@@ -54,11 +54,15 @@ def walk_transfer_stop_to_stop_network(gtfs, max_link_distance=None):
     for stop_distance_tuple in stop_distances.itertuples():
         from_node = stop_distance_tuple.from_stop_I
         to_node = stop_distance_tuple.to_stop_I
-        if stop_distance_tuple.d > max_link_distance:
-            continue
-        data = {'d': stop_distance_tuple.d}
+
         if osm_distances_available:
-            data['d_walk'] = stop_distance_tuple.d_walk
+            if stop_distance_tuple.d_walk > max_link_distance or isnan(stop_distance_tuple.d_walk):
+                continue
+            data = {'d': stop_distance_tuple.d, 'd_walk': stop_distance_tuple.d_walk}
+        else:
+            if stop_distance_tuple.d > max_link_distance:
+                continue
+            data = {'d': stop_distance_tuple.d}
         net.add_edge(from_node, to_node, data)
     return net
 
@@ -83,10 +87,10 @@ def stop_to_stop_network_for_route_type(gtfs,
             "duration_max" : maximum travel time between stops
             "duration_median" : median travel time between stops
             "duration_avg" : average travel time between stops
-            "d_great_circle" : distance along straight line (wgs84_distance)
+            "d" : distance along straight line (wgs84_distance)
             "distance_shape" : minimum distance along shape
             "capacity_estimate" : approximate capacity passed through the stop
-            "route_ids" : route id
+            "route_I_counts" : dict from route_I to counts
     start_time_ut: int
         start time of the time span (in unix time)
     end_time_ut: int
@@ -270,7 +274,6 @@ def temporal_network(gtfs,
         },
         inplace=True
     )
-    events_df.drop('seq', 1, inplace=True)
     return events_df
 
 # def cluster_network_stops(stop_to_stop_net, distance):

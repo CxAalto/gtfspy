@@ -10,6 +10,7 @@ FERRY = 4
 CABLE_CAR = 5
 GONDOLA = 6
 FUNICULAR = 7
+AIRCRAFT = 99
 
 ALL_ROUTE_TYPES = {WALK, TRAM, SUBWAY, RAIL, BUS, FERRY, CABLE_CAR, GONDOLA, FUNICULAR}
 TRANSIT_ROUTE_TYPES = ALL_ROUTE_TYPES.difference({WALK})
@@ -23,7 +24,8 @@ ROUTE_TYPE_TO_ZORDER = {
     FERRY: 7,
     CABLE_CAR: 8,
     GONDOLA: 9,
-    FUNICULAR: 10
+    FUNICULAR: 10,
+    AIRCRAFT: 11
 }
 
 ROUTE_TYPE_TO_DESCRIPTION = {
@@ -49,7 +51,8 @@ ROUTE_TYPE_TO_SHORT_DESCRIPTION = {
     FERRY: "Ferry",
     CABLE_CAR: "Cable car",
     GONDOLA: "Gondola",
-    FUNICULAR: "Funicular"
+    FUNICULAR: "Funicular",
+    AIRCRAFT: "Aircraft"
 }
 
 ROUTE_TYPE_TO_LOWERCASE_TAG = {
@@ -86,5 +89,14 @@ ROUTE_TYPE_TO_COLOR = {
     FERRY: "#ffff99",
     CABLE_CAR: "#6a3d9a",
     GONDOLA: "#b15928",
-    FUNICULAR: "#fb9a99"
+    FUNICULAR: "#fb9a99",
+    AIRCRAFT: "#fb9a99"
 }
+
+
+def route_type_to_color_iterable(type):
+    return [ROUTE_TYPE_TO_COLOR[x] for x in type]
+
+
+def route_type_to_zorder(type):
+    return [ROUTE_TYPE_TO_ZORDER[x] for x in type]
