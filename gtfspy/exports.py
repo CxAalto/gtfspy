@@ -208,8 +208,8 @@ def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
                 f.write(";".join(all_values))
 
 
-def write_sections_geojson(G, output_file):
-    multi_di_graph = combined_stop_to_stop_transit_network(G)
+def write_sections_geojson(G, output_file, start_time_ut=None, end_time_ut=None):
+    multi_di_graph = combined_stop_to_stop_transit_network(G, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
     stops = G.get_table("stops")
     stop_I_to_coords = {row.stop_I: [row.lon, row.lat] for row in stops.itertuples()}
     gjson = {"type": "FeatureCollection"}
@@ -251,7 +251,6 @@ def write_routes_geojson(G, output_file):
         features.append(feature)
     gjson['features'] = features
     if hasattr(output_file, "write"):
-        print(gjson)
         output_file.write(json.dumps(gjson))
     else:
         with open(output_file, 'w') as f:
