@@ -504,12 +504,33 @@ def section_stats(gtfs, results_by_mode=False):
 
 def route_frequencies(gtfs, results_by_mode=False):
     """
+    Return the frequency of all types of routes per day.
 
-    :param gtfs:
-    :param results_by_mode:
-    :return:
+    Parameters
+    -----------
+    gtfs: GTFS
+    day: gtfs.get_suitable_date_for_daily_extract()
+
+    Returns:
+    ---------
+    pandas.DataFrame with columns
+        route_I, type, frequency
     """
-    pass
+    day = gtfs.get_suitable_date_for_daily_extract()
+    query = (
+        " SELECT f.route_I, type, frequency FROM routes as r"
+        " JOIN"
+        " (SELECT route_I, COUNT(route_I) as frequency"
+        " FROM"
+        " (SELECT date, route_I, trip_I"
+        " FROM day_stop_times"
+        " WHERE date = '{day}'"
+        " GROUP by route_I, trip_I)"
+        " GROUP BY route_I) as f"
+        " ON f.route_I = r.route_I"
+        " ORDER BY frequency DESC".format(day=day))
+    
+    return pd.DataFrame(gtfs.execute_custom_query_pandas(query))
 
 
 def hourly_frequencies(gtfs, st, et, route_type):
@@ -552,5 +573,35 @@ def hourly_frequencies(gtfs, st, et, route_type):
         raise ValueError("Maybe too short time frame!")
     
     
+def get_vehicle_hours_by_type(gtfs, route_type):
+    """
+    Return the sum of vehicle hours in a particular day by route type.
+    """
+
+    day = gtfs.get_suitable_date_for_daily_extract()
+    query = (" SELECT * , SUM(end_time_ds - start_time_ds)/3600 as vehicle_hours_type"
+             " FROM"
+             " (SELECT * FROM day_trips as q1"
+             " INNER JOIN"
+             " (SELECT route_I, type FROM routes) as q2"
+             " ON q1.route_I = q2.route_I"
+             " WHERE type = {route_type}"
+             " AND date = '{day}')".format(day=day, route_type=route_type))
+    df = gtfs.execute_custom_query_pandas(query)
+    return df['vehicle_hours_type'].item()
+
+def trips_frequencies(gtfs):
+    """
+        Get the frequency of trip_I in a particular day
+    """
+    query = (
+        " SELECT q1.stop_I as from_stop_I, q2.stop_I as to_stop_I, q1.trip_I as trip_I, COUNT(*) as freq FROM"
+        " (SELECT * FROM stop_times) q1,"
+        " (SELECT * FROM stop_times) q2"
+        " WHERE q1.seq+1=q2.seq AND q1.trip_I=q2.trip_I"
+        " GROUP BY from_stop_I, to_stop_I")
+    return(gtfs.execute_custom_query_pandas(query))
+
+
 def route_circuity():
     pass

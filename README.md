@@ -69,6 +69,9 @@ As this library is not yet stabilised, and new features are being developed, cod
 * Nils Haglund
 
 ### Other contributors
+
+* Manuel Rios ([marz7002](https://github.com/marz7002))
+
 * You?
 
 ## Licenses
