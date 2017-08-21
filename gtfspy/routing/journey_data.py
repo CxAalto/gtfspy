@@ -1,7 +1,6 @@
 import os
 import sqlite3
 import pandas as pd
-import numpy as np
 
 from gtfspy.routing.connection import Connection
 from gtfspy.gtfs import GTFS

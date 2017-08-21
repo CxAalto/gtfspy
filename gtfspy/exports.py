@@ -11,6 +11,7 @@ from gtfspy.gtfs import GTFS
 from gtfspy import util
 from gtfspy.networks import stop_to_stop_networks_by_type, temporal_network, \
     combined_stop_to_stop_transit_network
+from gtfspy.route_types import ROUTE_TYPE_TO_ZORDER
 
 
 def write_walk_transfer_edges(gtfs, output_file_name):
@@ -215,7 +216,9 @@ def write_sections_geojson(G, output_file, start_time_ut=None, end_time_ut=None)
     gjson = {"type": "FeatureCollection"}
     features = []
     gjson["features"] = features
-    for from_stop_I, to_stop_I, data in multi_di_graph.edges(data=True):
+    data = list(multi_di_graph.edges(data=True))
+    data.sort(key=lambda el: ROUTE_TYPE_TO_ZORDER[el[2]['route_type']])
+    for from_stop_I, to_stop_I, data in data:
         feature = {"type": "Feature"}
         geometry = {"type": "LineString"}
         geometry['coordinates'] = [stop_I_to_coords[from_stop_I], stop_I_to_coords[to_stop_I]]
