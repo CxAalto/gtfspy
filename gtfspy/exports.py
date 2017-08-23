@@ -43,6 +43,39 @@ def write_nodes(gtfs, output, fields=None):
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
         nodes.to_csv(tmpfile, encoding='utf-8', index=False, sep=";")
 
+def create_stops_geojson_dict(gtfs, fields=None):
+    nodes = gtfs.get_table("stops")
+    if fields is None:
+        fields = {'name': 'stop_name', 'stop_I': 'stop_I', 'lat': 'lat', 'lon': 'lon'}
+    assert (fields['lat'] == 'lat' and fields['lon'] == 'lon')
+    nodes = nodes[list(fields.keys())]
+    nodes.replace(list(fields.keys()), [fields[key] for key in fields.keys()], inplace=True)
+    assert ('lat' in nodes.columns)
+    assert ('lon' in nodes.columns)
+
+    features = []
+    for i, node_tuple in enumerate(nodes.itertuples()):
+        feature = {"type": "Feature",
+                   "id": str(i),
+                   "geometry": {
+                       "type": "Point",
+                       "coordinates": [
+                           node_tuple.lon,
+                           node_tuple.lat
+                       ]
+                   },
+                   "properties": {
+                       "stop_I": str(node_tuple.stop_I),
+                       "name": node_tuple.name
+                   }
+                   }
+        features.append(feature)
+
+    geojson = {
+        "type": "FeatureCollection",
+        "features": features
+    }
+    return geojson
 
 def write_stops_geojson(gtfs, out_file, fields=None):
     """
@@ -55,37 +88,7 @@ def write_stops_geojson(gtfs, out_file, fields=None):
     Returns
     -------
     """
-    nodes = gtfs.get_table("stops")
-    if fields is None:
-        fields = {'name': 'stop_name', 'stop_I': 'stop_I', 'lat':'lat', 'lon':'lon'}
-    assert(fields['lat'] == 'lat' and fields['lon'] == 'lon')
-    nodes = nodes[list(fields.keys())]
-    nodes.replace(list(fields.keys()), [fields[key] for key in fields.keys()], inplace=True)
-    assert('lat' in nodes.columns)
-    assert('lon' in nodes.columns)
-
-    features = []
-    for i, node_tuple in enumerate(nodes.itertuples()):
-        feature = {"type": "Feature",
-                    "id": str(i),
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [
-                            node_tuple.lon,
-                            node_tuple.lat
-                        ]
-                    },
-                "properties": {
-                    "stop_I": str(node_tuple.stop_I),
-                    "name": node_tuple.name
-                    }
-                }
-        features.append(feature)
-    geojson = {
-        "type": "FeatureCollection",
-        "features": features
-    }
-
+    geojson = create_stops_geojson_dict(gtfs, fields)
     if hasattr(out_file, "write"):
         out_file.write(json.dumps(geojson))
     else:
