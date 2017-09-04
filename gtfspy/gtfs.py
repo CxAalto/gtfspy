@@ -16,7 +16,7 @@ from six import string_types
 from gtfspy import shapes
 from gtfspy.route_types import ALL_ROUTE_TYPES
 from gtfspy.route_types import WALK
-from gtfspy.util import wgs84_distance, difference_of_pandas_dfs
+from gtfspy.util import wgs84_distance, wgs84_width, wgs84_height
 
 
 class GTFS(object):
@@ -801,6 +801,31 @@ class GTFS(object):
         lat, lon = results.fetchone()
         return lat, lon
 
+    def get_bounding_box_by_stops(self, stop_Is, buffer_ratio=None):
+        lats = []
+        lons = []
+        for stop_I in stop_Is:
+            lat, lon = self.get_stop_coordinates(stop_I)
+            lats.append(lat)
+            lons.append(lon)
+        min_lat = min(lats)
+        max_lat = max(lats)
+        min_lon = min(lons)
+        max_lon = max(lons)
+        lon_diff = 0
+        lat_diff = 0
+
+        if buffer_ratio:
+            distance = buffer_ratio * wgs84_distance(min_lat, min_lon, max_lat, max_lon)
+            lat_diff = wgs84_height(distance)
+            lon_diff = wgs84_width(distance, (max_lat-min_lat)/2+min_lat)
+
+        return {"lat_min": min_lat-lat_diff,
+                "lat_max": max_lat+lat_diff,
+                "lon_min": min_lon-lon_diff,
+                "lon_max": max_lon+lon_diff}
+
+
     def get_route_name_and_type_of_tripI(self, trip_I):
         """
         Get route short name and type
@@ -1373,6 +1398,52 @@ class GTFS(object):
                    "duration", "from_seq", "to_seq", "route_I"]
         df = pd.DataFrame.from_records(data_tuples, columns=columns)
         return df
+
+    def get_route_difference_with_other_db(self, other_gtfs, start_time, end_time, uniqueness_threshold=None, uniqueness_ratio=None):
+        """
+        Compares the routes based on stops in the schedule with the routes in another db and returns the ones without match.
+        Uniqueness thresholds or ratio can be used to allow small differences
+        :param uniqueness_threshold:
+        :param uniqueness_ratio:
+        :return:
+        """
+        from gtfspy.stats import frequencies_by_generated_route
+
+        this_df = frequencies_by_generated_route(self, start_time, end_time)
+        other_df = frequencies_by_generated_route(other_gtfs, start_time, end_time)
+        this_routes = {x: set(x.split(',')) for x in this_df["route"]}
+        other_routes = {x: set(x.split(',')) for x in other_df["route"]}
+        # this_df["route_set"] = this_df.apply(lambda x: set(x.route.split(',')), axis=1)
+        # other_df["route_set"] = other_df.apply(lambda x: set(x.route.split(',')), axis=1)
+
+        this_uniques = list(this_routes.keys())
+        other_uniques = list(other_routes.keys())
+        print("initial routes A:", len(this_uniques))
+        print("initial routes B:", len(other_uniques))
+        for i_key, i in this_routes.items():
+            for j_key, j in other_routes.items():
+                union = i | j
+                intersection = i & j
+                symmetric_difference = i ^ j
+                if uniqueness_ratio:
+                    if len(intersection)/len(union) >= uniqueness_ratio:
+                        try:
+                            this_uniques.remove(i_key)
+                            this_df = this_df[this_df["route"] != i_key]
+                        except ValueError:
+                            pass
+                        try:
+                            other_uniques.remove(j_key)
+                            other_df = other_df[other_df["route"] != j_key]
+                        except ValueError:
+                            pass
+
+        print("unique routes A", len(this_df))
+        print("unique routes B", len(other_df))
+        return this_df, other_df
+
+
+
 
     def get_section_difference_with_other_db(self, other_conn, start_time, end_time):
         query = """SELECT from_stop_I, to_stop_I, sum(n_trips) AS n_trips, count(*) AS n_routes,

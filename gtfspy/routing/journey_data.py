@@ -502,7 +502,10 @@ class JourneyDataManager:
             fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
             for key, value in self.journey_properties.items():
                 value = [walking_duration if x == "t_walk" else x for x in value]
-                property_analyzer = fpa.get_prop_analyzer_flat(key, value[0], value[1])
+                if key == "pre_journey_wait_fp":
+                    property_analyzer = fpa.get_prop_analyzer_for_pre_journey_wait()
+                else:
+                    property_analyzer = fpa.get_prop_analyzer_flat(key, value[0], value[1])
                 data_dict[key].append(property_analyzer.summary_as_dict())
 
         for key, value in data_dict.items():
@@ -776,7 +779,7 @@ class DiffDataManager:
         rows = [x[0] for x in cur.execute(query).fetchall()]
         return rows
 
-    def get_largest_component(self, target):
+    def get_largest_component(self, target, threshold=180):
         query = """SELECT diff_pre_journey_wait_fp.from_stop_I AS stop_I, 
                     diff_pre_journey_wait_fp.diff_mean AS pre_journey_wait, 
                     diff_in_vehicle_duration.diff_mean AS in_vehicle_duration,
@@ -794,14 +797,14 @@ class DiffDataManager:
         df['max_component'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmax(axis=1)
         df['max_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].max(axis=1)
 
-        mask = (df['max_value'] < 180)
+        mask = (df['max_value'] < threshold)
 
         df.loc[mask, 'max_component'] = "no_change_within_threshold"
 
         df['min_component'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmin(axis=1)
         df['min_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].min(axis=1)
 
-        mask = (df['min_value'] > -180)
+        mask = (df['min_value'] > -1 * threshold)
 
         df.loc[mask, 'min_component'] = "no_change_within_threshold"
 

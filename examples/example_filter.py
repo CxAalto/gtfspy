@@ -27,5 +27,5 @@ G = GTFS(filtered_database_path)
 # visualize the routes of the filtered database
 from gtfspy import mapviz
 from matplotlib import pyplot as plt
-mapviz.plot_route_network(G)
+mapviz.plot_route_network_from_gtfs(G)
 plt.show()

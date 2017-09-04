@@ -24,6 +24,19 @@ class JourneyDataAnalyzer:
 
     def get_journey_legs_to_target(self, target, fastest_path=True, min_boardings=False, all_leg_sections=True,
                                                    ignore_walk=False, diff_threshold=None, diff_path=None):
+        """
+        Returns a dataframe of aggregated sections from source nodes to target. The returned sections are either
+        transfer point to transfer point or stop to stop. In a before after setting, the results can be filtered based
+        on values in a difference db.
+        :param target:
+        :param fastest_path:
+        :param min_boardings:
+        :param all_leg_sections:
+        :param ignore_walk:
+        :param diff_threshold:
+        :param diff_path:
+        :return:
+        """
         assert not (fastest_path and min_boardings)
         if min_boardings:
             raise NotImplementedError
@@ -90,6 +103,40 @@ class JourneyDataAnalyzer:
         df_to_return = df[['from_stop_I', 'to_stop_I', 'type', 'n_trips']]
 
         return df_to_return
+
+    def get_origin_target_journey_legs(self, origin, target, start_time=None, end_time=None, fastest_path=True, min_boardings=False,
+                                       ignore_walk=False, add_coordinates=True):
+
+        assert not (fastest_path and min_boardings)
+        if min_boardings:
+            raise NotImplementedError
+
+        added_constraints = ""
+        if fastest_path:
+            added_constraints += " AND journeys.pre_journey_wait_fp>=0"
+        if ignore_walk:
+            added_constraints += " AND legs.trip_I >= 0"
+        if start_time:
+            added_constraints += " AND journeys.departure_time>= %s" % start_time
+        if start_time:
+            added_constraints += " AND journeys.departure_time< %s" % end_time
+
+        query = """SELECT from_stop_I, to_stop_I, coalesce(type, -1) AS type,
+                     count(*) AS n_trips, group_concat(dep_time) AS dep_times
+                     FROM
+                     (SELECT legs.*, journeys.departure_time as dep_time FROM legs, journeys
+                     WHERE journeys.journey_id = legs.journey_id AND journeys.from_stop_I = %s 
+                     AND journeys.to_stop_I = %s %s
+                     ORDER BY dep_time
+                     ) q1
+                     LEFT JOIN (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
+                     ON q1.trip_I = q2.trip_I
+                     GROUP BY from_stop_I, to_stop_I, type""" % (str(origin), str(target), added_constraints)
+        df = read_sql_query(query, self.conn)
+        if add_coordinates:
+            df = self.g.add_coordinates_to_df(df, join_column="from_stop_I", lat_name="from_lat", lon_name="from_lon")
+            df = self.g.add_coordinates_to_df(df, join_column="to_stop_I", lat_name="to_lat", lon_name="to_lon")
+        return df
 
     def get_journey_routes_not_in_other_db(self, target, other_journey_conn, fastest_path=True, min_boardings=False, all_leg_sections=True,
                                            ignore_walk=False, diff_threshold=None, diff_path=None):

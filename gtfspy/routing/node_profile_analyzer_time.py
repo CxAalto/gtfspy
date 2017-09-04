@@ -424,7 +424,8 @@ class NodeProfileAnalyzerTime:
                                        plot_journeys=False,
                                        duration_divider=60.0,
                                        fill_color="green",
-                                       journey_letters=None):
+                                       journey_letters=None,
+                                       return_letters=False):
         """
         Parameters
         ----------
@@ -512,10 +513,12 @@ class NodeProfileAnalyzerTime:
             ys = self.trip_durations
             ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
             if journey_letters is None:
-                journey_letters = "ABCDEFGHIJKLM"
+                journey_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            time_letters = {int(time): letter for letter, time in zip(journey_letters, self.trip_departure_times)}
             for x, y, letter in zip(xs, ys, journey_letters):
+                walking = - self._walk_time_to_target / 30 if numpy.isfinite(self._walk_time_to_target) else 0
                 ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 60),
-                        (y - self._walk_time_to_target / 30) / duration_divider, letter, va="top", ha="left")
+                        (y + walking) / duration_divider, letter, va="top", ha="left")
 
         fill_between_x = []
         fill_between_y = []
@@ -535,7 +538,10 @@ class NodeProfileAnalyzerTime:
             ax.set_xlabel("Departure time")
 
         ax.set_ylabel(r"Temporal distance $\tau$ (min)")
-        return ax
+        if plot_journeys and return_letters:
+            return ax, time_letters
+        else:
+            return ax
 
     def _temporal_distance_pdf(self):
         """

@@ -6,7 +6,7 @@ g = load_or_import_example_gtfs()
 # g is now a gtfspy.gtfs.GTFS object
 
 # Plot the route network and all stops to the same axes
-ax = mapviz.plot_route_network(g, scalebar=True)
+ax = mapviz.plot_route_network_from_gtfs(g, scalebar=True)
 mapviz.plot_all_stops(g, ax)
 
 # Plot also a thumbnail figure highlighting the central areas:

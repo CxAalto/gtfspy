@@ -31,8 +31,8 @@ def _get_median_centered_plot_bounds(g):
     return plot_lon_min, plot_lon_max, plot_lat_min, plot_lat_max
 
 
-def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
-                       return_smopy_map=False):
+def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
+                                 return_smopy_map=False):
     """
     Parameters
     ----------
@@ -50,18 +50,43 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=
     ax: matplotlib.Axes
 
     """
+
     assert(isinstance(g, GTFS))
+    route_shapes = g.get_all_route_shapes()
+
     if spatial_bounds is None:
-        lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
-    else:
-        lon_min = spatial_bounds['lon_min']
-        lon_max = spatial_bounds['lon_max']
-        lat_min = spatial_bounds['lat_min']
-        lat_max = spatial_bounds['lat_max']
+        spatial_bounds = get_spatial_bounds(g, as_dict=True)
+    plot_as_routes(route_shapes, spatial_bounds=spatial_bounds, map_alpha=0.8, scalebar=True, legend=True,
+                   return_smopy_map=False)
+
+
+def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
+                   return_smopy_map=False, line_width_attribute=None, line_width_scale=1.0):
+    """
+
+    :param route_shapes: list of dicts that should have the following keys
+            name, type, agency, lats, lons
+            with types
+            list, list, str, list, list
+    :param ax: axis object
+    :param spatial_bounds: dict
+    :param map_alpha:
+    :param scalebar:
+    :param legend:
+    :param return_smopy_map:
+    :param line_width_attribute:
+    :param line_width_scale:
+    :return:
+    """
+    line_width = None
+    lon_min = spatial_bounds['lon_min']
+    lon_max = spatial_bounds['lon_max']
+    lat_min = spatial_bounds['lat_min']
+    lat_max = spatial_bounds['lat_max']
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    route_shapes = g.get_all_route_shapes()
+
     # print(lat_min, lat_max)
     # print(lon_min, lon_max)
     smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
@@ -74,8 +99,10 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=
         route_type = ROUTE_TYPE_CONVERSION[shape['type']]
         lats = numpy.array(shape['lats'])
         lons = numpy.array(shape['lons'])
+        if line_width_attribute:
+            line_width = line_width_scale * shape[line_width_attribute]
         xs, ys = smopy_map.to_pixels(lats, lons)
-        line, = ax.plot(xs, ys, color=ROUTE_TYPE_TO_COLOR[route_type], zorder=ROUTE_TYPE_TO_ZORDER[route_type])
+        line, = ax.plot(xs, ys, linewidth=line_width, color=ROUTE_TYPE_TO_COLOR[route_type], zorder=ROUTE_TYPE_TO_ZORDER[route_type])
         route_types_to_lines[route_type] = line
 
     if legend:
@@ -97,25 +124,30 @@ def plot_route_network(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=
         return ax
 
 
-def plot_route_network_with_attributes(from_lats, from_lons, to_lats, to_lons, attributes=None, color_attributes=None,
-                                       zorders=None,
-                                       ax=None,
-                                       spatial_bounds=None,
-                                       alpha=1,
-                                       map_alpha=0.8,
-                                       scalebar=True,
-                                       return_smopy_map=False,
-                                       c=None, linewidth=None,
-                                       linewidth_multiplier=1,
-                                       use_log_scale=False):
+def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, attributes=None, color_attributes=None,
+                                        zorders=None,
+                                        line_labels=None,
+                                        ax=None,
+                                        spatial_bounds=None,
+                                        alpha=1,
+                                        map_alpha=0.8,
+                                        scalebar=True,
+                                        return_smopy_map=False,
+                                        c=None, linewidth=None,
+                                        linewidth_multiplier=1,
+                                        use_log_scale=False):
     if attributes is None:
         attributes = len(list(from_lats))*[None]
-        assert linewidth
+        if not linewidth:
+            linewidth = 1
     if color_attributes is None:
         color_attributes = len(list(from_lats))*[None]
         assert c
     if zorders is None:
         zorders = len(list(from_lats))*[None]
+
+    if line_labels is None:
+        line_labels = len(list(from_lats))*[None]
 
     if spatial_bounds is None:
         lon_min = min(list(from_lons) + list(to_lons))
@@ -136,22 +168,29 @@ def plot_route_network_with_attributes(from_lats, from_lons, to_lats, to_lons, a
     bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                                          numpy.array([lon_min, lon_max]))
 
-    for from_lat, from_lon, to_lat, to_lon, attribute, color_attribute, zorder in zip(from_lats,
-                                                                                      from_lons,
-                                                                                      to_lats,
-                                                                                      to_lons,
-                                                                                      attributes,
-                                                                                      color_attributes,
-                                                                                      zorders):
+    for from_lat, from_lon, to_lat, to_lon, attribute, color_attribute, zorder, line_label in zip(from_lats,
+                                                                                                  from_lons,
+                                                                                                  to_lats,
+                                                                                                  to_lons,
+                                                                                                  attributes,
+                                                                                                  color_attributes,
+                                                                                                  zorders,
+                                                                                                  line_labels):
+
         if not color_attribute:
             color_attribute = c
         if not attribute:
             attribute = linewidth
         if use_log_scale:
             attribute = math.log10(attribute)
-        xs, ys = smopy_map.to_pixels(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]))
-        ax.plot(xs, ys, c=color_attribute, linewidth=attribute*linewidth_multiplier, zorder=zorder, alpha=alpha)
 
+        xs, ys = smopy_map.to_pixels(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]))
+
+        ax.plot(xs, ys, c=color_attribute, linewidth=attribute*linewidth_multiplier, zorder=zorder, alpha=alpha)
+        if line_label:
+            ax.text(xs.mean(), ys.mean(), line_label,
+                    # verticalalignment='bottom', horizontalalignment='right',
+                    color='green', fontsize=15)
     if scalebar:
         _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
 
@@ -192,7 +231,7 @@ def plot_route_network_thumbnail(g):
     fig = plt.figure(figsize=(width/dpi, height/dpi))
     ax = fig.add_subplot(111)
     plt.subplots_adjust(bottom=0.0, left=0.0, right=1.0, top=1.0)
-    return plot_route_network(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
+    return plot_route_network_from_gtfs(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
 
 
 def plot_stops_with_attributes(lats, lons, attribute, s=0.5,  colorbar=False, ax=None, cmap=None, norm=None, alpha=None):

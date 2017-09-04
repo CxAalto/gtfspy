@@ -149,6 +149,20 @@ class FastestPathAnalyzer:
         kwargs = self.kwargs
         return ProfileBlockAnalyzer(self.get_fastest_path_temporal_distance_blocks(), **kwargs)
 
+    def get_prop_analyzer_for_pre_journey_wait(self):
+        kwargs = self.kwargs
+        prop_blocks = []
+        fp_blocks = self.get_fastest_path_temporal_distance_blocks()
+        for b in fp_blocks:
+            if b.distance_end == float("inf"):
+                prop_block = b
+            elif b.is_flat():
+                prop_block = ProfileBlock(b.start_time, b.end_time, 0, 0)
+            else:
+                prop_block = ProfileBlock(b.start_time, b.end_time, b.width(), 0)
+            prop_blocks.append(prop_block)
+        return ProfileBlockAnalyzer(prop_blocks, **kwargs)
+
     def get_prop_analyzer_flat(self, property, value_no_next_journey, value_cutoff):
         """
         Get a journey property analyzer, where each journey is weighted by the number of.
