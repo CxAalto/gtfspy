@@ -132,7 +132,7 @@ class GTFS(object):
 
     def get_stop_distance(self, from_stop_I, to_stop_I):
         query_template = "SELECT d_walk FROM stop_distances WHERE from_stop_I={from_stop_I} AND to_stop_I={to_stop_I} "
-        q = query_template.format(from_stop_I=from_stop_I, to_stop_I=to_stop_I)
+        q = query_template.format(from_stop_I=int(from_stop_I), to_stop_I=int(to_stop_I))
         if self.conn.execute(q).fetchone():
             return self.conn.execute(q).fetchone()[0]
         else:

@@ -142,9 +142,9 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
             linewidth = 1
     if color_attributes is None:
         color_attributes = len(list(from_lats))*[None]
-        assert c
+        assert c is not None
     if zorders is None:
-        zorders = len(list(from_lats))*[None]
+        zorders = len(list(from_lats))*[1]
 
     if line_labels is None:
         line_labels = len(list(from_lats))*[None]
@@ -177,8 +177,13 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
                                                                                                   zorders,
                                                                                                   line_labels):
 
-        if not color_attribute:
-            color_attribute = c
+
+        if color_attribute is None:
+            color = c
+        else:
+            a = ROUTE_TYPE_CONVERSION[color_attribute]
+            color = ROUTE_TYPE_TO_COLOR[a]
+            zorder = ROUTE_TYPE_TO_ZORDER[a]
         if not attribute:
             attribute = linewidth
         if use_log_scale:
@@ -186,11 +191,28 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
 
         xs, ys = smopy_map.to_pixels(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]))
 
-        ax.plot(xs, ys, c=color_attribute, linewidth=attribute*linewidth_multiplier, zorder=zorder, alpha=alpha)
+        ax.plot(xs, ys, color=color, linewidth=attribute*linewidth_multiplier, zorder=zorder, alpha=alpha)
         if line_label:
             ax.text(xs.mean(), ys.mean(), line_label,
                     # verticalalignment='bottom', horizontalalignment='right',
                     color='green', fontsize=15)
+
+    legend = True if color_attributes is not None else False
+    import matplotlib.lines as mlines
+        
+    if legend:
+        unique_types = set(color_attributes)
+        lines = []
+        
+        for i in unique_types:
+            line = mlines.Line2D([], [], color=ROUTE_TYPE_TO_COLOR[i], markersize=15,
+                                 label=ROUTE_TYPE_TO_SHORT_DESCRIPTION[i])
+            lines.append(line)
+        handles = lines
+        labels = [h.get_label() for h in handles] 
+            
+        ax.legend(handles=handles, labels=labels, loc=4)
+        
     if scalebar:
         _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
 
@@ -199,6 +221,7 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
 
     ax.set_xlim(bound_pixel_xs.min(), bound_pixel_xs.max())
     ax.set_ylim(bound_pixel_ys.max(), bound_pixel_ys.min())
+
     if return_smopy_map:
         return ax, smopy_map
     else:
