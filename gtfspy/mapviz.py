@@ -145,7 +145,6 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
         assert c is not None
     if zorders is None:
         zorders = len(list(from_lats))*[1]
-
     if line_labels is None:
         line_labels = len(list(from_lats))*[None]
 
@@ -178,6 +177,7 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
                                                                                                   line_labels):
 
 
+
         if color_attribute is None:
             color = c
         else:
@@ -207,6 +207,7 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
         for i in unique_types:
             line = mlines.Line2D([], [], color=ROUTE_TYPE_TO_COLOR[i], markersize=15,
                                  label=ROUTE_TYPE_TO_SHORT_DESCRIPTION[i])
+
             lines.append(line)
         handles = lines
         labels = [h.get_label() for h in handles] 

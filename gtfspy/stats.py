@@ -610,7 +610,7 @@ def departure_stops(gtfs, st, et):
     df = gtfs.add_coordinates_to_df(df)
     return df
 
-    
+
 def get_vehicle_hours_by_type(gtfs, route_type):
     """
     Return the sum of vehicle hours in a particular day by route type.
