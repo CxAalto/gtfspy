@@ -172,7 +172,7 @@ class FastestPathAnalyzer:
         prop_blocks = []
         for b in fp_blocks:
             if b.is_flat():
-                if b.distance_end == self.walk_duration:
+                if b.distance_end == self.walk_duration and b.distance_end != float('inf'):
                     prop_value = value_cutoff
                 else:
                     prop_value = value_no_next_journey

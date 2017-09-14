@@ -492,11 +492,11 @@ class JourneyDataManager:
 
         print("Computing total number of origins and targets..", end='', flush=True)
         n_pairs_tot = len(self.get_origins()) * len(self.get_targets())
-        print("\rComputing total number of origins and targets")
+        print("\rComputed total number of origins and targets")
 
         def _flush_data_to_db(results):
             for key, value in results.items():
-                self._insert_travel_impedance_data_to_db(key, value)
+                self.__insert_travel_impedance_data_to_db(key, value)
             for travel_impedance_measure in self.travel_impedance_measure_names:
                 results[travel_impedance_measure] = []
 
@@ -524,9 +524,9 @@ class JourneyDataManager:
             # Note: the summary_as_dict automatically includes also the from_stop_I and to_stop_I -fields.
             results_dict["temporal_distance"].append(temporal_distance_analyzer.summary_as_dict())
             fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
-            for key, value in self.journey_properties.items():
+            for key, (value_no_next_journey, value_cutoff) in self.journey_properties.items():
                 value = [walking_duration if x == "t_walk" else x for x in value]
-                property_analyzer = fpa.get_prop_analyzer_flat(key, value[0], value[1])
+                property_analyzer = fpa.get_prop_analyzer_flat(key, value_no_next_journey, value_cutoff)
                 results_dict[key].append(property_analyzer.summary_as_dict())
 
             if i % 1000 == 0: # update in batches of 1000
@@ -569,8 +569,15 @@ class JourneyDataManager:
                                                                   "mean REAL, "
                                                                   "UNIQUE (from_stop_I, to_stop_I))")
 
-    def _insert_travel_impedance_data_to_db(self, travel_impedance_measure_name, data):
-        self._create_travel_impedance_measure_table(travel_impedance_measure_name)
+    def __insert_travel_impedance_data_to_db(self, travel_impedance_measure_name, data):
+        """
+        Parameters
+        ----------
+        travel_impedance_measure_name: str
+        data: list[dict]
+            Each list element must contain keys:
+            "from_stop_I", "to_stop_I", "min", "max", "median" and "mean"
+        """
         data_tuple = [(x["from_stop_I"], x["to_stop_I"], x["min"], x["max"], x["median"], x["mean"]) for x in data]
         insert_stmt = '''INSERT OR REPLACE INTO ''' + travel_impedance_measure_name + ''' (
                               from_stop_I,
