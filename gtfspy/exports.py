@@ -11,6 +11,7 @@ from gtfspy.gtfs import GTFS
 from gtfspy import util
 from gtfspy.networks import stop_to_stop_networks_by_type, temporal_network, \
     combined_stop_to_stop_transit_network
+from gtfspy.route_types import ROUTE_TYPE_TO_ZORDER
 
 
 def write_walk_transfer_edges(gtfs, output_file_name):
@@ -43,6 +44,40 @@ def write_nodes(gtfs, output, fields=None):
         nodes.to_csv(tmpfile, encoding='utf-8', index=False, sep=";")
 
 
+def create_stops_geojson_dict(gtfs, fields=None):
+    nodes = gtfs.get_table("stops")
+    if fields is None:
+        fields = {'name': 'stop_name', 'stop_I': 'stop_I', 'lat': 'lat', 'lon': 'lon'}
+    assert (fields['lat'] == 'lat' and fields['lon'] == 'lon')
+    nodes = nodes[list(fields.keys())]
+    nodes.replace(list(fields.keys()), [fields[key] for key in fields.keys()], inplace=True)
+    assert ('lat' in nodes.columns)
+    assert ('lon' in nodes.columns)
+
+    features = []
+    for i, node_tuple in enumerate(nodes.itertuples()):
+        feature = {"type": "Feature",
+                   "id": str(i),
+                   "geometry": {
+                       "type": "Point",
+                       "coordinates": [
+                           node_tuple.lon,
+                           node_tuple.lat
+                       ]
+                   },
+                   "properties": {
+                       "stop_I": str(node_tuple.stop_I),
+                       "name": node_tuple.name
+                   }
+                   }
+        features.append(feature)
+
+    geojson = {
+        "type": "FeatureCollection",
+        "features": features
+    }
+    return geojson
+
 def write_stops_geojson(gtfs, out_file, fields=None):
     """
     Parameters
@@ -54,37 +89,7 @@ def write_stops_geojson(gtfs, out_file, fields=None):
     Returns
     -------
     """
-    nodes = gtfs.get_table("stops")
-    if fields is None:
-        fields = {'name': 'stop_name', 'stop_I': 'stop_I', 'lat':'lat', 'lon':'lon'}
-    assert(fields['lat'] == 'lat' and fields['lon'] == 'lon')
-    nodes = nodes[list(fields.keys())]
-    nodes.replace(list(fields.keys()), [fields[key] for key in fields.keys()], inplace=True)
-    assert('lat' in nodes.columns)
-    assert('lon' in nodes.columns)
-
-    features = []
-    for i, node_tuple in enumerate(nodes.itertuples()):
-        feature = {"type": "Feature",
-                    "id": str(i),
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [
-                            node_tuple.lon,
-                            node_tuple.lat
-                        ]
-                    },
-                "properties": {
-                    "stop_I": str(node_tuple.stop_I),
-                    "name": node_tuple.name
-                    }
-                }
-        features.append(feature)
-    geojson = {
-        "type": "FeatureCollection",
-        "features": features
-    }
-
+    geojson = create_stops_geojson_dict(gtfs, fields)
     if hasattr(out_file, "write"):
         out_file.write(json.dumps(geojson))
     else:
@@ -208,41 +213,50 @@ def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
                 f.write(";".join(all_values))
 
 
-def write_sections_geojson(G, output_file):
-    multi_di_graph = combined_stop_to_stop_transit_network(G)
+def create_sections_geojson_dict(G, start_time_ut=None, end_time_ut=None):
+    multi_di_graph = combined_stop_to_stop_transit_network(G, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
     stops = G.get_table("stops")
     stop_I_to_coords = {row.stop_I: [row.lon, row.lat] for row in stops.itertuples()}
     gjson = {"type": "FeatureCollection"}
     features = []
     gjson["features"] = features
-    for from_stop_I, to_stop_I, data in multi_di_graph.edges(data=True):
+    data = list(multi_di_graph.edges(data=True))
+    data.sort(key=lambda el: ROUTE_TYPE_TO_ZORDER[el[2]['route_type']])
+    for from_stop_I, to_stop_I, data in data:
         feature = {"type": "Feature"}
-        geometry = {"type": "LineString"}
-        geometry['coordinates'] = [stop_I_to_coords[from_stop_I], stop_I_to_coords[to_stop_I]]
+        geometry = {
+            "type": "LineString",
+            'coordinates': [stop_I_to_coords[from_stop_I], stop_I_to_coords[to_stop_I]]
+        }
         feature['geometry'] = geometry
         route_I_counts = data['route_I_counts']
-        route_I_counts = {str(key):int(value) for key,value in route_I_counts.items()}
+        route_I_counts = {str(key): int(value) for key, value in route_I_counts.items()}
         data['route_I_counts'] = route_I_counts
         properties = data
         properties['from_stop_I'] = int(from_stop_I)
         properties['to_stop_I'] = int(to_stop_I)
         feature['properties'] = data
         features.append(feature)
+    return gjson
 
+def write_sections_geojson(G, output_file, start_time_ut=None, end_time_ut=None):
+    gjson = create_sections_geojson_dict(G, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
     if hasattr(output_file, "write"):
         output_file.write(json.dumps(gjson))
     else:
         with open(output_file, 'w') as f:
             f.write(json.dumps(gjson))
 
-def write_routes_geojson(G, output_file):
+def create_routes_geojson_dict(G):
     assert(isinstance(G, GTFS))
     gjson = {"type": "FeatureCollection"}
     features = []
     for routeShape in G.get_all_route_shapes(use_shapes=False):
         feature = {"type": "Feature"}
-        geometry = {"type": "LineString"}
-        geometry['coordinates'] = list(zip(routeShape['lons'], routeShape['lats']))
+        geometry = {
+            "type": "LineString",
+            "coordinates": list(zip(routeShape['lons'], routeShape['lats']))
+        }
         feature['geometry'] = geometry
         properties = {"route_type": int(routeShape['type']),
                       "route_I": int(routeShape['route_I']),
@@ -250,6 +264,10 @@ def write_routes_geojson(G, output_file):
         feature['properties'] = properties
         features.append(feature)
     gjson['features'] = features
+    return gjson
+
+def write_routes_geojson(G, output_file):
+    gjson = create_routes_geojson_dict(G)
     if hasattr(output_file, "write"):
         output_file.write(json.dumps(gjson))
     else:

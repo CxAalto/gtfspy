@@ -112,7 +112,6 @@ def stop_to_stop_network_for_route_type(gtfs,
     events_df = gtfs.get_transit_events(start_time_ut=start_time_ut,
                                         end_time_ut=end_time_ut,
                                         route_type=route_type)
-
     if len(net.nodes()) < 2:
         assert events_df.shape[0] == 0
 

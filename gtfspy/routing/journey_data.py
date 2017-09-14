@@ -1,7 +1,6 @@
 import os
 import sqlite3
 import pandas as pd
-import numpy as np
 
 from gtfspy.routing.connection import Connection
 from gtfspy.gtfs import GTFS
@@ -22,8 +21,9 @@ def attach_database(conn, other_db_path, name="other"):
 
 
 class JourneyDataManager:
-    def __init__(self, gtfs_path,
-                 routing_params,
+    def __init__(self,
+                 gtfs_path,
+                 routing_params=None,
                  journey_db_path=None,
                  multitarget_routing=False,
                  close_connection=True,
@@ -36,6 +36,8 @@ class JourneyDataManager:
         """
         self.close_connection = close_connection
         self.routing_params = routing_params
+        if not routing_params:
+            self.routing_params = dict()
         self.multitarget_routing = multitarget_routing
         self.track_route = track_route
         self.track_vehicle_legs = track_vehicle_legs
@@ -43,13 +45,21 @@ class JourneyDataManager:
         self.gtfs = GTFS(self.gtfs_path)
         self.gtfs_meta = self.gtfs.meta
         self.gtfs._dont_close = True
-        self.conn = None
         self.od_pairs = None
         self.targets = None
         self._origins = None
         self.diff_conn = None
+
+        assert os.path.exists(journey_db_path) or routing_params is not None
+        self.conn = sqlite3.connect(journey_db_path)
+        if not os.path.isfile(journey_db_path):
+            self.initialize_database(journey_db_path)
+
+        self.measure_parameters = Parameters(self.conn)
+
         self.journey_properties = {"journey_duration": ("t_walk", "t_walk")}
-        if self.routing_params['track_vehicle_legs']:
+        if self.routing_params.get('track_vehicle_legs', False) or \
+                self.measure_parameters.get('track_vehicle_legs', False):
             self.journey_properties["n_boardings"] = (float("inf"), 0)
         if self.track_route:
             additional_journey_parameters = {
@@ -62,12 +72,8 @@ class JourneyDataManager:
         self.travel_impedance_measure_names = list(self.journey_properties.keys())
         self.travel_impedance_measure_names += ["temporal_distance"]
 
-
-        if not os.path.isfile(journey_db_path):
-            self.initialize_database(journey_db_path)
         self.conn = sqlite3.connect(journey_db_path)
-        self.measure_parameters = Parameters(self.conn)
-        self._check_that_dbs_match()
+        self._check_that_journey_computation_paramaters_match()
 
     def __del__(self):
         self.gtfs._dont_close = False
@@ -92,7 +98,7 @@ class JourneyDataManager:
     def target_in_db(self, target_stop):
         return "," + str(target_stop) + "," in self.measure_parameters["target_list"]
 
-    def _check_that_dbs_match(self):
+    def _check_that_journey_computation_paramaters_match(self):
         for key, value in self.measure_parameters.items():
             if key in self.gtfs_meta.keys():
                 assert self.gtfs_meta[key] == value
@@ -456,7 +462,6 @@ class JourneyDataManager:
                                   label_props_to_consider=list(self.journey_properties.keys()))
         return fpa.get_time_analyzer()
 
-
     def _get_node_profile_analyzer_time_and_veh_legs(self, target, origin, start_time_dep, end_time_dep):
         sql = """SELECT from_stop_I, to_stop_I, n_boardings, departure_time, arrival_time_target FROM journeys WHERE to_stop_I = %s AND from_stop_I = %s""" % (target, origin)
         df = pd.read_sql_query(sql, self.conn)
@@ -483,6 +488,40 @@ class JourneyDataManager:
                                                      start_time_dep,
                                                      end_time_dep)
         return analyzer
+
+    def read_travel_impedance_measure_from_table(self, travel_impedance_measure,
+                                                 from_stop_I=None,
+                                                 to_stop_I=None,
+                                                 statistic=None):
+        """
+        Recover pre-computed travel_impedance between od-pairs from the database.
+
+        Returns
+        -------
+        values: number | Pandas DataFrame
+        """
+        to_select = []
+        where_clauses = []
+        to_select.append("from_stop_I")
+        to_select.append("to_stop_I")
+        if from_stop_I is not None:
+            where_clauses.append("from_stop_I=" + str(int(from_stop_I)))
+        if to_stop_I is not None:
+            where_clauses.append("to_stop_I=" + str(int(to_stop_I)))
+        where_clause = ""
+        if len(where_clauses) > 0:
+            where_clause = " WHERE " + " AND ".join(where_clauses)
+        if not statistic:
+            to_select.extend(["min", "mean", "median", "max"])
+        else:
+            to_select.append(statistic)
+        to_select_clause = ",".join(to_select)
+        if not to_select_clause:
+            to_select_clause = "*"
+        sql = "SELECT " + to_select_clause + " FROM " + travel_impedance_measure + where_clause + ";"
+        df = pd.read_sql(sql, self.conn)
+        return df
+
 
     @timeit
     def compute_travel_impedance_measures_for_od_pairs(self, analysis_start_time, analysis_end_time):
@@ -526,7 +565,10 @@ class JourneyDataManager:
             fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
             for key, (value_no_next_journey, value_cutoff) in self.journey_properties.items():
                 value = [walking_duration if x == "t_walk" else x for x in value]
-                property_analyzer = fpa.get_prop_analyzer_flat(key, value_no_next_journey, value_cutoff)
+                if key == "pre_journey_wait_fp":
+                    property_analyzer = fpa.get_prop_analyzer_for_pre_journey_wait()
+                else:
+                    property_analyzer = fpa.get_prop_analyzer_flat(key, value_no_next_journey, value_cutoff)
                 results_dict[key].append(property_analyzer.summary_as_dict())
 
             if i % 1000 == 0: # update in batches of 1000
@@ -534,6 +576,8 @@ class JourneyDataManager:
         # flush everything that remains
         _flush_data_to_db(results_dict)
 
+        for travel_impedance_measure in self.travel_impedance_measure_names:
+            self._create_index_for_travel_impedance_measure_table(travel_impedance_measure)
 
     @timeit
     def calculate_pre_journey_waiting_times_ignoring_direct_walk(self):
@@ -589,6 +633,14 @@ class JourneyDataManager:
         self.conn.executemany(insert_stmt, data_tuple)
         self.conn.commit()
 
+    def _create_index_for_travel_impedance_measure_table(self, travel_impedance_measure_name):
+        table = travel_impedance_measure_name
+        sql_from = "CREATE INDEX IF NOT EXISTS " + table + "_from_stop_I ON " + table + " (from_stop_I)"
+        sql_to = "CREATE INDEX IF NOT EXISTS " + table + "_to_stop_I ON " + table + " (to_stop_I)"
+        self.conn.execute(sql_from)
+        self.conn.execute(sql_to)
+
+
     @timeit
     def initialize_comparison_tables(self, diff_db_path, before_db_tuple, after_db_tuple):
         self.diff_conn = sqlite3.connect(diff_db_path)
@@ -613,11 +665,8 @@ class JourneyDataManager:
             self.diff_conn.execute(insert_stmt)
             self.diff_conn.commit()
 
-
     def initialize_database(self, journey_db_path):
         assert not os.path.isfile(journey_db_path)
-
-        self.conn = sqlite3.connect(journey_db_path)
         self._set_up_database()
         self._initialize_parameter_table()
         print("Database initialized!")
@@ -736,6 +785,7 @@ class JourneyDataManager:
         cur.execute('ANALYZE')
         print("Indexing")
         cur = self.conn.cursor()
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_route ON journeys (route)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_jid ON journeys (journey_id)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_fid ON journeys (from_stop_I)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_tid ON journeys (to_stop_I)')
@@ -807,37 +857,44 @@ class DiffDataManager:
             query += " WHERE to_stop_I = %s" % target
         return pd.read_sql_query(query, self.conn)
 
-    def get_largest_component(self):
-        query = """select
-                    diff_pre_journey_wait_fp.from_stop_I, diff_pre_journey_wait_fp.to_stop_I,
-                    CASE
-                    WHEN abs(diff_pre_journey_wait_fp.diff_mean)<180 AND abs(diff_in_vehicle_duration.diff_mean)<180
-                    AND   abs(diff_transfer_wait_duration.diff_mean)<180 AND   abs(diff_walking_duration.diff_mean)<180
-                    THEN "equal"
-                    WHEN abs(diff_pre_journey_wait_fp.diff_mean) > abs(diff_in_vehicle_duration.diff_mean)
-                    AND  abs(diff_pre_journey_wait_fp.diff_mean) > abs(diff_transfer_wait_duration.diff_mean)
-                    AND  abs(diff_pre_journey_wait_fp.diff_mean) > abs(diff_walking_duration.diff_mean)
-                    THEN "journey_wait_fp"
-                    WHEN abs(diff_in_vehicle_duration.diff_mean) > abs(diff_pre_journey_wait_fp.diff_mean)
-                    AND  abs(diff_in_vehicle_duration.diff_mean) > abs(diff_transfer_wait_duration.diff_mean)
-                    AND  abs(diff_in_vehicle_duration.diff_mean) > abs(diff_walking_duration.diff_mean)
-                    THEN "in_vehicle_duration"
-                    WHEN abs(diff_transfer_wait_duration.diff_mean) > abs(diff_in_vehicle_duration.diff_mean)
-                    AND  abs(diff_transfer_wait_duration.diff_mean) > abs(diff_pre_journey_wait_fp.diff_mean)
-                     AND  abs(diff_transfer_wait_duration.diff_mean) > abs(diff_walking_duration.diff_mean)
-                     THEN "transfer_wait_duration"
-                    WHEN abs(diff_walking_duration.diff_mean) > abs(diff_in_vehicle_duration.diff_mean)
-                    AND  abs(diff_walking_duration.diff_mean) > abs(diff_transfer_wait_duration.diff_mean)
-                    AND  abs(diff_walking_duration.diff_mean) > abs(diff_pre_journey_wait_fp.diff_mean)
-                    THEN "walking_duration"
-                    ELSE "equal"
-                    END as largest_change
-                    from diff_pre_journey_wait_fp, diff_in_vehicle_duration, diff_transfer_wait_duration, diff_walking_duration
-                    where diff_pre_journey_wait_fp.rowid =diff_in_vehicle_duration.rowid
+    def get_temporal_distance_change_o_d_pairs(self, target, threshold):
+        cur = self.conn.cursor()
+        query = """SELECT from_stop_I FROM diff_temporal_distance
+                    WHERE to_stop_I = %s AND abs(diff_mean) >= %s""" % (target, threshold)
+        rows = [x[0] for x in cur.execute(query).fetchall()]
+        return rows
+
+    def get_largest_component(self, target, threshold=180):
+        query = """SELECT diff_pre_journey_wait_fp.from_stop_I AS stop_I, 
+                    diff_pre_journey_wait_fp.diff_mean AS pre_journey_wait, 
+                    diff_in_vehicle_duration.diff_mean AS in_vehicle_duration,
+                    diff_transfer_wait_duration.diff_mean AS transfer_wait, 
+                    diff_walking_duration.diff_mean AS walking_duration,
+                    diff_temporal_distance.diff_mean AS temporal_distance
+                    FROM diff_pre_journey_wait_fp, diff_in_vehicle_duration, 
+                    diff_transfer_wait_duration, diff_walking_duration, diff_temporal_distance
+                    WHERE diff_pre_journey_wait_fp.rowid = diff_in_vehicle_duration.rowid
                     AND diff_pre_journey_wait_fp.rowid = diff_transfer_wait_duration.rowid
                     AND diff_pre_journey_wait_fp.rowid = diff_walking_duration.rowid
-                    AND diff_pre_journey_wait_fp.to_stop_I = 7193"""
-        pass
+                    AND diff_pre_journey_wait_fp.rowid = diff_temporal_distance.rowid
+                    AND diff_pre_journey_wait_fp.to_stop_I = %s""" % (target,)
+        df = pd.read_sql_query(query, self.conn)
+        df['max_component'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmax(axis=1)
+        df['max_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].max(axis=1)
+
+        mask = (df['max_value'] < threshold)
+
+        df.loc[mask, 'max_component'] = "no_change_within_threshold"
+
+        df['min_component'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmin(axis=1)
+        df['min_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].min(axis=1)
+
+        mask = (df['min_value'] > -1 * threshold)
+
+        df.loc[mask, 'min_component'] = "no_change_within_threshold"
+
+        return df
+
 
 class Parameters(object):
     """
