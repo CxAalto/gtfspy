@@ -1,15 +1,10 @@
 from unittest import TestCase
 
-import networkx
-from six import StringIO
-
-from gtfspy.routing.connection import Connection
-from gtfspy.routing.label import min_arrival_time_target, LabelTimeWithBoardingsCount, LabelTime
-from gtfspy.routing.journey_data import JourneyDataManager
-from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
-from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-
 import pyximport
+
+from gtfspy.routing.journey_data import JourneyDataManager
+from gtfspy.routing.label import LabelTimeWithBoardingsCount
+
 pyximport.install()
 import shutil
 import os
@@ -19,7 +14,7 @@ class TestJourneyData(TestCase):
     # noinspection PyAttributeOutsideInit
 
     def _import_sample_gtfs_db(self):
-        import_gtfs(["../../test/test_data/test_gtfs.zip"], self.gtfs_path)
+        import_gtfs([os.path.join(os.path.dirname(__file__), "../../test/test_data/test_gtfs.zip")], self.gtfs_path)
 
     def _remove_routing_test_data_directory_if_exists(self):
         try:
