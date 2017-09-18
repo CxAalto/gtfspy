@@ -19,25 +19,18 @@ def attach_database(conn, other_db_path, name="other"):
     print("other database attached:", cur.fetchall())
     return conn
 
+_T_WALK_STR = "t_walk"
 
 class JourneyDataManager:
-    def __init__(self,
-                 gtfs_path,
-                 routing_params=None,
-                 journey_db_path=None,
-                 multitarget_routing=False,
-                 close_connection=True,
-                 track_route=False,
-                 track_vehicle_legs=True):
+
+    def __init__(self, gtfs_path, journey_db_path, routing_params=None, multitarget_routing=False,
+                 close_connection=True, track_route=False, track_vehicle_legs=True):
         """
         :param gtfs: GTFS object
         :param list_of_stop_profiles: dict of NodeProfileMultiObjective
         :param multitarget_routing: bool
         """
         self.close_connection = close_connection
-        self.routing_params = routing_params
-        if not routing_params:
-            self.routing_params = dict()
         self.multitarget_routing = multitarget_routing
         self.track_route = track_route
         self.track_vehicle_legs = track_vehicle_legs
@@ -50,30 +43,33 @@ class JourneyDataManager:
         self._origins = None
         self.diff_conn = None
 
+        if not routing_params:
+            routing_params = dict()
+        self.routing_params_input = routing_params
+
         assert os.path.exists(journey_db_path) or routing_params is not None
+        journey_db_pre_exists = os.path.isfile(journey_db_path)
         self.conn = sqlite3.connect(journey_db_path)
-        if not os.path.isfile(journey_db_path):
-            self.initialize_database(journey_db_path)
+        if not journey_db_pre_exists:
+            self.initialize_database()
 
-        self.measure_parameters = Parameters(self.conn)
+        self.routing_parameters = Parameters(self.conn)
+        self._assert_journey_computation_paramaters_match()
 
-        self.journey_properties = {"journey_duration": ("t_walk", "t_walk")}
-        if self.routing_params.get('track_vehicle_legs', False) or \
-                self.measure_parameters.get('track_vehicle_legs', False):
+        self.journey_properties = {"journey_duration": (_T_WALK_STR, _T_WALK_STR)}
+        if routing_params.get('track_vehicle_legs', False) or \
+                self.routing_parameters.get('track_vehicle_legs', False):
             self.journey_properties["n_boardings"] = (float("inf"), 0)
         if self.track_route:
             additional_journey_parameters = {
                 "in_vehicle_duration": (float('inf'), 0),
                 "transfer_wait_duration": (float('inf'), 0),
-                "walking_duration": ("t_walk", "t_walk"),
+                "walking_duration": (_T_WALK_STR, _T_WALK_STR),
                 "pre_journey_wait_fp": (float('inf'), 0)
             }
             self.journey_properties.update(additional_journey_parameters)
         self.travel_impedance_measure_names = list(self.journey_properties.keys())
         self.travel_impedance_measure_names += ["temporal_distance"]
-
-        self.conn = sqlite3.connect(journey_db_path)
-        self._check_that_journey_computation_paramaters_match()
 
     def __del__(self):
         self.gtfs._dont_close = False
@@ -81,29 +77,31 @@ class JourneyDataManager:
             self.conn.close()
 
     @timeit
-    def import_journey_data_single_stop(self, stop_profiles, target_stop):
+    def import_journey_data_for_target_stop(self, target_stop_I, origin_stop_I_to_journey_labels):
+        """
+        Parameters
+        ----------
+        origin_stop_I_to_journey_labels: dict
+            key: origin_stop_Is
+            value: list of labels
+        target_stop_I: int
+        """
         cur = self.conn.cursor()
         self.conn.isolation_level = 'EXCLUSIVE'
         cur.execute('PRAGMA synchronous = OFF;')
-        if not self.target_in_db(target_stop):
-            if self.track_route:
-                self._insert_journeys_with_route_into_db(stop_profiles, target_stop=int(target_stop))
-            else:
-                self._insert_journeys_into_db_no_route(stop_profiles, target_stop=int(target_stop))
 
-            if self.close_connection:
-                self.conn.close()
+        if self.track_route:
+            self._insert_journeys_with_route_into_db(origin_stop_I_to_journey_labels, target_stop=int(target_stop_I))
+        else:
+            self._insert_journeys_into_db_no_route(origin_stop_I_to_journey_labels, target_stop=int(target_stop_I))
         print("Finished import process")
 
-    def target_in_db(self, target_stop):
-        return "," + str(target_stop) + "," in self.measure_parameters["target_list"]
-
-    def _check_that_journey_computation_paramaters_match(self):
-        for key, value in self.measure_parameters.items():
+    def _assert_journey_computation_paramaters_match(self):
+        for key, value in self.routing_parameters.items():
             if key in self.gtfs_meta.keys():
                 assert self.gtfs_meta[key] == value
 
-    def _check_last_journey_id(self):
+    def _get_largest_journey_id(self):
         cur = self.conn.cursor()
         val = cur.execute("select max(journey_id) FROM journeys").fetchone()
         return val[0] if val[0] else 0
@@ -155,21 +153,21 @@ class JourneyDataManager:
     @timeit
     def _execute_function(self, statement, rows):
         self.conn.execute('BEGIN EXCLUSIVE')
-        last_id = self._check_last_journey_id()
+        last_id = self._get_largest_journey_id()
         rows = [[x[0]+last_id] + x[1:] for x in rows]
         self.conn.executemany(statement, rows)
 
-    def _insert_journeys_with_route_into_db(self, stop_profiles, target_stop):
+    def _insert_journeys_with_route_into_db(self, stop_I_to_journey_labels, target_stop):
         print("Collecting journey and connection data")
-        journey_id = (self._check_last_journey_id() if self._check_last_journey_id() else 0) + 1
+        journey_id = (self._get_largest_journey_id() if self._get_largest_journey_id() else 0) + 1
         journey_list = []
         connection_list = []
         label = None
-        tot = len(stop_profiles)
-        for i, (origin_stop, labels) in enumerate(stop_profiles.items(), start=1):
+        for i, (origin_stop, labels) in enumerate(stop_I_to_journey_labels.items(), start=1):
+            # tot = len(stop_profiles)
             #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
 
-            assert (isinstance(stop_profiles[origin_stop], list))
+            assert (isinstance(stop_I_to_journey_labels[origin_stop], list))
 
             for label in labels:
                 assert (isinstance(label, LabelTimeAndRoute) or isinstance(label, LabelTimeBoardingsAndRoute))
@@ -205,7 +203,6 @@ class JourneyDataManager:
                 connection_list += new_connection_values
                 journey_id += 1
 
-        print()
         print("Inserting journeys into database")
         if label:
             if isinstance(label, LabelTimeBoardingsAndRoute):
@@ -240,7 +237,7 @@ class JourneyDataManager:
                                   seq,
                                   leg_stops) VALUES (%s) ''' % (", ".join(["?" for x in range(8)]))
             self.conn.executemany(insert_legs_stmt, connection_list)
-            self.measure_parameters["target_list"] += (str(target_stop) + ",")
+            self.routing_parameters["target_list"] += (str(target_stop) + ",")
             self.conn.commit()
 
 
@@ -349,10 +346,10 @@ class JourneyDataManager:
         df = self.get_table_as_dataframe(table_name, target)
         return self.gtfs.add_coordinates_to_df(df, join_column='from_stop_I')
 
-    def get_table_as_dataframe(self, table_name, target=None):
+    def get_table_as_dataframe(self, table_name, to_stop_I_target=None):
         query = "SELECT * FROM " + table_name
-        if target:
-            query += " WHERE to_stop_I = %s" % target
+        if to_stop_I_target:
+            query += " WHERE to_stop_I = %s" % to_stop_I_target
         return pd.read_sql_query(query, self.conn)
 
     @timeit
@@ -486,7 +483,7 @@ class JourneyDataManager:
         query = """SELECT d, d_walk FROM stop_distances WHERE to_stop_I = %s AND from_stop_I = %s""" % (target, origin)
         df = self.gtfs.execute_custom_query_pandas(query)
         if len(df) > 0:
-            walk_duration = float(df['d_walk']) / self.routing_params['walk_speed']
+            walk_duration = float(df['d_walk']) / self.routing_params_input['walk_speed']
         else:
             walk_duration = float('inf')
         analyzer = NodeProfileAnalyzerTimeAndVehLegs(journey_labels,
@@ -554,8 +551,9 @@ class JourneyDataManager:
 
             kwargs = {"from_stop_I": origin, "to_stop_I": target}
             walking_distance = self.gtfs.get_stop_distance(origin, target)
+
             if walking_distance:
-                walking_duration = walking_distance / self.routing_params["walk_speed"]
+                walking_duration = walking_distance / self.routing_params_input["walk_speed"]
             else:
                 walking_duration = float("inf")
             fpa = FastestPathAnalyzer(journey_labels,
@@ -570,7 +568,8 @@ class JourneyDataManager:
             results_dict["temporal_distance"].append(temporal_distance_analyzer.summary_as_dict())
             fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
             for key, (value_no_next_journey, value_cutoff) in self.journey_properties.items():
-                value = [walking_duration if x == "t_walk" else x for x in value]
+                value_cutoff = walking_duration if value_cutoff == _T_WALK_STR else value_cutoff
+                value_no_next_journey = walking_duration if value_no_next_journey == _T_WALK_STR else value_no_next_journey
                 if key == "pre_journey_wait_fp":
                     property_analyzer = fpa.get_prop_analyzer_for_pre_journey_wait()
                 else:
@@ -592,8 +591,8 @@ class JourneyDataManager:
             if not journey_labels:
                 continue
             fpa = FastestPathAnalyzer(journey_labels,
-                                      self.measure_parameters["routing_start_time_dep"],
-                                      self.measure_parameters["routing_end_time_dep"],
+                                      self.routing_parameters["routing_start_time_dep"],
+                                      self.routing_parameters["routing_end_time_dep"],
                                       walk_duration=float('inf'))
             fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
             all_fp_labels += fpa.get_fastest_path_labels()
@@ -628,7 +627,8 @@ class JourneyDataManager:
             Each list element must contain keys:
             "from_stop_I", "to_stop_I", "min", "max", "median" and "mean"
         """
-        data_tuple = [(x["from_stop_I"], x["to_stop_I"], x["min"], x["max"], x["median"], x["mean"]) for x in data]
+        f = float
+        data_tuple = [(x["from_stop_I"], x["to_stop_I"], f(x["min"]), f(x["max"]), f(x["median"]), f(x["mean"])) for x in data]
         insert_stmt = '''INSERT OR REPLACE INTO ''' + travel_impedance_measure_name + ''' (
                               from_stop_I,
                               to_stop_I,
@@ -638,6 +638,9 @@ class JourneyDataManager:
                               mean) VALUES (?, ?, ?, ?, ?, ?) '''
         self.conn.executemany(insert_stmt, data_tuple)
         self.conn.commit()
+
+    def create_index_for_journeys_table(self):
+        self.conn.execute("CREATE INDEX IF NOT EXISTS journeys_to_stop_I_idx ON journeys (to_stop_I)")
 
     def _create_index_for_travel_impedance_measure_table(self, travel_impedance_measure_name):
         table = travel_impedance_measure_name
@@ -671,13 +674,10 @@ class JourneyDataManager:
             self.diff_conn.execute(insert_stmt)
             self.diff_conn.commit()
 
-    def initialize_database(self, journey_db_path):
-        assert not os.path.isfile(journey_db_path)
+    def initialize_database(self):
         self._set_up_database()
         self._initialize_parameter_table()
         print("Database initialized!")
-        if self.close_connection:
-            self.conn.close()
 
     def _set_up_database(self):
         self.conn.execute('''CREATE TABLE IF NOT EXISTS parameters(
@@ -776,7 +776,7 @@ class JourneyDataManager:
                       "end_date"]:
             parameters[param] = self.gtfs_meta[param]
         parameters["target_list"] = ","
-        for key, value in self.routing_params.items():
+        for key, value in self.routing_params_input.items():
             parameters[key] = value
         self.conn.commit()
 
@@ -909,6 +909,7 @@ class Parameters(object):
 
     def __init__(self, conn):
         self._conn = conn
+        self._conn.execute("CREATE TABLE IF NOT EXISTS parameters (key, value)")
 
     def __setitem__(self, key, value):
         self._conn.execute("INSERT OR REPLACE INTO parameters('key', 'value') VALUES (?, ?)", (key, value))
@@ -947,9 +948,9 @@ class Parameters(object):
         return cur
 
     def keys(self):
-        cur = self._conn.execute('SELECT key FROM metadata ORDER BY key')
+        cur = self._conn.execute('SELECT key FROM parameters ORDER BY key')
         return cur
 
     def values(self):
-        cur = self._conn.execute('SELECT value FROM metadata ORDER BY key')
+        cur = self._conn.execute('SELECT value FROM parameters ORDER BY key')
         return cur
