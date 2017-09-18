@@ -243,6 +243,12 @@ class JourneyDataManager:
             self.measure_parameters["target_list"] += (str(target_stop) + ",")
             self.conn.commit()
 
+
+    def create_index_for_journeys_table(self):
+        self.conn.execute("PRAGMA temp_store=2")
+        self.conn.commit()
+        self.conn.execute("CREATE INDEX IF NOT EXISTS journeys_to_stop_I_idx ON journeys (to_stop_I)")
+
     def _collect_connection_data(self, journey_id, label):
         target_stop = None
         cur_label = label
