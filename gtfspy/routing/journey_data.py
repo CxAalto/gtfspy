@@ -24,7 +24,7 @@ _T_WALK_STR = "t_walk"
 class JourneyDataManager:
 
     def __init__(self, gtfs_path, journey_db_path, routing_params=None, multitarget_routing=False,
-                 track_vehicle_legs=True, track_route=False)
+                 track_vehicle_legs=True, track_route=False):
         """
         :param gtfs: GTFS object
         :param list_of_stop_profiles: dict of NodeProfileMultiObjective
