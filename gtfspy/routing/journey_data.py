@@ -120,7 +120,6 @@ class JourneyDataManager:
         tot = len(stop_profiles)
         for i, (origin_stop, labels) in enumerate(stop_profiles.items(), start=1):
             #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
-
             for label in labels:
                 assert (isinstance(label, LabelTimeWithBoardingsCount))
                 if self.multitarget_routing:
@@ -423,11 +422,13 @@ class JourneyDataManager:
         self.conn.commit()
 
 
-    def journey_label_generator(self):
+    def _journey_label_generator(self, destination_stop_Is=None):
         conn = self.conn
         conn.row_factory = sqlite3.Row
+        if destination_stop_Is is None:
+            destination_stop_Is = self.get_targets()
 
-        for target in self.get_targets():
+        for destination_stop_I in destination_stop_Is:
             if self.track_route:
                 label_features = "journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, " \
                                  "journey_duration, in_vehicle_duration, transfer_wait_duration, walking_duration, " \
@@ -435,7 +436,7 @@ class JourneyDataManager:
             else:
                 label_features = "journey_id, from_stop_I, to_stop_I, n_boardings, departure_time, " \
                                  "arrival_time_target"
-            sql = "SELECT " + label_features + " FROM journeys WHERE to_stop_I = %s" % target
+            sql = "SELECT " + label_features + " FROM journeys WHERE to_stop_I = %s" % destination_stop_I
 
             df = pd.read_sql_query(sql, self.conn)
             for origin in self.get_origins():
@@ -447,7 +448,7 @@ class JourneyDataManager:
                         journey_labels.append(LabelGeneric(journey))
                     except:
                         print(journey)
-                yield origin, target, journey_labels
+                yield origin, destination_stop_I, journey_labels
 
     def get_node_profile_time_analyzer(self, target, origin, start_time_dep, end_time_dep):
         sql = """SELECT journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, journey_duration,
@@ -492,7 +493,8 @@ class JourneyDataManager:
                                                      end_time_dep)
         return analyzer
 
-    def read_travel_impedance_measure_from_table(self, travel_impedance_measure,
+    def read_travel_impedance_measure_from_table(self,
+                                                 travel_impedance_measure,
                                                  from_stop_I=None,
                                                  to_stop_I=None,
                                                  statistic=None):
@@ -527,7 +529,7 @@ class JourneyDataManager:
 
 
     @timeit
-    def compute_travel_impedance_measures_for_od_pairs(self, analysis_start_time, analysis_end_time):
+    def compute_travel_impedance_measures_for_od_pairs(self, analysis_start_time, analysis_end_time, targets=None):
         results_dict = {}
         for travel_impedance_measure in self.travel_impedance_measure_names:
             self._create_travel_impedance_measure_table(travel_impedance_measure)
@@ -537,14 +539,14 @@ class JourneyDataManager:
         print("\rComputed total number of origins and targets")
 
         def _flush_data_to_db(results):
-            for key, value in results.items():
-                self.__insert_travel_impedance_data_to_db(key, value)
+            for travel_impedance_measure, data in results.items():
+                self.__insert_travel_impedance_data_to_db(travel_impedance_measure, data)
             for travel_impedance_measure in self.travel_impedance_measure_names:
                 results[travel_impedance_measure] = []
 
         _flush_data_to_db(results_dict)
 
-        for i, (origin, target, journey_labels) in enumerate(self.journey_label_generator()):
+        for i, (origin, target, journey_labels) in enumerate(self._journey_label_generator(targets)):
             print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3),
                   end='',
                   flush=True)
@@ -587,7 +589,7 @@ class JourneyDataManager:
     @timeit
     def calculate_pre_journey_waiting_times_ignoring_direct_walk(self):
         all_fp_labels = []
-        for origin, target, journey_labels in self.journey_label_generator():
+        for origin, target, journey_labels in self._journey_label_generator():
             if not journey_labels:
                 continue
             fpa = FastestPathAnalyzer(journey_labels,
