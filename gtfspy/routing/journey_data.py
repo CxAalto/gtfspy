@@ -39,7 +39,7 @@ class JourneyDataManager:
         self.gtfs_meta = self.gtfs.meta
         self.gtfs._dont_close = True
         self.od_pairs = None
-        self.targets = None
+        self._targets = None
         self._origins = None
         self.diff_conn = None
 
@@ -329,10 +329,10 @@ class JourneyDataManager:
 
     def get_targets(self):
         cur = self.conn.cursor()
-        if not self.targets:
+        if not self._targets:
             cur.execute('SELECT to_stop_I FROM journeys GROUP BY to_stop_I')
-            self.targets = [target[0] for target in cur.fetchall()]
-        return self.targets
+            self._targets = [target[0] for target in cur.fetchall()]
+        return self._targets
 
     def get_origins(self):
         cur = self.conn.cursor()
@@ -534,10 +534,12 @@ class JourneyDataManager:
         for travel_impedance_measure in self.travel_impedance_measure_names:
             self._create_travel_impedance_measure_table(travel_impedance_measure)
 
+        print("Computing total number of origins and targets..", end='', flush=True)
         if targets is None:
-            print("Computing total number of origins and targets..", end='', flush=True)
             n_pairs_tot = len(self.get_origins()) * len(self.get_targets())
-            print("\rComputed total number of origins and targets")
+        else:
+            n_pairs_tot = len(self.get_origins()) * len(targets)
+        print("\rComputed total number of origins and targets")
 
         def _flush_data_to_db(results):
             for travel_impedance_measure, data in results.items():
@@ -548,10 +550,7 @@ class JourneyDataManager:
         _flush_data_to_db(results_dict)
 
         for i, (origin, target, journey_labels) in enumerate(self._journey_label_generator(targets)):
-            if targets is None:
-                print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3), end='', flush=True)
-            else:
-                print("\r", i, target, end="", flush=True)
+            print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3), end='', flush=True)
 
             kwargs = {"from_stop_I": origin, "to_stop_I": target}
             walking_distance = self.gtfs.get_stop_distance(origin, target)
