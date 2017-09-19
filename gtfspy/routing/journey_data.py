@@ -550,6 +550,8 @@ class JourneyDataManager:
         for i, (origin, target, journey_labels) in enumerate(self._journey_label_generator(targets)):
             if targets is None:
                 print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3), end='', flush=True)
+            else:
+                print("\r", i, target, end="", flush=True)
 
             kwargs = {"from_stop_I": origin, "to_stop_I": target}
             walking_distance = self.gtfs.get_stop_distance(origin, target)
@@ -651,6 +653,7 @@ class JourneyDataManager:
         sql_to = "CREATE INDEX IF NOT EXISTS " + table + "_to_stop_I ON " + table + " (to_stop_I)"
         self.conn.execute(sql_from)
         self.conn.execute(sql_to)
+        self.conn.commit()
 
 
     @timeit
