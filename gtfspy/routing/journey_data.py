@@ -583,6 +583,7 @@ class JourneyDataManager:
         # flush everything that remains
         _flush_data_to_db(results_dict)
 
+    def create_indices_for_travel_impedance_measure_tables(self):
         for travel_impedance_measure in self.travel_impedance_measure_names:
             self._create_index_for_travel_impedance_measure_table(travel_impedance_measure)
 
