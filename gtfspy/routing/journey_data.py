@@ -535,7 +535,8 @@ class JourneyDataManager:
             self._create_travel_impedance_measure_table(travel_impedance_measure)
 
         print("Computing total number of origins and targets..", end='', flush=True)
-        n_pairs_tot = len(self.get_origins()) * len(self.get_targets())
+        if not targets:
+            n_pairs_tot = len(self.get_origins()) * len(self.get_targets())
         print("\rComputed total number of origins and targets")
 
         def _flush_data_to_db(results):
@@ -547,9 +548,10 @@ class JourneyDataManager:
         _flush_data_to_db(results_dict)
 
         for i, (origin, target, journey_labels) in enumerate(self._journey_label_generator(targets)):
-            print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3),
-                  end='',
-                  flush=True)
+            if not targets:
+                print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3),
+                      end='',
+                      flush=True)
 
             kwargs = {"from_stop_I": origin, "to_stop_I": target}
             walking_distance = self.gtfs.get_stop_distance(origin, target)
