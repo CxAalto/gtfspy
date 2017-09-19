@@ -24,13 +24,12 @@ _T_WALK_STR = "t_walk"
 class JourneyDataManager:
 
     def __init__(self, gtfs_path, journey_db_path, routing_params=None, multitarget_routing=False,
-                 close_connection=True, track_route=False, track_vehicle_legs=True):
+                 track_vehicle_legs=True, track_route=False)
         """
         :param gtfs: GTFS object
         :param list_of_stop_profiles: dict of NodeProfileMultiObjective
         :param multitarget_routing: bool
         """
-        self.close_connection = close_connection
         self.multitarget_routing = multitarget_routing
         self.track_route = track_route
         self.track_vehicle_legs = track_vehicle_legs
@@ -49,7 +48,10 @@ class JourneyDataManager:
 
         assert os.path.exists(journey_db_path) or routing_params is not None
         journey_db_pre_exists = os.path.isfile(journey_db_path)
-        self.conn = sqlite3.connect(journey_db_path)
+
+        # insert a pretty robust timeout:
+        timeout = 100
+        self.conn = sqlite3.connect(journey_db_path, timeout)
         if not journey_db_pre_exists:
             self.initialize_database()
 
