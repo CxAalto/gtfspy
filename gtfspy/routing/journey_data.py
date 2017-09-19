@@ -422,11 +422,13 @@ class JourneyDataManager:
         self.conn.commit()
 
 
-    def _journey_label_generator(self, destination_stop_Is=None):
+    def _journey_label_generator(self, destination_stop_Is=None, origin_stop_Is=None):
         conn = self.conn
         conn.row_factory = sqlite3.Row
         if destination_stop_Is is None:
             destination_stop_Is = self.get_targets()
+        if origin_stop_Is is None:
+            origin_stop_Is = self.get_origins()
 
         for destination_stop_I in destination_stop_Is:
             if self.track_route:
@@ -439,8 +441,8 @@ class JourneyDataManager:
             sql = "SELECT " + label_features + " FROM journeys WHERE to_stop_I = %s" % destination_stop_I
 
             df = pd.read_sql_query(sql, self.conn)
-            for origin in self.get_origins():
-                selection = df.loc[df['from_stop_I'] == origin]
+            for origin_stop_I in origin_stop_Is:
+                selection = df.loc[df['from_stop_I'] == origin_stop_I]
                 journey_labels = []
                 for journey in selection.to_dict(orient='records'):
                     journey["pre_journey_wait_fp"] = -1
@@ -448,7 +450,7 @@ class JourneyDataManager:
                         journey_labels.append(LabelGeneric(journey))
                     except:
                         print(journey)
-                yield origin, destination_stop_I, journey_labels
+                yield origin_stop_I, destination_stop_I, journey_labels
 
     def get_node_profile_time_analyzer(self, target, origin, start_time_dep, end_time_dep):
         sql = """SELECT journey_id, from_stop_I, to_stop_I, n_boardings, movement_duration, journey_duration,
@@ -529,17 +531,20 @@ class JourneyDataManager:
 
 
     @timeit
-    def compute_travel_impedance_measures_for_od_pairs(self, analysis_start_time, analysis_end_time, targets=None):
+    def compute_travel_impedance_measures_for_od_pairs(self, analysis_start_time, analysis_end_time,
+                                                       targets=None,
+                                                       origins=None):
         results_dict = {}
         for travel_impedance_measure in self.travel_impedance_measure_names:
             self._create_travel_impedance_measure_table(travel_impedance_measure)
 
         print("Computing total number of origins and targets..", end='', flush=True)
         if targets is None:
-            n_pairs_tot = len(self.get_origins()) * len(self.get_targets())
-        else:
-            n_pairs_tot = len(self.get_origins()) * len(targets)
+            targets = self.get_targets()
+        if origins is None:
+            origins = self.get_origins()
         print("\rComputed total number of origins and targets")
+        n_pairs_tot = len(origins) * len(targets)
 
         def _flush_data_to_db(results):
             for travel_impedance_measure, data in results.items():
@@ -549,7 +554,7 @@ class JourneyDataManager:
 
         _flush_data_to_db(results_dict)
 
-        for i, (origin, target, journey_labels) in enumerate(self._journey_label_generator(targets)):
+        for i, (origin, target, journey_labels) in enumerate(self._journey_label_generator(targets, origins)):
             print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3), end='', flush=True)
 
             kwargs = {"from_stop_I": origin, "to_stop_I": target}
