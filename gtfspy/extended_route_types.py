@@ -2,6 +2,7 @@
 # based on codes found here: https://developers.google.com/transit/gtfs/reference/extended-route-types
 
 ROUTE_TYPE_CONVERSION = {
+    -1: -1,
     0: 0,
     1: 1,
     2: 2,
