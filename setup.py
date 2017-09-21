@@ -34,7 +34,7 @@ setup(
     install_requires = [
         "setuptools>=18.0",
         "pandas",
-        "networkx",
+        "networkx==1.11",
         "pyshp",
         "smopy",
         "nose",

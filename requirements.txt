@@ -1,5 +1,5 @@
 pandas
-networkx
+networkx==1.11
 pyshp
 smopy
 nose
