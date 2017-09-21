@@ -85,7 +85,9 @@ The GTFS data used for the examples is provided by the City of Kuopio (Finland),
 
 ## Usage for scientific purposes
 
-If you use this code for scientific purposes, please cite our paper [TO BE ANNOUNCED].
+If you use this Python package for scientific purposes, please cite our paper
+
+    Rainer Kujala, Christoffer Weckström, Miloš N. Mladenović, Jari Saramäki, Travel times and transfers in public transport: Comprehensive accessibility analysis based on Pareto-optimal journeys, In Computers, Environment and Urban Systems, Volume 67, 2018, Pages 41-54, ISSN 0198-9715, [https://doi.org/10.1016/j.compenvurbsys.2017.08.012](https://doi.org/10.1016/j.compenvurbsys.2017.08.012).
 
 
 ## Acknowledgments
@@ -99,7 +101,7 @@ If you have any problems using ``gtfspy`` please create an issue in GitHub.
 
 ## Other questions on 
 
-If you have any questions on regarding ``gtfspy``, feel free to send the package maintainers, see above) an e-mail!
+If you have any questions regarding ``gtfspy``, feel free to send the package maintainers (see above) an e-mail!
 
 ## See also
 
