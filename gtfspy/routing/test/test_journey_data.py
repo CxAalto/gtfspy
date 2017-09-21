@@ -49,7 +49,7 @@ class TestJourneyData(TestCase):
                                                         [LabelTimeWithBoardingsCount(1, 2, 1, True),
                                                          LabelTimeWithBoardingsCount(2, 3, 2, True)]}
                                                      )
-        self.jdm.compute_travel_impedance_measures_for_od_pairs(0, 2)
+        self.jdm.compute_and_store_travel_impedance_measures(0, 2)
         df = self.jdm.get_table_as_dataframe("n_boardings")
         self.assertAlmostEqual(df.iloc[0]["min"], 1)
         self.assertAlmostEqual(df.iloc[0]["mean"], 1.5)

@@ -50,7 +50,7 @@ class JourneyDataManager:
         journey_db_pre_exists = os.path.isfile(journey_db_path)
 
         # insert a pretty robust timeout:
-        timeout = 100
+        timeout = 1000
         self.conn = sqlite3.connect(journey_db_path, timeout)
         if not journey_db_pre_exists:
             self.initialize_database()
@@ -423,8 +423,17 @@ class JourneyDataManager:
                         "SET transfer_wait_duration = journey_duration - in_vehicle_duration - walking_duration")
         self.conn.commit()
 
-
     def _journey_label_generator(self, destination_stop_Is=None, origin_stop_Is=None):
+        """
+        Parameters
+        ----------
+        destination_stop_Is: list-like
+        origin_stop_Is: list-like
+
+        Yields
+        ------
+        (origin_stop_I, destination_stop_I, journey_labels) : tuple
+        """
         conn = self.conn
         conn.row_factory = sqlite3.Row
         if destination_stop_Is is None:
@@ -531,12 +540,64 @@ class JourneyDataManager:
         df = pd.read_sql(sql, self.conn)
         return df
 
+    def __get_travel_impedance_measure_dict(self,
+                                            origin,
+                                            target,
+                                            journey_labels,
+                                            analysis_start_time,
+                                            analysis_end_time):
+        measure_summaries = {}
+        kwargs = {"from_stop_I": origin, "to_stop_I": target}
+        walking_distance = self.gtfs.get_stop_distance(origin, target)
+
+        if walking_distance:
+            walking_duration = walking_distance / self.routing_params_input["walk_speed"]
+        else:
+            walking_duration = float("inf")
+        fpa = FastestPathAnalyzer(journey_labels,
+                                  analysis_start_time,
+                                  analysis_end_time,
+                                  walk_duration=walking_duration,  # walking time
+                                  label_props_to_consider=list(self.journey_properties.keys()),
+                                  **kwargs)
+        temporal_distance_analyzer = fpa.get_temporal_distance_analyzer()
+        # Note: the summary_as_dict automatically includes also the from_stop_I and to_stop_I -fields.
+        measure_summaries["temporal_distance"] = temporal_distance_analyzer.summary_as_dict()
+        fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
+        for key, (value_no_next_journey, value_cutoff) in self.journey_properties.items():
+            value_cutoff = walking_duration if value_cutoff == _T_WALK_STR else value_cutoff
+            value_no_next_journey = walking_duration if value_no_next_journey == _T_WALK_STR else value_no_next_journey
+            if key == "pre_journey_wait_fp":
+                property_analyzer = fpa.get_prop_analyzer_for_pre_journey_wait()
+            else:
+                property_analyzer = fpa.get_prop_analyzer_flat(key, value_no_next_journey, value_cutoff)
+            measure_summaries[key] = property_analyzer.summary_as_dict()
+        return measure_summaries
+
+    def compute_travel_impedance_measures_for_target(self,
+                                                     analysis_start_time,
+                                                     analysis_end_time,
+                                                     target, origins=None):
+        if origins is None:
+            origins = self.get_origins()
+        measure_to_measure_summary_dicts = {}
+        for origin, target, journey_labels in self._journey_label_generator([target], origins):
+            measure_summary_dicts_for_pair = self.__get_travel_impedance_measure_dict(origin, target, journey_labels,
+                                                                                      analysis_start_time,
+                                                                                      analysis_end_time)
+            for measure in measure_summary_dicts_for_pair:
+                measure_to_measure_summary_dicts[measure].append(measure_summary_dicts_for_pair[measure])
+        return measure_to_measure_summary_dicts
+
+
 
     @timeit
-    def compute_travel_impedance_measures_for_od_pairs(self, analysis_start_time, analysis_end_time,
-                                                       targets=None,
-                                                       origins=None):
-        results_dict = {}
+    def compute_and_store_travel_impedance_measures(self,
+                                                    analysis_start_time,
+                                                    analysis_end_time,
+                                                    targets=None,
+                                                    origins=None):
+        measure_to_measure_summary_dicts = {}
         for travel_impedance_measure in self.travel_impedance_measure_names:
             self._create_travel_impedance_measure_table(travel_impedance_measure)
 
@@ -554,43 +615,21 @@ class JourneyDataManager:
             for travel_impedance_measure in self.travel_impedance_measure_names:
                 results[travel_impedance_measure] = []
 
-        _flush_data_to_db(results_dict)
+        # This initializes the meaasure_to_measure_summary_dict properly
+        _flush_data_to_db(measure_to_measure_summary_dicts)
 
         for i, (origin, target, journey_labels) in enumerate(self._journey_label_generator(targets, origins)):
-            if i % 100 == 0:
-                print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3), end='', flush=True)
-
-            kwargs = {"from_stop_I": origin, "to_stop_I": target}
-            walking_distance = self.gtfs.get_stop_distance(origin, target)
-
-            if walking_distance:
-                walking_duration = walking_distance / self.routing_params_input["walk_speed"]
-            else:
-                walking_duration = float("inf")
-            fpa = FastestPathAnalyzer(journey_labels,
-                                      analysis_start_time,
-                                      analysis_end_time,
-                                      walk_duration=walking_duration,  # walking time
-                                      label_props_to_consider=list(self.journey_properties.keys()),
-                                      **kwargs)
-            temporal_distance_analyzer\
-                = fpa.get_temporal_distance_analyzer()
-            # Note: the summary_as_dict automatically includes also the from_stop_I and to_stop_I -fields.
-            results_dict["temporal_distance"].append(temporal_distance_analyzer.summary_as_dict())
-            fpa.calculate_pre_journey_waiting_times_ignoring_direct_walk()
-            for key, (value_no_next_journey, value_cutoff) in self.journey_properties.items():
-                value_cutoff = walking_duration if value_cutoff == _T_WALK_STR else value_cutoff
-                value_no_next_journey = walking_duration if value_no_next_journey == _T_WALK_STR else value_no_next_journey
-                if key == "pre_journey_wait_fp":
-                    property_analyzer = fpa.get_prop_analyzer_for_pre_journey_wait()
-                else:
-                    property_analyzer = fpa.get_prop_analyzer_flat(key, value_no_next_journey, value_cutoff)
-                results_dict[key].append(property_analyzer.summary_as_dict())
+            measure_summary_dicts_for_pair = self.__get_travel_impedance_measure_dict(origin, target, journey_labels,
+                                                                      analysis_start_time, analysis_end_time)
+            for measure in measure_summary_dicts_for_pair:
+                measure_to_measure_summary_dicts[measure].append(measure_summary_dicts_for_pair[measure])
 
             if i % 1000 == 0: # update in batches of 1000
-                _flush_data_to_db(results_dict)
+                print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3), end='', flush=True)
+                _flush_data_to_db(measure_to_measure_summary_dicts)
+
         # flush everything that remains
-        _flush_data_to_db(results_dict)
+        _flush_data_to_db(measure_to_measure_summary_dicts)
 
     def create_indices_for_travel_impedance_measure_tables(self):
         for travel_impedance_measure in self.travel_impedance_measure_names:
@@ -624,9 +663,9 @@ class JourneyDataManager:
         print("creating table: ", travel_impedance_measure)
         self.conn.execute("CREATE TABLE IF NOT EXISTS " + travel_impedance_measure + " (from_stop_I INT, "
                                                                   "to_stop_I INT, "
-                                                                  "min INT, "
-                                                                  "max INT, "
-                                                                  "median INT, "
+                                                                  "min REAL, "
+                                                                  "max REAL, "
+                                                                  "median REAL, "
                                                                   "mean REAL, "
                                                                   "UNIQUE (from_stop_I, to_stop_I))")
 
