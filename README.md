@@ -87,7 +87,7 @@ The GTFS data used for the examples is provided by the City of Kuopio (Finland),
 
 If you use this Python package for scientific purposes, please cite our paper
 
-    Rainer Kujala, Christoffer Weckström, Miloš N. Mladenović, Jari Saramäki, Travel times and transfers in public transport: Comprehensive accessibility analysis based on Pareto-optimal journeys, In Computers, Environment and Urban Systems, Volume 67, 2018, Pages 41-54, ISSN 0198-9715, [https://doi.org/10.1016/j.compenvurbsys.2017.08.012](https://doi.org/10.1016/j.compenvurbsys.2017.08.012).
+Rainer Kujala, Christoffer Weckström, Miloš N. Mladenović, Jari Saramäki, Travel times and transfers in public transport: Comprehensive accessibility analysis based on Pareto-optimal journeys, In Computers, Environment and Urban Systems, Volume 67, 2018, Pages 41-54, ISSN 0198-9715, [https://doi.org/10.1016/j.compenvurbsys.2017.08.012](https://doi.org/10.1016/j.compenvurbsys.2017.08.012).
 
 
 ## Acknowledgments
