@@ -3,6 +3,7 @@ from urllib.error import URLError
 import numpy
 import smopy
 import matplotlib.pyplot as plt
+from matplotlib import colors as mcolors
 import math
 from gtfspy.gtfs import GTFS
 from gtfspy.stats import get_spatial_bounds, get_percentile_stop_bounds, get_median_lat_lon_of_stops
@@ -197,7 +198,7 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
                     # verticalalignment='bottom', horizontalalignment='right',
                     color='green', fontsize=15)
 
-    legend = True if color_attributes is not None else False
+    legend = True if color_attributes[0] is not None else False
     import matplotlib.lines as mlines
         
     if legend:
@@ -258,12 +259,61 @@ def plot_route_network_thumbnail(g):
     return plot_route_network_from_gtfs(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
 
 
-def plot_stops_with_attributes(lats, lons, attribute, s=0.5,  colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
+def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list, s=0.5, spatial_bounds=None,  colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
+    if not spatial_bounds:
+        lon_min = min([min(x) for x in lons_list])
+        lon_max = max([max(x) for x in lons_list])
+        lat_min = min([min(x) for x in lats_list])
+        lat_max = max([max(x) for x in lats_list])
+    else:
+        lon_min = spatial_bounds['lon_min']
+        lon_max = spatial_bounds['lon_max']
+        lat_min = spatial_bounds['lat_min']
+        lat_max = spatial_bounds['lat_max']
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+    min_x = max_x = min_y = max_y = None
+    for lat in [lat_min, lat_max]:
+        for lon in [lon_min, lon_max]:
+            x, y = smopy_map.to_pixels(lat, lon)
+            if not min_x:
+                min_x = x
+                max_x = x
+                min_y = y
+                max_y = y
+            else:
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+                min_y = min(min_y, y)
+                min_x = min(min_x, x)
 
-    lon_min = min(lons)
-    lon_max = max(lons)
-    lat_min = min(lats)
-    lat_max = max(lats)
+    ax.set_xlim(min_x, max_x)
+    ax.set_ylim(max_y, min_y)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=0.8)
+
+    axes = []
+    for lats, lons, attributes, c in zip(lats_list, lons_list, attributes_list, mcolors.BASE_COLORS):
+        x, y = zip(*[smopy_map.to_pixels(lat, lon) for lat, lon in zip(lats, lons)])
+        ax = plt.scatter(x, y, s=s, c=c) #, marker=".")
+        axes.append(ax)
+    return axes
+
+
+def plot_stops_with_attributes(lats, lons, attribute, s=0.5, spatial_bounds=None, colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
+    if not spatial_bounds:
+        lon_min = min(lons)
+        lon_max = max(lons)
+        lat_min = min(lats)
+        lat_max = max(lats)
+    else:
+        lon_min = spatial_bounds['lon_min']
+        lon_max = spatial_bounds['lon_max']
+        lat_min = spatial_bounds['lat_min']
+        lat_max = spatial_bounds['lat_max']
     smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
     if ax is None:
         fig = plt.figure()

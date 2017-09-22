@@ -508,6 +508,7 @@ def get_section_stats(gtfs, results_by_mode=False):
     else:
         return q_result
 
+
 def route_frequencies(gtfs, results_by_mode=False):
     """
     Return the frequency of all types of routes per day.
@@ -640,7 +641,6 @@ def trips_frequencies(gtfs):
         " WHERE q1.seq+1=q2.seq AND q1.trip_I=q2.trip_I"
         " GROUP BY from_stop_I, to_stop_I")
     return(gtfs.execute_custom_query_pandas(query))
-
 
 def route_circuity():
     pass

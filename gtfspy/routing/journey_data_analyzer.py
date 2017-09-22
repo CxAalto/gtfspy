@@ -209,6 +209,31 @@ class JourneyDataAnalyzer:
         df = self.g.add_coordinates_to_df(df, join_column="to_stop_I", lat_name="to_lat", lon_name="to_lon")
         return df
 
+    def get_upstream_stops(self, target, stop):
+        query = """SELECT stops.* FROM other.stops, 
+                    (SELECT journeys.from_stop_I AS stop_I FROM journeys, legs 
+                    WHERE journeys.journey_id=legs.journey_id AND legs.from_stop_I = %s AND journeys.to_stop_I = %s AND pre_journey_wait_fp >= 0
+                    GROUP BY journeys.from_stop_I) q1
+                    WHERE stops.stop_I = q1.stop_I""" % (stop, target)
+        df = read_sql_query(query, self.conn)
+        return df
+
+    def get_upstream_stops_ratio(self, target, stops, ratio):
+        if isinstance(stops, list):
+            stops = ",".join(stops)
+        query = """SELECT stops.* FROM other.stops, 
+                    (SELECT q2.from_stop_I AS stop_I FROM 
+                    (SELECT journeys.from_stop_I, count(*) AS n_total FROM journeys
+                    WHERE journeys.to_stop_I = %s
+                    GROUP BY from_stop_I) q1,
+                    (SELECT journeys.from_stop_I, count(*) AS n_trough FROM journeys, legs 
+                    WHERE journeys.journey_id=legs.journey_id AND legs.from_stop_I IN (%s) AND journeys.to_stop_I = %s
+                    GROUP BY journeys.from_stop_I) q2
+                    WHERE q1.from_stop_I = q2.from_stop_I AND n_trough/(n_total*1.0) >= %s) q1
+                    WHERE stops.stop_I = q1.stop_I""" % (target, stops, target, ratio)
+        df = read_sql_query(query, self.conn)
+        return df
+
     def passing_journeys_per_stop(self):
         """
 
