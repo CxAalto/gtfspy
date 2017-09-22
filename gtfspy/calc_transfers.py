@@ -39,7 +39,6 @@ def _get_geo_hash_precision(search_radius_in_km):
         raise RuntimeError("GeoHash cannot work with this large search radius (km): " + search_radius_in_km)
     return suggested_precision
 
-
 def calc_transfers(conn, threshold_meters=1000):
     geohash_precision = _get_geo_hash_precision(threshold_meters / 1000.)
     geo_index = GeoGridIndex(precision=geohash_precision)

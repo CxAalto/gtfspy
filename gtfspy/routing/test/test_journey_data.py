@@ -1,47 +1,60 @@
 from unittest import TestCase
 
-import networkx
-from six import StringIO
-
-from gtfspy.routing.connection import Connection
-from gtfspy.routing.label import min_arrival_time_target, LabelTimeWithBoardingsCount, LabelTime
-from gtfspy.routing.journey_data import JourneyDataManager
-from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
-from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-
 import pyximport
-pyximport.install()
 
+from gtfspy.routing.journey_data import JourneyDataManager
+from gtfspy.routing.label import LabelTimeWithBoardingsCount
+
+pyximport.install()
+import shutil
+import os
+from gtfspy.import_gtfs import import_gtfs
 
 class TestJourneyData(TestCase):
     # noinspection PyAttributeOutsideInit
 
+    def _import_sample_gtfs_db(self):
+        import_gtfs([os.path.join(os.path.dirname(__file__), "../../test/test_data/test_gtfs.zip")], self.gtfs_path)
+
+    def _remove_routing_test_data_directory_if_exists(self):
+        try:
+            shutil.rmtree(self.routing_tmp_test_data_dir)
+        except FileNotFoundError:
+            pass
+
+    def _create_routing_test_data_directory(self):
+        if not os.path.exists(self.routing_tmp_test_data_dir):
+            os.makedirs(self.routing_tmp_test_data_dir)
+
     def setUp(self):
-        event_list_raw_data = [
-            (1, 2, 0, 10, "trip_1", 1),
-            (2, 3, 10, 20, "trip_2", 1),
-            (4, 5, 30, 40, "trip_3", 1),
+        self.routing_tmp_test_data_dir = "./tmp_routing_test_data/"
+        self.gtfs_path = os.path.join(self.routing_tmp_test_data_dir, "test_gtfs.sqlite")
+        self.data_store_path = os.path.join(self.routing_tmp_test_data_dir, "test_data_store.sqlite")
+        self._remove_routing_test_data_directory_if_exists()
+        self._create_routing_test_data_directory()
 
-        ]
-        transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
-        walk_network = networkx.Graph()
-        walk_network.add_edge(2, 4, {"d_walk": 10})
-        walk_network.add_edge(3, 4, {"d_walk": 10})
-        walk_network.add_edge(5, 6, {"d_walk": 10})
-        walk_speed = 1
-        target_stop = 5
-        transfer_margin = 0
-        start_time = 0
-        end_time = 50
+        self._import_sample_gtfs_db()
+        self.jdm = JourneyDataManager(self.gtfs_path,
+                                      os.path.join(self.routing_tmp_test_data_dir, "test_journeys.sqlite"),
+                                      routing_params={"track_vehicle_legs": True})
 
-        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
-                                                      start_time, end_time, transfer_margin,
-                                                      walk_network, walk_speed, track_vehicle_legs=False,
-                                                      track_time=True, track_route=True)
-        csa_profile.run()
+    def tearDown(self):
+        self._remove_routing_test_data_directory_if_exists()
 
-        self.profiles = dict(csa_profile.stop_profiles)
-        # self.jdm = JourneyDataManager()
-
-    def test_import_with_route_to_db(self):
-        pass
+    def test_boardings_computations_based_on_journeys(self):
+        # input some journeys
+        destination_stop = 1
+        origin_stop = 2
+        self.jdm.import_journey_data_for_target_stop(destination_stop,
+                                                     {origin_stop:
+                                                        [LabelTimeWithBoardingsCount(1, 2, 1, True),
+                                                         LabelTimeWithBoardingsCount(2, 3, 2, True)]}
+                                                     )
+        self.jdm.compute_and_store_travel_impedance_measures(0, 2, self.data_store_path)
+        from gtfspy.routing.travel_impedance_data_store import TravelImpedanceDataStore
+        store = TravelImpedanceDataStore(self.data_store_path)
+        df = store.read_data_as_dataframe("temporal_distance")
+        self.assertAlmostEqual(df.iloc[0]["min"], 1)
+        self.assertAlmostEqual(df.iloc[0]["mean"], 1.5)
+        self.assertAlmostEqual(df.iloc[0]["max"], 2.0)
+        self.assertIn(df.iloc[0]["median"],[1, 2, 1.0, 1.5, 2.0])

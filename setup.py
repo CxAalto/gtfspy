@@ -34,7 +34,7 @@ setup(
     install_requires = [
         "setuptools>=18.0",
         "pandas",
-        "networkx",
+        "networkx==1.11",
         "pyshp",
         "smopy",
         "nose",
@@ -43,7 +43,7 @@ setup(
         "geoindex",
         "osmread==0.2",
         "shapely",
-        "geojson",
+        "geojson==1.3.5",
         "pyproj",
         "matplotlib-scalebar==0.3.1"
     ],
