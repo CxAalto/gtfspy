@@ -581,10 +581,14 @@ class JourneyDataManager:
         if origins is None:
             origins = self.get_origins()
         measure_to_measure_summary_dicts = {}
+        for measure in ["temporal_distance"] + list(self.journey_properties):
+            measure_to_measure_summary_dicts[measure] = []
         for origin, target, journey_labels in self._journey_label_generator([target], origins):
-            measure_summary_dicts_for_pair = self.__get_travel_impedance_measure_dict(origin, target, journey_labels,
-                                                                                      analysis_start_time,
-                                                                                      analysis_end_time)
+            measure_summary_dicts_for_pair = \
+            self.__get_travel_impedance_measure_dict(
+                origin, target, journey_labels,
+                analysis_start_time, analysis_end_time
+            )
             for measure in measure_summary_dicts_for_pair:
                 measure_to_measure_summary_dicts[measure].append(measure_summary_dicts_for_pair[measure])
         return measure_to_measure_summary_dicts
@@ -611,7 +615,7 @@ class JourneyDataManager:
 
         def _flush_data_to_db(results):
             for travel_impedance_measure, data in results.items():
-                self.__insert_travel_impedance_data_to_db(travel_impedance_measure, data)
+                self._insert_travel_impedance_data_to_db(travel_impedance_measure, data)
             for travel_impedance_measure in self.travel_impedance_measure_names:
                 results[travel_impedance_measure] = []
 
@@ -669,7 +673,7 @@ class JourneyDataManager:
                                                                   "mean REAL, "
                                                                   "UNIQUE (from_stop_I, to_stop_I))")
 
-    def __insert_travel_impedance_data_to_db(self, travel_impedance_measure_name, data):
+    def _insert_travel_impedance_data_to_db(self, travel_impedance_measure_name, data):
         """
         Parameters
         ----------
