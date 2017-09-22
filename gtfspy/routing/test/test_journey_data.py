@@ -29,6 +29,7 @@ class TestJourneyData(TestCase):
     def setUp(self):
         self.routing_tmp_test_data_dir = "./tmp_routing_test_data/"
         self.gtfs_path = os.path.join(self.routing_tmp_test_data_dir, "test_gtfs.sqlite")
+        self.data_store_path = os.path.join(self.routing_tmp_test_data_dir, "test_data_store.sqlite")
         self._remove_routing_test_data_directory_if_exists()
         self._create_routing_test_data_directory()
 
@@ -49,8 +50,10 @@ class TestJourneyData(TestCase):
                                                         [LabelTimeWithBoardingsCount(1, 2, 1, True),
                                                          LabelTimeWithBoardingsCount(2, 3, 2, True)]}
                                                      )
-        self.jdm.compute_and_store_travel_impedance_measures(0, 2)
-        df = self.jdm.get_table_as_dataframe("n_boardings")
+        self.jdm.compute_and_store_travel_impedance_measures(0, 2, self.data_store_path)
+        from gtfspy.routing.travel_impedance_data_store import TravelImpedanceDataStore
+        store = TravelImpedanceDataStore(self.data_store_path)
+        df = store.read_data_as_dataframe("temporal_distance")
         self.assertAlmostEqual(df.iloc[0]["min"], 1)
         self.assertAlmostEqual(df.iloc[0]["mean"], 1.5)
         self.assertAlmostEqual(df.iloc[0]["max"], 2.0)
