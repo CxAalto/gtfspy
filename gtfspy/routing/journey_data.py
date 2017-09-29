@@ -316,8 +316,8 @@ class JourneyDataManager:
         return target_stop, value_list, route_stops
 
     def populate_additional_journey_columns(self):
-        # self.add_fastest_path_column()
-        # self.add_time_to_prev_journey_fp_column()
+        self.add_fastest_path_column()
+        self.add_time_to_prev_journey_fp_column()
         self.compute_journey_time_components()
         self.calculate_pre_journey_waiting_times_ignoring_direct_walk()
 
@@ -379,7 +379,7 @@ class JourneyDataManager:
 
             cur.execute('SELECT journey_id, from_stop_I, to_stop_I, departure_time FROM journeys '
                         'WHERE fastest_path = 1 AND to_stop_I = ? '
-                        'ORDER BY from_stop_I, to_stop_I, departure_time ', (target[0],))
+                        'ORDER BY from_stop_I, to_stop_I, departure_time ', (target,))
 
             all_trips = cur.fetchall()
             time_to_prev_journey = []
@@ -652,7 +652,7 @@ class JourneyDataManager:
         self.conn.executemany(insert_stmt, data_tuple)
         self.conn.commit()
 
-    def create_index_for_journeys_table(self):
+    def _create_index_for_journeys_table(self):
         self.conn.execute("CREATE INDEX IF NOT EXISTS journeys_to_stop_I_idx ON journeys (to_stop_I)")
 
     @timeit

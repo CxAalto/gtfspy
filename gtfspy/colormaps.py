@@ -53,6 +53,12 @@ def get_colormap(observable_name=None):
     return cmap, norm
 
 
+def get_colormap_with_params(vmin, vmax, name="seismic"):
+    norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+    cmap = matplotlib.cm.get_cmap(name=name, lut=None)
+    return cmap, norm
+
+
 def get_list_of_colors(values, observable_name=None):
     cmap, norm = get_colormap(observable_name)
     scalarmap = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)

@@ -1731,6 +1731,16 @@ class GTFS(object):
             cur.execute(query)
         self.conn.commit()
 
+    def regenerate_parent_stop_I(self):
+        # get max stop_I
+        cur = self.conn.cursor()
+
+        query = "SELECT stop_I FROM stops ORDER BY stop_I DESC LIMIT 1"
+        max_stop_I = cur.execute(query).fetchall()[0]
+
+        query_update_row = """UPDATE stops SET parent_I=? WHERE parent_I=?"""
+
+
     def add_stops_from_csv(self, csv_dir):
         stops_to_add = pd.read_csv(csv_dir, encoding='utf-8')
         assert all([x in stops_to_add.columns for x in ["stop_id", "code", "name", "desc", "lat", "lon"]])

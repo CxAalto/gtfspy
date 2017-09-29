@@ -515,8 +515,21 @@ class NodeProfileAnalyzerTime:
             ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
             if journey_letters is None:
                 journey_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-            time_letters = {int(time): letter for letter, time in zip(journey_letters, self.trip_departure_times)}
-            for x, y, letter in zip(xs, ys, journey_letters):
+
+                def cycle_journey_letters(journey_letters):
+                    # cycle('ABCD') --> A B C D A B C D A B C D ...
+                    saved = []
+                    for element in journey_letters:
+                        yield element
+                        saved.append(element)
+                    count = 1
+                    while saved:
+                        for element in saved:
+                            yield element + str(count)
+                        count += 1
+                journey_letters_iterator = cycle_journey_letters(journey_letters)
+            time_letters = {int(time): letter for letter, time in zip(journey_letters_iterator, self.trip_departure_times)}
+            for x, y, letter in zip(xs, ys, journey_letters_iterator):
                 walking = - self._walk_time_to_target / 30 if numpy.isfinite(self._walk_time_to_target) else 0
                 ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 60),
                         (y + walking) / duration_divider, letter, va="top", ha="left")
