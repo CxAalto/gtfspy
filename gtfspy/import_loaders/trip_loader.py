@@ -47,6 +47,8 @@ class TripLoader(TableLoader):
                        FROM trips JOIN stop_times USING (trip_I)
                        GROUP BY trip_I''')
 
+        print("updating trips travel times")
+
         def iter_rows(cur0):
             for row in cur0:
                 if row[1]:
@@ -60,7 +62,6 @@ class TripLoader(TableLoader):
                 else:
                     end_time_ds = None
                 yield start_time_ds, end_time_ds, row[0]
-
         cur.executemany('''UPDATE trips SET start_time_ds=?, end_time_ds=? WHERE trip_I=?''',
                         iter_rows(cur0))
         conn.commit()

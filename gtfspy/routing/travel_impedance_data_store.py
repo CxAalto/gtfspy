@@ -54,14 +54,10 @@ class TravelImpedanceDataStore:
             "UNIQUE (from_stop_I, to_stop_I) )"
         self.conn.execute(sql)
 
-    def create_indices_for_tables(self):
-        for travel_impedance_measure in self.travel_impedance_measure_names:
-            self._create_index_for_travel_impedance_measure_table(travel_impedance_measure)
-
     def create_index(self, travel_impedance_measure_name):
         table = travel_impedance_measure_name
-        sql_from = "CREATE INDEX IF NOT EXISTS " + table + "_from_stop_I ON " + table + " (from_stop_I)"
-        sql_to = "CREATE INDEX IF NOT EXISTS " + table + "_to_stop_I ON " + table + " (to_stop_I)"
+        sql_from = "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_from_stop_I ON " + table + " (from_stop_I)"
+        sql_to = "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_to_stop_I ON " + table + " (to_stop_I)"
         self.conn.execute(sql_from)
         self.conn.execute(sql_to)
         self.conn.commit()
