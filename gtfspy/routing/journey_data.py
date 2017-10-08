@@ -786,6 +786,8 @@ class JourneyDataManager:
         self.conn.commit()
 
     def create_indices(self):
+        self.conn.execute("PRAGMA temp_store=2")
+        self.conn.commit()
         # Next 3 lines are python 3.6 work-arounds again.
         self.conn.isolation_level = None  # former default of autocommit mode
         cur = self.conn.cursor()
@@ -796,7 +798,6 @@ class JourneyDataManager:
         cur.execute('ANALYZE')
         print("Indexing")
         cur = self.conn.cursor()
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_route ON journeys (route)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_jid ON journeys (journey_id)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_fid ON journeys (from_stop_I)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_tid ON journeys (to_stop_I)')
@@ -806,6 +807,7 @@ class JourneyDataManager:
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_trid ON legs (trip_I)')
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_fid ON legs (from_stop_I)')
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_tid ON legs (to_stop_I)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_route ON journeys (route)')
         self.conn.commit()
 
 
