@@ -710,21 +710,28 @@ cdef class LabelTimeAndRoute:
 
 
 cdef class LabelGeneric:
+
     # This class is used only for the analysis stage, when the data has been stored in a database
     cdef public int journey_id,  from_stop_I, to_stop_I, n_boardings, movement_duration, journey_duration, \
         in_vehicle_duration, transfer_wait_duration, walking_duration, pre_journey_wait_fp
     cdef public double departure_time, arrival_time_target
+    cdef public list attributes
 
-    def __init__(self, journey_dict):
+    def __init__(self, journey_dict, **kwargs):
+        self.attributes = []
         for key in journey_dict:
             setattr(self, key, journey_dict[key])
+            self.attributes.append(key)
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
+            self.attributes.append(key)
+
         # Assert that key attributes are present
         assert hasattr(self, "journey_id")
         assert hasattr(self, "from_stop_I")
         assert hasattr(self, "to_stop_I")
         assert hasattr(self, "departure_time")
         assert hasattr(self, "arrival_time_target")
-
 
     def __getstate__(self):
         return self.departure_time, self.arrival_time_target, self.movement_duration, self.connection, self.previous_label
@@ -807,12 +814,14 @@ cdef class LabelGeneric:
         return LabelGeneric(self.departure_time, self.arrival_time_target,
                                            self.movement_duration, connection=connection, previous_label=self)
     cpdef get_copy(self):
-        return LabelGeneric(self.departure_time, self.arrival_time_target,
-                                           self.movement_duration, self.connection, previous_label=self.previous_label)
+        journey_dict = {key: getattr(self, key) for key in self.attributes}
+        return LabelGeneric(journey_dict)
+        # self.departure_time, self.arrival_time_target, self.movement_duration, connection=self.connection, previous_label=self.previous_label)
 
     cpdef get_copy_with_specified_departure_time(self, departure_time):
-        return LabelGeneric(departure_time, self.arrival_time_target,
-                                           self.movement_duration, self.connection, previous_label=self.previous_label)
+        # journey_dict = {key: getattr(self, key) for key in self.attributes}
+        # journey_dict['departure_time'] = departure_time
+        return LabelGeneric(departure_time, self.arrival_time_target,  self.movement_duration, connection=self.connection, previous_label=self.previous_label)
 
     cpdef double duration(self):
         return self.arrival_time_target - self.departure_time
