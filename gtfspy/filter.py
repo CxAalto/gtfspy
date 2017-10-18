@@ -62,6 +62,8 @@ class FilterExtract(object):
             Longitude of the buffer zone center
         buffer_distance : float
             Distance from the buffer zone center (in kilometers)
+        hard_buffer_distance: float, optional
+            Take away all operations beyond this limit.
 
         Returns
         -------
