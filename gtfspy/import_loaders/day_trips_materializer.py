@@ -29,8 +29,10 @@ class DayTripsMaterializer(TableLoader):
                     'days.day_start_ut+trips.start_time_ds AS start_time_ut, '
                     'days.day_start_ut+trips.end_time_ds AS end_time_ut, '
                     'day_start_ut '
-                    'FROM days '
-                    'JOIN trips USING (trip_I)')
+                    'FROM days JOIN trips USING (trip_I)')
+        # Delete rows, where start_time_ut or end_time_ut IS NULL.
+        # This could happen e.g. if stop_times are missing for some trip.
+        cur.execute("DELETE FROM day_trips2 WHERE start_time_ut IS NULL or end_time_ut IS NULL")
         conn.commit()
 
     def index(cls, cur):
