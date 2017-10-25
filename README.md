@@ -4,16 +4,17 @@
 [![PyPI badge](https://badge.fury.io/py/gtfspy.svg)](https://pypi.python.org/pypi/gtfspy/)
 
 
-``gtfspy`` is a Python package for working with public transport timetable data provided in the [General Transit Feeds Specification](https://developers.google.com/transit/gtfs/) (GTFS) format.
+``gtfspy`` is a Python package for analyzing public transport timetable data provided in the [General Transit Feed Specification](https://developers.google.com/transit/gtfs/), GTFS, -format.
 
 ## Core features:
-* Import one or multiple GTFS feeds into a [SQLite](https://www.sqlite.org/) database for efficient querying of the data.
+* Import one or multiple GTFS feeds into one [SQLite](https://www.sqlite.org/) database for efficient querying of the data.
 * Augment the sqlite with real walking distances between PT stops using Open Street Map (OSM) data.
-* Compute simple statistics for the public transport networks (number of stops, routes, network length).
+* Compute simple statistics for the public transport networks such as number of stops, routes, network length.
 * Filter databases spatially and temporally to match your area and time region of interst.
 * Perform accessibility analyses using a routing/profiling engine
     - Adapted from the [Connection Scan Algorithm](http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf) (CSA).
     - Compute all Pareto-optimal journey alternatives between an origin-destination pair, and summarize connectivity with measures on travel time and number of transfers.
+* Produce data extracts in various formats (network edge lists, geojson). 
 
 
 ## Prerequisites
@@ -30,7 +31,7 @@ pip install gtfspy
 
 ## Development quickstart
 
-Only use this if you want to be able to edit ``gtfspy``'s source code.
+Use this if you want to be able to edit ``gtfspy``'s source code.
 
 ```
 git clone git@github.com:CxAalto/gtfspy.git
@@ -58,28 +59,30 @@ In your pull request, please also add yourself as a contributor in the list belo
 
 ## Versioning
 
-As this library is not yet stabilised, and new features are being developed, code organization and interfaces may change at a fast pace. More precise versioning scheme will be decided upon later.
+This library is not yet stabilised, and new features are being developed. 
+Thus code organization and interfaces may change at a fast pace. 
+More precise versioning scheme will be decided upon later.
 
 ## Authors
 
 ### Package maintainers
-* Rainer Kujala (Rainer.Kujala@gmail.com, rmkujala)
+* Rainer Kujala (Rainer.Kujala@gmail.com)
 * Richard Darst
 * Christoffer Weckström
-* Nils Haglund
 
 ### Other contributors
 
 * Manuel Rios ([marz7002](https://github.com/marz7002))
+* Nils Haglund
 
 * You?
 
-## Licenses
+## Licensing
 
 ### Code
 This source code of this project licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
 
-### Example data (regarding examples)
+### Example data
 
 The OpenStreetMap data (.osm.pbf file(s) under examples/data) is licenced under the [Open Data Commons Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL) by the [OpenStreetMap Foundation](http://osmfoundation.org/) (OSMF).
 
@@ -97,6 +100,7 @@ Rainer Kujala, Christoffer Weckström, Miloš N. Mladenović, Jari Saramäki, Tr
 
 * The development of this Python package has benefited from the support by Academy of Finland through the DeCoNet project.
 * For running the Java routing, we use the [Graphhopper routing library](https://github.com/graphhopper/graphhopper).
+
 
 ## Bugs
 
