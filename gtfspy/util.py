@@ -1,11 +1,9 @@
-"""Various utility functions"""
-from __future__ import print_function
-
 import contextlib
 import datetime
 import io
 import math
 import os
+import zipfile
 import shutil
 import sys
 import tempfile
@@ -249,29 +247,23 @@ def corrupted_zip(zip_path):
         return "error"
 
 
-def source_table_txt_to_pandas(path, table, args=None):
+def source_csv_to_pandas(path, table, read_csv_args=None):
     """
-    :param path: path to directory or zipfile
-    :param table: name of table
-    :param args: string arguments passed to the read_csv function
-    :return: pandas dataframe
+    Parameters
+    ----------
+    path: str
+        path to directory or zipfile
+    table: str
+        name of table
+    read_csv_args:
+        string arguments passed to the read_csv function
+
+    Returns
+    -------
+    df: pandas:DataFrame
     """
-
-    # except KeyError:
-    #     if attempt == 0:
-    #         args = {"sep": '\s*,\s*'}
-    #         print(args)
-    #     elif attempt == 1:
-    #         args["engine"] ='python'
-    #         print(args)
-
-
-    import os
-    import zipfile
-    import pandas
-    from pandas import read_csv
-    if u'.txt' not in table:
-        table += u'.txt'
+    if '.txt' not in table:
+        table += '.txt'
 
     if isinstance(path, dict):
         data_obj = path[table]
@@ -290,12 +282,12 @@ def source_table_txt_to_pandas(path, table, args=None):
             try:
                 f = zip_open(z, table)
             except KeyError as e:
-                return pandas.DataFrame()
+                return pd.DataFrame()
 
-    if args:
-        df = read_csv(**args)
+    if read_csv_args:
+        df = pd.read_csv(**read_csv_args)
     else:
-        df = read_csv(f)
+        df = pd.read_csv(f)
     return df
 
 

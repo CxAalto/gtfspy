@@ -70,10 +70,9 @@ class TimetableValidator(object):
             p = self.buffer_params
             center_lat = p['lat']
             center_lon = p['lon']
-            distance = p['buffer_distance'] * 2 * 1000
-            count = 0
+            buffer_distance = p['buffer_distance'] * 2 * 1000
             for stop_row in self.gtfs.stops().itertuples():
-                if distance < wgs84_distance(center_lat, center_lon, stop_row.lat, stop_row.lon):
+                if buffer_distance < wgs84_distance(center_lat, center_lon, stop_row.lat, stop_row.lon):
                     self.warnings_container.add_warning(stop_row, WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY)
                     print(WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY, stop_row)
 
@@ -186,7 +185,7 @@ class WarningsContainer(object):
         # key: "row that produced error" tuple, value: list of "warning type(s)" string
 
     def add_warning(self, row, error, value=None):
-        if value:
+        if value is not None:
             self._warnings_counter[error] += value
         else:
             self._warnings_counter[error] += 1
