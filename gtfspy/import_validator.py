@@ -20,7 +20,7 @@ output: error messages for failed checks
 """
 
 
-WARNING_DANGLING_STOPS_VS_STOP_TIMES_AND_PARENT_STOPS = "Some stops not referenced in stop_times nor marked as a parent_stop were found (it is ok/possible that there are some)"
+WARNING_DANGLING_STOPS_VS_STOP_TIMES_AND_PARENT_STOPS = "some stops are not referenced in stop_times and are not marked as a parent_stop (it is ok/possible that there are some)"
 WARNING_DANGLING_STOP_TIMES_VS_STOPS = "stop_times referencing to missing stop"
 WARNING_DANGLING_STOP_TIMES_VS_TRIPS = "stop_times not referenced in trips found"
 WARNING_DANGLING_TRIPS_VS_STOP_TIMES = "trips with missing stop_times found"

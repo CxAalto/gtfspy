@@ -12,7 +12,7 @@ class TestGTFSValidator(unittest.TestCase):
 
     def test_compiles(self):
         validator = TimetableValidator(self.G)
-        warnings = validator.get_warnings()
+        warnings = validator.validate_and_get_warnings()
         warning_counts = warnings.get_warning_counter()
         assert len(warning_counts) > 0
 

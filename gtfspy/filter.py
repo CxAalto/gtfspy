@@ -94,7 +94,7 @@ class FilterExtract(object):
         self.gtfs = G
         self.buffer_lat = buffer_lat
         self.buffer_lon = buffer_lon
-        self.buffer_distance = buffer_distance
+        self.buffer_distance_km = buffer_distance
         self.hard_buffer_distance = hard_buffer_distance
         self.update_metadata = update_metadata
 
@@ -316,10 +316,10 @@ class FilterExtract(object):
         """
         print("filtering with lat: " + str(self.buffer_lat) +
               " lon: " + str(self.buffer_lon) +
-              " buffer distance: " + str(self.buffer_distance))
+              " buffer distance: " + str(self.buffer_distance_km))
 
-        if (self.buffer_lat is not None) and (self.buffer_lon is not None) and (self.buffer_distance is not None):
-            _buffer_distance = self.buffer_distance * 1000
+        if (self.buffer_lat is not None) and (self.buffer_lon is not None) and (self.buffer_distance_km is not None):
+            _buffer_distance_meters = self.buffer_distance_km * 1000
             logging.info("Making spatial extract")
             self.copy_db_conn.create_function("find_distance", 4, wgs84_distance)
             # For each trip_I, find smallest (min_seq) and largest (max_seq) stop sequence numbers
@@ -328,18 +328,18 @@ class FilterExtract(object):
             # Note that if a trip is OUT-IN-OUT-IN-OUT, the process preserves the part IN-OUT-IN of the trip.
             print("stops before filtering: ", self.copy_db_conn.execute("SELECT count(*) FROM stops").fetchone()[0])
 
-            self.copy_db_conn.execute('DELETE FROM stops '
-                                      'WHERE stop_I NOT IN '
-                                      '(SELECT stops.stop_I FROM stop_times, stops, '
-                                      '(SELECT trip_I, min(seq) AS min_seq, max(seq) AS max_seq FROM stop_times, stops '
-                                      'WHERE stop_times.stop_I = stops.stop_I '
-                                      'AND CAST(find_distance(lat, lon, ?, ?) AS INT) < ? '
-                                      'GROUP BY trip_I) q1 '
-                                      'WHERE stop_times.stop_I = stops.stop_I '
-                                      'AND stop_times.trip_I = q1.trip_I '
-                                      'AND seq >= min_seq '
-                                      'AND seq <= max_seq '
-                                      ')', (self.buffer_lat, self.buffer_lon, _buffer_distance))
+            self.copy_db_conn.execute(
+                'DELETE FROM stops WHERE stop_I NOT IN '
+                    '(SELECT stops.stop_I FROM stop_times, stops, '
+                        '(SELECT trip_I, min(seq) AS min_seq, max(seq) AS max_seq FROM stop_times, stops '
+                            'WHERE stop_times.stop_I = stops.stop_I '
+                            'AND CAST(find_distance(lat, lon, ?, ?) AS INT) < ? '
+                            'GROUP BY trip_I) q1 '
+                'WHERE stop_times.stop_I = stops.stop_I '
+                    'AND stop_times.trip_I = q1.trip_I '
+                    'AND seq >= min_seq '
+                    'AND seq <= max_seq '
+                ')', (self.buffer_lat, self.buffer_lon, _buffer_distance_meters))
             print("stops after first filtering: ", self.copy_db_conn.execute("SELECT count(*) FROM stops").fetchone()[0])
 
             if self.hard_buffer_distance:

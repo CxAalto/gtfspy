@@ -2,7 +2,6 @@ import unittest
 import os
 from gtfspy.gtfs import GTFS
 from gtfspy.import_validator import ImportValidator
-import io
 
 
 class TestImportValidator(unittest.TestCase):

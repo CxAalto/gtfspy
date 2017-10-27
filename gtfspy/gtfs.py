@@ -1597,7 +1597,7 @@ class GTFS(object):
         """
         from .timetable_validator import TimetableValidator
         validator = TimetableValidator(self)
-        return validator.get_warnings()
+        return validator.validate_and_get_warnings()
 
     def execute_custom_query(self, query):
         return self.conn.cursor().execute(query)

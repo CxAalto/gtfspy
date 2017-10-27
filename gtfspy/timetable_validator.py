@@ -13,21 +13,28 @@ from gtfspy import route_types
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
 
-WARNING_LONG_STOP_SPACING = "Long Stop Spacing"
-WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "Trips that have Five or More Consecutive Same Stop Times"
-WARNING_LONG_TRIP_TIME = "Long Trip Time"
-WARNING_UNREALISTIC_AVERAGE_SPEED = "Unrealistic Average Speed"
-WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "Long Travel Time Between Consecutive Stops"
-WARNING_STOP_SEQUENCE_ERROR = "Stop Sequence Error"
+
+WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "five or more consecutive stops have same stop time on a trip"
+WARNING_LONG_TRIP_TIME = "trip time longer than {MAX_TRIP_TIME}"
+WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED = "trip average speed unrealistic"
+
+MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS = 20000  # meters
+WARNING_LONG_STOP_SPACING = "distance between consecutive stops longer than " + str(MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS) + " meters"
+MAX_TIME_BETWEEN_STOPS = 1800  # seconds
+WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "travel time between consecutive stops longer than " + str(MAX_TIME_BETWEEN_STOPS / 60) + " minutes"
+
+WARNING_STOP_SEQUENCE_ORDER_ERROR = "stop sequence is not in right order"
+WARNING_STOP_SEQUENCE_NOT_INCREMENTAL = "stop sequences are not increasing always by one in stop_times"
 WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY = "Stop far away from spatial filter boundary"
 
 ALL_WARNINGS = {
     WARNING_LONG_STOP_SPACING,
     WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME,
     WARNING_LONG_TRIP_TIME,
-    WARNING_UNREALISTIC_AVERAGE_SPEED,
+    WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED,
     WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS,
-    WARNING_STOP_SEQUENCE_ERROR
+    WARNING_STOP_SEQUENCE_ORDER_ERROR,
+    WARNING_STOP_SEQUENCE_NOT_INCREMENTAL
 }
 
 
@@ -47,7 +54,7 @@ class TimetableValidator(object):
         self.buffer_params = buffer_params
         self.warnings_container = WarningsContainer()
 
-    def get_warnings(self):
+    def validate_and_get_warnings(self):
         """
         Validates/checks a given GTFS feed with respect to a number of different issues.
 
@@ -63,7 +70,6 @@ class TimetableValidator(object):
         self._validate_stop_spacings()
         self._validate_stop_sequence()
         self._validate_misplaced_stops()
-        self.warnings_container.write_summary()
         return self.warnings_container
 
     def _validate_misplaced_stops(self):
@@ -94,8 +100,6 @@ class TimetableValidator(object):
 
     def _validate_stop_spacings(self):
         self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)
-        max_stop_spacing = 20000  # meters
-        max_time_between_stops = 1800  # seconds
         # this query calculates distance and travel time between consecutive stops
         rows = self.gtfs.execute_custom_query(
             'SELECT '
@@ -115,9 +119,9 @@ class TimetableValidator(object):
             'AND q1.trip_I = trips.trip_I '
             'AND trips.route_I = routes.route_I ').fetchall()
         for row in rows:
-            if row[4] > max_stop_spacing:
+            if row[4] > MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS:
                 self.warnings_container.add_warning(WARNING_LONG_STOP_SPACING, row)
-            if row[5] > max_time_between_stops:
+            if row[5] > MAX_TIME_BETWEEN_STOPS:
                 self.warnings_container.add_warning(WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS, row)
 
     def _validate_speeds_and_trip_times(self):
@@ -134,7 +138,7 @@ class TimetableValidator(object):
             route_types.FUNICULAR: 50,
             route_types.AIRCRAFT : 1000
         }
-        max_trip_time = 7200  # seconds
+        MAX_TRIP_TIME = 7200  # seconds
         self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)
 
         # this query returns the total distance and travel time for each trip calculated for each stop spacing separately
@@ -154,25 +158,30 @@ class TimetableValidator(object):
 
         for row in rows:
             avg_velocity = row[2] / max(row[3], 1) * 3.6
+            avg_velocity_limit = gtfs_type_to_max_speed[row[1]]
             if avg_velocity > gtfs_type_to_max_speed[row[1]]:
-                self.warnings_container.add_warning(WARNING_UNREALISTIC_AVERAGE_SPEED, row)
-
-            if row[3] > max_trip_time:
-                self.warnings_container.add_warning(WARNING_LONG_TRIP_TIME, row)
+                self.warnings_container.add_warning(WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED + " (route_type=" + str(row[1]) + ")",
+                                                    row
+                )
+            if row[3] > MAX_TRIP_TIME:
+                self.warnings_container.add_warning(WARNING_LONG_TRIP_TIME.format(MAX_TRIP_TIME=MAX_TRIP_TIME), row, 1)
 
     def _validate_stop_sequence(self):
-        # this function checks if the stop sequence value is changing with +1 for each stop. This is not (yet) enforced
+        # This function checks if the seq values in stop_times are increasing with departure_time,
+        # and that seq always increases by one.
         rows = self.gtfs.execute_custom_query('SELECT trip_I, dep_time_ds, seq '
                                               'FROM stop_times '
                                               'ORDER BY trip_I, dep_time_ds, seq').fetchall()
-
         old_trip_id = None
+        old_seq = None
         for row in rows:
-            new_trip_id = row[0]
-            new_seq = row[2]
+            new_trip_id = int(row[0])
+            new_seq = int(row[2])
             if old_trip_id == new_trip_id:
                 if old_seq + 1 != new_seq:
-                    self.warnings_container.add_warning(WARNING_STOP_SEQUENCE_ERROR, row)
+                    self.warnings_container.add_warning(WARNING_STOP_SEQUENCE_NOT_INCREMENTAL, row)
+                if old_seq >= new_seq:
+                    self.warnings_container.add_warning(WARNING_STOP_SEQUENCE_ORDER_ERROR, row)
             old_trip_id = row[0]
             old_seq = row[2]
 
@@ -182,7 +191,7 @@ def main():
     args = sys.argv[2:]
     if cmd == "validate":
         validator = TimetableValidator(args[0])
-        warningscontainer = validator.get_warnings()
+        warningscontainer = validator.validate_and_get_warnings()
         warningscontainer.write_summary()
 
 if __name__ == "__main__":
