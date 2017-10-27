@@ -1,8 +1,9 @@
-from collections import defaultdict, Counter
 import sys
 
 # the following is required when using this module as a script
 # (i.e. using the if __name__ == "__main__": part at the end of this file)
+from gtfspy.warnings_container import WarningsContainer
+
 if __name__ == '__main__' and __package__ is None:
     # import gtfspy
     __package__ = 'gtfspy'
@@ -62,7 +63,7 @@ class TimetableValidator(object):
         self._validate_stop_spacings()
         self._validate_stop_sequence()
         self._validate_misplaced_stops()
-        self.warnings_container.print_summary()
+        self.warnings_container.write_summary()
         return self.warnings_container
 
     def _validate_misplaced_stops(self):
@@ -73,7 +74,7 @@ class TimetableValidator(object):
             buffer_distance = p['buffer_distance'] * 2 * 1000
             for stop_row in self.gtfs.stops().itertuples():
                 if buffer_distance < wgs84_distance(center_lat, center_lon, stop_row.lat, stop_row.lon):
-                    self.warnings_container.add_warning(stop_row, WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY)
+                    self.warnings_container.add_warning(WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY, stop_row)
                     print(WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY, stop_row)
 
     def _validate_stops_with_same_stop_time(self):
@@ -89,7 +90,7 @@ class TimetableValidator(object):
             'WHERE N >= ?', (n_stops_with_same_time,)
         )
         for row in rows:
-            self.warnings_container.add_warning(row, WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME)
+            self.warnings_container.add_warning(WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME, row)
 
     def _validate_stop_spacings(self):
         self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)
@@ -115,9 +116,9 @@ class TimetableValidator(object):
             'AND trips.route_I = routes.route_I ').fetchall()
         for row in rows:
             if row[4] > max_stop_spacing:
-                self.warnings_container.add_warning(row, WARNING_LONG_STOP_SPACING)
+                self.warnings_container.add_warning(WARNING_LONG_STOP_SPACING, row)
             if row[5] > max_time_between_stops:
-                self.warnings_container.add_warning(row, WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS)
+                self.warnings_container.add_warning(WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS, row)
 
     def _validate_speeds_and_trip_times(self):
         # These are the mode - feasible speed combinations used here:
@@ -154,10 +155,10 @@ class TimetableValidator(object):
         for row in rows:
             avg_velocity = row[2] / max(row[3], 1) * 3.6
             if avg_velocity > gtfs_type_to_max_speed[row[1]]:
-                self.warnings_container.add_warning(row, WARNING_UNREALISTIC_AVERAGE_SPEED)
+                self.warnings_container.add_warning(WARNING_UNREALISTIC_AVERAGE_SPEED, row)
 
             if row[3] > max_trip_time:
-                self.warnings_container.add_warning(row, WARNING_LONG_TRIP_TIME)
+                self.warnings_container.add_warning(WARNING_LONG_TRIP_TIME, row)
 
     def _validate_stop_sequence(self):
         # this function checks if the stop sequence value is changing with +1 for each stop. This is not (yet) enforced
@@ -171,51 +172,9 @@ class TimetableValidator(object):
             new_seq = row[2]
             if old_trip_id == new_trip_id:
                 if old_seq + 1 != new_seq:
-                    self.warnings_container.add_warning(row, WARNING_STOP_SEQUENCE_ERROR)
+                    self.warnings_container.add_warning(WARNING_STOP_SEQUENCE_ERROR, row)
             old_trip_id = row[0]
             old_seq = row[2]
-
-
-class WarningsContainer(object):
-
-    def __init__(self):
-        self._warnings_counter = Counter()
-        # key: "warning type" string, value: "number of errors" int
-        self._warnings_records = defaultdict(list)
-        # key: "row that produced error" tuple, value: list of "warning type(s)" string
-
-    def add_warning(self, row, error, value=None):
-        if value is not None:
-            self._warnings_counter[error] += value
-        else:
-            self._warnings_counter[error] += 1
-        self._warnings_records[row].append(error)
-
-    def print_summary(self):
-        print('The feed produced the following warnings: ')
-        for key in self._warnings_counter.keys():
-            print(key + ": " + str(self._warnings_counter[key]))
-
-    def get_warning_counts(self):
-        """
-        Returns
-        -------
-        counter: collections.Counter
-        """
-        return self._warnings_counter
-
-    def get_warnings_by_query_rows(self):
-        """
-        Returns
-        -------
-        warnings_record: defaultdict(list)
-            maps each row to a list of warnings
-        """
-        return self._warnings_records
-
-    def clear(self):
-        self._warnings_counter.clear()
-        self._warnings_records.clear()
 
 
 def main():
@@ -224,7 +183,7 @@ def main():
     if cmd == "validate":
         validator = TimetableValidator(args[0])
         warningscontainer = validator.get_warnings()
-        warningscontainer.print_summary()
+        warningscontainer.write_summary()
 
 if __name__ == "__main__":
     main()

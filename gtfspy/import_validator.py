@@ -1,7 +1,7 @@
 import pandas as pd
-import sys
+
 from six import string_types
-from gtfspy.timetable_validator import WarningsContainer
+from gtfspy.warnings_container import WarningsContainer
 from gtfspy.gtfs import GTFS
 from gtfspy.util import str_time_to_day_seconds
 from gtfspy.util import source_csv_to_pandas
@@ -115,14 +115,15 @@ for key in DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_OK_BUT_WARN.keys():
 
 class ImportValidator(object):
 
-    def __init__(self, gtfssource, gtfs):
+    def __init__(self, gtfssource, gtfs, verbose=True):
         """
         Parameters
         ----------
         gtfs_sources: list, string, dict
             list of paths to the strings, or a dictionary directly containing the gtfs data directly
         gtfs: gtfspy.gtfs.GTFS, or path to a relevant .sqlite GTFS database
-        output_stream: something that one can write to
+        verbose: bool
+            Whether or not to print warnings on-the-fly.
         """
         if isinstance(gtfssource, string_types + (dict,)):
             self.gtfs_sources = [gtfssource]
@@ -138,15 +139,13 @@ class ImportValidator(object):
 
         self.location = self.gtfs.get_location_name()
         self.warnings_container = WarningsContainer()
+        self.verbose=verbose
 
-    # def print_warnings(self):
-
-    def get_warnings(self):
+    def validate_and_get_warnings(self):
         self.warnings_container.clear()
         self._validate_table_row_counts()
         self._validate_no_null_values()
         self._validate_danglers()
-        self.warnings_container.print_summary()
         return self.warnings_container
 
     def _validate_table_row_counts(self):
@@ -182,7 +181,7 @@ class ImportValidator(object):
                         raise e
 
 
-            if source_row_count == database_row_count:
+            if source_row_count == database_row_count and self.verbose:
                 print("Row counts match for " + table_name_source_file + " between the source and database ("
                       + str(database_row_count) + ")")
             else:
@@ -195,13 +194,14 @@ class ImportValidator(object):
                             ") WHERE start_date=end_date AND m=0 AND t=0 AND w=0 AND th=0 AND f=0 AND s=0 AND su=0"
                     number_of_entries_added_by_calendar_dates_loader = self.gtfs.execute_custom_query(query).fetchone()[
                         0]
-                    if number_of_entries_added_by_calendar_dates_loader == difference:
+                    if number_of_entries_added_by_calendar_dates_loader == difference and self.verbose:
                         print("    But don't worry, the extra entries seem to just dummy entries due to calendar_dates")
                     else:
-                        print("    Reason for this is unknown.")
-                        self.warnings_container.add_warning(self.location, row_warning_str, difference)
+                        if self.verbose:
+                            print("    Reason for this is unknown.")
+                        self.warnings_container.add_warning(row_warning_str, self.location, difference)
                 else:
-                    self.warnings_container.add_warning(self.location, row_warning_str, difference)
+                    self.warnings_container.add_warning(row_warning_str, self.location, difference)
 
 
     def _validate_no_null_values(self):
@@ -222,9 +222,8 @@ class ImportValidator(object):
                 null_unwanted_df = df[fields]
                 rows_having_null = null_unwanted_df.isnull().any(1)
                 if sum(rows_having_null) > 0:
-                    print(rows_having_null)
                     rows_having_unwanted_null = df[rows_having_null.values]
-                    self.warnings_container.add_warning(self.location, warning, value=rows_having_unwanted_null)
+                    self.warnings_container.add_warning(warning, rows_having_unwanted_null, len(rows_having_unwanted_null))
 
 
     def _validate_danglers(self):
@@ -239,8 +238,9 @@ class ImportValidator(object):
         for query, warning in zip(DANGLER_QUERIES, DANGLER_WARNINGS):
             dangler_count = self.gtfs.execute_custom_query(query).fetchone()[0]
             if dangler_count > 0:
-                print(str(dangler_count) + " " + warning)
-                self.warnings_container.add_warning(self.location, warning, value=dangler_count)
+                if self.verbose:
+                    print(str(dangler_count) + " " + warning)
+                self.warnings_container.add_warning(warning, self.location, count=dangler_count)
 
     def _frequency_generated_trips_rows(self, gtfs_soure_path, return_df_freq=False):
         """
@@ -279,9 +279,3 @@ class ImportValidator(object):
         df_stop_times = source_csv_to_pandas(gtfs_source_path, "stop_times")
         df_stop_freq = pd.merge(df_freq, df_stop_times, how='outer', on='trip_id')
         return int(df_stop_freq['n_trips'].fillna(1).sum(axis=0))
-
-def main():
-    pass
-
-if __name__ == "__main__":
-    main()
