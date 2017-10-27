@@ -12,6 +12,18 @@ from gtfspy.util import wgs84_distance
 from gtfspy import stats
 from gtfspy import gtfs
 
+DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL = \
+    'DELETE FROM stops ' \
+    '  WHERE stop_I NOT IN (SELECT distinct(stop_I) FROM stop_times) ' \
+    '  AND stop_I NOT IN (SELECT distinct(parent_I))'
+DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL = 'DELETE FROM shapes WHERE shape_id NOT IN (SELECT shape_id FROM trips)'
+DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL = 'DELETE FROM routes WHERE route_I NOT IN (SELECT route_I FROM trips)'
+DELETE_DAYS_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL = "DELETE FROM days WHERE trip_I NOT IN (SELECT trip_I FROM trips)"
+DELETE_DAY_TRIPS2_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL = "DELETE FROM day_trips2 WHERE trip_I NOT IN (SELECT trip_I FROM trips)"
+DELETE_FREQUENCIES_ENTRIES_NOT_PRESENT_IN_TRIPS = "DELETE FROM frequencies WHERE trip_I NOT IN (SELECT trip_I FROM trips)"
+DELETE_CALENDAR_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL = "DELETE FROM calendar WHERE service_I NOT IN (SELECT distinct(service_I) FROM trips)"
+DELETE_CALENDAR_DATES_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL = "DELETE FROM calendar_dates WHERE service_I NOT IN (SELECT distinct(service_I) FROM trips)"
+DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL = "DELETE FROM agencies WHERE agency_I NOT IN (SELECT distinct(agency_I) FROM routes)"
 
 class FilterExtract(object):
 
@@ -245,17 +257,14 @@ class FilterExtract(object):
             # then recursively delete further data:
             self.copy_db_conn.execute('DELETE FROM trips WHERE '
                                       'trip_I NOT IN (SELECT trip_I FROM days)')
-            self.copy_db_conn.execute('DELETE FROM shapes WHERE '
-                                      'shape_id NOT IN (SELECT shape_id FROM trips)')
+            self.copy_db_conn.execute(DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL)
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
                                       'trip_I NOT IN (SELECT trip_I FROM trips)')
-            self.copy_db_conn.execute('DELETE FROM stops WHERE '
-                                      'stop_I NOT IN (SELECT stop_I FROM stop_times)')
+            self.copy_db_conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
             self.copy_db_conn.execute('DELETE FROM stop_distances WHERE '
                                       '   from_stop_I NOT IN (SELECT stop_I FROM stops) '
                                       'OR to_stop_I   NOT IN (SELECT stop_I FROM stops)')
-            self.copy_db_conn.execute('DELETE FROM routes WHERE '
-                                      'route_I NOT IN (SELECT route_I FROM trips)')
+            self.copy_db_conn.execute(DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL)
             self.copy_db_conn.execute('DELETE FROM agencies WHERE '
                                       'agency_I NOT IN (SELECT agency_I FROM routes)')
             self.copy_db_conn.commit()
@@ -302,6 +311,8 @@ class FilterExtract(object):
 
     def _filter_by_area(self):
         """
+        1st: Remove all trips that do not overlap at all with the buffered area!
+
         filter by boundary
         select the largest and smallest seq value for each trip that is within boundary
         WITH query that includes all stops that are within area or stops of routes
@@ -321,10 +332,20 @@ class FilterExtract(object):
         if (self.buffer_lat is not None) and (self.buffer_lon is not None) and (self.buffer_distance_km is not None):
             _buffer_distance_meters = self.buffer_distance_km * 1000
             logging.info("Making spatial extract")
+
+            remove_trips_fully_outside_buffer(self.copy_db_conn, self.buffer_lat, self.buffer_lon, self.buffer_distance_km)
+
             self.copy_db_conn.create_function("find_distance", 4, wgs84_distance)
-            # For each trip_I, find smallest (min_seq) and largest (max_seq) stop sequence numbers
-            # that are within the buffer_distance from the buffer_lon and buffer_lat.
-            # Then delete all stops that are not between the min_seq and max_seq for any trip_I,
+
+            # First filter out all stop_times entries of trips that do not enter the buffer area at all.
+
+
+            # For each trip_I, find smallest (min_seq) and largest (max_seq) stop sequence numbers that
+            # are within the buffer_distance from the buffer_lon and buffer_lat.
+
+
+
+            # Then delete all stops that are not between the min_seq and max_seq for any trip_I.
             # Note that if a trip is OUT-IN-OUT-IN-OUT, the process preserves the part IN-OUT-IN of the trip.
             print("stops before filtering: ", self.copy_db_conn.execute("SELECT count(*) FROM stops").fetchone()[0])
 
@@ -422,4 +443,44 @@ class FilterExtract(object):
             self.copy_db_conn.execute('ANALYZE;')
             self.copy_db_conn.commit()
         return
+
+
+def add_wgs84_distance_function_to_db(conn):
+    function_name = "find_distance"
+    conn.create_function(function_name, 4, wgs84_distance)
+    return function_name
+
+def remove_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffer_km):
+    """
+    Parameters
+    ----------
+    db_conn: sqlite3.Connection
+        connection to the GTFS object
+    center_lat: float
+    center_lon: float
+    buffer_km: float
+    """
+    distance_function_str = add_wgs84_distance_function_to_db(db_conn)
+    stops_within_buffer_query = "SELECT stop_I FROM stops WHERE CAST(" + distance_function_str + \
+                                "(lat, lon, {lat} , {lon}) AS INT) < {d_m}"\
+        .format(lat=float(center_lat), lon=float(center_lon), d_m=int(1000*buffer_km))
+    select_all_trip_Is_where_stop_I_is_within_buffer = "SELECT distinct(trip_I) FROM stop_times WHERE stop_I IN (" + stops_within_buffer_query + ")"
+    trip_Is_to_remove = "SELECT trip_I FROM trips WHERE trip_I NOT IN ( " + select_all_trip_Is_where_stop_I_is_within_buffer + ")"
+    remove_all_trips_fully_outside_buffer = "DELETE FROM trips WHERE trip_I IN (" + trip_Is_to_remove  + ")"
+    remove_all_stop_times_where_trip_I_fully_outside_buffer = "DELETE FROM stop_times WHERE trip_I IN (" + trip_Is_to_remove  + ")"
+    db_conn.execute(remove_all_trips_fully_outside_buffer)
+    db_conn.execute(remove_all_stop_times_where_trip_I_fully_outside_buffer)
+    db_conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
+    db_conn.execute(DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL)
+    db_conn.execute(DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL)
+    db_conn.execute(DELETE_DAYS_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL)
+    db_conn.execute(DELETE_DAY_TRIPS2_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL)
+    db_conn.execute(DELETE_CALENDAR_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL)
+    db_conn.execute(DELETE_CALENDAR_DATES_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL)
+    db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
+
+
+
+
+
 

@@ -6,6 +6,8 @@ import pandas
 
 from gtfspy.gtfs import GTFS
 from gtfspy.filter import FilterExtract
+from gtfspy.filter import remove_trips_fully_outside_buffer
+
 from gtfspy.import_gtfs import import_gtfs
 import hashlib
 
@@ -144,3 +146,19 @@ class TestGTFSfilter(unittest.TestCase):
         # part of route excluded
         # part of agency excluded
         # not removing stops from a trip that returns into area
+
+    def test_remove_trips_fully_outside_buffer(self):
+        stops = self.G.stops()
+        stop_1 = stops[stops['stop_I'] == 1]
+
+        n_trips_before = len(self.G.get_table("trips"))
+
+        remove_trips_fully_outside_buffer(self.G.conn, float(stop_1.lat), float(stop_1.lon), 100000)
+        self.assertEqual(len(self.G.get_table("trips")), n_trips_before)
+
+        # 0.002 (=max 2 meters from the stop), rounding errors can take place...
+        remove_trips_fully_outside_buffer(self.G.conn, float(stop_1.lat), float(stop_1.lon), 0.002)
+        self.assertEqual(len(self.G.get_table("trips")), 2)  # value "2" comes from the data
+
+
+
