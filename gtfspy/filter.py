@@ -24,6 +24,11 @@ DELETE_FREQUENCIES_ENTRIES_NOT_PRESENT_IN_TRIPS = "DELETE FROM frequencies WHERE
 DELETE_CALENDAR_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL = "DELETE FROM calendar WHERE service_I NOT IN (SELECT distinct(service_I) FROM trips)"
 DELETE_CALENDAR_DATES_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL = "DELETE FROM calendar_dates WHERE service_I NOT IN (SELECT distinct(service_I) FROM trips)"
 DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL = "DELETE FROM agencies WHERE agency_I NOT IN (SELECT distinct(agency_I) FROM routes)"
+DELETE_STOP_DISTANCE_ENTRIES_WITH_NONEXISTENT_STOPS_SQL = "DELETE FROM stop_distances " \
+                                                          "WHERE from_stop_I NOT IN (SELECT stop_I FROM stops) " \
+                                                          " OR to_stop_I NOT IN (SELECT stop_I FROM stops)"
+
+
 
 class FilterExtract(object):
 
@@ -261,9 +266,7 @@ class FilterExtract(object):
             self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
                                       'trip_I NOT IN (SELECT trip_I FROM trips)')
             self.copy_db_conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
-            self.copy_db_conn.execute('DELETE FROM stop_distances WHERE '
-                                      '   from_stop_I NOT IN (SELECT stop_I FROM stops) '
-                                      'OR to_stop_I   NOT IN (SELECT stop_I FROM stops)')
+            self.copy_db_conn.execute(DELETE_STOP_DISTANCE_ENTRIES_WITH_NONEXISTENT_STOPS_SQL)
             self.copy_db_conn.execute(DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL)
             self.copy_db_conn.execute('DELETE FROM agencies WHERE '
                                       'agency_I NOT IN (SELECT agency_I FROM routes)')
