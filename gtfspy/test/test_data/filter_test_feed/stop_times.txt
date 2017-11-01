@@ -1,0 +1,9 @@
+trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
+t1,07:15:00,07:15:00,A,1,,0,0,
+t1,07:18:00,07:18:00,B,2,,0,0,
+t1,07:20:00,07:20:00,C,3,,0,0,
+t1,07:22:00,07:22:00,D,4,,0,0,
+t2,07:01:00,07:01:00,B,1,,0,0,
+t2,07:02:00,07:02:00,C,2,,0,0,
+t3,07:01:00,07:01:00,C,1,,0,0,
+t3,07:02:00,07:02:00,E,2,,0,0,

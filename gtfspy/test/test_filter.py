@@ -6,7 +6,7 @@ import pandas
 
 from gtfspy.gtfs import GTFS
 from gtfspy.filter import FilterExtract
-from gtfspy.filter import remove_trips_fully_outside_buffer
+from gtfspy.filter import remove_all_trips_fully_outside_buffer
 
 from gtfspy.import_gtfs import import_gtfs
 import hashlib
@@ -16,23 +16,30 @@ class TestGTFSfilter(unittest.TestCase):
 
     def setUp(self):
         self.gtfs_source_dir = os.path.join(os.path.dirname(__file__), "test_data")
+        self.gtfs_source_dir_filter_test = os.path.join(self.gtfs_source_dir, "filter_test_feed/")
+
         # self.G = GTFS.from_directory_as_inmemory_db(self.gtfs_source_dir)
 
         # some preparations:
         self.fname = self.gtfs_source_dir + "/test_gtfs.sqlite"
         self.fname_copy = self.gtfs_source_dir + "/test_gtfs_copy.sqlite"
+        self.fname_filter = self.gtfs_source_dir + "/test_gtfs_filter_test.sqlite"
 
         self.tearDown()
         self.assertFalse(os.path.exists(self.fname_copy))
 
         conn = sqlite3.connect(self.fname)
         import_gtfs(self.gtfs_source_dir, conn, preserve_connection=True, print_progress=False)
+        conn_filter = sqlite3.connect(self.fname_filter)
+        import_gtfs(self.gtfs_source_dir_filter_test, conn_filter, preserve_connection=True, print_progress=False)
+
         self.G = GTFS(conn)
+        self.G_filter_test = GTFS(conn_filter)
 
         self.hash_orig = hashlib.md5(open(self.fname, 'rb').read()).hexdigest()
 
     def tearDown(self):
-        for fn in [self.fname, self.fname_copy]:
+        for fn in [self.fname, self.fname_copy, self.fname_filter]:
             if os.path.exists(fn) and os.path.isfile(fn):
                 os.remove(fn)
 
@@ -147,17 +154,43 @@ class TestGTFSfilter(unittest.TestCase):
         # part of agency excluded
         # not removing stops from a trip that returns into area
 
-    def test_remove_trips_fully_outside_buffer(self):
+        # test higher-order removals
+        # stop A preserved
+        # -> stop B preserved
+        # -> stop C preserved
+
+    def test_filter_spatially_recursive(self):
+        n_rows_before = {
+            "routes": 3,
+            "stop_times": 8,
+            "trips": 3,
+            "stops": 5
+        }
+        n_rows_after = {
+            "routes": 2,
+            "stop_times": 6,
+            "trips": 2,
+            "stops": 4
+        }
+        FilterExtract(self.G_filter_test, self.fname_copy, buffer_lat=0, buffer_lon=0, buffer_distance=1).create_filtered_copy()
+        for table_name, n_rows in n_rows_before.items():
+            assert len(self.G_filter_test.get_table(table_name)) == n_rows
+        G_copy = GTFS(self.fname_copy)
+        for table_name, n_rows in n_rows_after.items():
+            assert len(G_copy.get_table(table_name)) == n_rows
+
+
+    def test_remove_all_trips_fully_outside_buffer(self):
         stops = self.G.stops()
         stop_1 = stops[stops['stop_I'] == 1]
 
         n_trips_before = len(self.G.get_table("trips"))
 
-        remove_trips_fully_outside_buffer(self.G.conn, float(stop_1.lat), float(stop_1.lon), 100000)
+        remove_all_trips_fully_outside_buffer(self.G.conn, float(stop_1.lat), float(stop_1.lon), 100000)
         self.assertEqual(len(self.G.get_table("trips")), n_trips_before)
 
         # 0.002 (=max 2 meters from the stop), rounding errors can take place...
-        remove_trips_fully_outside_buffer(self.G.conn, float(stop_1.lat), float(stop_1.lon), 0.002)
+        remove_all_trips_fully_outside_buffer(self.G.conn, float(stop_1.lat), float(stop_1.lon), 0.002)
         self.assertEqual(len(self.G.get_table("trips")), 2)  # value "2" comes from the data
 
 

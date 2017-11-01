@@ -1,0 +1,4 @@
+route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id
+R1,normal,t1,R1,0,,
+R2,normal,t2,R2,1,,
+R3,normal,t3,R3,1,,

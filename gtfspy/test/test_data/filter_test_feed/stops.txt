@@ -1,0 +1,6 @@
+stop_id,stop_code,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url,location_type,parent_station
+A,,A,in_buffer,0.00001,0.00001,,,0,
+B,,B,out_buffer,45.00001,45.00001,,,0,
+C,,C,out_buffer,45.00001,45.00001,,,0,
+D,,D,in_buffer,0.00001,0.00001,,,0,
+E,,E,out_buffer,45.00001,45.00001,,,0,
