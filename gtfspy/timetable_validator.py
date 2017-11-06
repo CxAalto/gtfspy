@@ -1,4 +1,5 @@
 import sys
+import pandas
 
 # the following is required when using this module as a script
 # (i.e. using the if __name__ == "__main__": part at the end of this file)
@@ -37,6 +38,18 @@ ALL_WARNINGS = {
     WARNING_STOP_SEQUENCE_NOT_INCREMENTAL
 }
 
+GTFS_TYPE_TO_MAX_SPEED = {
+    route_types.TRAM: 100,
+    route_types.SUBWAY: 150,
+    route_types.RAIL: 300,
+    route_types.BUS: 100,
+    route_types.FERRY: 80,
+    route_types.CABLE_CAR: 50,
+    route_types.GONDOLA: 50,
+    route_types.FUNICULAR: 50,
+    route_types.AIRCRAFT: 1000
+}
+MAX_TRIP_TIME = 7200  # seconds
 
 class TimetableValidator(object):
 
@@ -127,27 +140,15 @@ class TimetableValidator(object):
     def _validate_speeds_and_trip_times(self):
         # These are the mode - feasible speed combinations used here:
         # https://support.google.com/transitpartners/answer/1095482?hl=en
-        gtfs_type_to_max_speed = {
-            route_types.TRAM     : 100,
-            route_types.SUBWAY   : 150,
-            route_types.RAIL     : 300,
-            route_types.BUS      : 100,
-            route_types.FERRY    : 80,
-            route_types.CABLE_CAR: 50,
-            route_types.GONDOLA  : 50,
-            route_types.FUNICULAR: 50,
-            route_types.AIRCRAFT : 1000
-        }
-        MAX_TRIP_TIME = 7200  # seconds
         self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)
 
         # this query returns the total distance and travel time for each trip calculated for each stop spacing separately
-        rows = self.gtfs.execute_custom_query(
+        rows = pandas.read_sql(
             'SELECT '
             'q1.trip_I, '
             'type, '
             'sum(CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT)) AS total_distance, ' # sum used for getting total
-            'sum(q2.arr_time_ds - q1.arr_time_ds) AS total_traveltime ' # sum used for getting total
+            'sum(q2.arr_time_ds - q1.arr_time_ds) AS total_traveltime, ' # sum used for getting total
             'count(*)' # for getting the total number of stops
             'FROM '
             '   (SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q1, '
@@ -155,17 +156,15 @@ class TimetableValidator(object):
             '    trips, '
             '    routes '
                 'WHERE q1.trip_I = q2.trip_I AND q1.seq + 1 = q2.seq AND q1.trip_I = trips.trip_I '
-                     'AND trips.route_I = routes.route_I GROUP BY q1.trip_I').fetchall()
+                     'AND trips.route_I = routes.route_I GROUP BY q1.trip_I', self.gtfs.conn)
 
-        for row in rows:
-            avg_velocity = row[2] / max(row[3]) * 3.6
-
-            avg_velocity_limit = gtfs_type_to_max_speed[row[1]]
-            if avg_velocity > gtfs_type_to_max_speed[row[1]]:
-                self.warnings_container.add_warning(WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED + " (route_type=" + str(row[1]) + ")",
+        for row in rows.itertuples():
+            avg_velocity_km_per_h = row.total_distance / max(row.total_traveltime, 1) * 3.6
+            if avg_velocity_km_per_h > GTFS_TYPE_TO_MAX_SPEED[row.type]:
+                self.warnings_container.add_warning(WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED + " (route_type=" + str(row.type) + ")",
                                                     row
                 )
-            if row[3] > MAX_TRIP_TIME:
+            if row.total_traveltime > MAX_TRIP_TIME:
                 self.warnings_container.add_warning(WARNING_LONG_TRIP_TIME.format(MAX_TRIP_TIME=MAX_TRIP_TIME), row, 1)
 
     def _validate_stop_sequence(self):
