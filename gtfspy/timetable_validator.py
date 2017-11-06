@@ -14,14 +14,14 @@ from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
 
 
-WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "five or more consecutive stops have same stop time on a trip"
-WARNING_LONG_TRIP_TIME = "trip time longer than {MAX_TRIP_TIME}"
-WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED = "trip average speed unrealistic"
+WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "trip-arr_time -combinations with five or more consecutive stops having same stop time"
+WARNING_LONG_TRIP_TIME = "trip time longer than {MAX_TRIP_TIME} seconds"
+WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED = "trips whose average speed is unrealistic relative to travel mode"
 
 MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS = 20000  # meters
 WARNING_LONG_STOP_SPACING = "distance between consecutive stops longer than " + str(MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS) + " meters"
 MAX_TIME_BETWEEN_STOPS = 1800  # seconds
-WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "travel time between consecutive stops longer than " + str(MAX_TIME_BETWEEN_STOPS / 60) + " minutes"
+WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "trip-stop_times-combtinations with travel time between consecutive stops longer than " + str(MAX_TIME_BETWEEN_STOPS / 60) + " minutes"
 
 WARNING_STOP_SEQUENCE_ORDER_ERROR = "stop sequence is not in right order"
 WARNING_STOP_SEQUENCE_NOT_INCREMENTAL = "stop sequences are not increasing always by one in stop_times"
@@ -144,20 +144,22 @@ class TimetableValidator(object):
         # this query returns the total distance and travel time for each trip calculated for each stop spacing separately
         rows = self.gtfs.execute_custom_query(
             'SELECT '
-            ' q1.trip_I, '
-            ' type, '
-            ' sum(CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT)) AS total_distance, '
-            ' sum(q2.arr_time_ds - q1.arr_time_ds) AS total_traveltime '
-            ' FROM '
-            '(SELECT * FROM stop_times, '
-            'stops WHERE stop_times.stop_I = stops.stop_I) q1, '
-            '(SELECT * FROM stop_times, '
-            'stops WHERE stop_times.stop_I = stops.stop_I) q2, trips, routes WHERE q1.trip_I = q2.trip_I '
-            'AND q1.seq + 1 = q2.seq AND q1.trip_I = trips.trip_I '
-            '  AND trips.route_I = routes.route_I GROUP BY q1.trip_I').fetchall()
+            'q1.trip_I, '
+            'type, '
+            'sum(CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT)) AS total_distance, ' # sum used for getting total
+            'sum(q2.arr_time_ds - q1.arr_time_ds) AS total_traveltime ' # sum used for getting total
+            'count(*)' # for getting the total number of stops
+            'FROM '
+            '   (SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q1, '
+            '   (SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q2, '
+            '    trips, '
+            '    routes '
+                'WHERE q1.trip_I = q2.trip_I AND q1.seq + 1 = q2.seq AND q1.trip_I = trips.trip_I '
+                     'AND trips.route_I = routes.route_I GROUP BY q1.trip_I').fetchall()
 
         for row in rows:
-            avg_velocity = row[2] / max(row[3], 1) * 3.6
+            avg_velocity = row[2] / max(row[3]) * 3.6
+
             avg_velocity_limit = gtfs_type_to_max_speed[row[1]]
             if avg_velocity > gtfs_type_to_max_speed[row[1]]:
                 self.warnings_container.add_warning(WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED + " (route_type=" + str(row[1]) + ")",

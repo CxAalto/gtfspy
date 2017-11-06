@@ -20,7 +20,7 @@ output: error messages for failed checks
 """
 
 
-WARNING_DANGLING_STOPS_VS_STOP_TIMES_AND_PARENT_STOPS = "some stops are not referenced in stop_times and are not marked as a parent_stop (it is ok/possible that there are some)"
+WARNING_DANGLING_STOPS_VS_STOP_TIMES_AND_PARENT_STOPS = "stops are not referenced in stop_times and are not marked as a parent_stop (it is ok/possible that there are some)"
 WARNING_DANGLING_STOP_TIMES_VS_STOPS = "stop_times referencing to missing stop"
 WARNING_DANGLING_STOP_TIMES_VS_TRIPS = "stop_times not referenced in trips found"
 WARNING_DANGLING_TRIPS_VS_STOP_TIMES = "trips with missing stop_times found"
@@ -68,7 +68,7 @@ DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_NOT_OK = {
     'calendar_dates': ['service_I', 'date', 'exception_type'],
     'days': ["date","day_start_ut","trip_I"],
     'shapes': ["shape_id", "lat", "lon", "seq"],
-    'stop_distances': ["from_stop_I", "to_stop_I", "d", "d_walk"]
+    'stop_distances': ["from_stop_I", "to_stop_I", "d"]
 }
 
 DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_OK_BUT_WARN = {
@@ -81,7 +81,7 @@ DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_OK_BUT_WARN = {
     'days': [],
     'shapes': [],
     'stop_times': [],
-    'stop_distances': []
+    'stop_distances': ["d_walk"]
 }
 
 DB_TABLE_NAMES = list(sorted(DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_NOT_OK.keys()))
