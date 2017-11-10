@@ -12,7 +12,7 @@ from gtfspy.import_gtfs import import_gtfs
 import hashlib
 
 
-class TestGTFSfilter(unittest.TestCase):
+class TestGTFSFilter(unittest.TestCase):
 
     def setUp(self):
         self.gtfs_source_dir = os.path.join(os.path.dirname(__file__), "test_data")
@@ -25,7 +25,7 @@ class TestGTFSfilter(unittest.TestCase):
         self.fname_copy = self.gtfs_source_dir + "/test_gtfs_copy.sqlite"
         self.fname_filter = self.gtfs_source_dir + "/test_gtfs_filter_test.sqlite"
 
-        self.tearDown()
+        self._remove_temporary_files()
         self.assertFalse(os.path.exists(self.fname_copy))
 
         conn = sqlite3.connect(self.fname)
@@ -38,10 +38,13 @@ class TestGTFSfilter(unittest.TestCase):
 
         self.hash_orig = hashlib.md5(open(self.fname, 'rb').read()).hexdigest()
 
-    def tearDown(self):
+    def _remove_temporary_files(self):
         for fn in [self.fname, self.fname_copy, self.fname_filter]:
             if os.path.exists(fn) and os.path.isfile(fn):
                 os.remove(fn)
+
+    def tearDown(self):
+        self._remove_temporary_files()
 
     def test_copy(self):
         # do a simple copy
@@ -161,23 +164,26 @@ class TestGTFSfilter(unittest.TestCase):
 
     def test_filter_spatially_recursive(self):
         n_rows_before = {
+            "routes": 4,
+            "stop_times": 11,
+            "trips": 4,
+            "stops": 5,
+            "shapes": 4
+        }
+        n_rows_after = {
             "routes": 3,
             "stop_times": 8,
             "trips": 3,
-            "stops": 5
-        }
-        n_rows_after = {
-            "routes": 2,
-            "stop_times": 6,
-            "trips": 2,
-            "stops": 4
+            "stops": 4,
+            "shapes": 3
         }
         FilterExtract(self.G_filter_test, self.fname_copy, buffer_lat=0, buffer_lon=0, buffer_distance=1).create_filtered_copy()
         for table_name, n_rows in n_rows_before.items():
-            assert len(self.G_filter_test.get_table(table_name)) == n_rows
+            self.assertEqual(len(self.G_filter_test.get_table(table_name)), n_rows, "Row counts before differ in " + table_name)
         G_copy = GTFS(self.fname_copy)
         for table_name, n_rows in n_rows_after.items():
-            assert len(G_copy.get_table(table_name)) == n_rows
+            table = G_copy.get_table(table_name)
+            self.assertEqual(len(table), n_rows, "Row counts after differ in " + table_name + "\n" + str(table))
 
 
     def test_remove_all_trips_fully_outside_buffer(self):

@@ -5,10 +5,9 @@ import logging
 import sqlite3
 import datetime
 
-import pandas as pd
+import pandas
 
 from gtfspy import util
-from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
 from gtfspy import stats
 from gtfspy import gtfs
@@ -31,6 +30,7 @@ DELETE_STOP_DISTANCE_ENTRIES_WITH_NONEXISTENT_STOPS_SQL = "DELETE FROM stop_dist
                                                           " OR to_stop_I NOT IN (SELECT stop_I FROM stops)"
 DELETE_TRIPS_NOT_IN_DAYS_SQL = 'DELETE FROM trips WHERE trip_I NOT IN (SELECT trip_I FROM days)'
 DELETE_TRIPS_NOT_REFERENCED_IN_STOP_TIMES = 'DELETE FROM trips WHERE trip_I NOT IN (SELECT trip_I FROM stop_times)'
+
 
 
 class FilterExtract(object):
@@ -141,7 +141,7 @@ class FilterExtract(object):
                 raise ValueError('No data left after filtering')
             self._filter_by_calendar()
             self._filter_by_agency()
-            self._filter_by_area()
+            self._filter_spatially()
             if self.update_metadata:
                 self._update_metadata()
 
@@ -283,7 +283,7 @@ class FilterExtract(object):
         if self.agency_ids_to_preserve is not None:
             logging.info("Filtering based on agency_ids")
             agency_ids_to_preserve = list(self.agency_ids_to_preserve)
-            agencies = pd.read_sql("SELECT * FROM agencies", self.copy_db_conn)
+            agencies = pandas.read_sql("SELECT * FROM agencies", self.copy_db_conn)
             agencies_to_remove = []
             for idx, row in agencies.iterrows():
                 if row['agency_id'] not in agency_ids_to_preserve:
@@ -312,7 +312,7 @@ class FilterExtract(object):
             self.copy_db_conn.commit()
         return
 
-    def _filter_by_area(self):
+    def _filter_spatially(self):
         """
         Filter the feed based on self.buffer_distance_km from self.buffer_lon and self.buffer_lat.
 
@@ -413,6 +413,7 @@ class FilterExtract(object):
         self.copy_db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
         self.copy_db_conn.execute(DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL)
         self.copy_db_conn.execute(DELETE_STOP_DISTANCE_ENTRIES_WITH_NONEXISTENT_STOPS_SQL)
+        remove_dangling_shapes(self.copy_db_conn)
         self.copy_db_conn.commit()
 
     def _update_metadata(self):
@@ -490,6 +491,23 @@ def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffe
     db_conn.execute(DELETE_CALENDAR_DATES_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL)
     db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
 
+
+def remove_dangling_shapes(db_conn):
+    """
+    Not used in the regular filter process for the time being.
+
+    Parameters
+    ----------
+    db_conn: sqlite3.Connection
+        connection to the GTFS object
+    """
+    db_conn.execute(DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL)
+    SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL = \
+        "SELECT trips.trip_I, shape_id, min(shape_break) as min_shape_break, max(shape_break) as max_shape_break FROM trips, stop_times WHERE trips.trip_I=stop_times.trip_I GROUP BY trips.trip_I"
+    trip_min_max_shape_seqs= pandas.read_sql(SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL, db_conn)
+    rows = [(row.shape_id, row.min_shape_break, row.max_shape_break) for row in trip_min_max_shape_seqs.itertuples()]
+    DELETE_SQL_BASE = "DELETE FROM shapes WHERE shape_id=? AND (seq<? OR seq>?)"
+    db_conn.executemany(DELETE_SQL_BASE, rows)
 
 
 

@@ -1,0 +1,6 @@
+shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence
+t4_shape,45.00001,45.00001,0
+t4_shape,47.00001,47.00001,1
+t4_shape,50,50,2
+t4_shape,70.00001,70.00001,3
+
