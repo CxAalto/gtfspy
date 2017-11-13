@@ -21,30 +21,30 @@ from gtfspy.util import wgs84_distance, wgs84_width, wgs84_height
 
 
 class GTFS(object):
-    def __init__(self, fname):
+    def __init__(self, fname_or_conn):
         """Open a GTFS object
 
         Parameters
         ----------
-        fname: str | sqlite3.Connection
+        fname_or_conn: str | sqlite3.Connection
             path to the preprocessed gtfs database or a connection to a gtfs database
         """
-        if isinstance(fname, string_types):
-            if os.path.isfile(fname):
-                self.conn = sqlite3.connect(fname)
-                self.fname = fname
+        if isinstance(fname_or_conn, string_types):
+            if os.path.isfile(fname_or_conn):
+                self.conn = sqlite3.connect(fname_or_conn)
+                self.fname = fname_or_conn
                 # memory-mapped IO size, in bytes
                 self.conn.execute('PRAGMA mmap_size = 1000000000;')
                 # page cache size, in negative KiB.
                 self.conn.execute('PRAGMA cache_size = -2000000;')
             else:
-                raise EnvironmentError("File " + fname + " missing")
-        elif isinstance(fname, sqlite3.Connection):
-            self.conn = fname
+                raise EnvironmentError("File " + fname_or_conn + " missing")
+        elif isinstance(fname_or_conn, sqlite3.Connection):
+            self.conn = fname_or_conn
             self._dont_close = True
         else:
             raise NotImplementedError(
-                "Initiating GTFS using an object with type " + str(type(fname)) + " is not supported")
+                "Initiating GTFS using an object with type " + str(type(fname_or_conn)) + " is not supported")
 
         assert self.conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchone() is not None
         self.meta = GTFSMetadata(self.conn)
