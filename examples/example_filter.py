@@ -17,7 +17,7 @@ if os.path.exists(filtered_database_path):
 week_start = G.get_weekly_extract_start_date()
 week_end = week_start + datetime.timedelta(days=7)
 fe = FilterExtract(G, filtered_database_path, start_date=week_start, end_date=week_end,
-                   buffer_lat=62.8930796, buffer_lon=27.6671316, buffer_distance=3)
+                   buffer_lat=62.8930796, buffer_lon=27.6671316, buffer_distance_km=3)
 
 fe.create_filtered_copy()
 assert (os.path.exists(filtered_database_path))

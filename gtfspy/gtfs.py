@@ -17,10 +17,11 @@ from six import string_types
 from gtfspy import shapes
 from gtfspy.route_types import ALL_ROUTE_TYPES
 from gtfspy.route_types import WALK
-from gtfspy.util import wgs84_distance, wgs84_width, wgs84_height
+from gtfspy.util import wgs84_distance, wgs84_width, wgs84_height, set_process_timezone
 
 
 class GTFS(object):
+
     def __init__(self, fname_or_conn):
         """Open a GTFS object
 
@@ -212,10 +213,9 @@ class GTFS(object):
         Alters os.environ['TZ']
         """
         TZ = self.conn.execute('SELECT timezone FROM agencies LIMIT 1').fetchall()[0][0]
-        # print TZ
-        # TODO!: This is dangerous (?). In my opinion, we should get rid of this (RK):
-        os.environ['TZ'] = TZ
-        time.tzset()  # Cause C-library functions to notice the update.
+        # TODO!: This is dangerous (?).
+        # In my opinion, we should get rid of this at some point (RK):
+        return set_process_timezone(TZ)
 
     def get_timezone_pytz(self):
         return self._timezone
@@ -314,10 +314,9 @@ class GTFS(object):
         if isinstance(date, string_types):
             date = datetime.datetime.strptime(date, '%Y-%m-%d')
 
-        date_noon = datetime.datetime(date.year, date.month, date.day,
-                                      12, 0, 0)
+        date_noon = datetime.datetime(date.year, date.month, date.day, 12, 0, 0)
         ut_noon = self.unlocalized_datetime_to_ut_seconds(date_noon)
-        return ut_noon - 43200  # 43200=12*60*60 (this comes from GTFS: noon-12 hrs)
+        return ut_noon - 12 * 60 * 60  # this comes from GTFS: noon-12 hrs
 
     def get_trip_trajectories_within_timespan(self, start, end, use_shapes=True, filter_name=None):
         """
@@ -1106,9 +1105,10 @@ class GTFS(object):
             Unixtime corresponding to start of day
         """
         # set timezone to the one of gtfs
-        self.set_current_process_time_zone()
-        # last -1 equals to 'not known' for DST (automatically deduced then)
-        return time.mktime(time.localtime(ut)[:3] + (12, 00, 0, 0, 0, -1)) - 43200
+        old_tz = self.set_current_process_time_zone()
+        ut = time.mktime(time.localtime(ut)[:3] + (12, 00, 0, 0, 0, -1)) - 43200
+        set_process_timezone(old_tz)
+        return ut
 
     def increment_day_start_ut(self, day_start_ut, n_days=1):
         """Increment the GTFS-definition of "day start".
@@ -1122,11 +1122,12 @@ class GTFS(object):
         n_days: int
             number of days to increment
         """
-        self.set_current_process_time_zone()
+        old_tz = self.set_current_process_time_zone()
         day0 = time.localtime(day_start_ut + 43200)  # time of noon
         dayN = time.mktime(day0[:2] +  # YYYY, MM
                            (day0[2] + n_days,) +  # DD
                            (12, 00, 0, 0, 0, -1)) - 43200  # HHMM, etc.  Minus 12 hours.
+        set_process_timezone(old_tz)
         return dayN
 
     def _get_possible_day_starts(self, start_ut, end_ut, max_time_overnight=None):

@@ -88,29 +88,27 @@ class TestGTFSFilter(unittest.TestCase):
         os.remove(self.fname_copy)
 
 
-    def test_filter_by_start_and_end(self):
+    def test_filter_by_start_and_end_full_range(self):
         # untested tables with filtering: stops, shapes
-        # (Shapes are not provided in the test data currently)
-
         # test filtering by start and end time, copy full range
         FilterExtract(self.G, self.fname_copy, start_date=u"2007-01-01", end_date=u"2011-01-01", update_metadata=False).create_filtered_copy()
-        hash_copy = hashlib.md5(open(self.fname_copy, 'rb').read()).hexdigest()
-        # self.assertEqual(self.hash_orig, hash_copy)
-
         G_copy = GTFS(self.fname_copy)
         dsut_end = G_copy.get_day_start_ut("2010-12-31")
         dsut_to_trip_I = G_copy.get_tripIs_within_range_by_dsut(dsut_end, dsut_end + 24 * 3600)
         self.assertGreater(len(dsut_to_trip_I), 0)
         os.remove(self.fname_copy)
 
-        # the end date is not included:
+    def test_filter_end_date_not_included(self):
+        # the end date should not be included:
         FilterExtract(self.G, self.fname_copy, start_date="2007-01-02", end_date="2010-12-31").create_filtered_copy()
+
         hash_copy = hashlib.md5(open(self.fname_copy, 'rb').read()).hexdigest()
         self.assertNotEqual(self.hash_orig, hash_copy)
         G_copy = GTFS(self.fname_copy)
         dsut_end = G_copy.get_day_start_ut("2010-12-31")
         dsut_to_trip_I = G_copy.get_tripIs_within_range_by_dsut(dsut_end, dsut_end + 24 * 3600)
         self.assertEqual(len(dsut_to_trip_I), 0)
+
         calendar_copy = G_copy.get_table("calendar")
         max_date_calendar = max([datetime.datetime.strptime(el, "%Y-%m-%d")
                                  for el in calendar_copy["end_date"].values])
@@ -124,7 +122,7 @@ class TestGTFSFilter(unittest.TestCase):
 
     def test_filter_spatially(self):
         # test that the db is split by a given spatial boundary
-        FilterExtract(self.G, self.fname_copy, buffer_lat=36.914893, buffer_lon=-116.76821, buffer_distance=50).create_filtered_copy()
+        FilterExtract(self.G, self.fname_copy, buffer_lat=36.914893, buffer_lon=-116.76821, buffer_distance_km=50).create_filtered_copy()
         G_copy = GTFS(self.fname_copy)
 
         stops_table = G_copy.get_table("stops")
@@ -138,12 +136,10 @@ class TestGTFSFilter(unittest.TestCase):
                                       'on stops.stop_I = stop_times.stop_I', conn_copy)
         stop_ids = stop_ids_df["stop_id"].values
 
-        # print stop_ids
         self.assertNotIn("FUR_CREEK_RES", stop_ids)
         self.assertIn("AMV", stop_ids)
 
         trips_table = G_copy.get_table("trips")
-        # print trips_table
         self.assertNotIn("BFC1", trips_table['trip_id'].values)
 
         routes_table = G_copy.get_table("routes")
@@ -162,22 +158,29 @@ class TestGTFSFilter(unittest.TestCase):
         # -> stop B preserved
         # -> stop C preserved
 
-    def test_filter_spatially_recursive(self):
+    def test_filter_spatially_2(self):
         n_rows_before = {
             "routes": 4,
-            "stop_times": 11,
+            "stop_times": 14,
             "trips": 4,
-            "stops": 5,
+            "stops": 6,
             "shapes": 4
         }
         n_rows_after = {
             "routes": 3,
-            "stop_times": 8,
-            "trips": 3,
-            "stops": 4,
-            "shapes": 3
+            "stop_times": 9,
+            "trips": 4,
+            "stops": 5,
+            "shapes": 2
         }
-        FilterExtract(self.G_filter_test, self.fname_copy, buffer_lat=0, buffer_lon=0, buffer_distance=1).create_filtered_copy()
+        paris_lat = 48.832781
+        paris_lon = 2.360734
+        FilterExtract(self.G_filter_test,
+                      self.fname_copy,
+                      buffer_lat=paris_lat,
+                      buffer_lon=paris_lon,
+                      buffer_distance_km=1000,
+                      hard_buffer_distance_km=3000).create_filtered_copy()
         for table_name, n_rows in n_rows_before.items():
             self.assertEqual(len(self.G_filter_test.get_table(table_name)), n_rows, "Row counts before differ in " + table_name)
         G_copy = GTFS(self.fname_copy)

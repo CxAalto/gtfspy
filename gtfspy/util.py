@@ -28,6 +28,21 @@ TORADIANS = 3.141592653589793 / 180.
 EARTH_RADIUS = 6378137.
 
 
+def set_process_timezone(TZ):
+    """
+    Parameters
+    ----------
+    TZ: string
+    """
+    try:
+        prev_timezone = os.environ['TZ']
+    except KeyError:
+        prev_timezone = None
+    os.environ['TZ'] = TZ
+    time.tzset()  # Cause C-library functions to notice the update.
+    return prev_timezone
+
+
 def wgs84_distance(lat1, lon1, lat2, lon2):
     """Distance (in meters) between two points in WGS84 coord system."""
     dLat = math.radians(lat2 - lat1)

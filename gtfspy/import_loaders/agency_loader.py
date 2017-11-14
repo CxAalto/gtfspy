@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 
 from gtfspy.import_loaders.table_loader import TableLoader, decode_six
+from gtfspy.util import set_process_timezone
 
 
 class AgencyLoader(TableLoader):
@@ -40,8 +41,7 @@ class AgencyLoader(TableLoader):
                 if not str(ftz) == str(ctz):
                     raise ValueError("Error: multiple timezones defined in sources:: %s" % self.gtfs_sources)
         TZ = TZs[0][0]
-        os.environ['TZ'] = TZ
-        time.tzset()  # Cause C-library functions to notice the update.
+        set_process_timezone(TZ)
 
     def index(self, cur):
         pass

@@ -1,5 +1,5 @@
 route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
-R1,example_agency_id,R1,ROUTE_1_partially_inside,,7,,,
-R2,example_agency_id,R2,ROUTE_2_fully_out_recursive_overlap,,7,,,
-R3,example_agency_id,R3,ROUTE_3_fully_out_no_recursive_overlap,,7,,,
-R4,example_agency_id,R4,ROUTE_4_fully_out_recursive_overlap,,7,,,
+R1,example_agency_id,R1,,,7,,,
+R2,example_agency_id,R2,,,7,,,
+R3,example_agency_id,R3,,,7,,,
+R4,example_agency_id,R4,,,7,,,

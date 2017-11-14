@@ -7,16 +7,26 @@ import datetime
 
 import pandas
 
+import gtfspy
 from gtfspy import util
-from gtfspy.gtfs import GTFS
-from gtfspy.util import wgs84_distance
+from gtfspy.import_loaders.day_loader import recreate_days_table
+from gtfspy.import_loaders.day_trips_materializer import recreate_day_trips2_table
+from gtfspy.import_loaders.trip_loader import update_trip_travel_times_ds
+from gtfspy.util import wgs84_distance, set_process_timezone
 from gtfspy import stats
 from gtfspy import gtfs
 
+FILTERED = True
+NOT_FILTERED = False
+
+_STOPS_REFERENCED_IN_STOP_TIMES_OR_AS_PARENT_STOP_I_SQL = \
+    "SELECT DISTINCT stop_I FROM stop_times " \
+    "UNION " \
+    "SELECT DISTINCT parent_I as stop_I FROM stops WHERE parent_I IS NOT NULL"
 DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL = \
-    'DELETE FROM stops ' \
-    '  WHERE stop_I NOT IN (SELECT distinct(stop_I) FROM stop_times) ' \
-    '  AND stop_I NOT IN (SELECT distinct(parent_I))'
+    "DELETE FROM stops WHERE stop_I NOT IN (" + \
+    _STOPS_REFERENCED_IN_STOP_TIMES_OR_AS_PARENT_STOP_I_SQL + ")"
+DELETE_FREQUENCIES_NOT_REFERENCED_IN_TRIPS_SQL = "DELETE FROM frequencies WHERE trip_I NOT IN (SELECT DISTINCT trip_I FROM trips)"
 DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL = 'DELETE FROM shapes WHERE shape_id NOT IN (SELECT shape_id FROM trips)'
 DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL = 'DELETE FROM routes WHERE route_I NOT IN (SELECT route_I FROM trips)'
 DELETE_DAYS_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL = "DELETE FROM days WHERE trip_I NOT IN (SELECT trip_I FROM trips)"
@@ -39,8 +49,8 @@ class FilterExtract(object):
     def __init__(self,
                  G,
                  copy_db_path,
-                 buffer_distance=None,
-                 hard_buffer_distance=None,
+                 buffer_distance_km=None,
+                 hard_buffer_distance_km=None,
                  buffer_lat=None,
                  buffer_lon=None,
                  update_metadata=True,
@@ -115,8 +125,8 @@ class FilterExtract(object):
         self.gtfs = G
         self.buffer_lat = buffer_lat
         self.buffer_lon = buffer_lon
-        self.buffer_distance_km = buffer_distance
-        self.hard_buffer_distance = hard_buffer_distance
+        self.buffer_distance_km = buffer_distance_km
+        self.hard_buffer_distance_km = hard_buffer_distance_km
         self.update_metadata = update_metadata
 
         if agency_distance is not None:
@@ -137,15 +147,19 @@ class FilterExtract(object):
             self.copy_db_conn = sqlite3.connect(tempfile)
             assert isinstance(self.copy_db_conn, sqlite3.Connection)
 
-            self._delete_rows_by_start_and_end_date()
+            filtered = False
+            filtered = self._delete_rows_by_start_and_end_date() or filtered
             if self.copy_db_conn.execute('SELECT count(*) FROM days').fetchone() == (0,):
                 raise ValueError('No data left after filtering')
-            self._filter_by_calendar()
-            self._filter_by_agency()
-            self._filter_spatially()
+            filtered = self._filter_by_calendar() or filtered
+            filtered = self._filter_by_agency() or filtered
+            filtered = self._filter_spatially() or filtered
+            self.copy_db_conn.commit()
+            if filtered:
+                self.copy_db_conn.commit()
+                update_secondary_data_copies(db_conn=self.copy_db_conn)
             if self.update_metadata:
                 self._update_metadata()
-
         return
 
     def _delete_rows_by_start_and_end_date(self):
@@ -165,7 +179,7 @@ class FilterExtract(object):
                                          "OR end_time_ut IS null").fetchone() != (0,):
                 raise ValueError("Missing information in day_trips2 (start_time_ut and/or end_time_ut), "
                                  "check trips.start_time_ds and trips.end_time_ds.")
-            logging.info("Filtering based on agency_ids")
+            logging.info("Filtering based on start_time_ut and end_time_ut")
             # negated from import_gtfs
             table_to_remove_map = {
                 "calendar": ("WHERE NOT ("
@@ -193,16 +207,19 @@ class FilterExtract(object):
             for table, query_template in table_to_remove_map.items():
                 param_dict = {"start_ut": str(start_date_ut),
                               "end_ut": str(end_date_ut)}
-                if True and table == "days":
+                self.gtfs.get_table(table)
+                time.sleep(2)
+                if table == "days":
                     query = "SELECT * FROM " + table + " " + \
                             query_template.format(**param_dict)
-
                     self.gtfs.execute_custom_query_pandas(query)
 
                 query = "DELETE FROM " + table + " " + \
                         query_template.format(**param_dict)
                 self.copy_db_conn.execute(query)
-        return
+            return FILTERED
+        else:
+            return NOT_FILTERED
 
     def _soft_filter_by_calendar(self):
         pass
@@ -210,11 +227,6 @@ class FilterExtract(object):
         # TODO: soft filtering, where the recursive deletion of rows depends on the initially removed rows, not on missing links between ID fields.
         The reason for doing this is to detect unreferenced rows that possibly should be included in the filtered extract.
         This gives a much more accurate perspective on the quality of the feed
-
-
-
-
-
 
 
         PSeudocode:
@@ -239,6 +251,8 @@ class FilterExtract(object):
 
         agency_query = 'DELETE FROM agencies WHERE NOT agency_I IN (SELECT agency_I FROM routes WHERE route_I IN (SELECT route_I FROM trips WHERE trip_I IN ())) AND '
         """
+        pass
+
     def _filter_by_calendar(self):
         """
         update calendar table's services
@@ -247,9 +261,7 @@ class FilterExtract(object):
         :param end_date:
         :return:
         """
-
         if (self.start_date is not None) and (self.end_date is not None):
-
             logging.info("Making date extract")
 
             start_date_query = "UPDATE calendar " \
@@ -272,7 +284,9 @@ class FilterExtract(object):
             self.copy_db_conn.execute(DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL)
             self.copy_db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
             self.copy_db_conn.commit()
-        return
+            return FILTERED
+        else:
+            return NOT_FILTERED
 
     def _filter_by_agency(self):
         """
@@ -311,7 +325,9 @@ class FilterExtract(object):
             self.copy_db_conn.execute('DELETE FROM day_trips2 WHERE '
                                       'trip_I NOT IN (SELECT trip_I FROM trips)')
             self.copy_db_conn.commit()
-        return
+            return FILTERED
+        else:
+            return NOT_FILTERED
 
     def _filter_spatially(self):
         """
@@ -325,73 +341,88 @@ class FilterExtract(object):
         at its core.
         """
         if self.buffer_lat is None or self.buffer_lon is None or self.buffer_distance_km is None:
-            return
+            return NOT_FILTERED
 
         print("filtering with lat: " + str(self.buffer_lat) +
               " lon: " + str(self.buffer_lon) +
               " buffer distance: " + str(self.buffer_distance_km))
+        remove_all_trips_fully_outside_buffer(self.copy_db_conn,
+                                              self.buffer_lat,
+                                              self.buffer_lon,
+                                              self.buffer_distance_km,
+                                              update_secondary_data=False)
+        if self.hard_buffer_distance_km:
+            print("hard buffer distance:" + str(self.hard_buffer_distance_km))
         logging.info("Making spatial extract")
 
         find_distance_func_name = add_wgs84_distance_function_to_db(self.copy_db_conn)
         assert find_distance_func_name == "find_distance"
 
         # select all stops that are within the buffer and have some stop_times assigned.
-        all_stops_within_buffer_sql = (
-            "SELECT DISTINCT stops.stop_I FROM stops, stop_times"
-            "    WHERE CAST(find_distance(lat, lon, {buffer_lat}, {buffer_lon}) AS INT) < {buffer_distance_meters}"
+        stop_distance_filter_sql_base = (
+            "SELECT DISTINCT stops.stop_I FROM stops, stop_times" +
+            "    WHERE CAST(find_distance(lat, lon, {buffer_lat}, {buffer_lon}) AS INT) < {buffer_distance_meters}" +
             "     AND stops.stop_I=stop_times.stop_I"
-            .format(buffer_lat=float(self.buffer_lat),
-                    buffer_lon=float(self.buffer_lon),
-                    buffer_distance_meters=int(self.buffer_distance_km * 1000))
         )
-        stops_to_preserve = set(row[0] for row in self.copy_db_conn.execute(all_stops_within_buffer_sql))
+        stops_within_soft_buffer_sql = stop_distance_filter_sql_base.format(
+            buffer_lat=float(self.buffer_lat),
+            buffer_lon=float(self.buffer_lon),
+            buffer_distance_meters=int(self.buffer_distance_km * 1000)
+        )
+        stops_within_soft_buffer = set(row[0] for row in self.copy_db_conn.execute(stops_within_soft_buffer_sql))
+
+        if self.hard_buffer_distance_km:
+            stops_within_hard_buffer_sql = stop_distance_filter_sql_base.format(
+                buffer_lat=float(self.buffer_lat),
+                buffer_lon=float(self.buffer_lon),
+                buffer_distance_meters=int(self.hard_buffer_distance_km * 1000)
+            )
+            stops_within_hard_buffer = set(row[0] for row in self.copy_db_conn.execute(stops_within_hard_buffer_sql))
+            stops_within_hard_buffer_string = "(" + ",".join(
+                str(stop_I) for stop_I in stops_within_hard_buffer) + ")"
 
         # For each trip_I, find smallest (min_seq) and largest (max_seq) stop sequence numbers that
-        # are within the buffer_distance from the buffer_lon and buffer_lat, and add them into the
+        # are within the soft buffer_distance from the buffer_lon and buffer_lat, and add them into the
         # list of stops to preserve.
         # Note that if a trip is OUT-IN-OUT-IN-OUT, this process preserves (at least) the part IN-OUT-IN of the trip.
         # Repeat until no more stops are found.
-        while True:
-            stops_string_sql = "(" +",".join(str(stop_I) for stop_I in stops_to_preserve) +  ")"
-            trip_min_max_include_seq_sql =  (
-                '(SELECT trip_I, min(seq) AS min_seq, max(seq) AS max_seq FROM stop_times, stops '
-                        'WHERE stop_times.stop_I = stops.stop_I '
-                        ' AND stops.stop_I IN {stop_I_list}'
-                        ' GROUP BY trip_I) trip_min_max_seq'
-            ).format(stop_I_list=stops_string_sql)
-            stops_to_preserve_sql = (
-                "SELECT DISTINCT stops.stop_I FROM stop_times, stops, " + trip_min_max_include_seq_sql +
-                    ' WHERE stop_times.stop_I = stops.stop_I '
-                        'AND stop_times.trip_I = trip_min_max_seq.trip_I '
-                        'AND seq >= trip_min_max_seq.min_seq '
-                        'AND seq <= trip_min_max_seq.max_seq ')
 
-            # store the old list of stops to stops_to_preserve_before
-            stops_to_preserve_before = stops_to_preserve
-            stops_to_preserve = set(list(row[0] for row in self.copy_db_conn.execute(stops_to_preserve_sql)))
+        stops_within_soft_buffer_string = "(" +",".join(str(stop_I) for stop_I in stops_within_soft_buffer) +  ")"
+        trip_min_max_include_seq_sql =  (
+            'SELECT trip_I, min(seq) AS min_seq, max(seq) AS max_seq FROM stop_times, stops '
+                    'WHERE stop_times.stop_I = stops.stop_I '
+                    ' AND stops.stop_I IN {stop_I_list}'
+                    ' GROUP BY trip_I'
+        ).format(stop_I_list=stops_within_soft_buffer_string)
+        trip_I_min_seq_max_seq_df = pandas.read_sql(trip_min_max_include_seq_sql, self.copy_db_conn)
 
-            assert stops_to_preserve_before.issubset(stops_to_preserve)
-            if len(stops_to_preserve) == len(stops_to_preserve_before):
-                break # no more new stops found -> exit while loop
+        for trip_I_seq_row in trip_I_min_seq_max_seq_df.itertuples():
+            trip_I = trip_I_seq_row.trip_I
+            min_seq = trip_I_seq_row.min_seq
+            max_seq = trip_I_seq_row.max_seq
+            # DELETE FROM STOP_TIMES
+            if min_seq == max_seq:
+                # Only one entry in stop_times to be left, remove whole trip.
+                self.copy_db_conn.execute("DELETE FROM stop_times WHERE trip_I={trip_I}".format(trip_I=trip_I))
+                self.copy_db_conn.execute("DELETE FROM trips WHERE trip_i={trip_I}".format(trip_I=trip_I))
+            else:
+                # DELETE STOP_TIME ENTRIES NOT WITHIN THE BORDER
+                DELETE_STOP_TIME_ENTRIES_SQL = \
+                    "DELETE FROM stop_times WHERE trip_I={trip_I} AND (seq<{min_seq} OR seq>{max_seq})"\
+                    .format(trip_I=trip_I, max_seq=max_seq, min_seq=min_seq)
+                self.copy_db_conn.execute(DELETE_STOP_TIME_ENTRIES_SQL)
 
-        stops_string_sql = "(" + ",".join(str(stop_I) for stop_I in stops_to_preserve) + ")"
+                if self.hard_buffer_distance_km:
+                    STOPS_NOT_WITHIN_HARD_BUFFER_SQL = \
+                        "SELECT seq, stop_I IN {stops_within_hard_buffer} AS within FROM stop_times WHERE trip_I={trip_I} ORDER BY seq"\
+                        .format(stops_within_hard_buffer=stops_within_hard_buffer_string, trip_I=trip_I)
+                    stop_times_within_hard_buffer_df = pandas.read_sql(STOPS_NOT_WITHIN_HARD_BUFFER_SQL, self.copy_db_conn)
 
-        print("stops before filtering: ", self.copy_db_conn.execute("SELECT count(*) FROM stops").fetchone()[0])
-        self.copy_db_conn.execute("DELETE FROM stops WHERE stop_I NOT IN " + stops_string_sql)
-        print("stops after first filtering: ", self.copy_db_conn.execute("SELECT count(*) FROM stops").fetchone()[0])
+                    if stop_times_within_hard_buffer_df['within'].all():
+                        continue
+                    else:
+                        split_trip(self.copy_db_conn, trip_I, stop_times_within_hard_buffer_df)
 
-        if self.hard_buffer_distance:
-            print("filtering with hard buffer")
-            _hard_buffer_distance = self.hard_buffer_distance * 1000
-            self.copy_db_conn.execute('DELETE FROM stops '
-                                      'WHERE stop_I NOT IN '
-                                      '(SELECT stop_I FROM stops '
-                                      'WHERE CAST(find_distance(lat, lon, ?, ?) AS INT) < ?) ',
-                                      (self.buffer_lat, self.buffer_lon, _hard_buffer_distance))
-            print("stops after hard_buffer filtering: ", self.copy_db_conn.execute("SELECT count(*) FROM stops").fetchone()[0])
-
-        # Delete all stop_times for uncovered stops
-        self.copy_db_conn.execute('DELETE FROM stop_times WHERE stop_I NOT IN (SELECT stop_I FROM stops)')
         # Delete trips with only one stop
         self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
                                   'trip_I IN (SELECT trip_I FROM '
@@ -408,14 +439,18 @@ class FilterExtract(object):
                                     'GROUP BY trip_I) q2 '
                                     'WHERE q1.trip_I = q2.trip_I AND n_stops = stops_per_stop)')
 
+        # Delete all stop_times for uncovered stops
+        self.copy_db_conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
         # Consecutively delete all the rest remaining.
         self.copy_db_conn.execute(DELETE_TRIPS_NOT_REFERENCED_IN_STOP_TIMES)
         self.copy_db_conn.execute(DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL)
         self.copy_db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
         self.copy_db_conn.execute(DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL)
         self.copy_db_conn.execute(DELETE_STOP_DISTANCE_ENTRIES_WITH_NONEXISTENT_STOPS_SQL)
+        self.copy_db_conn.execute(DELETE_FREQUENCIES_ENTRIES_NOT_PRESENT_IN_TRIPS)
         remove_dangling_shapes(self.copy_db_conn)
         self.copy_db_conn.commit()
+        return FILTERED
 
     def _update_metadata(self):
         # Update metadata
@@ -461,7 +496,7 @@ def add_wgs84_distance_function_to_db(conn):
     return function_name
 
 
-def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffer_km):
+def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffer_km, update_secondary_data=True):
     """
     Not used in the regular filter process for the time being.
 
@@ -479,8 +514,10 @@ def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffe
         .format(lat=float(center_lat), lon=float(center_lon), d_m=int(1000*buffer_km))
     select_all_trip_Is_where_stop_I_is_within_buffer_sql = "SELECT distinct(trip_I) FROM stop_times WHERE stop_I IN (" + stops_within_buffer_query_sql + ")"
     trip_Is_to_remove_sql = "SELECT trip_I FROM trips WHERE trip_I NOT IN ( " + select_all_trip_Is_where_stop_I_is_within_buffer_sql + ")"
-    remove_all_trips_fully_outside_buffer_sql = "DELETE FROM trips WHERE trip_I IN (" + trip_Is_to_remove_sql  + ")"
-    remove_all_stop_times_where_trip_I_fully_outside_buffer_sql = "DELETE FROM stop_times WHERE trip_I IN (" + trip_Is_to_remove_sql  + ")"
+    trip_Is_to_remove = pandas.read_sql(trip_Is_to_remove_sql, db_conn)["trip_I"].values
+    trip_Is_to_remove_string = ",".join([str(trip_I) for trip_I in trip_Is_to_remove])
+    remove_all_trips_fully_outside_buffer_sql = "DELETE FROM trips WHERE trip_I IN (" + trip_Is_to_remove_string + ")"
+    remove_all_stop_times_where_trip_I_fully_outside_buffer_sql = "DELETE FROM stop_times WHERE trip_I IN (" + trip_Is_to_remove_string  + ")"
     db_conn.execute(remove_all_trips_fully_outside_buffer_sql)
     db_conn.execute(remove_all_stop_times_where_trip_I_fully_outside_buffer_sql)
     db_conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
@@ -490,7 +527,10 @@ def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffe
     db_conn.execute(DELETE_DAY_TRIPS2_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL)
     db_conn.execute(DELETE_CALENDAR_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL)
     db_conn.execute(DELETE_CALENDAR_DATES_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL)
+    db_conn.execute(DELETE_FREQUENCIES_ENTRIES_NOT_PRESENT_IN_TRIPS)
     db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
+    if update_secondary_data:
+        update_secondary_data_copies(db_conn)
 
 
 def remove_dangling_shapes(db_conn):
@@ -525,8 +565,55 @@ def remove_dangling_shapes_references(db_conn):
     db_conn.execute(remove_danging_shapes_references_sql)
 
 
+def split_trip(copy_db_conn, orig_trip_I, stop_times_within_hard_buffer_df):
+    blocks = []
+    next_block = []
+    for row in stop_times_within_hard_buffer_df.itertuples():
+        if row.within:
+            next_block.append(row.seq)
+        else:
+            if len(next_block) > 1:
+                blocks.append(next_block)
+            next_block = []
+    if len(next_block) > 1:
+        blocks.append(next_block)
+    assert (len(blocks) > 1)
+    orig_trip_df = pandas.read_sql("SELECT * FROM trips WHERE trip_I={trip_I}".format(trip_I=orig_trip_I), copy_db_conn)
+    orig_trip_dict = orig_trip_df.to_dict(orient="records")[0]
+    for i, seq_block in enumerate(blocks):
+        # create new trip for each block,
+        # with mostly same trip information as the original
+        trip_id_generated = orig_trip_dict['trip_id'] + "_splitted_part_" + str(i)
+        insert_generated_trip_sql = \
+            "INSERT INTO trips (trip_id, route_I, service_I, direction_id, " \
+            "shape_id, headsign, start_time_ds, end_time_ds) " \
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        values = [trip_id_generated, orig_trip_dict['route_I'],
+                  orig_trip_dict['service_I'], orig_trip_dict['direction_id'],
+                  None, orig_trip_dict['headsign'], None, None]
+        copy_db_conn.execute(insert_generated_trip_sql, values)
+        block_trip_I = copy_db_conn.execute("SELECT trip_I from trips WHERE trips.trip_id=?",
+                                            [trip_id_generated]).fetchone()[0]
+        # alter the trip_I values in the stop_times table for
+        seq_values_to_update_str = "(" + ",".join(str(seq) for seq in seq_block) + ")"
+        stop_times_update_sql = \
+            "UPDATE stop_times SET trip_I={trip_I_generated} WHERE trip_I={orig_trip_I} AND seq IN {seq_block}".format(
+                trip_I_generated=block_trip_I,
+                orig_trip_I=orig_trip_I,
+                seq_block=seq_values_to_update_str
+            )
+        copy_db_conn.execute(stop_times_update_sql)
+    copy_db_conn.execute("DELETE FROM trips WHERE trip_I={orig_trip_I}".format(orig_trip_I=orig_trip_I))
+    copy_db_conn.execute("DELETE from stop_times WHERE trip_I={orig_trip_I}".format(orig_trip_I=orig_trip_I))
+    copy_db_conn.execute("DELETE FROM shapes WHERE shape_id IN "
+                         " (SELECT DISTINCT shapes.shape_id FROM shapes, trips "
+                         "     WHERE trip_I={orig_trip_I} AND shapes.shape_id=trips.shape_id)"
+                         .format(orig_trip_I=orig_trip_I))
 
-
-
-
-
+def update_secondary_data_copies(db_conn):
+    G = gtfspy.gtfs.GTFS(db_conn)
+    old_tz = G.set_current_process_time_zone()
+    update_trip_travel_times_ds(db_conn)
+    recreate_days_table(db_conn)
+    recreate_day_trips2_table(db_conn)
+    set_process_timezone(old_tz)

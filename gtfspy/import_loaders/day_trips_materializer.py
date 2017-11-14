@@ -23,28 +23,11 @@ class DayTripsMaterializer(TableLoader):
 
     @classmethod
     def post_import_round2(cls, conn):
-        cur = conn.cursor()
-        cur.execute('INSERT INTO day_trips2 '
-                    'SELECT date, trip_I, '
-                    'days.day_start_ut+trips.start_time_ds AS start_time_ut, '
-                    'days.day_start_ut+trips.end_time_ds AS end_time_ut, '
-                    'day_start_ut '
-                    'FROM days JOIN trips USING (trip_I)')
-        # Delete rows, where start_time_ut or end_time_ut IS NULL.
-        # This could happen e.g. if stop_times are missing for some trip.
-        cur.execute("DELETE FROM day_trips2 WHERE start_time_ut IS NULL or end_time_ut IS NULL")
-        conn.commit()
+        insert_data_to_day_trips2(conn)
 
     def index(cls, cur):
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_day_trips2_tid '
-                    'ON day_trips2 (trip_I)')
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_day_trips2_d '
-                    'ON day_trips2 (date)')
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_day_trips2_stut_etut '
-                    'ON day_trips2 (start_time_ut, end_time_ut)')
-        # This index may not be needed anymore.
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_day_trips2_dsut '
-                    'ON day_trips2 (day_start_ut)')
+        create_day_trips_indices(cur)
+
 
     @classmethod
     def make_views(cls, conn):
@@ -72,3 +55,40 @@ class DayTripsMaterializer(TableLoader):
                      'JOIN trips USING (trip_I) '
                      'JOIN stop_times USING (trip_I)')
         conn.commit()
+
+
+def create_day_trips_indices(cur):
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_day_trips2_tid '
+                'ON day_trips2 (trip_I)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_day_trips2_d '
+            'ON day_trips2 (date)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_day_trips2_stut_etut '
+            'ON day_trips2 (start_time_ut, end_time_ut)')
+    # This index may not be needed anymore.
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_day_trips2_dsut '
+            'ON day_trips2 (day_start_ut)')
+
+def drop_day_trip_indices(cur):
+    cur.execute('DROP INDEX IF EXISTS idx_day_trips2_tid')
+    cur.execute('DROP INDEX IF EXISTS idx_day_trips2_d')
+    cur.execute('DROP INDEX IF EXISTS idx_day_trips2_stut_etut')
+    cur.execute('DROP INDEX IF EXISTS idx_day_trips2_dsut')
+
+def insert_data_to_day_trips2(conn):
+    cur = conn.cursor()
+    cur.execute('DELETE FROM day_trips2')
+    cur.execute('INSERT INTO day_trips2 '
+                'SELECT date, trip_I, '
+                'days.day_start_ut+trips.start_time_ds AS start_time_ut, '
+                'days.day_start_ut+trips.end_time_ds AS end_time_ut, '
+                'day_start_ut '
+                'FROM days JOIN trips USING (trip_I)')
+    # Delete rows, where start_time_ut or end_time_ut IS NULL.
+    # This could happen e.g. if stop_times are missing for some trip.
+    cur.execute("DELETE FROM day_trips2 WHERE start_time_ut IS NULL or end_time_ut IS NULL")
+    conn.commit()
+
+def recreate_day_trips2_table(conn):
+    drop_day_trip_indices(conn.cursor())
+    insert_data_to_day_trips2(conn)
+    create_day_trips_indices(conn.cursor())

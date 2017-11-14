@@ -1,6 +1,7 @@
 stop_id,stop_code,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url,location_type,parent_station
-A,,A,in_buffer,0.00001,0.00001,,,0,
-B,,B,out_buffer_recursive_in,45.00001,45.00001,,,0,
-C,,C,out_buffer_recursive_in,50.00001,50.00001,,,0,
-D,,D,in_buffer,0.00001,0.00001,,,0,
-E,,E,out_buffer,60.00001,60.00001,,,0,
+P,,paris,soft_in,48.832781,2.360734,,,0,
+B,,brues,soft_in,50.843550,4.351930,,,0,
+L,,luxem,soft_in,49.603100,6.135981,,0,
+V,,versa,soft_in,48.798329,2.135897,,,0,
+H,,helsi,soft_out,60.173336,24.945578,,,0,
+N,,newyo,hard_out,40.748373,-74.094380,,0,
