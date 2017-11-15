@@ -612,8 +612,7 @@ def split_trip(copy_db_conn, orig_trip_I, stop_times_within_hard_buffer_df):
 
 def update_secondary_data_copies(db_conn):
     G = gtfspy.gtfs.GTFS(db_conn)
-    old_tz = G.set_current_process_time_zone()
+    G.set_current_process_time_zone()
     update_trip_travel_times_ds(db_conn)
     recreate_days_table(db_conn)
     recreate_day_trips2_table(db_conn)
-    set_process_timezone(old_tz)
