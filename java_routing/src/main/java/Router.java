@@ -7,14 +7,10 @@ import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.shapes.GHPoint;
 import com.graphhopper.util.shapes.GHPoint3D;
-import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang3.SystemUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
-import static org.apache.commons.io.FilenameUtils.getBaseName;
 
 /**
  * Created by rmkujala on 22.4.2016.
@@ -59,7 +55,7 @@ public class Router {
         this.hopper.setCHEnable(false);
         // this.hopper.clean(); // clean previous imports
         this.hopper.setEnableInstructions(false);
-        this.hopper.setEnableCalcPoints(false);
+        this.hopper.setEnableCalcPoints(true);
         System.out.println("Importing or loading");
         this.hopper.importOrLoad();
         long endTime = System.currentTimeMillis();
@@ -87,8 +83,7 @@ public class Router {
         GHRequest req = new GHRequest(fromPoint, toPoint).
                 setWeighting("shortest").
                 setVehicle("foot").
-                setLocale(Locale.US).
-                setAlgorithm(AlgorithmOptions.ASTAR);
+                setAlgorithm(AlgorithmOptions.ASTAR_BI);
         GHResponse rsp = hopper.route(req);
         // first check for errors
         if (rsp.hasErrors()) {
@@ -100,12 +95,12 @@ public class Router {
         }
         // use the best path, see the GHResponse class for more possibilities.
         PathWrapper path = rsp.getBest();
+
         // PointList pointList = path.getPoints();
         PointList points = path.getPoints();
+        int distance = (new Double(path.getDistance())).intValue();
         GHPoint3D pathStartPoint = points.toGHPoint(0);
         GHPoint3D pathEndPoint = points.toGHPoint(points.size() - 1);
-
-        int distance = (new Double(path.getDistance())).intValue();
         distance += this.distance(fromPoint, pathStartPoint);
         distance += this.distance(pathEndPoint, toPoint);
         return distance;
