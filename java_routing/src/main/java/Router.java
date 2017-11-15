@@ -4,6 +4,7 @@ import com.graphhopper.GraphHopper;
 import com.graphhopper.PathWrapper;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.util.EncodingManager;
+import com.graphhopper.util.Parameters;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.shapes.GHPoint;
 import com.graphhopper.util.shapes.GHPoint3D;
@@ -83,7 +84,7 @@ public class Router {
         GHRequest req = new GHRequest(fromPoint, toPoint).
                 setWeighting("shortest").
                 setVehicle("foot").
-                setAlgorithm(AlgorithmOptions.ASTAR_BI);
+                setAlgorithm(Parameters.Algorithms.ASTAR_BI);
         GHResponse rsp = hopper.route(req);
         // first check for errors
         if (rsp.hasErrors()) {
