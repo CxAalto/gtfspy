@@ -4,7 +4,9 @@ import com.graphhopper.GraphHopper;
 import com.graphhopper.PathWrapper;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.util.EncodingManager;
+import com.graphhopper.util.PointList;
 import com.graphhopper.util.shapes.GHPoint;
+import com.graphhopper.util.shapes.GHPoint3D;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.SystemUtils;
 
@@ -99,8 +101,27 @@ public class Router {
         // use the best path, see the GHResponse class for more possibilities.
         PathWrapper path = rsp.getBest();
         // PointList pointList = path.getPoints();
+        PointList points = path.getPoints();
+        GHPoint3D pathStartPoint = points.toGHPoint(0);
+        GHPoint3D pathEndPoint = points.toGHPoint(points.size() - 1);
+
         int distance = (new Double(path.getDistance())).intValue();
+        distance += this.distance(fromPoint, pathStartPoint);
+        distance += this.distance(pathEndPoint, toPoint);
         return distance;
     }
+
+    private int distance(GHPoint start, GHPoint end) {
+        double EARTH_RADIUS = 6378137.;
+        double dLat = Math.toRadians(end.lat - start.lat);
+        double dLon = Math.toRadians(end.lon- start.lon);
+        double a = (Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(start.lat)) * Math.cos(Math.toRadians(end.lat)) *
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2));
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double d = EARTH_RADIUS * c;
+        return (new Double(d).intValue());
+    }
+
 
 }
