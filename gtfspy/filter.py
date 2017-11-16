@@ -43,7 +43,6 @@ DELETE_TRIPS_NOT_IN_DAYS_SQL = 'DELETE FROM trips WHERE trip_I NOT IN (SELECT tr
 DELETE_TRIPS_NOT_REFERENCED_IN_STOP_TIMES = 'DELETE FROM trips WHERE trip_I NOT IN (SELECT trip_I FROM stop_times)'
 
 
-
 class FilterExtract(object):
 
     def __init__(self,
@@ -422,6 +421,23 @@ class FilterExtract(object):
                         continue
                     else:
                         split_trip(self.copy_db_conn, trip_I, stop_times_within_hard_buffer_df)
+
+        if self.hard_buffer_distance_km:
+            # Delete all shapes that are not fully within the hard buffer to avoid shapes going outside
+            # the hard_buffer in a few special cases.
+            # This could probably be done in some more sophisticated way though (per trip)
+            SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL = \
+                "SELECT DISTINCT shape_id FROM SHAPES " \
+                "WHERE CAST(find_distance(lat, lon, {buffer_lat}, {buffer_lon}) AS INT) > {buffer_distance_meters}" \
+                .format(buffer_lat=self.buffer_lat,
+                        buffer_lon=self.buffer_lon,
+                        buffer_distance_meters=self.hard_buffer_distance_km * 1000)
+            DELETE_ALL_SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL = "DELETE FROM shapes WHERE shape_id IN (" \
+                                                              + SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL + ")"
+            self.copy_db_conn.execute(DELETE_ALL_SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL)
+            SET_SHAPE_ID_TO_NULL_FOR_HARD_BUFFER_FILTERED_SHAPE_IDS = \
+                "UPDATE trips SET shape_id=NULL WHERE trips.shape_id IN (" + SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL + ")"
+            self.copy_db_conn.execute(SET_SHAPE_ID_TO_NULL_FOR_HARD_BUFFER_FILTERED_SHAPE_IDS)
 
         # Delete trips with only one stop
         self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
