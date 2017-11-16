@@ -383,10 +383,11 @@ class GTFS(object):
                     stop_seqs.append(int(stop_row.seq))
                 except TypeError:
                     stop_seqs.append(None)
-                try:
-                    shape_breaks.append(int(stop_row.shape_break))
-                except TypeError:
-                    shape_breaks.append(None)
+                if use_shapes:
+                    try:
+                        shape_breaks.append(int(stop_row.shape_break))
+                    except (TypeError, ValueError):
+                        shape_breaks.append(None)
 
             if use_shapes:
                 # get shape data (from cache, if possible)
