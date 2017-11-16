@@ -33,7 +33,6 @@ public class CacheRouterTest {
         if (mockCache != null) {
             verifyNoMoreInteractions(mockCache);
         }
-
     }
 
     @Test

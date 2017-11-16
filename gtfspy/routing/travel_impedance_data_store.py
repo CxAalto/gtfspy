@@ -43,26 +43,40 @@ class TravelImpedanceDataStore:
         df = pd.read_sql(sql, self.conn)
         return df
 
-    def create_table(self, travel_impedance_measure):
+    def create_table(self, travel_impedance_measure, ensure_uniqueness=True):
         print("Creating table: ", travel_impedance_measure)
         sql = "CREATE TABLE IF NOT EXISTS " + travel_impedance_measure + " (from_stop_I INT, " \
             "to_stop_I INT, " \
             "min REAL, " \
             "max REAL, " \
             "median REAL, " \
-            "mean REAL, " \
-            "UNIQUE (from_stop_I, to_stop_I) )"
+            "mean REAL" 
+        if ensure_uniqueness:
+            sql = sql + ", UNIQUE (from_stop_I, to_stop_I) )"
+        else:
+            sql = sql + ")"
         self.conn.execute(sql)
 
-    def create_indices_for_tables(self):
-        for travel_impedance_measure in self.travel_impedance_measure_names:
-            self._create_index_for_travel_impedance_measure_table(travel_impedance_measure)
+    def create_indices_for_all_tables(self, use_memory_as_temp_store=False):
+        if use_memory_as_temp_store:
+            self.conn.execute("PRAGMA temp_store=2")
+        table_names = self.conn.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        for table_name in table_names:
+            print("Creating indices for table " + str(table_name[0]))
+            self.create_indices(table_name[0])
+        self.conn.execute("VACUUM")
+        self.conn.execute("ANALYZE")
 
-    def create_index(self, travel_impedance_measure_name):
+    def create_indices(self, travel_impedance_measure_name):
         table = travel_impedance_measure_name
+        sql_from_to = "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_from_stop_I_to_stop_I ON " + table + " (from_stop_I, to_stop_I)" 
         sql_from = "CREATE INDEX IF NOT EXISTS " + table + "_from_stop_I ON " + table + " (from_stop_I)"
         sql_to = "CREATE INDEX IF NOT EXISTS " + table + "_to_stop_I ON " + table + " (to_stop_I)"
+        print("Executing: " + sql_from_to)
+        self.conn.execute(sql_from_to)
+        print("Executing: " + sql_from)
         self.conn.execute(sql_from)
+        print("Executing: " + sql_to)
         self.conn.execute(sql_to)
         self.conn.commit()
 
@@ -76,7 +90,7 @@ class TravelImpedanceDataStore:
             "from_stop_I", "to_stop_I", "min", "max", "median" and "mean"
         """
         f = float
-        data_tuple = [(x["from_stop_I"], x["to_stop_I"], f(x["min"]), f(x["max"]), f(x["median"]), f(x["mean"])) for
+        data_tuple = [(int(x["from_stop_I"]), int(x["to_stop_I"]), f(x["min"]), f(x["max"]), f(x["median"]), f(x["mean"])) for
                       x in data]
         insert_stmt = '''INSERT OR REPLACE INTO ''' + travel_impedance_measure_name + ''' (
                               from_stop_I,
@@ -88,8 +102,8 @@ class TravelImpedanceDataStore:
         self.conn.executemany(insert_stmt, data_tuple)
         self.conn.commit()
 
-    # def apply_insertion_speedups(self):
-    #     self.conn.execute("PRAGMA SYNCHRONOUS = OFF")
+    def apply_insertion_speedups(self):
+        self.conn.execute("PRAGMA SYNCHRONOUS = OFF")
 
 
 

@@ -6,6 +6,7 @@ from gtfspy.routing.connection import Connection
 from gtfspy.gtfs import GTFS
 from gtfspy.routing.label import LabelTimeAndRoute, LabelTimeWithBoardingsCount, LabelTimeBoardingsAndRoute, \
     compute_pareto_front, LabelGeneric
+from gtfspy.routing.travel_impedance_data_store import TravelImpedanceDataStore
 from gtfspy.routing.fastest_path_analyzer import FastestPathAnalyzer
 from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAnalyzerTimeAndVehLegs
 from gtfspy.util import timeit
@@ -78,7 +79,7 @@ class JourneyDataManager:
             self.conn.close()
 
     @timeit
-    def import_journey_data_for_target_stop(self, target_stop_I, origin_stop_I_to_journey_labels):
+    def import_journey_data_for_target_stop(self, target_stop_I, origin_stop_I_to_journey_labels, enforce_synchronous_writes=False):
         """
         Parameters
         ----------
@@ -89,13 +90,15 @@ class JourneyDataManager:
         """
         cur = self.conn.cursor()
         self.conn.isolation_level = 'EXCLUSIVE'
-        cur.execute('PRAGMA synchronous = OFF;')
+        # if not enforce_synchronous_writes:
+        cur.execute('PRAGMA synchronous = 0;')
 
         if self.track_route:
             self._insert_journeys_with_route_into_db(origin_stop_I_to_journey_labels, target_stop=int(target_stop_I))
         else:
             self._insert_journeys_into_db_no_route(origin_stop_I_to_journey_labels, target_stop=int(target_stop_I))
         print("Finished import process")
+        self.conn.commit()
 
     def _assert_journey_computation_paramaters_match(self):
         for key, value in self.routing_parameters.items():
@@ -137,7 +140,7 @@ class JourneyDataManager:
 
                 journey_list.append(values)
                 journey_id += 1
-        print("Inserting journeys into database")
+        print("Inserting journeys without route into database")
         insert_journeys_stmt = '''INSERT INTO journeys(
               journey_id,
               from_stop_I,
@@ -146,15 +149,14 @@ class JourneyDataManager:
               arrival_time_target,
               n_boardings) VALUES (%s) ''' % (", ".join(["?" for x in range(6)]))
         #self.conn.executemany(insert_journeys_stmt, journey_list)
-
-        self._execute_function(insert_journeys_stmt, journey_list)
+        self._executemany_exclusive(insert_journeys_stmt, journey_list)
         self.conn.commit()
 
     @timeit
-    def _execute_function(self, statement, rows):
+    def _executemany_exclusive(self, statement, rows):
         self.conn.execute('BEGIN EXCLUSIVE')
         last_id = self._get_largest_journey_id()
-        rows = [[x[0]+last_id] + x[1:] for x in rows]
+        rows = [[x[0] + last_id] + x[1:] for x in rows]
         self.conn.executemany(statement, rows)
 
     def _insert_journeys_with_route_into_db(self, stop_I_to_journey_labels, target_stop):
@@ -458,8 +460,9 @@ class JourneyDataManager:
                     journey["pre_journey_wait_fp"] = -1
                     try:
                         journey_labels.append(LabelGeneric(journey))
-                    except:
+                    except Exception as e:
                         print(journey)
+                        raise e
                 yield origin_stop_I, destination_stop_I, journey_labels
 
     def get_node_profile_time_analyzer(self, target, origin, start_time_dep, end_time_dep):
@@ -566,7 +569,6 @@ class JourneyDataManager:
                                                     origins=None,
                                                     targets=None):
 
-        from gtfspy.routing.travel_impedance_data_store import TravelImpedanceDataStore
         data_store = TravelImpedanceDataStore(travel_impedance_store_fname)
 
         measure_to_measure_summary_dicts = {}
@@ -595,6 +597,10 @@ class JourneyDataManager:
         _flush_data_to_db(measure_to_measure_summary_dicts)
 
         for i, (origin, target, journey_labels) in enumerate(self._journey_label_generator(targets, origins)):
+            print("i", origin, target, journey_labels)
+            if len(journey_labels) == 0:
+                continue
+
             measure_summary_dicts_for_pair = self.__compute_travel_impedance_measure_dict(origin, target, journey_labels,
                                                                                           analysis_start_time, analysis_end_time)
             for measure in measure_summary_dicts_for_pair:
@@ -786,6 +792,8 @@ class JourneyDataManager:
         self.conn.commit()
 
     def create_indices(self):
+        self.conn.execute("PRAGMA temp_store=2")
+        self.conn.commit()
         # Next 3 lines are python 3.6 work-arounds again.
         self.conn.isolation_level = None  # former default of autocommit mode
         cur = self.conn.cursor()
@@ -796,7 +804,6 @@ class JourneyDataManager:
         cur.execute('ANALYZE')
         print("Indexing")
         cur = self.conn.cursor()
-        cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_route ON journeys (route)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_jid ON journeys (journey_id)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_fid ON journeys (from_stop_I)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_tid ON journeys (to_stop_I)')
@@ -806,6 +813,7 @@ class JourneyDataManager:
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_trid ON legs (trip_I)')
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_fid ON legs (from_stop_I)')
             cur.execute('CREATE INDEX IF NOT EXISTS idx_legs_tid ON legs (to_stop_I)')
+            cur.execute('CREATE INDEX IF NOT EXISTS idx_journeys_route ON journeys (route)')
         self.conn.commit()
 
 

@@ -73,6 +73,7 @@ class NodeProfileAnalyzerTime:
             if trip_pareto_tuple.departure_time > self.end_time_dep:
                 continue
             if self._walk_time_to_target <= trip_pareto_tuple.duration():
+                print(self._walk_time_to_target, trip_pareto_tuple.duration())
                 assert(self._walk_time_to_target > trip_pareto_tuple.duration())
             effective_trip_previous_departure_time = max(
                 previous_departure_time,
@@ -591,6 +592,8 @@ class NodeProfileAnalyzerTime:
     def get_temporal_distance_at(self, dep_time):
         return self.profile_block_analyzer.interpolate(dep_time)
 
+    def get_temporal_distance_at(self, dep_time):
+        return self.profile_block_analyzer
 
 
     @staticmethod

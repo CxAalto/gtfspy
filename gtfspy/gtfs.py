@@ -5,6 +5,7 @@ import os
 import sqlite3
 import sys
 import time
+import warnings
 from collections import Counter, defaultdict
 from datetime import timedelta
 
@@ -16,35 +17,35 @@ from six import string_types
 from gtfspy import shapes
 from gtfspy.route_types import ALL_ROUTE_TYPES
 from gtfspy.route_types import WALK
-from gtfspy.util import wgs84_distance, wgs84_width, wgs84_height
+from gtfspy.util import wgs84_distance, wgs84_width, wgs84_height, set_process_timezone
 
 
 class GTFS(object):
 
-    def __init__(self, fname):
+    def __init__(self, fname_or_conn):
         """Open a GTFS object
 
         Parameters
         ----------
-        fname: str | sqlite3.Connection
+        fname_or_conn: str | sqlite3.Connection
             path to the preprocessed gtfs database or a connection to a gtfs database
         """
-        if isinstance(fname, string_types):
-            if os.path.isfile(fname):
-                self.conn = sqlite3.connect(fname)
-                self.fname = fname
+        if isinstance(fname_or_conn, string_types):
+            if os.path.isfile(fname_or_conn):
+                self.conn = sqlite3.connect(fname_or_conn)
+                self.fname = fname_or_conn
                 # memory-mapped IO size, in bytes
                 self.conn.execute('PRAGMA mmap_size = 1000000000;')
                 # page cache size, in negative KiB.
                 self.conn.execute('PRAGMA cache_size = -2000000;')
             else:
-                raise EnvironmentError("File " + fname + " missing")
-        elif isinstance(fname, sqlite3.Connection):
-            self.conn = fname
+                raise EnvironmentError("File " + fname_or_conn + " missing")
+        elif isinstance(fname_or_conn, sqlite3.Connection):
+            self.conn = fname_or_conn
             self._dont_close = True
         else:
             raise NotImplementedError(
-                "Initiating GTFS using an object with type " + str(type(fname)) + " is not supported")
+                "Initiating GTFS using an object with type " + str(type(fname_or_conn)) + " is not supported")
 
         assert self.conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchone() is not None
         self.meta = GTFSMetadata(self.conn)
@@ -59,7 +60,6 @@ class GTFS(object):
         if not getattr(self, '_dont_close', False):
             self.conn.close()
 
-
     @classmethod
     def from_directory_as_inmemory_db(cls, gtfs_directory):
         """
@@ -70,7 +70,7 @@ class GTFS(object):
         gtfs_directory: str
             path to the directory for importing the database
         """
-        # this import is here just to avoid circular imports
+        # this import is here to avoid circular imports (which turned out to be a problem)
         from gtfspy.import_gtfs import import_gtfs
         conn = sqlite3.connect(":memory:")
         import_gtfs(gtfs_directory,
@@ -213,10 +213,9 @@ class GTFS(object):
         Alters os.environ['TZ']
         """
         TZ = self.conn.execute('SELECT timezone FROM agencies LIMIT 1').fetchall()[0][0]
-        # print TZ
-        # TODO!: This is dangerous (?). In my opinion, we should get rid of this (RK):
-        os.environ['TZ'] = TZ
-        time.tzset()  # Cause C-library functions to notice the update.
+        # TODO!: This is dangerous (?).
+        # In my opinion, we should get rid of this at some point (RK):
+        return set_process_timezone(TZ)
 
     def get_timezone_pytz(self):
         return self._timezone
@@ -313,13 +312,11 @@ class GTFS(object):
             start time of the day in unixtime
         """
         if isinstance(date, string_types):
-
             date = datetime.datetime.strptime(date, '%Y-%m-%d')
 
-        date_noon = datetime.datetime(date.year, date.month, date.day,
-                                      12, 0, 0)
+        date_noon = datetime.datetime(date.year, date.month, date.day, 12, 0, 0)
         ut_noon = self.unlocalized_datetime_to_ut_seconds(date_noon)
-        return ut_noon - 43200  # 43200=12*60*60 (this comes from GTFS: noon-12 hrs)
+        return ut_noon - 12 * 60 * 60  # this comes from GTFS: noon-12 hrs
 
     def get_trip_trajectories_within_timespan(self, start, end, use_shapes=True, filter_name=None):
         """
@@ -569,7 +566,8 @@ class GTFS(object):
 
         routeShapes = []
         for i, row in enumerate(data.itertuples()):
-            datum = {"name": str(row.name), "type": int(row.type), "route_I": row.route_I, "agency": str(row.agency_id), "agency_name": str(row.agency_name)}
+            datum = {"name": str(row.name), "type": int(row.type), "route_I": row.route_I, "agency": str(row.agency_id),
+                     "agency_name": str(row.agency_name)}
             # this function should be made also non-shape friendly (at this point)
             if use_shapes and row.shape_id:
                 shape = shapes.get_shape_points2(cur, row.shape_id)
@@ -678,7 +676,8 @@ class GTFS(object):
                 else:
                     return row.date_str
 
-    def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9):
+    def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9,
+                                      verbose=False, download_date=None):
         """
         Find a suitable weekly extract start date (monday).
         The goal is to obtain as 'usual' week as possible.
@@ -687,9 +686,12 @@ class GTFS(object):
 
         Parameters
         ----------
-        ut: boolean
-            return
-        weekdays_at_least_of_max
+        ut: return unixtime?
+        weekdays_at_least_of_max: float
+
+        download_date: str, semi-optional
+            Download-date in format %Y-%m-%d, weeks close to this.
+            Overrides the (possibly) recorded downloaded date in the database
 
         Returns
         -------
@@ -700,61 +702,67 @@ class GTFS(object):
         error: RuntimeError
             If no download date could be found.
         """
-        daily_trips = self.get_trip_counts_per_day()
-        download_date_str = self.meta['download_date']
-        if download_date_str == "":
-            raise RuntimeError("Download date is not speficied. Cannot find a suitable start date for week extract")
-        download_date = datetime.datetime.strptime(download_date_str, "%Y-%m-%d")
+        daily_trip_counts = self.get_trip_counts_per_day()
+        if isinstance(download_date, str):
+            search_start_date = datetime.datetime.strptime(download_date, "%Y-%m-%d")
+        elif isinstance(download_date, datetime.datetime):
+            search_start_date = download_date
+        else:
+            assert download_date is None
+            download_date_str = self.meta['download_date']
+            if download_date_str == "":
+                warnings.warn("Download date is not speficied in the database. "
+                              "Download date used in GTFS." + self.get_weekly_extract_start_date.__name__ +
+                              "() defaults to the smallest date when any operations take place.")
+                search_start_date = daily_trip_counts['date'].min()
+            else:
+                search_start_date = datetime.datetime.strptime(download_date_str, "%Y-%m-%d")
 
-        max_trip_count = daily_trips['trip_counts'].quantile(0.95)
+        feed_min_date = daily_trip_counts['date'].min()
+        feed_max_date = daily_trip_counts['date'].max()
+        assert (feed_max_date - feed_min_date >= datetime.timedelta(days=7)), \
+            "Dataset is not long enough for providing week long extracts"
+
+        # get first a valid monday where the search for the week can be started:
+        next_monday_from_search_start_date = search_start_date + timedelta(days=(7 - search_start_date.weekday()))
+        if not (feed_min_date <= next_monday_from_search_start_date <= feed_max_date):
+            warnings.warn("The next monday after the (possibly user) specified download date is not present in the database."
+                          "Resorting to first monday after the beginning of operations instead.")
+            next_monday_from_search_start_date = feed_min_date + timedelta(days=(7 - feed_min_date.weekday()))
+
+        max_trip_count = daily_trip_counts['trip_counts'].quantile(0.95)
         # Take 95th percentile to omit special days, if any exist.
 
         threshold = weekdays_at_least_of_max * max_trip_count
-        threshold_fulfilling_days = daily_trips['trip_counts'] > threshold
+        threshold_fulfilling_days = daily_trip_counts['trip_counts'] > threshold
 
-        # from matplotlib import pyplot as plt
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # ax.plot(daily_trips['date'], daily_trips["trip_counts"])
-        # ax.axvline(download_date)
-        # ax.axhline(median_trip_count)
-        # ax.axhline(median_trip_count * 0.9)
-        # plt.show()
-
-        next_monday = download_date + timedelta(days=(7 - download_date.weekday()))
         # look forward first
-        monday_index = None
-        while monday_index is None and next_monday >= daily_trips['date'].min():
-            monday_trips = daily_trips[daily_trips['date'] == next_monday]
-            if len(monday_trips) > 0:
-                monday_index = monday_trips.index[0]
+        # get the index of the trip:
+        search_start_monday_index = daily_trip_counts[daily_trip_counts['date'] == next_monday_from_search_start_date].index[0]
 
-        error = RuntimeError("No suitable weekly extract start date could be determined!")
-        if monday_index is None:
-            raise error
-
-        while_loop_monday_index = monday_index
-        while len(daily_trips.index) >= while_loop_monday_index + 7:
+        # get starting point
+        while_loop_monday_index = search_start_monday_index
+        while len(daily_trip_counts.index) >= while_loop_monday_index + 7:
             if all(threshold_fulfilling_days[while_loop_monday_index:while_loop_monday_index + 5]):
-                row = daily_trips.iloc[while_loop_monday_index]
+                row = daily_trip_counts.iloc[while_loop_monday_index]
                 if ut:
                     return self.get_day_start_ut(row.date_str)
                 else:
                     return row['date']
             while_loop_monday_index += 7
 
-        while_loop_monday_index = monday_index - 7
+        while_loop_monday_index = search_start_monday_index - 7
         # then backwards
         while while_loop_monday_index >= 0:
             if all(threshold_fulfilling_days[while_loop_monday_index:while_loop_monday_index + 5]):
-                row = daily_trips.iloc[while_loop_monday_index]
+                row = daily_trip_counts.iloc[while_loop_monday_index]
                 if ut:
                     return self.get_day_start_ut(row.date_str)
                 else:
                     return row['date']
             while_loop_monday_index -= 7
 
-        raise error
+        raise RuntimeError("No suitable weekly extract start date could be determined!")
 
     def get_spreading_trips(self, start_time_ut, lat, lon,
                             max_duration_ut=4 * 3600,
@@ -844,13 +852,12 @@ class GTFS(object):
         if buffer_ratio:
             distance = buffer_ratio * wgs84_distance(min_lat, min_lon, max_lat, max_lon)
             lat_diff = wgs84_height(distance)
-            lon_diff = wgs84_width(distance, (max_lat-min_lat)/2+min_lat)
+            lon_diff = wgs84_width(distance, (max_lat - min_lat) / 2 + min_lat)
 
-        return {"lat_min": min_lat-lat_diff,
-                "lat_max": max_lat+lat_diff,
-                "lon_min": min_lon-lon_diff,
-                "lon_max": max_lon+lon_diff}
-
+        return {"lat_min": min_lat - lat_diff,
+                "lat_max": max_lat + lat_diff,
+                "lon_min": min_lon - lon_diff,
+                "lon_max": max_lon + lon_diff}
 
     def get_route_name_and_type_of_tripI(self, trip_I):
         """
@@ -1098,9 +1105,10 @@ class GTFS(object):
             Unixtime corresponding to start of day
         """
         # set timezone to the one of gtfs
-        self.set_current_process_time_zone()
-        # last -1 equals to 'not known' for DST (automatically deduced then)
-        return time.mktime(time.localtime(ut)[:3] + (12, 00, 0, 0, 0, -1)) - 43200
+        old_tz = self.set_current_process_time_zone()
+        ut = time.mktime(time.localtime(ut)[:3] + (12, 00, 0, 0, 0, -1)) - 43200
+        set_process_timezone(old_tz)
+        return ut
 
     def increment_day_start_ut(self, day_start_ut, n_days=1):
         """Increment the GTFS-definition of "day start".
@@ -1114,11 +1122,12 @@ class GTFS(object):
         n_days: int
             number of days to increment
         """
-        self.set_current_process_time_zone()
+        old_tz = self.set_current_process_time_zone()
         day0 = time.localtime(day_start_ut + 43200)  # time of noon
         dayN = time.mktime(day0[:2] +  # YYYY, MM
                            (day0[2] + n_days,) +  # DD
                            (12, 00, 0, 0, 0, -1)) - 43200  # HHMM, etc.  Minus 12 hours.
+        set_process_timezone(old_tz)
         return dayN
 
     def _get_possible_day_starts(self, start_ut, end_ut, max_time_overnight=None):
@@ -1278,7 +1287,7 @@ class GTFS(object):
         return df_merged3
 
     def get_n_stops(self):
-        return pd.read_sql_query("SELECT count(*) from stops;", self.conn).values[0,0]
+        return pd.read_sql_query("SELECT count(*) from stops;", self.conn).values[0, 0]
 
     def get_modes(self):
         modes = list(pd.read_sql_query("SELECT distinct(type) from routes;", self.conn).values.flatten())
@@ -1373,11 +1382,11 @@ class GTFS(object):
         """
         table_name = self._get_day_trips_table_name()
         event_query = "SELECT stop_I, seq, trip_I, route_I, routes.route_id AS route_id, routes.type AS route_type, " \
-                          "shape_id, day_start_ut+dep_time_ds AS dep_time_ut, day_start_ut+arr_time_ds AS arr_time_ut " \
+                      "shape_id, day_start_ut+dep_time_ds AS dep_time_ut, day_start_ut+arr_time_ds AS arr_time_ut " \
                       "FROM " + table_name + " " \
-                      "JOIN trips USING(trip_I) " \
-                      "JOIN routes USING(route_I) " \
-                      "JOIN stop_times USING(trip_I)"
+                                             "JOIN trips USING(trip_I) " \
+                                             "JOIN routes USING(route_I) " \
+                                             "JOIN stop_times USING(trip_I)"
 
         where_clauses = []
         if end_time_ut:
@@ -1402,7 +1411,7 @@ class GTFS(object):
         from_indices = numpy.nonzero(
             (events_result['trip_I'][:-1].values == events_result['trip_I'][1:].values) *
             (events_result['seq'][:-1].values < events_result['seq'][1:].values)
-            )[0]
+        )[0]
         to_indices = from_indices + 1
         # these should have same trip_ids
         assert (events_result['trip_I'][from_indices].values == events_result['trip_I'][to_indices].values).all()
@@ -1428,7 +1437,8 @@ class GTFS(object):
         df = pd.DataFrame.from_records(data_tuples, columns=columns)
         return df
 
-    def get_route_difference_with_other_db(self, other_gtfs, start_time, end_time, uniqueness_threshold=None, uniqueness_ratio=None):
+    def get_route_difference_with_other_db(self, other_gtfs, start_time, end_time, uniqueness_threshold=None,
+                                           uniqueness_ratio=None):
         """
         Compares the routes based on stops in the schedule with the routes in another db and returns the ones without match.
         Uniqueness thresholds or ratio can be used to allow small differences
@@ -1455,7 +1465,7 @@ class GTFS(object):
                 intersection = i & j
                 symmetric_difference = i ^ j
                 if uniqueness_ratio:
-                    if len(intersection)/len(union) >= uniqueness_ratio:
+                    if len(intersection) / len(union) >= uniqueness_ratio:
                         try:
                             this_uniques.remove(i_key)
                             this_df = this_df[this_df["route"] != i_key]
@@ -1470,9 +1480,6 @@ class GTFS(object):
         print("unique routes A", len(this_df))
         print("unique routes B", len(other_df))
         return this_df, other_df
-
-
-
 
     def get_section_difference_with_other_db(self, other_conn, start_time, end_time):
         query = """SELECT from_stop_I, to_stop_I, sum(n_trips) AS n_trips, count(*) AS n_routes,
@@ -1581,7 +1588,6 @@ class GTFS(object):
         cur = self.conn.cursor()
         return cur.execute("SELECT max(date) FROM days").fetchone()[0]
 
-
     def print_validation_warnings(self):
         """
         See Validator.validate for more information.
@@ -1592,7 +1598,7 @@ class GTFS(object):
         """
         from .timetable_validator import TimetableValidator
         validator = TimetableValidator(self)
-        return validator.get_warnings()
+        return validator.validate_and_get_warnings()
 
     def execute_custom_query(self, query):
         return self.conn.cursor().execute(query)
@@ -1741,7 +1747,6 @@ class GTFS(object):
 
         query_update_row = """UPDATE stops SET parent_I=? WHERE parent_I=?"""
 
-
     def add_stops_from_csv(self, csv_dir):
         stops_to_add = pd.read_csv(csv_dir, encoding='utf-8')
         assert all([x in stops_to_add.columns for x in ["stop_id", "code", "name", "desc", "lat", "lon"]])
@@ -1877,8 +1882,8 @@ def main(cmd, args):
         to_db = args[1]
         download_date = g.meta['download_date']
         d = datetime.datetime.strptime(download_date, '%Y-%m-%d').date()
-        start_time = d + datetime.timedelta(7 - d.isoweekday() + 1)      # inclusive
-        end_time   = d + datetime.timedelta(7 - d.isoweekday() + 1 + 1)  # exclusive
+        start_time = d + datetime.timedelta(7 - d.isoweekday() + 1)  # inclusive
+        end_time = d + datetime.timedelta(7 - d.isoweekday() + 1 + 1)  # exclusive
         filter.filter_extract(g, to_db, start_date=start_time, end_date=end_time)
     elif cmd == 'make-weekly':
         from_db = args[0]
@@ -1913,8 +1918,9 @@ def main(cmd, args):
         IPython.embed()
     elif 'export_shapefile' in cmd:
         from gtfspy.util import write_shapefile
-        from_db = args[0] #'/m/cs/project/networks/jweckstr/transit/scratch/proc_latest/helsinki/2016-04-06/main.day.sqlite'
-        shapefile_path = args[1] #'/m/cs/project/networks/jweckstr/TESTDATA/helsinki_routes.shp'
+        from_db = args[
+            0]  # '/m/cs/project/networks/jweckstr/transit/scratch/proc_latest/helsinki/2016-04-06/main.day.sqlite'
+        shapefile_path = args[1]  # '/m/cs/project/networks/jweckstr/TESTDATA/helsinki_routes.shp'
         g = GTFS(from_db)
         if cmd == 'export_shapefile_routes':
             data = g.get_all_route_shapes(use_shapes=True)
@@ -1937,5 +1943,3 @@ def main(cmd, args):
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2:])
-
-

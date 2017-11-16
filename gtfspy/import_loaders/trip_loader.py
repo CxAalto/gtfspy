@@ -39,34 +39,8 @@ class TripLoader(TableLoader):
         cur.execute('CREATE INDEX IF NOT EXISTS idx_trips_svid ON trips (service_I)')
         cur.execute('CREATE INDEX IF NOT EXISTS idx_trips_rid ON trips (route_I)')
 
-    @classmethod
-    def calculate_times_ds(cls, conn):
-        cur0 = conn.cursor()
-        cur = conn.cursor()
-        cur0.execute('''SELECT trip_I, min(dep_time), max(arr_time)
-                       FROM trips JOIN stop_times USING (trip_I)
-                       GROUP BY trip_I''')
-
-        def iter_rows(cur0):
-            for row in cur0:
-                if row[1]:
-                    st = row[1].split(':')
-                    start_time_ds = int(st[0]) * 3600 + int(st[1]) * 60 + int(st[2])
-                else:
-                    start_time_ds = None
-                if row[2]:
-                    et = row[2].split(':')
-                    end_time_ds   = int(et[0]) * 3600 + int(et[1]) * 60 + int(et[2])
-                else:
-                    end_time_ds = None
-                yield start_time_ds, end_time_ds, row[0]
-
-        cur.executemany('''UPDATE trips SET start_time_ds=?, end_time_ds=? WHERE trip_I=?''',
-                        iter_rows(cur0))
-        conn.commit()
-
     def post_import_round2(self, conn):
-        self.calculate_times_ds(conn)
+        update_trip_travel_times_ds(conn)
 
     # This has now been moved to DayTripsMaterializer, but is left
     # here in case we someday want to make DayTripsMaterializer
@@ -80,3 +54,31 @@ class TripLoader(TableLoader):
     #                 'days.day_start_ut+trips.end_time_ds AS end_time_ut   '
     #                 'FROM days JOIN trips USING (trip_I);')
     #    conn.commit()
+
+
+def update_trip_travel_times_ds(conn):
+    cur0 = conn.cursor()
+    cur = conn.cursor()
+    cur0.execute('''SELECT trip_I, min(dep_time), max(arr_time)
+                   FROM trips JOIN stop_times USING (trip_I)
+                   GROUP BY trip_I''')
+
+    print("updating trips travel times")
+
+    def iter_rows(cur0):
+        for row in cur0:
+            if row[1]:
+                st = row[1].split(':')
+                start_time_ds = int(st[0]) * 3600 + int(st[1]) * 60 + int(st[2])
+            else:
+                start_time_ds = None
+            if row[2]:
+                et = row[2].split(':')
+                end_time_ds = int(et[0]) * 3600 + int(et[1]) * 60 + int(et[2])
+            else:
+                end_time_ds = None
+            yield start_time_ds, end_time_ds, row[0]
+
+    cur.executemany('''UPDATE trips SET start_time_ds=?, end_time_ds=? WHERE trip_I=?''',
+                    iter_rows(cur0))
+    conn.commit()

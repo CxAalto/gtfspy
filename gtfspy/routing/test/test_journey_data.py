@@ -9,6 +9,8 @@ pyximport.install()
 import shutil
 import os
 from gtfspy.import_gtfs import import_gtfs
+from gtfspy.routing.travel_impedance_data_store import TravelImpedanceDataStore
+
 
 class TestJourneyData(TestCase):
     # noinspection PyAttributeOutsideInit
@@ -48,10 +50,10 @@ class TestJourneyData(TestCase):
         self.jdm.import_journey_data_for_target_stop(destination_stop,
                                                      {origin_stop:
                                                         [LabelTimeWithBoardingsCount(1, 2, 1, True),
-                                                         LabelTimeWithBoardingsCount(2, 3, 2, True)]}
+                                                         LabelTimeWithBoardingsCount(2, 3, 2, True)]},
+                                                     enforce_synchronous_writes=True
                                                      )
         self.jdm.compute_and_store_travel_impedance_measures(0, 2, self.data_store_path)
-        from gtfspy.routing.travel_impedance_data_store import TravelImpedanceDataStore
         store = TravelImpedanceDataStore(self.data_store_path)
         df = store.read_data_as_dataframe("temporal_distance")
         self.assertAlmostEqual(df.iloc[0]["min"], 1)

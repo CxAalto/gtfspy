@@ -1,14 +1,13 @@
-# reload(sys)
-# -*- encoding: utf-8 -*-
 import pandas as pd
+
 from six import string_types
-from gtfspy.timetable_validator import WarningsContainer
+from gtfspy.warnings_container import WarningsContainer
 from gtfspy.gtfs import GTFS
 from gtfspy.util import str_time_to_day_seconds
-from gtfspy.util import source_table_txt_to_pandas
+from gtfspy.util import source_csv_to_pandas
 
 """
-input: sourcefile(s) of the gtfs data, created sqlite database
+Input: sourcefile(s) of the gtfs data, created sqlite database
 output: error messages for failed checks
 - Assert that the sqlite database exists and that it is not corrupted
     -> it is possible to create a gtfs object
@@ -18,79 +17,19 @@ output: error messages for failed checks
     - Compare
     - Should GTFS source file dirs be added to metadata so that the checkup can be made later?
 
-- Assert that there are no Null values in essential data columns
-    - which columns are essential?
-    - Check that links between tables match (no unused rows) <- the file might be ok even if there is,
-     but might be worth checking anyway. The loose ends should be removed in the filtering step.
-
-WARNING_AGENCIES_NULL
-WARNING_ROUTES_NULL
-WARNING_TRIPS_NULL
-WARNING_CALENDAR_NULL
-WARNING_CALENDAR_DATES_NULL
-WARNING_STOP_TIMES_NULL
-WARNING_STOPS_NULL
-WARNING_SHAPES_NULL
-WARNING_AGENCIES_ROWS_MISSING
-WARNING_ROUTES_ROWS_MISSING
-WARNING_TRIPS_ROWS_MISSING
-WARNING_CALENDAR_ROWS_MISSING
-WARNING_CALENDAR_DATES_ROWS_MISSING
-WARNING_STOP_TIMES_ROWS_MISSING
-WARNING_STOPS_ROWS_MISSING
-WARNING_SHAPES_ROWS_MISSING
 """
 
 
+WARNING_DANGLING_STOPS_VS_STOP_TIMES_AND_PARENT_STOPS = "stops are not referenced in stop_times and are not marked as a parent_stop (it is ok/possible that there are some)"
+WARNING_DANGLING_STOP_TIMES_VS_STOPS = "stop_times referencing to missing stop"
+WARNING_DANGLING_STOP_TIMES_VS_TRIPS = "stop_times not referenced in trips found"
+WARNING_DANGLING_TRIPS_VS_STOP_TIMES = "trips with missing stop_times found"
+WARNING_DANGLING_TRIPS_VS_DAYS = "trips not referenced in days found (this is possible due to some combinations of calendar and calendar_dates)"
+WARNING_DANGLING_TRIPS_VS_CALENDAR = "trips whose service_I not referenced in calendar found"
+WARNING_DANGLING_TRIPS_VS_ROUTES = "trips not referenced in routes found"
+WARNING_DANGLING_DAYS_VS_TRIPS = "days not referenced in trips found"
+WARNING_DANGLING_ROUTES_VS_TRIPS = "routes not referenced in trips found"
 
-WARNING_AGENCIES_NULL = "Null values found in agencies"
-WARNING_ROUTES_NULL = "Null values found in routes"
-WARNING_TRIPS_NULL = "Null values found in trips"
-WARNING_CALENDAR_NULL = "Null values found in calendar"
-WARNING_CALENDAR_DATES_NULL = "Null values found in calendar_dates"
-WARNING_STOP_TIMES_NULL = "Null values found in stop_times"
-WARNING_STOPS_NULL = "Null values found in stops"
-WARNING_SHAPES_NULL = "Null values found in shapes"
-WARNING_AGENCIES_ROWS_MISSING = "Rows missing in agencies"
-WARNING_ROUTES_ROWS_MISSING = "Rows missing in routes"
-WARNING_TRIPS_ROWS_MISSING = "Rows missing in trips"
-WARNING_CALENDAR_ROWS_DO_NOT_MATCH = "There are extra/missing rows in calendar that cannot be explained by dummy entries required by the calendar_dates table."
-WARNING_CALENDAR_DATES_ROWS_MISSING = "Rows missing in calendar_dates"
-WARNING_STOP_TIMES_ROWS_MISSING = "Rows missing in stop_times"
-WARNING_STOPS_ROWS_MISSING = "Rows missing in stops"
-WARNING_SHAPES_ROWS_MISSING = "Rows missing in shapes"
-WARNING_DANGLING_STOPS_VS_STOP_TIMES_AND_PARENT_STOPS = "Stops not referenced in stop_times or as parent_stops found (it is ok/possible that there are some)"
-WARNING_DANGLING_STOP_TIMES_VS_STOPS = "Stop_times referencing to missing stop"
-WARNING_DANGLING_STOP_TIMES_VS_TRIPS = "Stop_times not referenced in trips found"
-WARNING_DANGLING_TRIPS_VS_STOP_TIMES = "Trips with missing stop_times found"
-WARNING_DANGLING_TRIPS_VS_DAYS = "Trips not referenced in days found (this is possible due to some combinations of calendar and calendar_dates)"
-WARNING_DANGLING_TRIPS_VS_CALENDAR = "Trips whose service_I not referenced in calendar found"
-WARNING_DANGLING_TRIPS_VS_ROUTES = "Trips not referenced in routes found"
-WARNING_DANGLING_DAYS_VS_TRIPS = "Days not referenced in trips found"
-WARNING_DANGLING_ROUTES_VS_TRIPS = "Routes not referenced in trips found"
-
-
-NULL_WARNINGS = [
-    WARNING_AGENCIES_NULL,
-    WARNING_ROUTES_NULL,
-    WARNING_TRIPS_NULL,
-    WARNING_CALENDAR_NULL,
-    WARNING_CALENDAR_DATES_NULL,
-    WARNING_STOP_TIMES_NULL,
-    WARNING_STOPS_NULL,
-    WARNING_SHAPES_NULL
-]
-
-ROW_WARNINGS = [
-    WARNING_AGENCIES_ROWS_MISSING,
-    WARNING_ROUTES_ROWS_MISSING,
-    WARNING_TRIPS_ROWS_MISSING,
-    WARNING_CALENDAR_ROWS_DO_NOT_MATCH,
-    WARNING_CALENDAR_DATES_ROWS_MISSING,
-    WARNING_STOP_TIMES_ROWS_MISSING,
-    WARNING_STOPS_ROWS_MISSING,
-    WARNING_SHAPES_ROWS_MISSING
-]
 
 DANGLER_QUERIES = [
     'SELECT count(*) FROM stops '
@@ -119,33 +58,73 @@ DANGLER_WARNINGS = [
     WARNING_DANGLING_ROUTES_VS_TRIPS,
 ]
 
-FIELDS_WHERE_NULL_OK = {
-                'agencies': ['lang', 'phone'],
-                'routes': ['desc', 'url', 'color', 'text_color'],
-                'trips': ['headsign', 'direction_id', 'shape_id'],
-                'calendar': [],
-                'calendar_dates': [],
-                'days': [],
-                'shapes': [],
-                'stop_times': ["shape_break"],
-                'stops': ['code', 'desc', 'parent_I', 'wheelchair_boarding'],
-                'stop_distances': []
-            }
+DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_NOT_OK = {
+    'agencies': ['agency_I', 'agency_id', "timezone"],
+    'stops': ['stop_I', 'stop_id', 'lat', 'lon'],
+    'routes': ['route_I', 'route_id', 'type'],
+    'trips': ['trip_I', 'trip_id', 'service_I', "route_I"],
+    'stop_times': ["trip_I", "stop_I", "arr_time_ds", "dep_time_ds"],
+    'calendar': ['service_id', 'service_I', 'm', "t", "w", "th", "f", "s", "su", "start_date", "end_date"],
+    'calendar_dates': ['service_I', 'date', 'exception_type'],
+    'days': ["date","day_start_ut","trip_I"],
+    'shapes': ["shape_id", "lat", "lon", "seq"],
+    'stop_distances': ["from_stop_I", "to_stop_I", "d"]
+}
 
-DB_TABLE_NAMES = ['agencies', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
-SOURCE_TABLE_NAMES = ['agency', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
+DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_OK_BUT_WARN = {
+    'agencies': ['name', "url"],
+    'stops': ['name'],
+    'routes': ['name', 'long_name'],
+    'trips': [],
+    'calendar': [],
+    'calendar_dates': [],
+    'days': [],
+    'shapes': [],
+    'stop_times': [],
+    'stop_distances': ["d_walk"]
+}
+
+DB_TABLE_NAMES = list(sorted(DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_NOT_OK.keys()))
+
+DB_TABLE_NAME_TO_SOURCE_FILE = {
+    'agencies': "agency",
+    'routes': "routes",
+    'trips': "trips",
+    'calendar': "calendar",
+    'calendar_dates': "calendar_dates",
+    'stop_times': "stop_times",
+    'stops': "stops",
+    "shapes": 'shapes'
+}
+
+DB_TABLE_NAME_TO_ROWS_MISSING_WARNING = {}
+for _db_table_name in DB_TABLE_NAMES:
+    DB_TABLE_NAME_TO_ROWS_MISSING_WARNING[_db_table_name] = "Rows missing in {table}".format(table=_db_table_name)
+DB_TABLE_NAME_TO_ROWS_MISSING_WARNING["calendar"] = "There are extra/missing rows in calendar that cannot be explained " \
+                                                    "by dummy entries required by the calendar_dates table."
+
+for dictionary in [DB_TABLE_NAME_TO_SOURCE_FILE, DB_TABLE_NAME_TO_ROWS_MISSING_WARNING]:
+    for key in dictionary.keys():
+        assert key in DB_TABLE_NAMES
+
+for key in DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_OK_BUT_WARN.keys():
+    assert key in DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_NOT_OK
+
+#SOURCE_TABLE_NAMES = ['agency', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
+
 
 class ImportValidator(object):
 
-    def __init__(self, gtfssource, gtfs):
+    def __init__(self, gtfssource, gtfs, verbose=True):
         """
         Parameters
         ----------
-        gtfs_sources: list of strings
-        gtfs: GTFS, or path to a GTFS object
-            A GTFS object
+        gtfs_sources: list, string, dict
+            list of paths to the strings, or a dictionary directly containing the gtfs data directly
+        gtfs: gtfspy.gtfs.GTFS, or path to a relevant .sqlite GTFS database
+        verbose: bool
+            Whether or not to print warnings on-the-fly.
         """
-        self.df_freq_dict = {}
         if isinstance(gtfssource, string_types + (dict,)):
             self.gtfs_sources = [gtfssource]
         else:
@@ -160,84 +139,92 @@ class ImportValidator(object):
 
         self.location = self.gtfs.get_location_name()
         self.warnings_container = WarningsContainer()
+        self.verbose=verbose
 
-    def get_warnings(self):
+    def validate_and_get_warnings(self):
         self.warnings_container.clear()
-        self._validate_table_counts()
-        self._validate_no_nulls()
+        self._validate_table_row_counts()
+        self._validate_no_null_values()
         self._validate_danglers()
-        self.warnings_container.print_summary()
         return self.warnings_container
 
-    def _validate_table_counts(self):
+    def _validate_table_row_counts(self):
         """
         Imports source .txt files, checks row counts and then compares the rowcounts with the gtfsobject
         :return:
         """
-        for table_name_txt, db_table_name, row_warning in zip(SOURCE_TABLE_NAMES, DB_TABLE_NAMES, ROW_WARNINGS):
+        for db_table_name in DB_TABLE_NAME_TO_SOURCE_FILE.keys():
+            table_name_source_file = DB_TABLE_NAME_TO_SOURCE_FILE[db_table_name]
+            row_warning_str = DB_TABLE_NAME_TO_ROWS_MISSING_WARNING[db_table_name]
+
+            # Row count in GTFS object:
+            database_row_count = self.gtfs.get_row_count(db_table_name)
+
+            # Row counts in source files:
             source_row_count = 0
-
             for gtfs_source in self.gtfs_sources:
-                frequencies_in_source = source_table_txt_to_pandas(gtfs_source, 'frequencies.txt')
+                frequencies_in_source = source_csv_to_pandas(gtfs_source, 'frequencies.txt')
                 try:
-                    if table_name_txt == 'trips' and not frequencies_in_source.empty:
-                        source_row_count += self._frequency_generated_trips(gtfs_source, table_name_txt)
+                    if table_name_source_file == 'trips' and not frequencies_in_source.empty:
+                        source_row_count += self._frequency_generated_trips_rows(gtfs_source)
 
-                    elif table_name_txt == 'stop_times' and not frequencies_in_source.empty:
-                        source_row_count += self._frequency_generated_stop_times(gtfs_source, table_name_txt)
+                    elif table_name_source_file == 'stop_times' and not frequencies_in_source.empty:
+                        source_row_count += self._compute_number_of_frequency_generated_stop_times(gtfs_source)
                     else:
-                        df = source_table_txt_to_pandas(gtfs_source, table_name_txt)
+                        df = source_csv_to_pandas(gtfs_source, table_name_source_file)
 
                         source_row_count += len(df.index)
-                except (IOError) as e:
-                    print(e)
-                    pass
+                except IOError as e:
+                    if hasattr(e, "filename") and db_table_name in e.filename:
+                        pass
+                    else:
+                        raise e
 
-            # Result from GTFSobj:
-            database_row_count = self.gtfs.get_row_count(db_table_name)
-            if source_row_count == database_row_count:
-                print("Row counts match for " + table_name_txt + " between the source and database ("
+
+            if source_row_count == database_row_count and self.verbose:
+                print("Row counts match for " + table_name_source_file + " between the source and database ("
                       + str(database_row_count) + ")")
-
             else:
                 difference = database_row_count - source_row_count
-                print('Row counts do not match for ' + str(table_name_txt) + ': (source=' + str(source_row_count) +
+                ('Row counts do not match for ' + str(table_name_source_file) + ': (source=' + str(source_row_count) +
                       ', database=' + str(database_row_count) + ")")
-                if table_name_txt == "calendar" and difference > 0:
+                if table_name_source_file == "calendar" and difference > 0:
                     query = "SELECT count(*) FROM (SELECT * FROM calendar ORDER BY service_I DESC LIMIT " \
                             + str(int(difference)) + \
                             ") WHERE start_date=end_date AND m=0 AND t=0 AND w=0 AND th=0 AND f=0 AND s=0 AND su=0"
                     number_of_entries_added_by_calendar_dates_loader = self.gtfs.execute_custom_query(query).fetchone()[
                         0]
-                    if number_of_entries_added_by_calendar_dates_loader == difference:
+                    if number_of_entries_added_by_calendar_dates_loader == difference and self.verbose:
                         print("    But don't worry, the extra entries seem to just dummy entries due to calendar_dates")
                     else:
-                        print("    Reason for this is unknown.")
-                        self.warnings_container.add_warning(self.location, row_warning, difference)
+                        if self.verbose:
+                            print("    Reason for this is unknown.")
+                        self.warnings_container.add_warning(row_warning_str, self.location, difference)
                 else:
-                    self.warnings_container.add_warning(self.location, row_warning, difference)
+                    self.warnings_container.add_warning(row_warning_str, self.location, difference)
 
 
-
-
-
-    def _validate_no_nulls(self):
+    def _validate_no_null_values(self):
         """
         Loads the tables from the gtfs object and counts the number of rows that have null values in
         fields that should not be null. Stores the number of null rows in warnings_container
         """
-        for table, null_warning in zip(DB_TABLE_NAMES, NULL_WARNINGS):
-            # TODO: make this validation source by source
+        for table in DB_TABLE_NAMES:
+            null_not_ok_warning = "Null values in must-have columns in table {table}".format(table=table)
+            null_warn_warning = "Null values in good-to-have columns in table {table}".format(table=table)
+            null_not_ok_fields = DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_NOT_OK[table]
+            null_warn_fields = DB_TABLE_NAME_TO_FIELDS_WHERE_NULL_OK_BUT_WARN[table]
+
+            # CW, TODO: make this validation source by source
             df = self.gtfs.get_table(table)
-            df.drop(FIELDS_WHERE_NULL_OK[table], inplace=True, axis=1)
-            # print(df.to_string())
-            len_table = len(df.index)
-            df.dropna(inplace=True, axis=0)
-            len_non_null = len(df.index)
-            nullrows = len_table - len_non_null
-            if nullrows > 0:
-                # print('Warning: Null values detected in table ' + table)
-                self.warnings_container.add_warning(self.location, null_warning, value=nullrows)
+
+            for warning, fields in zip([null_not_ok_warning, null_warn_warning], [null_not_ok_fields, null_warn_fields]):
+                null_unwanted_df = df[fields]
+                rows_having_null = null_unwanted_df.isnull().any(1)
+                if sum(rows_having_null) > 0:
+                    rows_having_unwanted_null = df[rows_having_null.values]
+                    self.warnings_container.add_warning(warning, rows_having_unwanted_null, len(rows_having_unwanted_null))
+
 
     def _validate_danglers(self):
         """
@@ -251,42 +238,44 @@ class ImportValidator(object):
         for query, warning in zip(DANGLER_QUERIES, DANGLER_WARNINGS):
             dangler_count = self.gtfs.execute_custom_query(query).fetchone()[0]
             if dangler_count > 0:
-                print(str(dangler_count) + " " + warning)
-                self.warnings_container.add_warning(self.location, warning, value=dangler_count)
+                if self.verbose:
+                    print(str(dangler_count) + " " + warning)
+                self.warnings_container.add_warning(warning, self.location, count=dangler_count)
 
-    def _frequency_generated_trips(self, source, txt):
+    def _frequency_generated_trips_rows(self, gtfs_soure_path, return_df_freq=False):
         """
         This function calculates the equivalent rowcounts for trips when
         taking into account the generated rows in the gtfs object
-        :param source: path to the source file
-        :param txt: txt file in question
+        Parameters
+        ----------
+        gtfs_soure_path: path to the source file
+        param txt: txt file in question
         :return: sum of all trips
         """
-        df_freq = source_table_txt_to_pandas(source, u'frequencies.txt')
-        df_trips = source_table_txt_to_pandas(source, txt)
+        df_freq = source_csv_to_pandas(gtfs_soure_path, 'frequencies')
+        df_trips = source_csv_to_pandas(gtfs_soure_path, "trips")
         df_freq['n_trips'] = df_freq.apply(lambda row: len(range(str_time_to_day_seconds(row['start_time']),
                                                                  str_time_to_day_seconds(row['end_time']),
                                                                  row['headway_secs'])), axis=1)
-        self.df_freq_dict[source] = df_freq
         df_trips_freq = pd.merge(df_freq, df_trips, how='outer', on='trip_id')
+        n_freq_generated_trips = int(df_trips_freq['n_trips'].fillna(1).sum(axis=0))
+        if return_df_freq:
+            return df_trips_freq
+        else:
+            return n_freq_generated_trips
 
-        return int(df_trips_freq['n_trips'].fillna(1).sum(axis=0))
+    def _compute_number_of_frequency_generated_stop_times(self, gtfs_source_path):
+        """
+        Parameters
+        ----------
+        Same as for "_frequency_generated_trips_rows" but for stop times table
+        gtfs_source_path:
+        table_name:
 
-    def _frequency_generated_stop_times(self, source, txt):
+        Return
+        ------
         """
-        same as above except for stop times table
-        :param source:
-        :param txt:
-        :return:
-        """
-        df_stop_times = source_table_txt_to_pandas(source, txt)
-        df_freq = self.df_freq_dict[source]
+        df_freq = self._frequency_generated_trips_rows(gtfs_source_path, return_df_freq=True)
+        df_stop_times = source_csv_to_pandas(gtfs_source_path, "stop_times")
         df_stop_freq = pd.merge(df_freq, df_stop_times, how='outer', on='trip_id')
-
         return int(df_stop_freq['n_trips'].fillna(1).sum(axis=0))
-
-def main():
-    pass
-
-if __name__ == "__main__":
-    main()

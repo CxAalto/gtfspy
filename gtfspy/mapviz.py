@@ -57,7 +57,7 @@ def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None, map_alpha=0.8,
 
     if spatial_bounds is None:
         spatial_bounds = get_spatial_bounds(g, as_dict=True)
-    plot_as_routes(route_shapes, spatial_bounds=spatial_bounds, map_alpha=0.8, scalebar=True, legend=True,
+    return plot_as_routes(route_shapes, spatial_bounds=spatial_bounds, map_alpha=0.8, scalebar=True, legend=True,
                    return_smopy_map=False)
 
 

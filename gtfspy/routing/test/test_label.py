@@ -65,7 +65,6 @@ class TestLabelTime(TestCase):
         )
         self.assertEqual(departure_time, label.departure_time)
         self.assertEqual(arrival_time, label.arrival_time_target)
-        print(label)
 
 
 class TestLabelTimeAndVehLegCount(TestCase):
@@ -151,7 +150,6 @@ class TestLabelTimeAndVehLegCount(TestCase):
         )
         self.assertEqual(departure_time, label.departure_time)
         self.assertEqual(arrival_time, label.arrival_time_target)
-        print(label)
 
 
 
@@ -328,7 +326,6 @@ class TestLabelTimeAndRoute(TestCase):
         )
         self.assertEqual(departure_time, label.departure_time)
         self.assertEqual(arrival_time, label.arrival_time_target)
-        print(label)
 
 
 class TestLabelTimeBoardingsAndRoute(TestCase):

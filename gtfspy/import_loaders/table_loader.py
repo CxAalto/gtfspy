@@ -44,7 +44,7 @@ class TableLoader(object):
         """
         Parameters
         ----------
-        gtfssource: str, dict, sqlite3.Connection, list
+        gtfssource: str, dict, list
             str: path to GTFS directory or zipfile
             dict:
                 dictionary of files to use to as the GTFS files.  This
@@ -59,13 +59,11 @@ class TableLoader(object):
                 inline like that. You can provide the data as a string or
                 a file-like object (with a .read() attribute and line
                 iteration).
-            sqlite3.Connection:
             list: a list of the above elements to import (i.e. "merge") multiple GTFS feeds to the same database
 
         print_progress: boolean
             whether to print progress of the
         """
-        # TODO: add support for sqlite3.Connection?
         if isinstance(gtfssource, string_types + (dict,)):
             _gtfs_sources = [gtfssource]
         else:

@@ -106,7 +106,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                    walk_duration=self._walk_to_target_duration,
                                    label_props_to_consider=["n_boardings"])
 
-
     def _get_transfers_on_fastest_path_analyzer(self):
         fp_analyzer = self.__get_fastest_path_analyzer()
         if self._walk_to_target_duration < float('inf'):

@@ -292,6 +292,13 @@ class NodeProfileMultiObjective:
                 else:
                     labels_from_neighbors.append(label.get_copy_with_walk_added(walk_duration))
 
-        self._final_pareto_optimal_labels = compute_pareto_front(self._real_connection_labels +
-                                                                 labels_from_neighbors,
-                                                                 finalization=True)
+        pareto_front = compute_pareto_front(self._real_connection_labels +
+                                            labels_from_neighbors,
+                                            finalization=True)
+
+        if pareto_front and hasattr(pareto_front[0], "duration"):
+            self._final_pareto_optimal_labels = list(filter(lambda label: label.duration() < self._walk_to_target_duration, pareto_front))
+        else:
+            self._final_pareto_optimal_labels = pareto_front
+
+

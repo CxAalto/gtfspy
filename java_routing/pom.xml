@@ -12,7 +12,7 @@
         <dependency>
             <groupId>com.graphhopper</groupId>
             <artifactId>graphhopper</artifactId>
-            <version>0.6.0</version>
+            <version>0.7.0</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
