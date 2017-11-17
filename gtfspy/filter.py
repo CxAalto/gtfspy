@@ -9,6 +9,7 @@ import pandas
 
 import gtfspy
 from gtfspy import util
+from gtfspy.gtfs import GTFS
 from gtfspy.import_loaders.day_loader import recreate_days_table
 from gtfspy.import_loaders.day_trips_materializer import recreate_day_trips2_table
 from gtfspy.import_loaders.trip_loader import update_trip_travel_times_ds
@@ -118,8 +119,6 @@ class FilterExtract(object):
         self.copy_db_conn = None
         self.copy_db_path = copy_db_path
 
-        self.end_date = end_date
-
         self.agency_ids_to_preserve = agency_ids_to_preserve
         self.gtfs = G
         self.buffer_lat = buffer_lat
@@ -155,7 +154,6 @@ class FilterExtract(object):
             filtered = self._filter_spatially() or filtered
             self.copy_db_conn.commit()
             if filtered:
-                self.copy_db_conn.commit()
                 update_secondary_data_copies(db_conn=self.copy_db_conn)
             if self.update_metadata:
                 self._update_metadata()
@@ -179,43 +177,34 @@ class FilterExtract(object):
                 raise ValueError("Missing information in day_trips2 (start_time_ut and/or end_time_ut), "
                                  "check trips.start_time_ds and trips.end_time_ds.")
             logging.info("Filtering based on start_time_ut and end_time_ut")
-            # negated from import_gtfs
-            table_to_remove_map = {
-                "calendar": ("WHERE NOT ("
-                             "date({start_ut}, 'unixepoch', 'localtime') < end_date "
-                             "AND "
-                             "start_date < date({end_ut}, 'unixepoch', 'localtime')"
-                             ");"),
-                "calendar_dates": "WHERE NOT ("
-                                  "date({start_ut}, 'unixepoch', 'localtime') <= date "
+            table_to_preserve_map = {
+                "calendar": "start_date < date({filter_end_ut}, 'unixepoch', 'localtime') "
+                            "AND "
+                            "end_date >= date({filter_start_ut}, 'unixepoch', 'localtime') ",
+                "calendar_dates": "date >= date({filter_start_ut}, 'unixepoch', 'localtime') "
                                   "AND "
-                                  "date < date({end_ut}, 'unixepoch', 'localtime')"
-                                  ")",
-                "day_trips2": 'WHERE NOT ('
-                              '{start_ut} < end_time_ut '
+                                  "date < date({filter_end_ut}, 'unixepoch', 'localtime') ",
+                "day_trips2": 'start_time_ut < {filter_end_ut} '
                               'AND '
-                              'start_time_ut < {end_ut}'
-                              ')',
-                "days": "WHERE NOT ("
-                        "{start_ut} <= day_start_ut "
+                              'end_time_ut > {filter_start_ut} ',
+                "days": "day_start_ut >= {filter_start_ut} "
                         "AND "
-                        "day_start_ut < {end_ut}"
-                        ")"
-            }
+                        "day_start_ut < {filter_end_ut} "
+                }
+            table_to_remove_map = {key: "WHERE NOT ( " + to_preserve + " );"
+                                   for key, to_preserve in table_to_preserve_map.items() }
+
+            # Ensure that process timezone is correct as we rely on 'localtime' in the SQL statements.
+            GTFS(self.copy_db_conn).set_current_process_time_zone()
             # remove the 'source' entries from tables
             for table, query_template in table_to_remove_map.items():
-                param_dict = {"start_ut": str(start_date_ut),
-                              "end_ut": str(end_date_ut)}
-                self.gtfs.get_table(table)
-                time.sleep(2)
-                if table == "days":
-                    query = "SELECT * FROM " + table + " " + \
-                            query_template.format(**param_dict)
-                    self.gtfs.execute_custom_query_pandas(query)
-
+                param_dict = {"filter_start_ut": str(start_date_ut),
+                              "filter_end_ut": str(end_date_ut)}
                 query = "DELETE FROM " + table + " " + \
                         query_template.format(**param_dict)
                 self.copy_db_conn.execute(query)
+                self.copy_db_conn.commit()
+
             return FILTERED
         else:
             return NOT_FILTERED
