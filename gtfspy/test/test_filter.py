@@ -166,27 +166,44 @@ class TestGTFSFilter(unittest.TestCase):
             "stops": 6,
             "shapes": 4
         }
-        n_rows_after = {
-            "routes": 3,
-            "stop_times": 9,
+        n_rows_after_1000 = { # within "soft buffer" in the feed data
+            "routes": 1,
+            "stop_times": 2,
+            "trips": 1,
+            "stops": 2,
+            "shapes": 0
+        }
+        n_rows_after_3000 = { # within "hard buffer" in the feed data
+            "routes": len(["t1", "t3", "t4"]),
+            "stop_times": 11,
             "trips": 4,
-            "stops": 5,
-            "shapes": 2
+            "stops": len(set(["P", "H", "V", "L", "B"])),
+            # for some reason, the first "shapes": 4
         }
         paris_lat = 48.832781
         paris_lon = 2.360734
-        FilterExtract(self.G_filter_test,
-                      self.fname_copy,
-                      buffer_lat=paris_lat,
-                      buffer_lon=paris_lon,
-                      buffer_distance_km=1000,
-                      hard_buffer_distance_km=3000).create_filtered_copy()
-        for table_name, n_rows in n_rows_before.items():
-            self.assertEqual(len(self.G_filter_test.get_table(table_name)), n_rows, "Row counts before differ in " + table_name)
-        G_copy = GTFS(self.fname_copy)
-        for table_name, n_rows in n_rows_after.items():
-            table = G_copy.get_table(table_name)
-            self.assertEqual(len(table), n_rows, "Row counts after differ in " + table_name + "\n" + str(table))
+        SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL = \
+            "SELECT trips.trip_I, shape_id, min(shape_break) as min_shape_break, max(shape_break) as max_shape_break FROM trips, stop_times WHERE trips.trip_I=stop_times.trip_I GROUP BY trips.trip_I"
+        trip_min_max_shape_seqs = pandas.read_sql(SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL, self.G_filter_test.conn)
+
+        for distance_km, n_rows_after in zip([1000, 3000], [n_rows_after_1000, n_rows_after_3000]):
+            try:
+                os.remove(self.fname_copy)
+            except FileNotFoundError:
+                pass
+            FilterExtract(self.G_filter_test,
+                          self.fname_copy,
+                          buffer_lat=paris_lat,
+                          buffer_lon=paris_lon,
+                          buffer_distance_km=distance_km).create_filtered_copy()
+            for table_name, n_rows in n_rows_before.items():
+                self.assertEqual(len(self.G_filter_test.get_table(table_name)), n_rows, "Row counts before differ in " + table_name + ", distance: " + str(distance_km))
+            G_copy = GTFS(self.fname_copy)
+            for table_name, n_rows in n_rows_after.items():
+                table = G_copy.get_table(table_name)
+                self.assertEqual(len(table), n_rows, "Row counts after differ in " + table_name + ", distance: " + str(distance_km) + "\n" + str(table))
+
+
 
 
     def test_remove_all_trips_fully_outside_buffer(self):

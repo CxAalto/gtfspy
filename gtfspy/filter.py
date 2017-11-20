@@ -50,7 +50,6 @@ class FilterExtract(object):
                  G,
                  copy_db_path,
                  buffer_distance_km=None,
-                 hard_buffer_distance_km=None,
                  buffer_lat=None,
                  buffer_lon=None,
                  update_metadata=True,
@@ -93,8 +92,6 @@ class FilterExtract(object):
             Longitude of the buffer zone center
         buffer_distance : float
             Distance from the buffer zone center (in kilometers)
-        hard_buffer_distance: float, optional
-            Take away all operations beyond this limit.
 
         Returns
         -------
@@ -124,7 +121,6 @@ class FilterExtract(object):
         self.buffer_lat = buffer_lat
         self.buffer_lon = buffer_lon
         self.buffer_distance_km = buffer_distance_km
-        self.hard_buffer_distance_km = hard_buffer_distance_km
         self.update_metadata = update_metadata
 
         if agency_distance is not None:
@@ -339,8 +335,6 @@ class FilterExtract(object):
                                               self.buffer_lon,
                                               self.buffer_distance_km,
                                               update_secondary_data=False)
-        if self.hard_buffer_distance_km:
-            print("hard buffer distance:" + str(self.hard_buffer_distance_km))
         logging.info("Making spatial extract")
 
         find_distance_func_name = add_wgs84_distance_function_to_db(self.copy_db_conn)
@@ -352,22 +346,12 @@ class FilterExtract(object):
             "    WHERE CAST(find_distance(lat, lon, {buffer_lat}, {buffer_lon}) AS INT) < {buffer_distance_meters}" +
             "     AND stops.stop_I=stop_times.stop_I"
         )
-        stops_within_soft_buffer_sql = stop_distance_filter_sql_base.format(
+        stops_within_buffer_sql = stop_distance_filter_sql_base.format(
             buffer_lat=float(self.buffer_lat),
             buffer_lon=float(self.buffer_lon),
             buffer_distance_meters=int(self.buffer_distance_km * 1000)
         )
-        stops_within_soft_buffer = set(row[0] for row in self.copy_db_conn.execute(stops_within_soft_buffer_sql))
-
-        if self.hard_buffer_distance_km:
-            stops_within_hard_buffer_sql = stop_distance_filter_sql_base.format(
-                buffer_lat=float(self.buffer_lat),
-                buffer_lon=float(self.buffer_lon),
-                buffer_distance_meters=int(self.hard_buffer_distance_km * 1000)
-            )
-            stops_within_hard_buffer = set(row[0] for row in self.copy_db_conn.execute(stops_within_hard_buffer_sql))
-            stops_within_hard_buffer_string = "(" + ",".join(
-                str(stop_I) for stop_I in stops_within_hard_buffer) + ")"
+        stops_within_buffer = set(row[0] for row in self.copy_db_conn.execute(stops_within_buffer_sql))
 
         # For each trip_I, find smallest (min_seq) and largest (max_seq) stop sequence numbers that
         # are within the soft buffer_distance from the buffer_lon and buffer_lat, and add them into the
@@ -375,13 +359,13 @@ class FilterExtract(object):
         # Note that if a trip is OUT-IN-OUT-IN-OUT, this process preserves (at least) the part IN-OUT-IN of the trip.
         # Repeat until no more stops are found.
 
-        stops_within_soft_buffer_string = "(" +",".join(str(stop_I) for stop_I in stops_within_soft_buffer) +  ")"
+        stops_within_buffer_string = "(" +",".join(str(stop_I) for stop_I in stops_within_buffer) +  ")"
         trip_min_max_include_seq_sql =  (
             'SELECT trip_I, min(seq) AS min_seq, max(seq) AS max_seq FROM stop_times, stops '
                     'WHERE stop_times.stop_I = stops.stop_I '
                     ' AND stops.stop_I IN {stop_I_list}'
                     ' GROUP BY trip_I'
-        ).format(stop_I_list=stops_within_soft_buffer_string)
+        ).format(stop_I_list=stops_within_buffer_string)
         trip_I_min_seq_max_seq_df = pandas.read_sql(trip_min_max_include_seq_sql, self.copy_db_conn)
 
         for trip_I_seq_row in trip_I_min_seq_max_seq_df.itertuples():
@@ -394,39 +378,38 @@ class FilterExtract(object):
                 self.copy_db_conn.execute("DELETE FROM stop_times WHERE trip_I={trip_I}".format(trip_I=trip_I))
                 self.copy_db_conn.execute("DELETE FROM trips WHERE trip_i={trip_I}".format(trip_I=trip_I))
             else:
-                # DELETE STOP_TIME ENTRIES NOT WITHIN THE BORDER
+                # DELETE STOP_TIME ENTRIES BEFORE ENTERING AND AFTER DEPARTING THE BUFFER AREA
                 DELETE_STOP_TIME_ENTRIES_SQL = \
                     "DELETE FROM stop_times WHERE trip_I={trip_I} AND (seq<{min_seq} OR seq>{max_seq})"\
                     .format(trip_I=trip_I, max_seq=max_seq, min_seq=min_seq)
                 self.copy_db_conn.execute(DELETE_STOP_TIME_ENTRIES_SQL)
 
-                if self.hard_buffer_distance_km:
-                    STOPS_NOT_WITHIN_HARD_BUFFER_SQL = \
-                        "SELECT seq, stop_I IN {stops_within_hard_buffer} AS within FROM stop_times WHERE trip_I={trip_I} ORDER BY seq"\
-                        .format(stops_within_hard_buffer=stops_within_hard_buffer_string, trip_I=trip_I)
-                    stop_times_within_hard_buffer_df = pandas.read_sql(STOPS_NOT_WITHIN_HARD_BUFFER_SQL, self.copy_db_conn)
+                STOPS_NOT_WITHIN_BUFFER__FOR_TRIP_SQL = \
+                    "SELECT seq, stop_I IN {stops_within_hard_buffer} AS within FROM stop_times WHERE trip_I={trip_I} ORDER BY seq"\
+                    .format(stops_within_hard_buffer=stops_within_buffer_string, trip_I=trip_I)
+                stop_times_within_buffer_df = pandas.read_sql(STOPS_NOT_WITHIN_BUFFER__FOR_TRIP_SQL, self.copy_db_conn)
+                if stop_times_within_buffer_df['within'].all():
+                    continue
+                else:
+                    _split_trip(self.copy_db_conn, trip_I, stop_times_within_buffer_df)
 
-                    if stop_times_within_hard_buffer_df['within'].all():
-                        continue
-                    else:
-                        split_trip(self.copy_db_conn, trip_I, stop_times_within_hard_buffer_df)
 
-        if self.hard_buffer_distance_km:
-            # Delete all shapes that are not fully within the hard buffer to avoid shapes going outside
-            # the hard_buffer in a few special cases.
-            # This could probably be done in some more sophisticated way though (per trip)
-            SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL = \
-                "SELECT DISTINCT shape_id FROM SHAPES " \
-                "WHERE CAST(find_distance(lat, lon, {buffer_lat}, {buffer_lon}) AS INT) > {buffer_distance_meters}" \
-                .format(buffer_lat=self.buffer_lat,
-                        buffer_lon=self.buffer_lon,
-                        buffer_distance_meters=self.hard_buffer_distance_km * 1000)
-            DELETE_ALL_SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL = "DELETE FROM shapes WHERE shape_id IN (" \
-                                                              + SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL + ")"
-            self.copy_db_conn.execute(DELETE_ALL_SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL)
-            SET_SHAPE_ID_TO_NULL_FOR_HARD_BUFFER_FILTERED_SHAPE_IDS = \
-                "UPDATE trips SET shape_id=NULL WHERE trips.shape_id IN (" + SHAPE_IDS_NOT_WITHIN_HARD_BUFFER_SQL + ")"
-            self.copy_db_conn.execute(SET_SHAPE_ID_TO_NULL_FOR_HARD_BUFFER_FILTERED_SHAPE_IDS)
+        # Delete all shapes that are not fully within the buffer to avoid shapes going outside
+        # the buffer area in a some cases.
+        # This could probably be done in some more sophisticated way though (per trip)
+        SHAPE_IDS_NOT_WITHIN_BUFFER_SQL = \
+            "SELECT DISTINCT shape_id FROM SHAPES " \
+            "WHERE CAST(find_distance(lat, lon, {buffer_lat}, {buffer_lon}) AS INT) > {buffer_distance_meters}" \
+            .format(buffer_lat=self.buffer_lat,
+                    buffer_lon=self.buffer_lon,
+                    buffer_distance_meters=self.buffer_distance_km * 1000)
+        DELETE_ALL_SHAPE_IDS_NOT_WITHIN_BUFFER_SQL = "DELETE FROM shapes WHERE shape_id IN (" \
+                                                          + SHAPE_IDS_NOT_WITHIN_BUFFER_SQL + ")"
+        self.copy_db_conn.execute(DELETE_ALL_SHAPE_IDS_NOT_WITHIN_BUFFER_SQL)
+        SET_SHAPE_ID_TO_NULL_FOR_HARD_BUFFER_FILTERED_SHAPE_IDS = \
+            "UPDATE trips SET shape_id=NULL WHERE trips.shape_id IN (" + SHAPE_IDS_NOT_WITHIN_BUFFER_SQL + ")"
+        self.copy_db_conn.execute(SET_SHAPE_ID_TO_NULL_FOR_HARD_BUFFER_FILTERED_SHAPE_IDS)
+
 
         # Delete trips with only one stop
         self.copy_db_conn.execute('DELETE FROM stop_times WHERE '
@@ -540,7 +523,7 @@ def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffe
 
 def remove_dangling_shapes(db_conn):
     """
-    Not used in the regular filter process for the time being.
+    Remove dangling entries from the shapes directory.
 
     Parameters
     ----------
@@ -570,10 +553,10 @@ def remove_dangling_shapes_references(db_conn):
     db_conn.execute(remove_danging_shapes_references_sql)
 
 
-def split_trip(copy_db_conn, orig_trip_I, stop_times_within_hard_buffer_df):
+def _split_trip(copy_db_conn, orig_trip_I, stop_times_within_buffer_df):
     blocks = []
     next_block = []
-    for row in stop_times_within_hard_buffer_df.itertuples():
+    for row in stop_times_within_buffer_df.itertuples():
         if row.within:
             next_block.append(row.seq)
         else:
@@ -582,7 +565,6 @@ def split_trip(copy_db_conn, orig_trip_I, stop_times_within_hard_buffer_df):
             next_block = []
     if len(next_block) > 1:
         blocks.append(next_block)
-    assert (len(blocks) > 1)
     orig_trip_df = pandas.read_sql("SELECT * FROM trips WHERE trip_I={trip_I}".format(trip_I=orig_trip_I), copy_db_conn)
     orig_trip_dict = orig_trip_df.to_dict(orient="records")[0]
     for i, seq_block in enumerate(blocks):

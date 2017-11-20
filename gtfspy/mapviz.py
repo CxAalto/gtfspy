@@ -57,27 +57,36 @@ def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None, map_alpha=0.8,
 
     if spatial_bounds is None:
         spatial_bounds = get_spatial_bounds(g, as_dict=True)
-    return plot_as_routes(route_shapes, spatial_bounds=spatial_bounds, map_alpha=0.8, scalebar=True, legend=True,
-                   return_smopy_map=False)
+    return plot_as_routes(route_shapes,
+                          ax=ax,
+                          spatial_bounds=spatial_bounds,
+                          map_alpha=map_alpha,
+                          scalebar=scalebar,
+                          legend=legend,
+                          return_smopy_map=return_smopy_map)
 
 
 def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
                    return_smopy_map=False, line_width_attribute=None, line_width_scale=1.0):
     """
-
-    :param route_shapes: list of dicts that should have the following keys
+    Parameters
+    ----------
+    route_shapes: list of dicts that should have the following keys
             name, type, agency, lats, lons
             with types
             list, list, str, list, list
-    :param ax: axis object
-    :param spatial_bounds: dict
-    :param map_alpha:
-    :param scalebar:
-    :param legend:
-    :param return_smopy_map:
-    :param line_width_attribute:
-    :param line_width_scale:
-    :return:
+    ax: axis object
+    spatial_bounds: dict
+    map_alpha:
+    scalebar:
+    legend:
+    return_smopy_map:
+    line_width_attribute:
+    line_width_scale:
+
+    Returns
+    -------
+    ax: matplotlib.axes object
     """
     line_width = None
     lon_min = spatial_bounds['lon_min']
@@ -88,8 +97,6 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, sc
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-    # print(lat_min, lat_max)
-    # print(lon_min, lon_max)
     smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=map_alpha)
     bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
