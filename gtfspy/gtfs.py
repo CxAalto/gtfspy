@@ -531,6 +531,7 @@ class GTFS(object):
             seg_data.append(seg_el)
         return seg_data
 
+
     def get_all_route_shapes(self, use_shapes=True):
         """
         Get the shapes of all routes.
@@ -549,6 +550,7 @@ class GTFS(object):
             list, list, str, list, list
         """
         cur = self.conn.cursor()
+
         # all shape_id:s corresponding to a route_I:
         # query = "SELECT DISTINCT name, shape_id, trips.route_I, route_type
         #          FROM trips LEFT JOIN routes USING(route_I)"

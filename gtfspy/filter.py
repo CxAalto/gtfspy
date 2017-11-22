@@ -12,6 +12,7 @@ from gtfspy import util
 from gtfspy.gtfs import GTFS
 from gtfspy.import_loaders.day_loader import recreate_days_table
 from gtfspy.import_loaders.day_trips_materializer import recreate_day_trips2_table
+from gtfspy.import_loaders.stop_times_loader import resequence_stop_times_seq_values
 from gtfspy.import_loaders.trip_loader import update_trip_travel_times_ds
 from gtfspy.util import wgs84_distance, set_process_timezone
 from gtfspy import stats
@@ -590,6 +591,7 @@ def _split_trip(copy_db_conn, orig_trip_I, stop_times_within_buffer_df):
                 seq_block=seq_values_to_update_str
             )
         copy_db_conn.execute(stop_times_update_sql)
+
     copy_db_conn.execute("DELETE FROM trips WHERE trip_I={orig_trip_I}".format(orig_trip_I=orig_trip_I))
     copy_db_conn.execute("DELETE from stop_times WHERE trip_I={orig_trip_I}".format(orig_trip_I=orig_trip_I))
     copy_db_conn.execute("DELETE FROM shapes WHERE shape_id IN "
@@ -601,5 +603,6 @@ def update_secondary_data_copies(db_conn):
     G = gtfspy.gtfs.GTFS(db_conn)
     G.set_current_process_time_zone()
     update_trip_travel_times_ds(db_conn)
+    resequence_stop_times_seq_values(db_conn)
     recreate_days_table(db_conn)
     recreate_day_trips2_table(db_conn)

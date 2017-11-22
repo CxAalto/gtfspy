@@ -177,11 +177,12 @@ class TestGTFSFilter(unittest.TestCase):
             "routes": len(["t1", "t3", "t4"]),
             "stop_times": 11,
             "trips": 4,
-            "stops": len(set(["P", "H", "V", "L", "B"])),
+            "stops": len({"P", "H", "V", "L", "B"}),
             # for some reason, the first "shapes": 4
         }
         paris_lat = 48.832781
         paris_lon = 2.360734
+
         SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL = \
             "SELECT trips.trip_I, shape_id, min(shape_break) as min_shape_break, max(shape_break) as max_shape_break FROM trips, stop_times WHERE trips.trip_I=stop_times.trip_I GROUP BY trips.trip_I"
         trip_min_max_shape_seqs = pandas.read_sql(SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL, self.G_filter_test.conn)
@@ -203,8 +204,10 @@ class TestGTFSFilter(unittest.TestCase):
                 table = G_copy.get_table(table_name)
                 self.assertEqual(len(table), n_rows, "Row counts after differ in " + table_name + ", distance: " + str(distance_km) + "\n" + str(table))
 
-
-
+            # assert that stop_times are resequenced starting from one
+            counts = pandas.read_sql("SELECT count(*) FROM stop_times GROUP BY trip_I ORDER BY trip_I", G_copy.conn)
+            max_values = pandas.read_sql("SELECT max(seq) FROM stop_times GROUP BY trip_I ORDER BY trip_I", G_copy.conn)
+            self.assertTrue((counts.values == max_values.values).all())
 
     def test_remove_all_trips_fully_outside_buffer(self):
         stops = self.G.stops()
