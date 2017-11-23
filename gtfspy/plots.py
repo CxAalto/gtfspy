@@ -7,13 +7,13 @@ A collection of various useful plots.
 """
 
 
-def plot_trip_counts_per_day(G, ax=None, higlight_dates=None, highlight_date_labels=None, show=False):
+def plot_trip_counts_per_day(G, ax=None, highlight_dates=None, highlight_date_labels=None, show=False):
     """
     Parameters
     ----------
     G: gtfspy.GTFS
     ax: maptlotlib.Axes, optional
-    higlight_dates: list[str|datetime.datetime]
+    highlight_dates: list[str|datetime.datetime]
         The values of highlight dates should represent dates, and  or datetime objects.
     highlight_date_labels: list
         The labels for each highlight dates.
@@ -32,14 +32,14 @@ def plot_trip_counts_per_day(G, ax=None, higlight_dates=None, highlight_date_lab
                            label="Trip counts")
     ax.set_xlabel("Date")
     ax.set_ylabel("Trip counts per day")
-    if higlight_dates is not None:
-        assert isinstance(higlight_dates, list)
+    if highlight_dates is not None:
+        assert isinstance(highlight_dates, list)
         if highlight_date_labels is not None:
             assert isinstance(highlight_date_labels, list)
-            assert len(higlight_dates) == len(highlight_date_labels), "Number of highlight date labels do not match"
+            assert len(highlight_dates) == len(highlight_date_labels), "Number of highlight date labels do not match"
         else:
-            highlight_date_labels = [None] * len(higlight_dates)
-        for i, (highlight_date, label) in enumerate(zip(higlight_dates, highlight_date_labels)):
+            highlight_date_labels = [None] * len(highlight_dates)
+        for i, (highlight_date, label) in enumerate(zip(highlight_dates, highlight_date_labels)):
             color = "C" + str(int(i % 8 + 1))
             highlight_date = pandas.to_datetime(highlight_date)
             plt.axvline(highlight_date, color=color, label=label)

@@ -3,6 +3,8 @@ import sqlite3
 import unittest
 from datetime import datetime
 
+import matplotlib as mpl
+mpl.use('Agg')
 from matplotlib.axes import Axes
 
 from gtfspy.gtfs import GTFS
@@ -29,12 +31,12 @@ class TestPlots(unittest.TestCase):
     def test_plot_trip_counts_per_day(self):
         # simple test
         ax = plot_trip_counts_per_day(self.G,
-                                      higlight_dates=["2009-01-01"],
+                                      highlight_dates=["2009-01-01"],
                                       highlight_date_labels=["test_date"])
         # test with multiple dates and datetime
         dates = [datetime(2009, month=10, day=1), datetime(2010, month=10, day=1)]
         labels = ["test_date_1", "test_date_2"]
         ax = plot_trip_counts_per_day(self.G,
-                                      higlight_dates=dates,
+                                      highlight_dates=dates,
                                       highlight_date_labels=labels)
         assert isinstance(ax, Axes)
