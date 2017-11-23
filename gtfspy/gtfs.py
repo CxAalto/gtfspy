@@ -616,9 +616,7 @@ class GTFS(object):
         Returns
         -------
         trip_counts : pandas.DataFrame
-            has columns "date_str" and "trip_counts" where
-                date_str are strings
-                trip_counts are ints
+            Has columns "date_str" (dtype str) "trip_counts" (dtype int)
         """
         query = "SELECT date, count(*) AS number_of_trips FROM day_trips GROUP BY date"
         # this yields the actual data
@@ -679,7 +677,7 @@ class GTFS(object):
                     return row.date_str
 
     def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9,
-                                      verbose=False, download_date=None):
+                                      verbose=False, download_date_override=None):
         """
         Find a suitable weekly extract start date (monday).
         The goal is to obtain as 'usual' week as possible.
@@ -691,7 +689,7 @@ class GTFS(object):
         ut: return unixtime?
         weekdays_at_least_of_max: float
 
-        download_date: str, semi-optional
+        download_date_override: str, semi-optional
             Download-date in format %Y-%m-%d, weeks close to this.
             Overrides the (possibly) recorded downloaded date in the database
 
@@ -705,12 +703,12 @@ class GTFS(object):
             If no download date could be found.
         """
         daily_trip_counts = self.get_trip_counts_per_day()
-        if isinstance(download_date, str):
-            search_start_date = datetime.datetime.strptime(download_date, "%Y-%m-%d")
-        elif isinstance(download_date, datetime.datetime):
-            search_start_date = download_date
+        if isinstance(download_date_override, str):
+            search_start_date = datetime.datetime.strptime(download_date_override, "%Y-%m-%d")
+        elif isinstance(download_date_override, datetime.datetime):
+            search_start_date = download_date_override
         else:
-            assert download_date is None
+            assert download_date_override is None
             download_date_str = self.meta['download_date']
             if download_date_str == "":
                 warnings.warn("Download date is not speficied in the database. "

@@ -294,7 +294,8 @@ class TestGTFS(unittest.TestCase):
         first_day = trip_counts_per_day['date'].min()
         last_day = trip_counts_per_day['date'].max()  # a monday not in reach
         # print(first_day, last_day)
-        first_monday = self.G.get_weekly_extract_start_date(download_date=first_day)
-        early_monday = self.G.get_weekly_extract_start_date(download_date=first_day + datetime.timedelta(days=10))
-        end_monday = self.G.get_weekly_extract_start_date(download_date=last_day - datetime.timedelta(days=5))
+        first_monday = self.G.get_weekly_extract_start_date(download_date_override=first_day)
+        early_monday = self.G.get_weekly_extract_start_date(
+            download_date_override=first_day + datetime.timedelta(days=10))
+        end_monday = self.G.get_weekly_extract_start_date(download_date_override=last_day - datetime.timedelta(days=5))
         assert first_monday < early_monday < end_monday
