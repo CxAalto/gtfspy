@@ -3,8 +3,6 @@ import sqlite3
 import unittest
 from datetime import datetime
 
-import matplotlib as mpl
-mpl.use('Agg')
 from matplotlib.axes import Axes
 
 from gtfspy.gtfs import GTFS

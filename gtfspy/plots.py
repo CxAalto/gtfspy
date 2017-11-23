@@ -1,6 +1,5 @@
-import matplotlib.pyplot as plt
-
 import pandas
+from matplotlib import pyplot as plt
 
 """
 A collection of various useful plots.
@@ -42,7 +41,7 @@ def plot_trip_counts_per_day(G, ax=None, highlight_dates=None, highlight_date_la
         for i, (highlight_date, label) in enumerate(zip(highlight_dates, highlight_date_labels)):
             color = "C" + str(int(i % 8 + 1))
             highlight_date = pandas.to_datetime(highlight_date)
-            plt.axvline(highlight_date, color=color, label=label)
+            ax.axvline(highlight_date, color=color, label=label)
     ax.legend(loc="best")
     ax.grid()
     if show:
