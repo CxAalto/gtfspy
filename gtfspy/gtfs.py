@@ -39,7 +39,7 @@ class GTFS(object):
                 # page cache size, in negative KiB.
                 self.conn.execute('PRAGMA cache_size = -2000000;')
             else:
-                raise EnvironmentError("File " + fname_or_conn + " missing")
+                raise FileNotFoundError("File " + fname_or_conn + " missing")
         elif isinstance(fname_or_conn, sqlite3.Connection):
             self.conn = fname_or_conn
             self._dont_close = True
@@ -57,7 +57,7 @@ class GTFS(object):
         self._timezone = pytz.timezone(self.get_timezone_name())
 
     def __del__(self):
-        if not getattr(self, '_dont_close', False):
+        if not getattr(self, '_dont_close', False) and hasattr(self, "conn"):
             self.conn.close()
 
     @classmethod
