@@ -17,7 +17,18 @@ This module contains functions for plotting (static) visualizations of the publi
 """
 from gtfspy.extended_route_types import ROUTE_TYPE_CONVERSION
 
-smopy.TILE_SERVER = "https://cartodb-basemaps-1.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
+MAP_STYLES = [
+    "rastertiles/voyager",
+    "rastertiles/voyager_nolabels",
+    "rastertiles/voyager_only_labels",
+    "rastertiles/voyager_labels_under",
+    "light_all",
+    "dark_all",
+    "light_nolabels",
+    "light_only_labels",
+    "dark_nolabels",
+    "dark_only_labels"
+]
 
 
 def _get_median_centered_plot_bounds(g):
@@ -33,7 +44,7 @@ def _get_median_centered_plot_bounds(g):
 
 
 def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
-                                 return_smopy_map=False):
+                                 return_smopy_map=False, map_style=None):
     """
     Parameters
     ----------
@@ -61,13 +72,14 @@ def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None, map_alpha=0.8,
                           ax=ax,
                           spatial_bounds=spatial_bounds,
                           map_alpha=map_alpha,
-                          scalebar=scalebar,
+                          plot_scalebar=scalebar,
                           legend=legend,
-                          return_smopy_map=return_smopy_map)
+                          return_smopy_map=return_smopy_map,
+                          map_style=map_style)
 
 
-def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
-                   return_smopy_map=False, line_width_attribute=None, line_width_scale=1.0):
+def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, plot_scalebar=True, legend=True,
+                   return_smopy_map=False, line_width_attribute=None, line_width_scale=1.0, map_style=None):
     """
     Parameters
     ----------
@@ -78,7 +90,7 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, sc
     ax: axis object
     spatial_bounds: dict
     map_alpha:
-    scalebar:
+    plot_scalebar: bool
     legend:
     return_smopy_map:
     line_width_attribute:
@@ -97,7 +109,7 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, sc
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max, map_style=map_style)
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=map_alpha)
     bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                                          numpy.array([lon_min, lon_max]))
@@ -118,7 +130,7 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, sc
         labels = [ROUTE_TYPE_TO_SHORT_DESCRIPTION[route_type] for route_type in route_types_to_lines.keys()]
         ax.legend(lines, labels)
 
-    if scalebar:
+    if plot_scalebar:
         _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
 
     ax.set_xticks([])
@@ -372,8 +384,15 @@ def plot_all_stops(g, ax=None, scalebar=False):
     return ax
 
 
-def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None):
-    args = (lat_min, lat_max, lon_min, lon_max, z)
+def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
+    ORIG_TILE_SERVER = smopy.TILE_SERVER
+    if map_style is not None:
+        assert map_style in MAP_STYLES, map_style + \
+                                        " (map_style parameter) is not a valid CartoDB mapping style. Options are " + \
+                                        str(MAP_STYLES)
+        smopy.TILE_SERVER = "http://1.basemaps.cartocdn.com/" + map_style + "/{z}/{x}/{y}.png"
+
+    args = (lat_min, lat_max, lon_min, lon_max, map_style, z)
     if args not in get_smopy_map.maps:
         kwargs = {}
         if z is not None:  # this hack may not work
@@ -382,9 +401,11 @@ def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None):
         try:
             get_smopy_map.maps[args] = smopy.Map((lat_min, lon_min, lat_max, lon_max), **kwargs)
         except URLError:
-            raise RuntimeError("\n Could not load background map from the tile server: " + smopy.TILE_SERVER +
+            raise RuntimeError("\n Could not load background map from the tile server: "
+                               + smopy.TILE_SERVER +
                                "\n Please check that the tile server exists and "
                                "that your are connected to the internet.")
+    smopy.TILE_SERVER = ORIG_TILE_SERVER
     return get_smopy_map.maps[args]
 
 
