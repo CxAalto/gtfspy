@@ -59,15 +59,18 @@ def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None, map_alpha=0.8,
 
     Returns
     -------
-    ax: matplotlib.Axes
+    ax: matplotlib.axes.Axes
 
     """
-
     assert(isinstance(g, GTFS))
     route_shapes = g.get_all_route_shapes()
 
     if spatial_bounds is None:
         spatial_bounds = get_spatial_bounds(g, as_dict=True)
+    if ax is not None:
+        bbox = ax.get_window_extent().transformed(ax.figure.dpi_scale_trans.inverted())
+        width, height = bbox.width, bbox.height
+        spatial_bounds = _expand_spatial_bounds_to_fit_axes(spatial_bounds, width, height)
     return plot_as_routes(route_shapes,
                           ax=ax,
                           spatial_bounds=spatial_bounds,
@@ -100,12 +103,11 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, pl
     -------
     ax: matplotlib.axes object
     """
-    line_width = None
     lon_min = spatial_bounds['lon_min']
     lon_max = spatial_bounds['lon_max']
     lat_min = spatial_bounds['lat_min']
     lat_max = spatial_bounds['lat_max']
-    if ax is None:
+    if ax is not None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
@@ -121,6 +123,8 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, pl
         lons = numpy.array(shape['lons'])
         if line_width_attribute:
             line_width = line_width_scale * shape[line_width_attribute]
+        else:
+            line_width = 1
         xs, ys = smopy_map.to_pixels(lats, lons)
         line, = ax.plot(xs, ys, linewidth=line_width, color=ROUTE_TYPE_TO_COLOR[route_type], zorder=ROUTE_TYPE_TO_ZORDER[route_type])
         route_types_to_lines[route_type] = line
@@ -128,7 +132,7 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, pl
     if legend:
         lines = list(route_types_to_lines.values())
         labels = [ROUTE_TYPE_TO_SHORT_DESCRIPTION[route_type] for route_type in route_types_to_lines.keys()]
-        ax.legend(lines, labels)
+        ax.legend(lines, labels, loc="upper left")
 
     if plot_scalebar:
         _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
@@ -253,6 +257,53 @@ def _add_scale_bar(ax, lat, lon_min, lon_max, width_pixels):
     distance_m = util.wgs84_distance(lat, lon_min, lat, lon_max)
     scalebar = ScaleBar(distance_m / width_pixels)  # 1 pixel = 0.2 meter
     ax.add_artist(scalebar)
+
+
+def _expand_spatial_bounds_to_fit_axes(bounds, ax_width, ax_height):
+    """
+    Parameters
+    ----------
+    bounds: dict
+    ax_width: float
+    ax_height: float
+
+    Returns
+    -------
+    spatial_bounds
+    """
+    b = bounds
+    height_meters = util.wgs84_distance(b['lat_min'], b['lon_min'], b['lat_max'], b['lon_min'])
+    width_meters = util.wgs84_distance(b['lat_min'], b['lon_min'], b['lat_min'], b['lon_max'])
+    x_per_y_meters = width_meters / height_meters
+    x_per_y_axes = ax_width / ax_height
+    if x_per_y_axes > x_per_y_meters:  # x-axis
+        # axis x_axis has slack -> the spatial longitude bounds need to be extended
+        width_meters_new = (height_meters * x_per_y_axes)
+        d_lon_new = ((b['lon_max'] - b['lon_min']) / width_meters) * width_meters_new
+        mean_lon = (b['lon_min'] + b['lon_max'])/2.
+        lon_min = mean_lon - d_lon_new / 2.
+        lon_max = mean_lon + d_lon_new / 2.
+        spatial_bounds = {
+            "lon_min": lon_min,
+            "lon_max": lon_max,
+            "lat_min": b['lat_min'],
+            "lat_max": b['lat_max']
+        }
+    else:
+        # axis y_axis has slack -> the spatial latitude bounds need to be extended
+        height_meters_new = (width_meters / x_per_y_axes)
+        d_lat_new = ((b['lat_max'] - b['lat_min']) / height_meters) * height_meters_new
+        mean_lat = (b['lat_min'] + b['lat_max']) / 2.
+        lat_min = mean_lat - d_lat_new / 2.
+        lat_max = mean_lat + d_lat_new / 2.
+        spatial_bounds = {
+            "lon_min": b['lon_min'],
+            "lon_max": b['lon_max'],
+            "lat_min": lat_min,
+            "lat_max": lat_max
+        }
+    return spatial_bounds
+
 
 
 def plot_route_network_thumbnail(g):
