@@ -70,11 +70,11 @@ class FilterExtract(object):
         update_metadata : boolean, optional
             whether to update metadata of the feed, defaulting to true
             (this option is mainly available for testing purposes)
-        start_date : unicode, or datetime.datetime
+        start_date : str, or datetime.datetime
             filter out all data taking place before end_date (the start_time_ut of the end date)
             Date format "YYYY-MM-DD"
             (end_date_ut is not included after filtering)
-        end_date : unicode, or datetime.datetime
+        end_date : str, or datetime.datetime
             Filter out all data taking place after end_date
             The end_date is not included after filtering.
         agency_ids_to_preserve : iterable
