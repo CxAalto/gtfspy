@@ -107,7 +107,7 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, pl
     lon_max = spatial_bounds['lon_max']
     lat_min = spatial_bounds['lat_min']
     lat_max = spatial_bounds['lat_max']
-    if ax is not None:
+    if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
