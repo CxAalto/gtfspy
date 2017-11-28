@@ -90,7 +90,7 @@ class TimetableValidator(object):
             p = self.buffer_params
             center_lat = p['lat']
             center_lon = p['lon']
-            buffer_distance = p['buffer_distance'] * 2 * 1000
+            buffer_distance = p['buffer_distance'] * 100 * 1.002 # some error margin for rounding
             for stop_row in self.gtfs.stops().itertuples():
                 if buffer_distance < wgs84_distance(center_lat, center_lon, stop_row.lat, stop_row.lon):
                     self.warnings_container.add_warning(WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY, stop_row)

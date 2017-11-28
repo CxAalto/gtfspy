@@ -21,13 +21,6 @@ from gtfspy import gtfs
 FILTERED = True
 NOT_FILTERED = False
 
-_STOPS_REFERENCED_IN_STOP_TIMES_OR_AS_PARENT_STOP_I_SQL = \
-    "SELECT DISTINCT stop_I FROM stop_times " \
-    "UNION " \
-    "SELECT DISTINCT parent_I as stop_I FROM stops WHERE parent_I IS NOT NULL"
-DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL = \
-    "DELETE FROM stops WHERE stop_I NOT IN (" + \
-    _STOPS_REFERENCED_IN_STOP_TIMES_OR_AS_PARENT_STOP_I_SQL + ")"
 DELETE_FREQUENCIES_NOT_REFERENCED_IN_TRIPS_SQL = "DELETE FROM frequencies WHERE trip_I NOT IN (SELECT DISTINCT trip_I FROM trips)"
 DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL = 'DELETE FROM shapes WHERE shape_id NOT IN (SELECT shape_id FROM trips)'
 DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL = 'DELETE FROM routes WHERE route_I NOT IN (SELECT route_I FROM trips)'
@@ -264,7 +257,7 @@ class FilterExtract(object):
             self.copy_db_conn.execute(DELETE_TRIPS_NOT_IN_DAYS_SQL)
             self.copy_db_conn.execute(DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL)
             self.copy_db_conn.execute(DELETE_STOP_TIMES_NOT_REFERENCED_IN_TRIPS_SQL)
-            self.copy_db_conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
+            delete_stops_not_in_stop_times_and_not_as_parent_stop(self.copy_db_conn)
             self.copy_db_conn.execute(DELETE_STOP_DISTANCE_ENTRIES_WITH_NONEXISTENT_STOPS_SQL)
             self.copy_db_conn.execute(DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL)
             self.copy_db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
@@ -429,7 +422,7 @@ class FilterExtract(object):
                                     'WHERE q1.trip_I = q2.trip_I AND n_stops = stops_per_stop)')
 
         # Delete all stop_times for uncovered stops
-        self.copy_db_conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
+        delete_stops_not_in_stop_times_and_not_as_parent_stop(self.copy_db_conn)
         # Consecutively delete all the rest remaining.
         self.copy_db_conn.execute(DELETE_TRIPS_NOT_REFERENCED_IN_STOP_TIMES)
         self.copy_db_conn.execute(DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL)
@@ -479,6 +472,20 @@ class FilterExtract(object):
             self.copy_db_conn.commit()
         return
 
+def delete_stops_not_in_stop_times_and_not_as_parent_stop(conn):
+    _STOPS_REFERENCED_IN_STOP_TIMES_OR_AS_PARENT_STOP_I_SQL = \
+        "SELECT DISTINCT stop_I FROM stop_times " \
+        "UNION " \
+        "SELECT DISTINCT parent_I as stop_I FROM stops WHERE parent_I IS NOT NULL"
+    DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL = \
+        "DELETE FROM stops WHERE stop_I NOT IN (" + \
+        _STOPS_REFERENCED_IN_STOP_TIMES_OR_AS_PARENT_STOP_I_SQL + ")"
+    # It is possible that there is some "parent_I" recursion going on, and thus we
+    # execute the same SQL query three times.
+    conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
+    conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
+    conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
+
 def add_wgs84_distance_function_to_db(conn):
     function_name = "find_distance"
     conn.create_function(function_name, 4, wgs84_distance)
@@ -509,7 +516,7 @@ def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffe
     remove_all_stop_times_where_trip_I_fully_outside_buffer_sql = "DELETE FROM stop_times WHERE trip_I IN (" + trip_Is_to_remove_string  + ")"
     db_conn.execute(remove_all_trips_fully_outside_buffer_sql)
     db_conn.execute(remove_all_stop_times_where_trip_I_fully_outside_buffer_sql)
-    db_conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
+    delete_stops_not_in_stop_times_and_not_as_parent_stop(db_conn)
     db_conn.execute(DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL)
     db_conn.execute(DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL)
     db_conn.execute(DELETE_DAYS_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL)
