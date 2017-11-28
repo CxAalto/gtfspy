@@ -15,18 +15,18 @@ from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
 
 
-WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "trip-arr_time -combinations with five or more consecutive stops having same stop time"
-WARNING_LONG_TRIP_TIME = "trip time longer than {MAX_TRIP_TIME} seconds"
+WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "trip--arr_time -combinations with five or more consecutive stops having same stop time"
+WARNING_LONG_TRIP_TIME = "Trip time longer than {MAX_TRIP_TIME} seconds"
 WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED = "trips whose average speed is unrealistic relative to travel mode"
 
 MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS = 20000  # meters
 WARNING_LONG_STOP_SPACING = "distance between consecutive stops longer than " + str(MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS) + " meters"
 MAX_TIME_BETWEEN_STOPS = 1800  # seconds
-WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "trip-stop_times-combtinations with travel time between consecutive stops longer than " + str(MAX_TIME_BETWEEN_STOPS / 60) + " minutes"
+WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "trip--stop_times-combinations with travel time between consecutive stops longer than " + str(MAX_TIME_BETWEEN_STOPS / 60) + " minutes"
 
 WARNING_STOP_SEQUENCE_ORDER_ERROR = "stop sequence is not in right order"
 WARNING_STOP_SEQUENCE_NOT_INCREMENTAL = "stop sequences are not increasing always by one in stop_times"
-WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY = "Stop far away from spatial filter boundary"
+WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY = "stop far away from spatial filter boundary"
 
 ALL_WARNINGS = {
     WARNING_LONG_STOP_SPACING,
