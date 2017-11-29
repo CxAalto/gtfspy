@@ -306,7 +306,7 @@ def _expand_spatial_bounds_to_fit_axes(bounds, ax_width, ax_height):
 
 
 
-def plot_route_network_thumbnail(g):
+def plot_route_network_thumbnail(g, map_style=None):
     width = 512  # pixels
     height = 300  # pixels
     scale = 24
@@ -326,7 +326,7 @@ def plot_route_network_thumbnail(g):
     fig = plt.figure(figsize=(width/dpi, height/dpi))
     ax = fig.add_subplot(111)
     plt.subplots_adjust(bottom=0.0, left=0.0, right=1.0, top=1.0)
-    return plot_route_network_from_gtfs(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False)
+    return plot_route_network_from_gtfs(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False, map_style=map_style)
 
 
 def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list, s=0.5, spatial_bounds=None,  colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
