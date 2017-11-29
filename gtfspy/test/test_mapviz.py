@@ -8,9 +8,11 @@ from gtfspy.mapviz import plot_route_network_from_gtfs
 
 
 class TestMapviz(unittest.TestCase):
+
     def setUp(self):
         self.gtfs_source_dir = os.path.join(os.path.dirname(__file__), "test_data/filter_test_feed")
         self.fname = self.gtfs_source_dir + "/test_gtfs.sqlite"
+        self._remove_temporary_files()
         conn = sqlite3.connect(self.fname)
         import_gtfs(self.gtfs_source_dir, conn, preserve_connection=True, print_progress=False)
         self.G = GTFS(conn)
