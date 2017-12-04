@@ -26,12 +26,12 @@ ANALYSIS_START_TIME_UT = G.get_suitable_date_for_daily_extract(ut=True) + 10 * 3
 # Analyze tremporal distances / travel times for one hour departure time interval:
 ANALYSIS_END_TIME_UT = ANALYSIS_START_TIME_UT + 1 * 3600
 # Normally scanning of PT connections (i.e. "routing") should start at the same time of the analysis start time:
-CONNECTION_SCANNING_START_TIME_UT = ANALYSIS_START_TIME_UT
+CONNECTION_SCAN_START_TIME_UT = ANALYSIS_START_TIME_UT
 # Consider only journey alternatives that arrive to the destination at most two hours
 # later than last departure time of interest:
-CONNECTION_SCANNING_END_TIME_UT = ANALYSIS_END_TIME_UT + 2 * 3600
+CONNECTION_SCAN_END_TIME_UT = ANALYSIS_END_TIME_UT + 2 * 3600
 
-connections = get_transit_connections(G, CONNECTION_SCANNING_START_TIME_UT, CONNECTION_SCANNING_END_TIME_UT)
+connections = get_transit_connections(G, CONNECTION_SCAN_START_TIME_UT, CONNECTION_SCAN_END_TIME_UT)
 MAX_WALK_LENGTH = 1000
 # Get the walking network with all stop-pairs that are less than 1000 meters apart.
 walk_network = get_walk_network(G, MAX_WALK_LENGTH)
@@ -43,8 +43,8 @@ walk_network = get_walk_network(G, MAX_WALK_LENGTH)
 
 mpCSA = MultiObjectivePseudoCSAProfiler(connections,
                                         targets=[to_stop_I],
-                                        start_time_ut=CONNECTION_SCANNING_START_TIME_UT,
-                                        end_time_ut=CONNECTION_SCANNING_END_TIME_UT,
+                                        start_time_ut=CONNECTION_SCAN_START_TIME_UT,
+                                        end_time_ut=CONNECTION_SCAN_END_TIME_UT,
                                         transfer_margin=120,  # seconds
                                         walk_network=walk_network,
                                         walk_speed=1.5,  # meters per second
