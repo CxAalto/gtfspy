@@ -4,7 +4,6 @@ import os
 import sqlite3
 import unittest
 
-
 from gtfspy.gtfs import GTFS
 from gtfspy.import_gtfs import import_gtfs
 

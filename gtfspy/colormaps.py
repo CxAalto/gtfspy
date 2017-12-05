@@ -41,10 +41,21 @@ def get_colormap(observable_name=None):
     elif "delay_minutes" in observable_name:
         norm = matplotlib.colors.Normalize(vmin=-300, vmax=300)
         cmap = matplotlib.cm.get_cmap(name="seismic", lut=None)
-
+    elif "delay_seconds" in observable_name:
+        norm = matplotlib.colors.Normalize(vmin=-1500, vmax=1500)
+        cmap = matplotlib.cm.get_cmap(name="seismic", lut=None)
+    elif "n_locations" in observable_name:
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=2000)
+        cmap = matplotlib.cm.get_cmap(name="viridis", lut=None)
     else:
         norm = matplotlib.colors.Normalize(vmin=-30, vmax=30)
         cmap = matplotlib.cm.get_cmap(name="seismic", lut=None)
+    return cmap, norm
+
+
+def get_colormap_with_params(vmin, vmax, name="seismic"):
+    norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+    cmap = matplotlib.cm.get_cmap(name=name, lut=None)
     return cmap, norm
 
 

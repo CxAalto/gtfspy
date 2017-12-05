@@ -1,0 +1,5 @@
+shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence
+t3_shape,60.173336,24.945578,0
+t3_shape,48.832781,2.360734,1
+t3_shape,49.603100,6.135981,2
+t3_shape,60.173336,24.945578,3

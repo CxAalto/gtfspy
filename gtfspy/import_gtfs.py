@@ -124,6 +124,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     G.meta['download_date'] = ''
     G.meta['location_name'] = ''
     G.meta['n_gtfs_sources'] = len(gtfs_sources)
+
     # Extract things from GTFS
     download_date_strs = []
     for i, source in enumerate(gtfs_sources):
@@ -186,7 +187,7 @@ def main_make_views(gtfs_fname):
     """Re-create all views.
     """
     print("creating views")
-    conn = GTFS(fname=gtfs_fname).conn
+    conn = GTFS(fname_or_conn=gtfs_fname).conn
     for L in Loaders:
         L(None).make_views(conn)
     conn.commit()

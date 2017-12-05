@@ -24,6 +24,11 @@ class StopTimesLoader(TableLoader):
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
                 #print row
+                assert row['arrival_time'] != "", "Some stop_times entries is missing arrival time information."
+                assert row['departure_time'] != "", "Some stop_times entries is missing departure time information."
+                assert row['stop_sequence'] != "", "Some stop_times entries is missing seq information."
+                assert row['stop_id'] != "", "Some stop_times entries is missing stop_id information."
+                assert row['trip_id'] != "", "Some stop_times entries is missing trip_id information."
                 yield dict(
                     _stop_id      = prefix + decode_six(row['stop_id']),
                     _trip_id      = prefix + decode_six(row['trip_id']),
@@ -41,20 +46,8 @@ class StopTimesLoader(TableLoader):
         calculate_trip_shape_breakpoints(self._conn)
 
         # Resequence seq value to increments of 1 starting from 1
-        rows = cur.execute('SELECT ROWID, trip_I, seq FROM stop_times ORDER BY trip_I, seq').fetchall()
+        resequence_stop_times_seq_values(self._conn)
 
-        old_trip_I = ''
-        for row in rows:
-            rowid = row[0]
-            trip_I = row[1]
-            seq = row[2]
-
-            if old_trip_I != trip_I:
-                correct_seq = 1
-            if seq != correct_seq:
-                cur.execute('UPDATE stop_times SET seq = ? WHERE ROWID = ?', (correct_seq, rowid))
-            old_trip_I = trip_I
-            correct_seq += 1
 
     @classmethod
     def index(cls, cur):
@@ -81,6 +74,24 @@ class StopTimesLoader(TableLoader):
     #                 'JOIN trips USING (trip_I) '
     #                 'JOIN stop_times USING (trip_I)')
     #    conn.commit()
+
+
+def resequence_stop_times_seq_values(conn):
+    cursor = conn.cursor()
+    rows = cursor.execute('SELECT ROWID, trip_I, seq FROM stop_times ORDER BY trip_I, seq').fetchall()
+    old_trip_I = ''
+    correct_seq = 1
+    for row in rows:
+        rowid = row[0]
+        trip_I = row[1]
+        seq = row[2]
+
+        if old_trip_I != trip_I:
+            correct_seq = 1
+        if seq != correct_seq:
+            cursor.execute('UPDATE stop_times SET seq = ? WHERE ROWID = ?', (correct_seq, rowid))
+        old_trip_I = trip_I
+        correct_seq += 1
 
 
 def calculate_trip_shape_breakpoints(conn):

@@ -1,3 +1,5 @@
+import copy
+
 from gtfspy.routing.label import compute_pareto_front
 from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
 from gtfspy.routing.profile_block_analyzer import ProfileBlockAnalyzer
@@ -6,8 +8,7 @@ from gtfspy.routing.profile_block import ProfileBlock
 
 class FastestPathAnalyzer:
 
-    def __init__(self, labels, start_time_dep, end_time_dep, walk_duration=float('inf'),
-                 label_props_to_consider=None, **kwargs):
+    def __init__(self, labels, start_time_dep, end_time_dep, walk_duration=float('inf'), label_props_to_consider=None, **kwargs):
         """
         Parameters
         ----------
@@ -32,13 +33,11 @@ class FastestPathAnalyzer:
         for label in self._fastest_path_labels:
             for prop in self.label_props:
                 assert (hasattr(label, prop))
-
         self.kwargs = kwargs
 
     def _compute_fastest_path_labels(self, labels):
-        fp_labels = [label for label in labels if
-                           (self.start_time_dep < label.departure_time <= self.end_time_dep)]
-        if len(fp_labels) is 0 or fp_labels[-1].departure_time < self.end_time_dep:
+        relevant_labels = [label.get_copy() for label in labels if (self.start_time_dep < label.departure_time <= self.end_time_dep)]
+        if len(relevant_labels) is 0 or relevant_labels[-1].departure_time < self.end_time_dep:
             # add an after label
             smallest_arr_time_after_end_time = float('inf')
             smallest_arr_time_label = None
@@ -47,13 +46,24 @@ class FastestPathAnalyzer:
                     smallest_arr_time_after_end_time = label.arrival_time_target
                     smallest_arr_time_label = label
             if smallest_arr_time_label is not None:
-                fp_labels.append(smallest_arr_time_label)
+                relevant_labels.append(smallest_arr_time_label.get_copy())
 
-        fp_labels = list(reversed(compute_pareto_front(fp_labels, ignore_n_boardings=True)))
+        for label in relevant_labels:
+            if hasattr(label, "first_leg_is_walk"):
+                label.first_leg_is_walk = False
+        fp_labels = list(reversed(compute_pareto_front(relevant_labels, ignore_n_boardings=True)))
+
         # assert ordered:
         for i in range(len(fp_labels) - 1):
-            assert (fp_labels[i].departure_time < fp_labels[i + 1].departure_time)
-
+            try:
+                assert (fp_labels[i].arrival_time_target <= fp_labels[i + 1].arrival_time_target)
+                assert (fp_labels[i].departure_time < fp_labels[i + 1].departure_time)
+            except AssertionError as e:
+                for fp_label in fp_labels:
+                    print(fp_label)
+                print(fp_labels[i].arrival_time_target, fp_labels[i + 1].arrival_time_target)
+                print(fp_labels[i].departure_time, fp_labels[i + 1].departure_time)
+                raise e
         return fp_labels
 
     def get_fastest_path_labels(self, include_next_label_outside_interval=False):

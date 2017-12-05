@@ -38,10 +38,10 @@ class TestUtil(unittest.TestCase):
     def test_txt_to_pandas(self):
         source_dir = os.path.join(os.path.dirname(__file__), "test_data")
         txtnames = ['agency', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
-        df = util.source_table_txt_to_pandas(source_dir, txtnames[3])
+        df = util.source_csv_to_pandas(source_dir, txtnames[3])
         self.assertIsInstance(df, pd.DataFrame)
         source_zip = os.path.join(os.path.dirname(__file__), "test_data/test_gtfs.zip")
-        df = util.source_table_txt_to_pandas(source_zip, txtnames[4])
+        df = util.source_csv_to_pandas(source_zip, txtnames[4])
         self.assertIsInstance(df, pd.DataFrame)
 
     def test_difference_of_pandas_dfs(self):

@@ -357,9 +357,16 @@ def _n_gtfs_sources(gtfs):
 def _feed_calendar_span(gtfs, stats):
     """
     Computes the temporal coverage of each source feed
-    :param gtfs: gtfs object
-    :param stats: stats container, dict
-    :return: stats, dict
+
+    Parameters
+    ----------
+    gtfs: gtfspy.GTFS object
+    stats: dict
+        where to append the stats
+
+    Returns
+    -------
+    stats: dict
     """
     n_feeds = _n_gtfs_sources(gtfs)[0]
     max_start = None
@@ -415,13 +422,11 @@ def trip_stats(gtfs, results_by_mode=False):
     Returns
     -------
     if results_by_mode is False:
-    q_result: pandas dataframe
-
+        q_result: pandas.DataFrame
     if results_by_mode is True:
-    q_results: dict
-        a dict with keys:
-
-
+        q_results: dict
+            a dict with the following keys:
+                [ADD HERE]
     """
     conn = gtfs.conn
 
@@ -462,17 +467,6 @@ def trip_stats(gtfs, results_by_mode=False):
         return q_result
 
 
-def stop_headways(gtfs, results_by_mode=False):
-    """
-    Calculates the average headway for each stop
-    is this meaningful?
-    :param gtfs:
-    :param results_by_mode:
-    :return:
-    """
-    pass
-
-
 def get_section_stats(gtfs, results_by_mode=False):
     conn = gtfs.conn
 
@@ -508,6 +502,7 @@ def get_section_stats(gtfs, results_by_mode=False):
     else:
         return q_result
 
+
 def route_frequencies(gtfs, results_by_mode=False):
     """
     Return the frequency of all types of routes per day.
@@ -515,10 +510,9 @@ def route_frequencies(gtfs, results_by_mode=False):
     Parameters
     -----------
     gtfs: GTFS
-    day: gtfs.get_suitable_date_for_daily_extract()
 
-    Returns:
-    ---------
+    Returns
+    -------
     pandas.DataFrame with columns
         route_I, type, frequency
     """
@@ -594,7 +588,6 @@ def frequencies_by_generated_route(gtfs, st, et, day=None):
     GROUP BY trip_I) q2
     GROUP BY route""".format(h=hours, st=st, et=et, day=day)
     df = gtfs.execute_custom_query_pandas(query)
-
     return df
 
 
@@ -641,6 +634,5 @@ def trips_frequencies(gtfs):
         " GROUP BY from_stop_I, to_stop_I")
     return(gtfs.execute_custom_query_pandas(query))
 
-
-def route_circuity():
-    pass
+# def route_circuity():
+#    pass

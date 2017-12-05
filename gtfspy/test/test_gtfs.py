@@ -288,3 +288,14 @@ class TestGTFS(unittest.TestCase):
     def test_homogenize_stops_table_with_other_db(self):
         # TODO: testing this would require creating temp databases or something, joining inmemory databases might be impossible?
         pass
+
+    def test_get_weekly_extract_start_date(self):
+        trip_counts_per_day = self.G.get_trip_counts_per_day()
+        first_day = trip_counts_per_day['date'].min()
+        last_day = trip_counts_per_day['date'].max()  # a monday not in reach
+        # print(first_day, last_day)
+        first_monday = self.G.get_weekly_extract_start_date(download_date_override=first_day)
+        early_monday = self.G.get_weekly_extract_start_date(
+            download_date_override=first_day + datetime.timedelta(days=10))
+        end_monday = self.G.get_weekly_extract_start_date(download_date_override=last_day - datetime.timedelta(days=5))
+        assert first_monday < early_monday < end_monday

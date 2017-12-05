@@ -1,10 +1,19 @@
 language: python 
 python:
   - "3.5"
+
 # command to install dependencies
+
 install: "pip install ."
 # command to run tests
+
+before_script: # configure a headless display for testing plot generation
+- "export DISPLAY=:99.0"
+- "sh -e /etc/init.d/xvfb start"
+- sleep 3 # give xvfb some time to start
+
 script: nosetests .
+
 notifications:
   email:
     recipients:
