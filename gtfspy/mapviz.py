@@ -305,7 +305,6 @@ def _expand_spatial_bounds_to_fit_axes(bounds, ax_width, ax_height):
     return spatial_bounds
 
 
-
 def plot_route_network_thumbnail(g, map_style=None):
     width = 512  # pixels
     height = 300  # pixels
@@ -329,7 +328,10 @@ def plot_route_network_thumbnail(g, map_style=None):
     return plot_route_network_from_gtfs(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False, map_style=map_style)
 
 
-def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list, s=0.5, spatial_bounds=None,  colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
+def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list, s=0.5, spatial_bounds=None,
+                                           colorbar=False, ax=None, cmap=None, norm=None, alpha=None, colors=None):
+    if not colors:
+        colors = mcolors.BASE_COLORS
     if not spatial_bounds:
         lon_min = min([min(x) for x in lons_list])
         lon_max = max([max(x) for x in lons_list])
@@ -340,7 +342,7 @@ def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list
         lon_max = spatial_bounds['lon_max']
         lat_min = spatial_bounds['lat_min']
         lat_max = spatial_bounds['lat_max']
-    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max, map_style="dark_nolabels")
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -366,37 +368,43 @@ def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=0.8)
 
     axes = []
-    for lats, lons, attributes, c in zip(lats_list, lons_list, attributes_list, mcolors.BASE_COLORS):
+    for lats, lons, attributes, c in zip(lats_list, lons_list, attributes_list, colors):
         x, y = zip(*[smopy_map.to_pixels(lat, lon) for lat, lon in zip(lats, lons)])
         ax = plt.scatter(x, y, s=s, c=c) #, marker=".")
         axes.append(ax)
     return axes
 
 
-def plot_stops_with_attributes(lats, lons, attribute, s=0.5, spatial_bounds=None, colorbar=False, ax=None, cmap=None, norm=None, alpha=None):
+def plot_stops_with_attributes(lats, lons, attribute, s=0.5, spatial_bounds=None, colorbar=False, ax=None,
+                               cmap=None, norm=None, alpha=None, scalebar=False, map_style="dark_nolabels"):
     if not spatial_bounds:
         lon_min = min(lons)
         lon_max = max(lons)
         lat_min = min(lats)
         lat_max = max(lats)
     else:
+        print("using predefined spatial bounds")
         lon_min = spatial_bounds['lon_min']
         lon_max = spatial_bounds['lon_max']
         lat_min = spatial_bounds['lat_min']
         lat_max = spatial_bounds['lat_max']
-    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max, map_style=map_style)
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=0.8)
 
     xs, ys = smopy_map.to_pixels(lats, lons)
+    bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
+                                                         numpy.array([lon_min, lon_max]))
     cax = ax.scatter(xs, ys, c=attribute, s=s, cmap=cmap, norm=norm, alpha=alpha)
-
-    ax.set_xlim(min(xs), max(xs))
-    ax.set_ylim(max(ys), min(ys))
+    ax.set_xlim(bound_pixel_xs)
+    ax.set_ylim(bound_pixel_ys)
+    if scalebar:
+        _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
     if colorbar:
         return ax, cax, smopy_map
+
     return ax
 
 
