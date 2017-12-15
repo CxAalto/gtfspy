@@ -18,7 +18,7 @@ class ConnectionScanTest(unittest.TestCase):
         ]
         self.transit_connections = map(lambda el: Connection(*el), event_list_raw_data)
         self.walk_network = networkx.Graph()
-        self.walk_network.add_edge(4, 5, {"d_walk": 1000})
+        self.walk_network.add_edge(4, 5, d_walk=1000)
         self.walk_speed = 10
         self.source_stop = 1
         self.end_time = 20
@@ -83,7 +83,7 @@ class ConnectionScanTest(unittest.TestCase):
         ]
         transit_connections = map(lambda el: Connection(*el), event_list_raw_data)
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 10})
+        walk_network.add_edge(1, 2, d_walk=10)
         walk_speed = 10
         source_stop = 1
         start_time = 0

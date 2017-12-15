@@ -63,7 +63,7 @@ def walk_transfer_stop_to_stop_network(gtfs, max_link_distance=None):
             if stop_distance_tuple.d > max_link_distance:
                 continue
             data = {'d': stop_distance_tuple.d}
-        net.add_edge(from_node, to_node, data)
+        net.add_edge(from_node, to_node, **data)
     return net
 
 
@@ -213,7 +213,7 @@ def combined_stop_to_stop_transit_network(gtfs, start_time_ut=None, end_time_ut=
         graph = stop_to_stop_network_for_route_type(gtfs, route_type,
                                                     start_time_ut=start_time_ut, end_time_ut=end_time_ut)
         for from_node, to_node, data in graph.edges(data=True):
-            data['route_type'] = route_type
+            data['attr_dict']['route_type'] = route_type
         multi_di_graph.add_edges_from(graph.edges(data=True))
         multi_di_graph.add_nodes_from(graph.nodes(data=True))
     return multi_di_graph
@@ -233,7 +233,7 @@ def _add_stops_to_net(net, stops):
             "lon": stop.lon,
             "name": stop.name
         }
-        net.add_node(stop.stop_I, data)
+        net.add_node(stop.stop_I, **data)
 
 
 def temporal_network(gtfs,
