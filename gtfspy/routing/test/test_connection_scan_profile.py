@@ -22,8 +22,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
         ]
         self.transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         self.walk_network = networkx.Graph()
-        self.walk_network.add_edge(1, 2, {"d_walk": 20})
-        self.walk_network.add_edge(3, 4, {"d_walk": 15})
+        self.walk_network.add_edge(1, 2, d_walk=20)
+        self.walk_network.add_edge(3, 4, d_walk=15)
         self.walk_speed = 1
         self.source_stop = 1
         self.target_stop = 4
@@ -79,8 +79,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 20})
-        walk_network.add_edge(3, 4, {"d_walk": 15})
+        walk_network.add_edge(1, 2, d_walk=20)
+        walk_network.add_edge(3, 4, d_walk=15)
         walk_speed = 1
         source_stop = 1
         target_stop = 4
@@ -109,7 +109,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 20})
+        walk_network.add_edge(1, 2, d_walk=20)
 
         walk_speed = 1
         source_stop = 0
@@ -140,7 +140,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
         end_time = 50
 
         walk_network = networkx.Graph()
-        walk_network.add_edge(0, 1, {"d_walk": 1})
+        walk_network.add_edge(0, 1, d_walk=1)
         csa_profile = ConnectionScanProfiler(transit_connections, target_stop,
                                              start_time, end_time, transfer_margin,
                                              walk_network, walk_speed)
