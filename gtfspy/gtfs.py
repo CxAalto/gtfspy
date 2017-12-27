@@ -1250,7 +1250,7 @@ class GTFS(object):
                 trip_I_dict[day_start_ut] = trip_Is
         return trip_I_dict
 
-    def stops(self):
+    def stops(self, require_reference_in_stop_times=False):
         """
         Get all stop data as a pandas DataFrame
 
@@ -1258,7 +1258,12 @@ class GTFS(object):
         -------
         df: pandas.DataFrame
         """
-        return self.get_table("stops")
+        if require_reference_in_stop_times:
+            df = pd.read_sql("SELECT * FROM stops WHERE stops.stop_I IN "
+                             "(SELECT DISTINCT stop_I FROM stop_times)", self.conn)
+        else:
+            df = self.get_table("stops")
+        return df
 
     def stop(self, stop_I):
         """
