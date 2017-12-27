@@ -1744,6 +1744,7 @@ class GTFS(object):
         self.conn.commit()
 
     def regenerate_parent_stop_I(self):
+        raise NotImplementedError
         # get max stop_I
         cur = self.conn.cursor()
 

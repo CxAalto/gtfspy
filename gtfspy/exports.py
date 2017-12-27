@@ -122,7 +122,7 @@ def write_static_networks(gtfs, output_dir, fmt=None):
     Parameters
     ----------
     gtfs: gtfspy.GTFS
-    output_dir: (str, unicode)
+    output_dir: str, unicode
         a path where to write
     fmt: None, optional
         defaulting to "edg" and writing results as ".edg" files
@@ -224,22 +224,26 @@ def create_sections_geojson_dict(G, start_time_ut=None, end_time_ut=None):
     gjson = {"type": "FeatureCollection"}
     features = []
     gjson["features"] = features
-    data = list(multi_di_graph.edges(data=True))
-    data.sort(key=lambda el: ROUTE_TYPE_TO_ZORDER[el[2]['route_type']])
-    for from_stop_I, to_stop_I, data in data:
+    linksWithData = list(multi_di_graph.edges(data=True))
+    linksWithData.sort(key=lambda el: ROUTE_TYPE_TO_ZORDER[el[2]['attr_dict']['route_type']])
+    for from_stop_I, to_stop_I, linkData in linksWithData:
+        linkData = linkData['attr_dict']
         feature = {"type": "Feature"}
         geometry = {
             "type": "LineString",
             'coordinates': [stop_I_to_coords[from_stop_I], stop_I_to_coords[to_stop_I]]
         }
         feature['geometry'] = geometry
-        route_I_counts = data['route_I_counts']
-        route_I_counts = {str(key): int(value) for key, value in route_I_counts.items()}
-        data['route_I_counts'] = route_I_counts
-        properties = data
+
+        properties = dict()
+        properties['n_vehicles'] = linkData['n_vehicles']
+        properties['duration_avg'] = linkData['duration_avg']
+        properties['route_type'] = linkData['route_type']
+        route_I_counts = {str(key): int(value) for key, value in linkData['route_I_counts'].items()}
+        properties['route_I_counts'] = route_I_counts
         properties['from_stop_I'] = int(from_stop_I)
         properties['to_stop_I'] = int(to_stop_I)
-        feature['properties'] = data
+        feature['properties'] = properties
         features.append(feature)
     return gjson
 

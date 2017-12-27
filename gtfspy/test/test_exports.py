@@ -80,7 +80,8 @@ class ExportsTest(unittest.TestCase):
         self.assertGreater(len(edges), 0)
 
         at_least_one_shape_distance = False
-        for from_I, to_I, linkData in edges:
+        for from_I, to_I, data in edges:
+            linkData = data['attr_dict']
             ds = linkData['distance_shape']
             self.assertTrue(isinstance(ds, int) or (ds is None),
                             "distance_shape should be either int or None (in case shapes are not available)")
@@ -104,7 +105,7 @@ class ExportsTest(unittest.TestCase):
         multi_di_graph = networks.combined_stop_to_stop_transit_network(self.gtfs)
         self.assertIsInstance(multi_di_graph, networkx.MultiDiGraph)
         for from_node, to_node, data in multi_di_graph.edges(data=True):
-            self.assertIn("route_type", data)
+            self.assertIn("route_type", data['attr_dict'])
 
     def test_temporal_network(self):
         temporal_pd = networks.temporal_network(self.gtfs)
