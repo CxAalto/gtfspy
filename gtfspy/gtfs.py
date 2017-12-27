@@ -1250,7 +1250,7 @@ class GTFS(object):
                 trip_I_dict[day_start_ut] = trip_Is
         return trip_I_dict
 
-    def stops(self, require_reference_in_stop_times=False):
+    def stops(self, require_reference_in_stop_times=False, exclude_parent_stops=False):
         """
         Get all stop data as a pandas DataFrame
 
@@ -1258,12 +1258,15 @@ class GTFS(object):
         -------
         df: pandas.DataFrame
         """
+        sql = "SELECT * FROM stops"
+        conditions = []
         if require_reference_in_stop_times:
-            df = pd.read_sql("SELECT * FROM stops WHERE stops.stop_I IN "
-                             "(SELECT DISTINCT stop_I FROM stop_times)", self.conn)
-        else:
-            df = self.get_table("stops")
-        return df
+            conditions.append(" stops.stop_I IN (SELECT DISTINCT stop_I FROM stop_times) ")
+        if exclude_parent_stops:
+            conditions.append(" stops.stop_I NOT IN (SELECT DISTINCT parent_I FROM stops WHERE parent_I IS NOT NULL) ")
+        if len(conditions) > 0:
+            sql += " WHERE " + " AND ".join(conditions)
+        return pd.read_sql(sql, self.conn)
 
     def stop(self, stop_I):
         """
@@ -1310,7 +1313,7 @@ class GTFS(object):
 
         """
         if route_type is WALK:
-            return self.stops()
+            return self.stops(require_reference_in_stop_times=True)
         else:
             return pd.read_sql_query("SELECT DISTINCT stops.* "
                                      "FROM stops JOIN stop_times ON stops.stop_I == stop_times.stop_I "
@@ -1318,8 +1321,6 @@ class GTFS(object):
                                      "           JOIN routes ON trips.route_I == routes.route_I "
                                      "WHERE routes.type=(?)", self.conn, params=(route_type,))
 
-    def get_stops_connected_to_stop(self):
-        pass
 
     def generate_routable_transit_events(self, start_time_ut=None, end_time_ut=None, route_type=None):
         """
@@ -1764,6 +1765,7 @@ class GTFS(object):
         query_add_row = 'INSERT INTO stops( stop_id, code, name, desc, lat, lon) ' \
                         'VALUES (?, ?, ?, ?, ?, ?)'
         cur.executemany(query_add_row, [[stop_id, code, name, desc, lat, lon]])
+        cur.execute("UPDATE stops SET self_or_parent_I=stop_I where stop_id=?", (stop_id,))
         self.conn.commit()
 
     def recalculate_stop_distances(self, max_distance):
