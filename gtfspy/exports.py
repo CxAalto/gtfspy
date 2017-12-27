@@ -29,6 +29,10 @@ def write_walk_transfer_edges(gtfs, output_file_name):
 
 def write_nodes(gtfs, output, fields=None):
     """
+    Write out network nodes as a semicolon (;) separated file.
+
+    Keep only those nodes which are referened in the stop times.
+
     Parameters
     ----------
     gtfs: gtfspy.GTFS
@@ -37,7 +41,7 @@ def write_nodes(gtfs, output, fields=None):
     fields: list, optional
         which pieces of information to provide
     """
-    nodes = gtfs.get_table("stops")
+    nodes = gtfs.stops(require_reference_in_stop_times=True)
     if fields is not None:
         nodes = nodes[fields]
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
@@ -45,7 +49,7 @@ def write_nodes(gtfs, output, fields=None):
 
 
 def create_stops_geojson_dict(gtfs, fields=None):
-    nodes = gtfs.get_table("stops")
+    nodes = gtfs.stops(require_reference_in_stop_times=True)
     if fields is None:
         fields = {'name': 'stop_name', 'stop_I': 'stop_I', 'lat': 'lat', 'lon': 'lon'}
     assert (fields['lat'] == 'lat' and fields['lon'] == 'lon')
@@ -215,7 +219,7 @@ def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
 
 def create_sections_geojson_dict(G, start_time_ut=None, end_time_ut=None):
     multi_di_graph = combined_stop_to_stop_transit_network(G, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-    stops = G.get_table("stops")
+    stops = G.stops(require_reference_in_stop_times=True)
     stop_I_to_coords = {row.stop_I: [row.lon, row.lat] for row in stops.itertuples()}
     gjson = {"type": "FeatureCollection"}
     features = []
