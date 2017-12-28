@@ -43,6 +43,7 @@ def aggregate_stops_spatially(gtfs, threshold_meters=1):
             stop_Is_to_remove.append(key)
 
     stop_Is_to_remove_list_str = "(" + ",".join([str(stop_I) for stop_I in stop_Is_to_remove]) + ")"
+
     # Remove rows from stops and stop_distances tables where
     gtfs.execute_custom_query("DELETE FROM stops WHERE stop_I IN " + stop_Is_to_remove_list_str)
     gtfs.execute_custom_query("DELETE FROM stop_distances WHERE " +
@@ -54,4 +55,10 @@ def aggregate_stops_spatially(gtfs, threshold_meters=1):
     for old_stop_I, new_stop_I in to_new_stop_I.items():
         if old_stop_I != new_stop_I:
             to_change.append((new_stop_I, old_stop_I))
+    # create a temporary index if there are a lot of changes
+    if len(to_change) > 10:
+        gtfs.conn.execute("CREATE INDEX IF NOT EXISTS tmp_index_stop_times_stop_I ON stop_times (stop_I)")
+    # Do the actual updates
     gtfs.conn.executemany("UPDATE stop_times SET stop_I=? WHERE stop_I=?", to_change)
+    # Remove the temporary index
+    gtfs.conn.execute("DROP INDEX IF EXISTS tmp_index_stop_times_stop_I")
