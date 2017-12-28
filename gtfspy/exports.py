@@ -82,6 +82,7 @@ def create_stops_geojson_dict(gtfs, fields=None):
     }
     return geojson
 
+
 def write_stops_geojson(gtfs, out_file, fields=None):
     """
     Parameters
@@ -173,15 +174,15 @@ def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_u
     pandas_data_frame.to_csv(output_filename, encoding='utf-8', index=False)
 
 
-def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
+def _write_stop_to_stop_network_edges(net, file_name_without_extension, data=True, fmt=None):
     """
     Write out a network
 
     Parameters
     ----------
     net: networkx.DiGraph
-    base_name: str
-        path to the filename (without extension)
+    file_name_without_extension: str
+        path to the filename (without a filename extension)
     data: bool, optional
         whether or not to write out any edge data present
     fmt: str, optional
@@ -192,11 +193,11 @@ def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
 
     if fmt == "edg":
         if data:
-            networkx.write_edgelist(net, file_name, data=True)
+            networkx.write_edgelist(net, file_name_without_extension, data=True)
         else:
-            networkx.write_edgelist(net, file_name)
+            networkx.write_edgelist(net, file_name_without_extension)
     elif fmt == "csv":
-        with open(file_name, 'w') as f:
+        with open(file_name_without_extension, 'w') as f:
             # writing out the header
             _, _, edge_data = list(net.edges(data=True))[0]
             edge_data_keys = list(sorted(edge_data.keys()))
@@ -246,6 +247,7 @@ def create_sections_geojson_dict(G, start_time_ut=None, end_time_ut=None):
         features.append(feature)
     return gjson
 
+
 def write_sections_geojson(G, output_file, start_time_ut=None, end_time_ut=None):
     gjson = create_sections_geojson_dict(G, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
     if hasattr(output_file, "write"):
@@ -253,6 +255,7 @@ def write_sections_geojson(G, output_file, start_time_ut=None, end_time_ut=None)
     else:
         with open(output_file, 'w') as f:
             f.write(json.dumps(gjson))
+
 
 def create_routes_geojson_dict(G):
     assert(isinstance(G, GTFS))
@@ -273,6 +276,7 @@ def create_routes_geojson_dict(G):
     gjson['features'] = features
     return gjson
 
+
 def write_routes_geojson(G, output_file):
     gjson = create_routes_geojson_dict(G)
     if hasattr(output_file, "write"):
@@ -281,7 +285,6 @@ def write_routes_geojson(G, output_file):
         with open(output_file, 'w') as f:
             f.write(json.dumps(gjson))
     return None
-
 
 
 def write_gtfs(gtfs, output):
@@ -302,14 +305,14 @@ def write_gtfs(gtfs, output):
     output = os.path.abspath(output)
     uuid_str = "tmp_" + str(uuid.uuid1())
     if output[-4:] == '.zip':
-        zip = True
+        create_zipfile = True
         out_basepath = os.path.dirname(os.path.abspath(output))
         if not os.path.exists(out_basepath):
             raise IOError(out_basepath + " does not exist, cannot write gtfs as a zip")
         tmp_dir = os.path.join(out_basepath, str(uuid_str))
         # zip_file_na,e = ../out_basedir + ".zip
     else:
-        zip = False
+        create_zipfile = False
         out_basepath = output
         tmp_dir = os.path.join(out_basepath + "_" + str(uuid_str))
 
@@ -336,13 +339,12 @@ def write_gtfs(gtfs, output):
         print(fname_to_write)
         writer(gtfs, open(os.path.join(tmp_dir, table + '.txt'), 'w'))
 
-    if zip:
+    if create_zipfile:
         shutil.make_archive(output[:-4], 'zip', tmp_dir)
         shutil.rmtree(tmp_dir)
     else:
         print("moving " + str(tmp_dir) + " to " + out_basepath)
         os.rename(tmp_dir, out_basepath)
-
 
 
 def _remove_I_columns(df):
@@ -537,17 +539,6 @@ def _write_gtfs_stop_distances(gtfs, output_file):
     stop_distances.to_csv(output_file, index=False)
 
 
-# for row in stop_times_table.itertuples():
-#     dep_time = gtfs.unixtime_seconds_to_gtfs_datetime(row.dep_time_ds).strftime('%H:%M%S')
-#     arr_time = gtfs.unixtime_seconds_to_gtfs_datetime(row.arr_time_ds).strftime('%H:%M%S')
-#     departure_times.append(dep_time)
-#     arrival_times.append(arr_time)
-# stop_times_table['arrival_time'] = pandas.Series(arrival_times, stop_times_table.index)
-# stop_times_table['departure_time'] = pandas.Series(departure_times, stop_times_table.index)
-
-
-
-
 def main():
     import argparse
 
@@ -589,5 +580,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

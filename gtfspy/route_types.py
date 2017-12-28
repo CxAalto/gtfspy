@@ -94,9 +94,9 @@ ROUTE_TYPE_TO_COLOR = {
 }
 
 
-def route_type_to_color_iterable(type):
-    return [ROUTE_TYPE_TO_COLOR[x] for x in type]
+def route_type_to_color_iterable(route_type):
+    return [ROUTE_TYPE_TO_COLOR[x] for x in route_type]
 
 
-def route_type_to_zorder(type):
-    return [ROUTE_TYPE_TO_ZORDER[x] for x in type]
+def route_type_to_zorder(route_type):
+    return [ROUTE_TYPE_TO_ZORDER[x] for x in route_type]

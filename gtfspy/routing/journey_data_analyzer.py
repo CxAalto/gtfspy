@@ -5,7 +5,7 @@ import numpy as np
 from pandas import read_sql_query, DataFrame, Series
 from gtfspy.gtfs import GTFS
 from gtfspy.util import timeit
-from gtfspy.routing.journey_data import attach_database
+from gtfspy.routing.journey_data import _attach_database
 
 
 class JourneyDataAnalyzer:
@@ -18,7 +18,7 @@ class JourneyDataAnalyzer:
         self.conn = sqlite3.connect(journey_db_path)
         self.g = GTFS(gtfs_path)
         self.gtfs_path = gtfs_path
-        self.conn = attach_database(self.conn, self.gtfs_path)
+        self.conn = _attach_database(self.conn, self.gtfs_path)
 
     def __del__(self):
         self.conn.close()
@@ -51,7 +51,7 @@ class JourneyDataAnalyzer:
         if ignore_walk:
             added_constraints += " AND legs.trip_I >= 0"
         if diff_path and diff_threshold:
-            self.conn = attach_database(self.conn, diff_path, name="diff")
+            self.conn = _attach_database(self.conn, diff_path, name="diff")
             add_diff = ", diff.diff_temporal_distance"
             added_constraints += " AND abs(diff_temporal_distance.diff_mean) >= %s " \
                                  "AND diff_temporal_distance.from_stop_I = journeys.from_stop_I " \

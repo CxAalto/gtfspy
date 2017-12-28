@@ -12,7 +12,7 @@ from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAn
 from gtfspy.util import timeit
 
 
-def attach_database(conn, other_db_path, name="other"):
+def _attach_database(conn, other_db_path, name="other"):
     cur = conn.cursor()
     cur.execute("ATTACH '%s' AS '%s'" % (str(other_db_path), name))
     cur.execute("PRAGMA database_list")
@@ -665,8 +665,8 @@ class JourneyDataManager:
     def initialize_comparison_tables(self, diff_db_path, before_db_tuple, after_db_tuple):
         self.diff_conn = sqlite3.connect(diff_db_path)
 
-        self.diff_conn = attach_database(self.diff_conn, before_db_tuple[0], name=before_db_tuple[1])
-        self.diff_conn = attach_database(self.diff_conn, after_db_tuple[0], name=after_db_tuple[1])
+        self.diff_conn = _attach_database(self.diff_conn, before_db_tuple[0], name=before_db_tuple[1])
+        self.diff_conn = _attach_database(self.diff_conn, after_db_tuple[0], name=after_db_tuple[1])
 
         for table in self.travel_impedance_measure_names:
             self.diff_conn.execute("CREATE TABLE IF NOT EXISTS diff_" + table +

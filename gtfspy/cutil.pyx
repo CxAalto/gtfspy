@@ -1,4 +1,3 @@
-
 #cimport math
 from libc.math cimport sin, cos, sqrt, atan2
 
