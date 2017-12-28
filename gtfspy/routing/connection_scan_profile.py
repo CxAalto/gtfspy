@@ -43,15 +43,8 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
     http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf
     """
 
-    def __init__(self,
-                 transit_events,
-                 target_stop,
-                 start_time=None,
-                 end_time=None,
-                 transfer_margin=0,
-                 walk_network=None,
-                 walk_speed=1.5,
-                 verbose=False):
+    def __init__(self, transit_events, target_stop, walk_network, end_time=None, transfer_margin=0, start_time=None,
+                 walk_speed=1.5, verbose=False):
         """
         Parameters
         ----------
@@ -59,6 +52,8 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             events are assumed to be ordered in DECREASING departure_time (!)
         target_stop: int
             index of the target stop
+        walk_network: networkx.Graph, optional
+            each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         start_time : int, optional
             start time in unixtime seconds
         end_time: int, optional
@@ -67,8 +62,6 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             required extra margin required for transfers in seconds
         walk_speed: float, optional
             walking speed between stops in meters / second.
-        walk_network: networkx.Graph, optional
-            each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         verbose: boolean, optional
             whether to print out progress
         """

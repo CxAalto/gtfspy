@@ -52,6 +52,7 @@ mpCSA = MultiObjectivePseudoCSAProfiler(connections,
                                         track_vehicle_legs=True,
                                         track_time=True)
 
+
 mpCSA.run()
 profiles = mpCSA.stop_profiles
 
