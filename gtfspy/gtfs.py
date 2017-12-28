@@ -531,7 +531,6 @@ class GTFS(object):
             seg_data.append(seg_el)
         return seg_data
 
-
     def get_all_route_shapes(self, use_shapes=True):
         """
         Get the shapes of all routes.
@@ -676,8 +675,7 @@ class GTFS(object):
                 else:
                     return row.date_str
 
-    def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9,
-                                      verbose=False, download_date_override=None):
+    def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9, download_date_override=None):
         """
         Find a suitable weekly extract start date (monday).
         The goal is to obtain as 'usual' week as possible.
@@ -726,7 +724,8 @@ class GTFS(object):
         # get first a valid monday where the search for the week can be started:
         next_monday_from_search_start_date = search_start_date + timedelta(days=(7 - search_start_date.weekday()))
         if not (feed_min_date <= next_monday_from_search_start_date <= feed_max_date):
-            warnings.warn("The next monday after the (possibly user) specified download date is not present in the database."
+            warnings.warn("The next monday after the (possibly user) specified download date is "
+                          "beyond the time span of the database."
                           "Resorting to first monday after the beginning of operations instead.")
             next_monday_from_search_start_date = feed_min_date + timedelta(days=(7 - feed_min_date.weekday()))
 
@@ -738,7 +737,8 @@ class GTFS(object):
 
         # look forward first
         # get the index of the trip:
-        search_start_monday_index = daily_trip_counts[daily_trip_counts['date'] == next_monday_from_search_start_date].index[0]
+        search_start_monday_index = \
+            daily_trip_counts[daily_trip_counts['date'] == next_monday_from_search_start_date].index[0]
 
         # get starting point
         while_loop_monday_index = search_start_monday_index
@@ -1321,7 +1321,6 @@ class GTFS(object):
                                      "           JOIN routes ON trips.route_I == routes.route_I "
                                      "WHERE routes.type=(?)", self.conn, params=(route_type,))
 
-
     def generate_routable_transit_events(self, start_time_ut=None, end_time_ut=None, route_type=None):
         """
         Generates events that take place during a time interval [start_time_ut, end_time_ut].
@@ -1420,7 +1419,7 @@ class GTFS(object):
         )[0]
         to_indices = from_indices + 1
         # these should have same trip_ids
-        assert (events_result['trip_I'][from_indices].values == events_result['trip_I'][to_indices].values).all()
+        assert all(events_result['trip_I'][from_indices].values == events_result['trip_I'][to_indices].values)
         trip_Is = events_result['trip_I'][from_indices]
         from_stops = events_result['stop_I'][from_indices]
         to_stops = events_result['stop_I'][to_indices]
@@ -1431,7 +1430,7 @@ class GTFS(object):
         route_ids = events_result['route_id'][from_indices]
         route_Is = events_result['route_I'][from_indices]
         durations = arr_times.values - dep_times.values
-        assert (durations >= 0).all()
+        assert all(durations >= 0)
         from_seqs = events_result['seq'][from_indices]
         to_seqs = events_result['seq'][to_indices]
         data_tuples = zip(from_stops, to_stops, dep_times, arr_times,
@@ -1443,14 +1442,23 @@ class GTFS(object):
         df = pd.DataFrame.from_records(data_tuples, columns=columns)
         return df
 
-    def get_route_difference_with_other_db(self, other_gtfs, start_time, end_time, uniqueness_threshold=None,
-                                           uniqueness_ratio=None):
+    def get_route_difference_with_other_db(self, other_gtfs, start_time, end_time, uniqueness_ratio=None):
         """
-        Compares the routes based on stops in the schedule with the routes in another db and returns the ones without match.
+        Compares the routes based on stops in the schedule with the routes in
+        another db and returns the ones without a match.
         Uniqueness thresholds or ratio can be used to allow small differences
-        :param uniqueness_threshold:
-        :param uniqueness_ratio:
-        :return:
+
+        Parameters
+        ----------
+        other_gtfs: ?
+        start_time: ?
+        end_time: ?
+        uniqueness_ratio: ?
+
+        Returns
+        -------
+        this_df: pandas.DataFrame
+        other_df: pandas.DataFrame
         """
         from gtfspy.stats import frequencies_by_generated_route
 
@@ -1469,7 +1477,7 @@ class GTFS(object):
             for j_key, j in other_routes.items():
                 union = i | j
                 intersection = i & j
-                symmetric_difference = i ^ j
+                # symmetric_difference = i ^ j
                 if uniqueness_ratio:
                     if len(intersection) / len(union) >= uniqueness_ratio:
                         try:
@@ -1667,14 +1675,15 @@ class GTFS(object):
 
         for items in df_not_in_other.itertuples(index=False):
             rows_to_update_self.append((counter, items[1]))
-            rows_to_add_to_other.append((stop_id_stub + str(counter),) + tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9])
-                                        + (counter,))
+            rows_to_add_to_other.append((stop_id_stub + str(counter),) +
+                                        tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9]) + (counter,))
             counter += 1
 
         for items in df_not_in_self.itertuples(index=False):
             rows_to_update_other.append((counter, items[1]))
-            rows_to_add_to_self.append((stop_id_stub + str(counter),) + tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9])
-                                       + (counter,))
+            rows_to_add_to_self.append((stop_id_stub + str(counter),) +
+                                       tuple(items[x] for x in [2, 3, 4, 5, 6, 8, 9]) +
+                                       (counter,))
             counter += 1
 
         query_add_row = """INSERT INTO stops(
@@ -1686,7 +1695,7 @@ class GTFS(object):
                                     lon,
                                     location_type,
                                     wheelchair_boarding,
-                                    stop_pair_I) VALUES (%s) """ % (", ".join(["?" for x in range(9)]))
+                                    stop_pair_I) VALUES (%s) """ % (", ".join(["?" for _ in range(9)]))
 
         query_update_row = """UPDATE stops SET stop_pair_I=? WHERE stop_id=?"""
         print("adding rows to databases")
@@ -1743,16 +1752,6 @@ class GTFS(object):
         for query in queries:
             cur.execute(query)
         self.conn.commit()
-
-    def regenerate_parent_stop_I(self):
-        raise NotImplementedError
-        # get max stop_I
-        cur = self.conn.cursor()
-
-        query = "SELECT stop_I FROM stops ORDER BY stop_I DESC LIMIT 1"
-        max_stop_I = cur.execute(query).fetchall()[0]
-
-        query_update_row = """UPDATE stops SET parent_I=? WHERE parent_I=?"""
 
     def add_stops_from_csv(self, csv_dir):
         stops_to_add = pd.read_csv(csv_dir, encoding='utf-8')
@@ -1892,7 +1891,8 @@ def main(cmd, args):
         d = datetime.datetime.strptime(download_date, '%Y-%m-%d').date()
         start_time = d + datetime.timedelta(7 - d.isoweekday() + 1)  # inclusive
         end_time = d + datetime.timedelta(7 - d.isoweekday() + 1 + 1)  # exclusive
-        filter.filter_extract(g, to_db, start_date=start_time, end_date=end_time)
+        fe = filter.FilterExtract(g, to_db, start_date=start_time, end_date=end_time)
+        fe.create_filtered_copy()
     elif cmd == 'make-weekly':
         from_db = args[0]
         g = GTFS(from_db)
@@ -1902,7 +1902,8 @@ def main(cmd, args):
         start_time = d + datetime.timedelta(7 - d.isoweekday() + 1)  # inclusive
         end_time = d + datetime.timedelta(7 - d.isoweekday() + 1 + 7)  # exclusive
         print(start_time, end_time)
-        filter.filter_extract(g, to_db, start_date=start_time, end_date=end_time)
+        fe = filter.FilterExtract(g, to_db, start_date=start_time, end_date=end_time)
+        fe.create_filtered_copy()
     elif cmd == "spatial-extract":
         try:
             from_db = args[0]
@@ -1917,7 +1918,8 @@ def main(cmd, args):
         logging.basicConfig(level=logging.INFO)
         logging.info("Loading initial database")
         g = GTFS(from_db)
-        filter.filter_extract(g, to_db, buffer_distance=radius_in_km * 1000, buffer_lat=lat, buffer_lon=lon)
+        fe = filter.FilterExtract(g, to_db, buffer_distance_km=radius_in_km, buffer_lat=lat, buffer_lon=lon)
+        fe.create_filtered_copy()
     elif cmd == 'interact':
         # noinspection PyUnusedLocal
         G = GTFS(args[0])
@@ -1930,9 +1932,9 @@ def main(cmd, args):
             0]  # '/m/cs/project/networks/jweckstr/transit/scratch/proc_latest/helsinki/2016-04-06/main.day.sqlite'
         shapefile_path = args[1]  # '/m/cs/project/networks/jweckstr/TESTDATA/helsinki_routes.shp'
         g = GTFS(from_db)
+        data = None
         if cmd == 'export_shapefile_routes':
             data = g.get_all_route_shapes(use_shapes=True)
-
         elif cmd == 'export_shapefile_segment_counts':
             date = args[2]  # '2016-04-06'
             d = datetime.datetime.strptime(date, '%Y-%m-%d').date()
@@ -1942,12 +1944,9 @@ def main(cmd, args):
             data = g.get_segment_count_data(start_time, end_time, use_shapes=True)
 
         write_shapefile(data, shapefile_path)
-
-
     else:
         print("Unrecognized command: %s" % cmd)
         exit(1)
-
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2:])

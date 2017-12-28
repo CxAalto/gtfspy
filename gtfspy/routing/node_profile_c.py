@@ -1,5 +1,3 @@
-import copy
-
 from gtfspy.routing.label import LabelTime, compute_pareto_front_naive
 
 
@@ -38,8 +36,6 @@ class NodeProfileC:
         best_arrival_time = min(walk_to_target_arrival_time,
                                 best_later_departing_arrival_time,
                                 new_label.arrival_time_target)
-        # this should be changed to get constant time insertions / additions
-        # (with time-indexing)
         if (new_label.arrival_time_target < walk_to_target_arrival_time and
                 new_label.arrival_time_target < best_later_departing_arrival_time):
             self._labels.append(LabelTime(new_label.departure_time, best_arrival_time))

@@ -1,7 +1,6 @@
 import os
 
 import networkx
-import pandas
 from osmread import parse_file, Way, Node
 
 from gtfspy.gtfs import GTFS
@@ -12,7 +11,7 @@ from warnings import warn
 from geoindex import GeoGridIndex, GeoPoint
 
 
-def add_walk_distances_to_db_python(gtfs, osm_path, cutoff_distance_m=1000):
+def compute_stop_to_stop_osm_walk_distances_python(gtfs, osm_path, cutoff_distance_m=1000):
     """
     Computes the walk paths between stops, and updates these to the gtfs database.
 
@@ -140,7 +139,8 @@ def create_walk_network_from_osm(osm_file):
     del ways
 
     # Remove all singleton nodes (note that taking the giant component does not necessarily provide proper results.
-    for node, degree in walk_network.degree().items():
+    assert isinstance(walk_network, networkx.Graph)
+    for node, degree in walk_network.degree:
         if degree is 0:
             walk_network.remove_node(node)
 

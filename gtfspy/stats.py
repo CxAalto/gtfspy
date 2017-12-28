@@ -1,11 +1,11 @@
 from __future__ import unicode_literals
 
 import csv
-import pandas as pd
+import os
+import sys
 
 import numpy
-import sys
-import os
+import pandas as pd
 
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
@@ -15,7 +15,8 @@ def get_spatial_bounds(gtfs, as_dict=False):
     """
     Parameters
     ----------
-    gtfs
+    gtfs: gtfspy.gtfs.GTFS
+    as_dict: bool, optional
 
     Returns
     -------
@@ -63,6 +64,7 @@ def get_median_lat_lon_of_stops(gtfs):
     median_lon = numpy.percentile(stops['lon'].values, 50)
     return median_lat, median_lon
 
+
 def get_centroid_of_stops(gtfs):
     """
     Get mean latitude AND longitude of stops
@@ -97,24 +99,24 @@ def write_stats_as_csv(gtfs, path_to_csv, re_write=False):
     stats_dict = get_stats(gtfs)
     # check if file exist
     if re_write:
-            os.remove(path_to_csv)
-    
-    #if not os.path.isfile(path_to_csv):
-     #   is_new = True
-    #else:
-     #   is_new = False
-    
+        os.remove(path_to_csv)
+
+        # if not os.path.isfile(path_to_csv):
+        #   is_new = True
+        # else:
+        #   is_new = False
+
     is_new = True
     mode = 'r' if os.path.exists(path_to_csv) else 'w+'
     with open(path_to_csv, mode) as csvfile:
         for line in csvfile:
-           if line:
-               is_new = False
-           else:
-               is_new = True
+            if line:
+                is_new = False
+            else:
+                is_new = True
 
     with open(path_to_csv, 'a') as csvfile:
-        if (sys.version_info > (3, 0)):
+        if sys.version_info > (3, 0):
             delimiter = u","
         else:
             delimiter = b","
@@ -216,13 +218,10 @@ def get_stats(gtfs):
             'ORDER BY count(*) DESC;', (stats["max_activity_date"],)).fetchone()
         if max_activity_hour:
             stats["max_activity_hour"] = max_activity_hour[1]
+            fleet_size_estimates = _fleet_size_estimate(gtfs, stats['max_activity_hour'], stats['max_activity_date'])
+            stats.update(fleet_size_estimates)
         else:
             stats["max_activity_hour"] = None
-
-    # Fleet size estimate: considering each line separately
-    if max_activity_date and max_activity_hour:
-        fleet_size_estimates = _fleet_size_estimate(gtfs, stats['max_activity_hour'], stats['max_activity_date'])
-        stats.update(fleet_size_estimates)
 
     # Compute simple distributions of various columns that have a finite range of values.
     # Commented lines refer to values that are not imported yet, ?
@@ -431,37 +430,37 @@ def trip_stats(gtfs, results_by_mode=False):
     conn = gtfs.conn
 
     conn.create_function("find_distance", 4, wgs84_distance)
-    cur = conn.cursor()
     # this query calculates the distance and travel time for each complete trip
     # stop_data_df = pd.read_sql_query(query, self.conn, params=params)
 
     query = 'SELECT ' \
-            'startstop.trip_I AS trip_I, ' \
-            'type, ' \
-            'sum(CAST(find_distance(startstop.lat, startstop.lon, endstop.lat, endstop.lon) AS INT)) as total_distance, ' \
+                'startstop.trip_I AS trip_I, ' \
+                'type, ' \
+                'sum(CAST(find_distance(startstop.lat, startstop.lon, endstop.lat, endstop.lon) AS INT)) ' \
+                'as total_distance, ' \
             'sum(endstop.arr_time_ds - startstop.arr_time_ds) as total_traveltime ' \
             'FROM ' \
-            '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) startstop, ' \
-            '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) endstop, ' \
-            'trips, ' \
-            'routes ' \
+                '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) startstop, ' \
+                '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) endstop, ' \
+                'trips, ' \
+                'routes ' \
             'WHERE ' \
-            'startstop.trip_I = endstop.trip_I ' \
-            'AND startstop.seq + 1 = endstop.seq ' \
-            'AND startstop.trip_I = trips.trip_I ' \
-            'AND trips.route_I = routes.route_I ' \
+                'startstop.trip_I = endstop.trip_I ' \
+                'AND startstop.seq + 1 = endstop.seq ' \
+                'AND startstop.trip_I = trips.trip_I ' \
+                'AND trips.route_I = routes.route_I ' \
             'GROUP BY startstop.trip_I'
 
     q_result = pd.read_sql_query(query, conn)
     q_result['avg_speed_kmh'] = 3.6 * q_result['total_distance'] / q_result['total_traveltime']
-    q_result['total_distance'] = q_result['total_distance'] / 1000
-    q_result['total_traveltime'] = q_result['total_traveltime'] / 60
+    q_result['total_distance'] /= 1000
+    q_result['total_traveltime'] /= 60
     q_result = q_result.loc[q_result['avg_speed_kmh'] != float("inf")]
 
     if results_by_mode:
         q_results = {}
-        for type in q_result['type'].unique().tolist():
-            q_results[type] = q_result.loc[q_result['type'] == type]
+        for r_type in q_result['type'].unique().tolist():
+            q_results[r_type] = q_result.loc[q_result['type'] == r_type]
         return q_results
     else:
         return q_result
@@ -471,41 +470,42 @@ def get_section_stats(gtfs, results_by_mode=False):
     conn = gtfs.conn
 
     conn.create_function("find_distance", 4, wgs84_distance)
-    cur = conn.cursor()
     # this query calculates the distance and travel time for each stop to stop section for each trip
     # stop_data_df = pd.read_sql_query(query, self.conn, params=params)
 
-    query = 'SELECT type, from_stop_I, to_stop_I, distance, min(travel_time) AS min_time, max(travel_time) AS max_time, avg(travel_time) AS mean_time ' \
-            'FROM ' \
-            '(SELECT q1.trip_I, type, q1.stop_I as from_stop_I, q2.stop_I as to_stop_I,  ' \
-            'CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT) as distance, ' \
-            'q2.arr_time_ds - q1.arr_time_ds as travel_time, ' \
-            'q1.lat AS from_lat, q1.lon AS from_lon, q2.lat AS to_lat, q2.lon AS to_lon ' \
-            'FROM ' \
-            '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q1, ' \
-            '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q2, ' \
-            'trips, ' \
-            'routes ' \
-            'WHERE q1.trip_I = q2.trip_I ' \
-            'AND q1.seq + 1 = q2.seq ' \
-            'AND q1.trip_I = trips.trip_I ' \
-            'AND trips.route_I = routes.route_I) sq1 ' \
-            'GROUP BY to_stop_I, from_stop_I, type '
+    query = \
+        'SELECT type, from_stop_I, to_stop_I, distance, min(travel_time) AS min_time, ' \
+        'max(travel_time) AS max_time, avg(travel_time) AS mean_time ' \
+        'FROM ' \
+        '(SELECT q1.trip_I, type, q1.stop_I as from_stop_I, q2.stop_I as to_stop_I,  ' \
+        'CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT) as distance, ' \
+        'q2.arr_time_ds - q1.arr_time_ds as travel_time, ' \
+        'q1.lat AS from_lat, q1.lon AS from_lon, q2.lat AS to_lat, q2.lon AS to_lon ' \
+        'FROM ' \
+        '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q1, ' \
+        '(SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q2, ' \
+        'trips, ' \
+        'routes ' \
+        'WHERE q1.trip_I = q2.trip_I ' \
+        'AND q1.seq + 1 = q2.seq ' \
+        'AND q1.trip_I = trips.trip_I ' \
+        'AND trips.route_I = routes.route_I) sq1 ' \
+        'GROUP BY to_stop_I, from_stop_I, type '
 
     q_result = pd.read_sql_query(query, conn)
 
     if results_by_mode:
         q_results = {}
-        for type in q_result['type'].unique().tolist():
-            q_results[type] = q_result.loc[q_result['type'] == type]
+        for r_type in q_result['type'].unique().tolist():
+            q_results[r_type] = q_result.loc[q_result['type'] == r_type]
         return q_results
     else:
         return q_result
 
 
-def route_frequencies(gtfs, results_by_mode=False):
+def route_frequencies(gtfs):
     """
-    Return the frequency of all types of routes per day.
+    Return the frequency of all types for the daily extract date.
 
     Parameters
     -----------
@@ -529,7 +529,7 @@ def route_frequencies(gtfs, results_by_mode=False):
         " GROUP BY route_I) as f"
         " ON f.route_I = r.route_I"
         " ORDER BY frequency DESC".format(day=day))
-    
+
     return pd.DataFrame(gtfs.execute_custom_query_pandas(query))
 
 
@@ -550,9 +550,9 @@ def hourly_frequencies(gtfs, st, et, route_type):
     -------
     numeric pandas.DataFrame with columns
         stop_I, lat, lon, frequency
-    """ 
-    timeframe = et-st
-    hours = timeframe/ 3600
+    """
+    timeframe = et - st
+    hours = timeframe / 3600
     day = gtfs.get_suitable_date_for_daily_extract()
     stops = gtfs.get_stops_for_route_type(route_type).T.drop_duplicates().T
     query = ("SELECT * FROM stops as x"
@@ -575,8 +575,8 @@ def hourly_frequencies(gtfs, st, et, route_type):
 
 
 def frequencies_by_generated_route(gtfs, st, et, day=None):
-    timeframe = et-st
-    hours = timeframe/3600
+    timeframe = et - st
+    hours = timeframe / 3600
     if not day:
         day = gtfs.get_suitable_date_for_daily_extract()
     query = """SELECT count(*)/{h} AS frequency, count(*) AS n_trips, route, type FROM 
@@ -632,7 +632,7 @@ def trips_frequencies(gtfs):
         " (SELECT * FROM stop_times) q2"
         " WHERE q1.seq+1=q2.seq AND q1.trip_I=q2.trip_I"
         " GROUP BY from_stop_I, to_stop_I")
-    return(gtfs.execute_custom_query_pandas(query))
+    return gtfs.execute_custom_query_pandas(query)
 
 # def route_circuity():
 #    pass
