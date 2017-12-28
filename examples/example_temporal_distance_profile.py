@@ -30,16 +30,10 @@ connections = get_transit_connections(G, ROUTING_START_TIME_UT, ROUTING_END_TIME
 walk_network = get_walk_network(G)
 
 
-mpCSA = MultiObjectivePseudoCSAProfiler(connections,
-                                        targets=[to_stop_I],
-                                        start_time_ut=ROUTING_START_TIME_UT,
-                                        end_time_ut=ROUTING_END_TIME_UT,
-                                        transfer_margin=120,  # seconds
-                                        walk_network=walk_network,
-                                        walk_speed=1.5,  # meters per second
-                                        verbose=True,
-                                        track_vehicle_legs=True,
-                                        track_time=True)
+mpCSA = MultiObjectivePseudoCSAProfiler(connections, targets=[to_stop_I], walk_network=walk_network,
+                                        end_time_ut=ROUTING_END_TIME_UT, transfer_margin=120,
+                                        start_time_ut=ROUTING_START_TIME_UT, walk_speed=1.5, verbose=True,
+                                        track_vehicle_legs=True, track_time=True)
 
 mpCSA.run()
 profiles = mpCSA.stop_profiles
