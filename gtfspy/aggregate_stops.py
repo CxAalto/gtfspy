@@ -28,7 +28,6 @@ def aggregate_stops_spatially(gtfs, threshold_meters=1):
 
     # Find the connected components of that network.
     components = list(networkx.connected_components(g))
-    print([len(component) for component in components])
 
     # For each connected component, choose one representative stop_I, and create a dictionary `to_new_stop_I' mapping original stop_I to the representative stop_I
     to_new_stop_I = dict()
