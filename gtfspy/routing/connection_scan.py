@@ -101,5 +101,3 @@ class ConnectionScan(AbstractRoutingAlgorithm):
             d_walk = data["d_walk"]
             arrival_time = walk_departure_time + d_walk / self._walk_speed
             self._update_stop_label(neighbor, arrival_time)
-
-

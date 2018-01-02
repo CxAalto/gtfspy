@@ -30,7 +30,7 @@ class ForwardJourney:
         ----------
         leg: Connection
         """
-        assert(isinstance(leg, Connection))
+        assert (isinstance(leg, Connection))
         if not self.legs:
             self.departure_time = leg.departure_time
         self.arrival_time = leg.arrival_time
@@ -96,7 +96,7 @@ class ForwardJourney:
     def get_invehicle_times(self):
         invehicle_times = []
         for leg in self.legs:
-            assert(isinstance(leg, Connection))
+            assert (isinstance(leg, Connection))
             if leg.trip_id is not None:
                 invehicle_times.append(leg.duration())
         return invehicle_times
@@ -126,5 +126,3 @@ class ForwardJourney:
                 return False
         # dominates w.r.t all aspects:
         return True
-
-
