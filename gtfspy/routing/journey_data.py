@@ -1,14 +1,15 @@
 import os
 import sqlite3
+
 import pandas as pd
 
-from gtfspy.routing.connection import Connection
 from gtfspy.gtfs import GTFS
+from gtfspy.routing.connection import Connection
+from gtfspy.routing.fastest_path_analyzer import FastestPathAnalyzer
 from gtfspy.routing.label import LabelTimeAndRoute, LabelTimeWithBoardingsCount, LabelTimeBoardingsAndRoute, \
     compute_pareto_front, LabelGeneric
-from gtfspy.routing.travel_impedance_data_store import TravelImpedanceDataStore
-from gtfspy.routing.fastest_path_analyzer import FastestPathAnalyzer
 from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAnalyzerTimeAndVehLegs
+from gtfspy.routing.travel_impedance_data_store import TravelImpedanceDataStore
 from gtfspy.util import timeit
 
 
@@ -19,10 +20,11 @@ def _attach_database(conn, other_db_path, name="other"):
     print("other database attached:", cur.fetchall())
     return conn
 
+
 _T_WALK_STR = "t_walk"
 
-class JourneyDataManager:
 
+class JourneyDataManager:
     def __init__(self, gtfs_path, journey_db_path, routing_params=None, multitarget_routing=False,
                  track_vehicle_legs=True, track_route=False):
         """
@@ -79,7 +81,8 @@ class JourneyDataManager:
             self.conn.close()
 
     @timeit
-    def import_journey_data_for_target_stop(self, target_stop_I, origin_stop_I_to_journey_labels, enforce_synchronous_writes=False):
+    def import_journey_data_for_target_stop(self, target_stop_I, origin_stop_I_to_journey_labels,
+                                            enforce_synchronous_writes=False):
         """
         Parameters
         ----------
@@ -107,7 +110,7 @@ class JourneyDataManager:
 
     def _get_largest_journey_id(self):
         cur = self.conn.cursor()
-        val = cur.execute("select max(journey_id) FROM journeys").fetchone()
+        val = cur.execute("SELECT max(journey_id) FROM journeys").fetchone()
         return val[0] if val[0] else 0
 
     def _insert_journeys_into_db_no_route(self, stop_profiles, target_stop=None):
@@ -123,7 +126,7 @@ class JourneyDataManager:
         journey_list = []
         tot = len(stop_profiles)
         for i, (origin_stop, labels) in enumerate(stop_profiles.items(), start=1):
-            #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
+            # print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
             for label in labels:
                 assert (isinstance(label, LabelTimeWithBoardingsCount))
                 if self.multitarget_routing:
@@ -148,7 +151,7 @@ class JourneyDataManager:
               departure_time,
               arrival_time_target,
               n_boardings) VALUES (%s) ''' % (", ".join(["?" for x in range(6)]))
-        #self.conn.executemany(insert_journeys_stmt, journey_list)
+        # self.conn.executemany(insert_journeys_stmt, journey_list)
         self._executemany_exclusive(insert_journeys_stmt, journey_list)
         self.conn.commit()
 
@@ -167,7 +170,7 @@ class JourneyDataManager:
         label = None
         for i, (origin_stop, labels) in enumerate(stop_I_to_journey_labels.items(), start=1):
             # tot = len(stop_profiles)
-            #print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
+            # print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
 
             assert (isinstance(stop_I_to_journey_labels[origin_stop], list))
 
@@ -242,7 +245,6 @@ class JourneyDataManager:
             self.routing_parameters["target_list"] += (str(target_stop) + ",")
             self.conn.commit()
 
-
     def create_index_for_journeys_table(self):
         self.conn.execute("PRAGMA temp_store=2")
         self.conn.commit()
@@ -284,7 +286,7 @@ class JourneyDataManager:
                             int(prev_trip_id),
                             int(seq),
                             ','.join([str(x) for x in leg_stops])
-                                )
+                        )
                         value_list.append(values)
                         seq += 1
                         leg_stops = []
@@ -365,11 +367,13 @@ class JourneyDataManager:
                             'WHERE from_stop_I = ? AND to_stop_I = ? '
                             'ORDER BY departure_time ASC', (origin, target))
                 all_trips = cur.fetchall()
-                all_labels = [LabelTimeAndRoute(x[0], x[1], x[2], False) for x in all_trips] #putting journey_id as movement_duration
+                all_labels = [LabelTimeAndRoute(x[0], x[1], x[2], False) for x in
+                              all_trips]  # putting journey_id as movement_duration
                 all_fp_labels = compute_pareto_front(all_labels, finalization=False, ignore_n_boardings=True)
                 fastest_path_journey_ids.append(all_fp_labels)
 
-            fastest_path_journey_ids = [(1, x.movement_duration) for sublist in fastest_path_journey_ids for x in sublist]
+            fastest_path_journey_ids = [(1, x.movement_duration) for sublist in fastest_path_journey_ids for x in
+                                        sublist]
             cur.executemany("UPDATE journeys SET fastest_path = ? WHERE journey_id = ?", fastest_path_journey_ids)
         self.conn.commit()
 
@@ -482,7 +486,8 @@ class JourneyDataManager:
         return fpa.get_time_analyzer()
 
     def get_node_profile_analyzer_time_and_veh_legs(self, target, origin, start_time_dep, end_time_dep):
-        sql = """SELECT from_stop_I, to_stop_I, n_boardings, departure_time, arrival_time_target FROM journeys WHERE to_stop_I = %s AND from_stop_I = %s""" % (target, origin)
+        sql = """SELECT from_stop_I, to_stop_I, n_boardings, departure_time, arrival_time_target FROM journeys WHERE to_stop_I = %s AND from_stop_I = %s""" % (
+        target, origin)
         df = pd.read_sql_query(sql, self.conn)
 
         journey_labels = []
@@ -553,10 +558,10 @@ class JourneyDataManager:
             measure_to_measure_summary_dicts[measure] = []
         for origin, target, journey_labels in self._journey_label_generator([target], origins):
             measure_summary_dicts_for_pair = \
-            self.__compute_travel_impedance_measure_dict(
-                origin, target, journey_labels,
-                analysis_start_time, analysis_end_time
-            )
+                self.__compute_travel_impedance_measure_dict(
+                    origin, target, journey_labels,
+                    analysis_start_time, analysis_end_time
+                )
             for measure in measure_summary_dicts_for_pair:
                 measure_to_measure_summary_dicts[measure].append(measure_summary_dicts_for_pair[measure])
         return measure_to_measure_summary_dicts
@@ -601,12 +606,14 @@ class JourneyDataManager:
             if len(journey_labels) == 0:
                 continue
 
-            measure_summary_dicts_for_pair = self.__compute_travel_impedance_measure_dict(origin, target, journey_labels,
-                                                                                          analysis_start_time, analysis_end_time)
+            measure_summary_dicts_for_pair = self.__compute_travel_impedance_measure_dict(origin, target,
+                                                                                          journey_labels,
+                                                                                          analysis_start_time,
+                                                                                          analysis_end_time)
             for measure in measure_summary_dicts_for_pair:
                 measure_to_measure_summary_dicts[measure].append(measure_summary_dicts_for_pair[measure])
 
-            if i % 1000 == 0: # update in batches of 1000
+            if i % 1000 == 0:  # update in batches of 1000
                 print("\r", i, "/", n_pairs_tot, " : ", "%.2f" % round(float(i) / n_pairs_tot, 3), end='', flush=True)
                 _flush_data_to_db(measure_to_measure_summary_dicts)
 
@@ -647,7 +654,8 @@ class JourneyDataManager:
             "from_stop_I", "to_stop_I", "min", "max", "median" and "mean"
         """
         f = float
-        data_tuple = [(x["from_stop_I"], x["to_stop_I"], f(x["min"]), f(x["max"]), f(x["median"]), f(x["mean"])) for x in data]
+        data_tuple = [(x["from_stop_I"], x["to_stop_I"], f(x["min"]), f(x["max"]), f(x["median"]), f(x["mean"])) for x
+                      in data]
         insert_stmt = '''INSERT OR REPLACE INTO ''' + travel_impedance_measure_name + ''' (
                               from_stop_I,
                               to_stop_I,
@@ -849,7 +857,7 @@ class DiffDataManager:
                           "(t1.max - t2.max)*1.0/t2.max AS rel_diff_max, " \
                           "(t1.median - t2.median)*1.0/t2.median AS rel_diff_median, " \
                           "(t1.mean - t2.mean)*1.0/t2.mean AS rel_diff_mean " \
-                          "FROM " + after_db_name + "." + table + " AS t1, "\
+                          "FROM " + after_db_name + "." + table + " AS t1, " \
                           + before_db_name + "." + table + \
                           " AS t2 WHERE t1.from_stop_I = t2.from_stop_I AND t1.to_stop_I = t2.to_stop_I "
             self.conn.execute(insert_stmt)
@@ -868,7 +876,7 @@ class DiffDataManager:
 
     def get_table_as_dataframe(self, table_name, use_relative, target=None):
         if use_relative:
-            query = "SELECT from_stop_I, to_stop_I, rel_diff_min, rel_diff_max, rel_diff_median, rel_diff_mean FROM "\
+            query = "SELECT from_stop_I, to_stop_I, rel_diff_min, rel_diff_max, rel_diff_median, rel_diff_mean FROM " \
                     + table_name
         else:
             query = "SELECT from_stop_I, to_stop_I, diff_min, diff_max, diff_median, diff_mean FROM " + table_name
@@ -898,15 +906,19 @@ class DiffDataManager:
                     AND diff_pre_journey_wait_fp.rowid = diff_temporal_distance.rowid
                     AND diff_pre_journey_wait_fp.to_stop_I = %s""" % (target,)
         df = pd.read_sql_query(query, self.conn)
-        df['max_component'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmax(axis=1)
-        df['max_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].max(axis=1)
+        df['max_component'] = df[
+            ["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmax(axis=1)
+        df['max_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].max(
+            axis=1)
 
         mask = (df['max_value'] < threshold)
 
         df.loc[mask, 'max_component'] = "no_change_within_threshold"
 
-        df['min_component'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmin(axis=1)
-        df['min_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].min(axis=1)
+        df['min_component'] = df[
+            ["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].idxmin(axis=1)
+        df['min_value'] = df[["pre_journey_wait", "in_vehicle_duration", "transfer_wait", "walking_duration"]].min(
+            axis=1)
 
         mask = (df['min_value'] > -1 * threshold)
 

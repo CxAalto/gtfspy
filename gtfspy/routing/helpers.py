@@ -1,8 +1,10 @@
-from gtfspy.routing.connection import Connection
-from gtfspy.networks import temporal_network, walk_transfer_stop_to_stop_network
-from gtfspy.gtfs import GTFS
-import pandas
 from warnings import warn
+
+import pandas
+
+from gtfspy.gtfs import GTFS
+from gtfspy.networks import temporal_network, walk_transfer_stop_to_stop_network
+from gtfspy.routing.connection import Connection
 
 
 def get_transit_connections(gtfs, start_time_ut, end_time_ut):
@@ -29,15 +31,18 @@ def get_transit_connections(gtfs, start_time_ut, end_time_ut):
                 )
 
 
-def get_walk_network(gtfs, max_link_distance_m=1000):
+def get_walk_network(gtfs, max_walk_distance_m=1000):
     """
     Parameters
     ----------
     gtfs: gtfspy.GTFS
+    max_walk_distance_m: int, optional
+        Note that only a precomputed walk network can be used,
+        which can have limitations on the walking distance limits.
 
     Returns
     -------
     walk_network: networkx.Graph:
     """
     assert (isinstance(gtfs, GTFS))
-    return walk_transfer_stop_to_stop_network(gtfs, max_link_distance=max_link_distance_m)
+    return walk_transfer_stop_to_stop_network(gtfs, max_link_distance=max_walk_distance_m)

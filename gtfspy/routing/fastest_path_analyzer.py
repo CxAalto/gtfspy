@@ -36,7 +36,8 @@ class FastestPathAnalyzer:
         self.kwargs = kwargs
 
     def _compute_fastest_path_labels(self, labels):
-        relevant_labels = [label.get_copy() for label in labels if (self.start_time_dep < label.departure_time <= self.end_time_dep)]
+        relevant_labels = [label.get_copy() for label in labels if
+                           (self.start_time_dep < label.departure_time <= self.end_time_dep)]
         if len(relevant_labels) is 0 or relevant_labels[-1].departure_time < self.end_time_dep:
             # add an after label
             smallest_arr_time_after_end_time = float('inf')
@@ -90,8 +91,8 @@ class FastestPathAnalyzer:
         -------
         blocks: list[ProfileBlock]
         """
-        def _label_to_prop_dict(label):
-            return {prop: getattr(label, prop) for prop in self.label_props}
+        def _label_to_prop_dict(_label):
+            return {prop: getattr(_label, prop) for prop in self.label_props}
 
         labels = self._fastest_path_labels
         for i in range(len(labels) - 1):
@@ -174,13 +175,13 @@ class FastestPathAnalyzer:
             prop_blocks.append(prop_block)
         return ProfileBlockAnalyzer(prop_blocks, **kwargs)
 
-    def get_prop_analyzer_flat(self, property, value_no_next_journey, value_cutoff):
+    def get_prop_analyzer_flat(self, label_property, value_no_next_journey, value_cutoff):
         """
         Get a journey property analyzer, where each journey is weighted by the number of.
 
         Parameters
         ----------
-        property: string
+        label_property: string
             Name of the property, needs to be one of label_props given on initialization.
         value_no_next_journey:
             Value of the profile, when there is no next journey available.
@@ -201,10 +202,7 @@ class FastestPathAnalyzer:
                 else:
                     prop_value = value_no_next_journey
             else:
-                prop_value = b[property]
+                prop_value = b[label_property]
             prop_block = ProfileBlock(b.start_time, b.end_time, prop_value, prop_value)
             prop_blocks.append(prop_block)
         return ProfileBlockAnalyzer(prop_blocks, **kwargs)
-
-
-
