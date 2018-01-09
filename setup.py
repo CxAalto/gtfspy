@@ -1,6 +1,6 @@
 from setuptools import setup, Extension, find_packages
 
-version="0.0.2"
+version="0.0.4"
 
 setup(
     name="gtfspy",
@@ -34,7 +34,7 @@ setup(
     install_requires = [
         "setuptools>=18.0",
         "pandas",
-        "networkx==1.11",
+        "networkx>=2.0",
         "pyshp",
         "smopy",
         "nose",

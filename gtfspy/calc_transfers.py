@@ -39,6 +39,7 @@ def _get_geo_hash_precision(search_radius_in_km):
         raise RuntimeError("GeoHash cannot work with this large search radius (km): " + search_radius_in_km)
     return suggested_precision
 
+
 def calc_transfers(conn, threshold_meters=1000):
     geohash_precision = _get_geo_hash_precision(threshold_meters / 1000.)
     geo_index = GeoGridIndex(precision=geohash_precision)
@@ -71,9 +72,10 @@ def calc_transfers(conn, threshold_meters=1000):
                 distances.append(distance)
 
         n_pairs = len(to_stop_Is)
-        from_stop_Is = [from_stop_I]*n_pairs
+        from_stop_Is = [from_stop_I] * n_pairs
         cursor.executemany('INSERT OR REPLACE INTO stop_distances VALUES (?, ?, ?, ?, ?, ?);',
-                            zip(from_stop_Is, to_stop_Is, distances, [None]*n_pairs, [None]*n_pairs, [None]*n_pairs))
+                           zip(from_stop_Is, to_stop_Is, distances, [None] * n_pairs,
+                               [None] * n_pairs, [None] * n_pairs))
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_sd_fsid ON stop_distances (from_stop_I);')
 
 

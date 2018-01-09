@@ -5,6 +5,7 @@ import pandas
 # (i.e. using the if __name__ == "__main__": part at the end of this file)
 from gtfspy.warnings_container import WarningsContainer
 
+# noinspection PyUnboundLocalVariable
 if __name__ == '__main__' and __package__ is None:
     # import gtfspy
     __package__ = 'gtfspy'
@@ -15,14 +16,18 @@ from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
 
 
-WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = "trip--arr_time -combinations with five or more consecutive stops having same stop time"
+WARNING_5_OR_MORE_CONSECUTIVE_STOPS_WITH_SAME_TIME = \
+    "trip--arr_time -combinations with five or more consecutive stops having same stop time"
 WARNING_LONG_TRIP_TIME = "Trip time longer than {MAX_TRIP_TIME} seconds"
 WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED = "trips whose average speed is unrealistic relative to travel mode"
 
 MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS = 20000  # meters
-WARNING_LONG_STOP_SPACING = "distance between consecutive stops longer than " + str(MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS) + " meters"
+WARNING_LONG_STOP_SPACING = "distance between consecutive stops longer than " + \
+                            str(MAX_ALLOWED_DISTANCE_BETWEEN_CONSECUTIVE_STOPS) + " meters"
 MAX_TIME_BETWEEN_STOPS = 1800  # seconds
-WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = "trip--stop_times-combinations with travel time between consecutive stops longer than " + str(MAX_TIME_BETWEEN_STOPS / 60) + " minutes"
+WARNING_LONG_TRAVEL_TIME_BETWEEN_STOPS = \
+    "trip--stop_times-combinations with travel time between consecutive stops longer than " + \
+    str(MAX_TIME_BETWEEN_STOPS / 60) + " minutes"
 
 WARNING_STOP_SEQUENCE_ORDER_ERROR = "stop sequence is not in right order"
 WARNING_STOP_SEQUENCE_NOT_INCREMENTAL = "stop sequences are not increasing always by one in stop_times"
@@ -50,6 +55,7 @@ GTFS_TYPE_TO_MAX_SPEED = {
     route_types.AIRCRAFT: 1000
 }
 MAX_TRIP_TIME = 7200  # seconds
+
 
 class TimetableValidator(object):
 
@@ -90,7 +96,7 @@ class TimetableValidator(object):
             p = self.buffer_params
             center_lat = p['lat']
             center_lon = p['lon']
-            buffer_distance = p['buffer_distance'] * 1000 * 1.002 # some error margin for rounding
+            buffer_distance = p['buffer_distance'] * 1000 * 1.002  # some error margin for rounding
             for stop_row in self.gtfs.stops().itertuples():
                 if buffer_distance < wgs84_distance(center_lat, center_lon, stop_row.lat, stop_row.lon):
                     self.warnings_container.add_warning(WARNING_STOP_FAR_AWAY_FROM_FILTER_BOUNDARY, stop_row)
@@ -142,14 +148,15 @@ class TimetableValidator(object):
         # https://support.google.com/transitpartners/answer/1095482?hl=en
         self.gtfs.conn.create_function("find_distance", 4, wgs84_distance)
 
-        # this query returns the total distance and travel time for each trip calculated for each stop spacing separately
+        # this query returns the total distance and travel time for each trip calculated
+        # for each stop spacing separately
         rows = pandas.read_sql(
             'SELECT '
             'q1.trip_I, '
             'type, '
-            'sum(CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT)) AS total_distance, ' # sum used for getting total
-            'sum(q2.arr_time_ds - q1.arr_time_ds) AS total_traveltime, ' # sum used for getting total
-            'count(*)' # for getting the total number of stops
+            'sum(CAST(find_distance(q1.lat, q1.lon, q2.lat, q2.lon) AS INT)) AS total_distance, '  # sum to get total
+            'sum(q2.arr_time_ds - q1.arr_time_ds) AS total_traveltime, '  # sum used for getting total
+            'count(*)'  # for getting the total number of stops
             'FROM '
             '   (SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q1, '
             '   (SELECT * FROM stop_times, stops WHERE stop_times.stop_I = stops.stop_I) q2, '
@@ -161,8 +168,8 @@ class TimetableValidator(object):
         for row in rows.itertuples():
             avg_velocity_km_per_h = row.total_distance / max(row.total_traveltime, 1) * 3.6
             if avg_velocity_km_per_h > GTFS_TYPE_TO_MAX_SPEED[row.type]:
-                self.warnings_container.add_warning(WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED + " (route_type=" + str(row.type) + ")",
-                                                    row
+                self.warnings_container.add_warning(
+                    WARNING_TRIP_UNREALISTIC_AVERAGE_SPEED + " (route_type=" + str(row.type) + ")", row
                 )
             if row.total_traveltime > MAX_TRIP_TIME:
                 self.warnings_container.add_warning(WARNING_LONG_TRIP_TIME.format(MAX_TRIP_TIME=MAX_TRIP_TIME), row, 1)
@@ -197,4 +204,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

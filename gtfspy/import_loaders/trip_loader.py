@@ -63,7 +63,7 @@ def update_trip_travel_times_ds(conn):
                    FROM trips JOIN stop_times USING (trip_I)
                    GROUP BY trip_I''')
 
-    print("updating trips travel times")
+    print("Updating travel times in trips table")
 
     def iter_rows(cur0):
         for row in cur0:

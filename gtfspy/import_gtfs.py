@@ -174,6 +174,7 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     if not (preserve_connection is True):
         conn.close()
 
+
 def validate_day_start_ut(conn):
     """This validates the day_start_ut of the days table."""
     G = GTFS(conn)
@@ -191,6 +192,7 @@ def main_make_views(gtfs_fname):
     for L in Loaders:
         L(None).make_views(conn)
     conn.commit()
+
 
 def main():
     import argparse

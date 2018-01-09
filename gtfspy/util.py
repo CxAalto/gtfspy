@@ -3,11 +3,11 @@ import datetime
 import io
 import math
 import os
-import zipfile
 import shutil
 import sys
 import tempfile
 import time
+import zipfile
 from math import cos
 
 import networkx
@@ -114,6 +114,9 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
     ------
     Re-raises any except occuring during the context block.
     """
+    root = None
+    ext = None
+    this_dir = None
     # Do nothing if requesting sqlite memory DB.
     if fname == ':memory:':
         yield fname
@@ -126,7 +129,7 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
         # Remove filename extension, in case this matters for
         # automatic things itself.
         if not keepext:
-            root = root + ext
+            root += ext
             ext = ''
         if tmpdir:
             # we should use a different temporary directory
@@ -145,7 +148,7 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
         fname_tmp = tmpfile.name
     try:
         yield fname_tmp
-    except Exception as e:
+    except Exception:
         if save_tmpfile:
             print("Temporary file is '%s'" % fname_tmp)
         else:
@@ -161,7 +164,7 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
     # filesystems.  So, we have to fallback to moving it.  But, we
     # want to move it using tmpfiles also, so that the final file
     # appearing is atomic.  We use... tmpfiles.
-    except OSError as e:
+    except OSError:
         # New temporary file in same directory
         tmpfile2 = tempfile.NamedTemporaryFile(
             prefix='tmp-' + root + '-', suffix=ext, dir=this_dir, delete=False)
@@ -201,15 +204,23 @@ def ut_to_utc_datetime_str(time_ut):
     return dt.strftime("%b %d %Y %H:%M:%S")
 
 
-def str_time_to_day_seconds(time):
+def str_time_to_day_seconds(time_string):
     """
     Converts time strings to integer seconds
-    :param time: %H:%M:%S string
-    :return: integer seconds
+
+    Parameters
+    ----------
+    time_string: str
+        in format: %H:%M:%S
+
+    Returns
+    -------
+    day_seconds: int
+        Number of seconds since the day beginning.
     """
-    t = str(time).split(':')
-    seconds = int(t[0]) * 3600 + int(t[1]) * 60 + int(t[2])
-    return seconds
+    t = str(time_string).split(':')
+    day_seconds = int(t[0]) * 3600 + int(t[1]) * 60 + int(t[2])
+    return day_seconds
 
 
 def day_seconds_to_str_time(ds):
@@ -252,6 +263,7 @@ def timeit(method):
 def corrupted_zip(zip_path):
     import zipfile
     try:
+        # noinspection PyUnusedLocal
         zip_to_test = zipfile.ZipFile(zip_path)
         # warning = zip_to_test.testzip()
         # if warning is not None:
@@ -296,7 +308,7 @@ def source_csv_to_pandas(path, table, read_csv_args=None):
                     break
             try:
                 f = zip_open(z, table)
-            except KeyError as e:
+            except KeyError:
                 return pd.DataFrame()
 
     if read_csv_args:
@@ -309,15 +321,18 @@ def source_csv_to_pandas(path, table, read_csv_args=None):
 def write_shapefile(data, shapefile_path):
     from numpy import int64
     """
-    :param data: list of dicts where dictionary contains the keys lons and lats
-    :param shapefile_path: path where shapefile is saved
-    :return:
+    Parameters
+    ----------
+    data: list
+        list of dicts where dictionary contains the keys lons and lats
+    shapefile_path: str
+        path where shapefile is saved
     """
 
     w = shp.Writer(shp.POLYLINE)  # shapeType=3)
 
     fields = []
-    encode_strings = []
+    # encode_strings = []  # this was used for debugging?
 
     # This makes sure every geom has all the attributes
     w.autoBalance = 1
@@ -344,7 +359,6 @@ def write_shapefile(data, shapefile_path):
     for dict_item in data:
         line = []
         lineparts = []
-        records = []
         records_string = ''
         for lat, lon in zip(dict_item[u'lats'], dict_item[u'lons']):
             line.append([float(lon), float(lat)])
@@ -359,7 +373,9 @@ def write_shapefile(data, shapefile_path):
                 records_string += "dict_item['" + field + "']"
         method_string = "w.record(" + records_string + ")"
 
-        # w.record(dict_item['name'], dict_item['agency'], dict_item['agency_name'], dict_item['type'], dict_item['lons'])
+        # DEBUG:
+        # w.record(dict_item['name'], dict_item['agency'],
+        #   dict_item['agency_name'], dict_item['type'], dict_item['lons'])
         print(method_string)
         eval(method_string)
     w.save(shapefile_path)
@@ -403,13 +419,18 @@ def make_sure_path_exists(path):
         if exception.errno != errno.EEXIST:
             raise
 
+
 def difference_of_pandas_dfs(df_self, df_other, col_names=None):
     """
-    Returns a dataframe with all of df_other that are not in df_self, when considering the columns specified in col_names
-    :param df_self: pandas Dataframe
-    :param df_other: pandas Dataframe
-    :param col_names: list of column names
-    :return:
+    Returns a dataframe with all of df_other that are not in df_self
+    when considering the columns specified in col_names
+
+    Parameters
+    ----------
+    df_self: pandas.Dataframe
+    df_other: pandas.Dataframe
+    col_names: list
+        list of column names
     """
     df = pd.concat([df_self, df_other])
     df = df.reset_index(drop=True)

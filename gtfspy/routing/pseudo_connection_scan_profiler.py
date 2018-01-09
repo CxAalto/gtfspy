@@ -45,15 +45,8 @@ class PseudoConnectionScanProfiler(AbstractRoutingAlgorithm):
     http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf
     """
 
-    def __init__(self,
-                 transit_events,
-                 target_stop,
-                 start_time=None,
-                 end_time=None,
-                 transfer_margin=0,
-                 walk_network=None,
-                 walk_speed=1.5,
-                 verbose=False):
+    def __init__(self, transit_events, target_stop, walk_network, end_time=None, transfer_margin=0, start_time=None,
+                 walk_speed=1.5, verbose=False):
         """
         Parameters
         ----------

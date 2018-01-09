@@ -1,9 +1,11 @@
+from math import isnan
+from warnings import warn
+
 import networkx
 import pandas as pd
-from math import isnan
+
 from gtfspy import route_types
 from gtfspy.util import wgs84_distance
-from warnings import warn
 
 ALL_STOP_TO_STOP_LINK_ATTRIBUTES = [
     "capacity_estimate", "duration_min", "duration_max",
@@ -16,6 +18,7 @@ DEFAULT_STOP_TO_STOP_LINK_ATTRIBUTES = [
     "n_vehicles", "duration_avg",
     "d", "route_I_counts"
 ]
+
 
 def walk_transfer_stop_to_stop_network(gtfs, max_link_distance=None):
     """
@@ -63,7 +66,7 @@ def walk_transfer_stop_to_stop_network(gtfs, max_link_distance=None):
             if stop_distance_tuple.d > max_link_distance:
                 continue
             data = {'d': stop_distance_tuple.d}
-        net.add_edge(from_node, to_node, data)
+        net.add_edge(from_node, to_node, **data)
     return net
 
 
@@ -103,7 +106,7 @@ def stop_to_stop_network_for_route_type(gtfs,
     """
     if link_attributes is None:
         link_attributes = DEFAULT_STOP_TO_STOP_LINK_ATTRIBUTES
-    assert(route_type in route_types.TRANSIT_ROUTE_TYPES)
+    assert (route_type in route_types.TRANSIT_ROUTE_TYPES)
 
     stops_dataframe = gtfs.get_stops_for_route_type(route_type)
     net = networkx.DiGraph()
@@ -192,6 +195,7 @@ def stop_to_stop_networks_by_type(gtfs):
     assert len(route_type_to_network) == len(route_types.ALL_ROUTE_TYPES)
     return route_type_to_network
 
+
 def combined_stop_to_stop_transit_network(gtfs, start_time_ut=None, end_time_ut=None):
     """
     Compute stop-to-stop networks for all travel modes and combine them into a single network.
@@ -202,6 +206,10 @@ def combined_stop_to_stop_transit_network(gtfs, start_time_ut=None, end_time_ut=
     Parameters
     ----------
     gtfs: gtfspy.GTFS
+    start_time_ut: int, optional
+        temporal aggregation start time (seconds after unix epoch)
+    end_time_ut: int, optional
+        temporal aggregation end time (seconds after unix epoch)
 
     Returns
     -------
@@ -213,10 +221,11 @@ def combined_stop_to_stop_transit_network(gtfs, start_time_ut=None, end_time_ut=
         graph = stop_to_stop_network_for_route_type(gtfs, route_type,
                                                     start_time_ut=start_time_ut, end_time_ut=end_time_ut)
         for from_node, to_node, data in graph.edges(data=True):
-            data['route_type'] = route_type
+            data['attr_dict']['route_type'] = route_type
         multi_di_graph.add_edges_from(graph.edges(data=True))
         multi_di_graph.add_nodes_from(graph.nodes(data=True))
     return multi_di_graph
+
 
 def _add_stops_to_net(net, stops):
     """
@@ -233,7 +242,7 @@ def _add_stops_to_net(net, stops):
             "lon": stop.lon,
             "name": stop.name
         }
-        net.add_node(stop.stop_I, data)
+        net.add_node(stop.stop_I, **data)
 
 
 def temporal_network(gtfs,
@@ -293,7 +302,6 @@ def route_to_route_network(gtfs, walking_threshold, start_time, end_time):
     for i in routes.itertuples():
         graph.add_node(i.route_id, attr_dict={"type": i.type, "color": route_types.ROUTE_TYPE_TO_COLOR[i.type]})
 
-
     query = """SELECT stop1.route_id AS route_id1, stop1.type, stop2.route_id AS route_id2, stop2.type FROM
                 (SELECT * FROM stop_distances WHERE d_walk < %s) sd,
                 (SELECT * FROM stop_times, trips, routes 
@@ -313,8 +321,9 @@ def route_to_route_network(gtfs, walking_threshold, start_time, end_time):
     return graph
 
 
-
-
+# Some functions like these could be useful?
+# See also aggregate_stops.py
+#
 # def cluster_network_stops(stop_to_stop_net, distance):
 #     """
 #     Aggregate graph by grouping nodes that are within a specified distance.
