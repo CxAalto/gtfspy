@@ -189,6 +189,18 @@ class JourneyDataAnalyzer:
 
         return df
 
+    def journey_diversity(self):
+        """
+        New journey diversity measure based on jaccard/sörensens index
+        :return:
+        """
+        import itertools
+        sets = [{1, 4, 5}, {1, 4, 5}, {1, 4, 5}, {1, 4, 5}, {1, 4, 5}]
+        a = sum([len(x) for x in sets])-len(set.union(*sets))
+        b = sum([min(len(i-j), len(j-i)) for i, j in itertools.combinations(sets, 2)])
+        c = sum([max(len(i-j), len(j-i)) for i, j in itertools.combinations(sets, 2)])
+        sor = (b+c)/(2*a+b+c)
+
     def journey_alternative_data_time_weighted(self, target, start_time, end_time):
         query = """SELECT sum(p*p) AS simpson, sum(n_trips) AS n_trips, count(*) AS n_routes, from_stop_I, to_stop_I FROM
                     (SELECT 1.0*sum(pre_journey_wait_fp)/total_time AS p, count(*) AS n_trips, route, 
