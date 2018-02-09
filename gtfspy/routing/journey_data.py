@@ -422,8 +422,8 @@ class JourneyDataManager:
             cur.execute("UPDATE journeys "
                         "SET "
                         "walking_duration = "
-                        "(SELECT sum(arrival_time_target - departure_time) AS walking_duration FROM legs "
-                        "WHERE journeys.journey_id = legs.journey_id AND trip_I < 0 GROUP BY journey_id)")
+                        "coalesce((SELECT sum(arrival_time_target - departure_time) AS walking_duration FROM legs "
+                        "WHERE journeys.journey_id = legs.journey_id AND trip_I < 0 GROUP BY journey_id), 0)")
             cur.execute("UPDATE journeys "
                         "SET transfer_wait_duration = journey_duration - in_vehicle_duration - walking_duration")
         self.conn.commit()
@@ -602,7 +602,7 @@ class JourneyDataManager:
         _flush_data_to_db(measure_to_measure_summary_dicts)
 
         for i, (origin, target, journey_labels) in enumerate(self._journey_label_generator(targets, origins)):
-            print("i", origin, target, journey_labels)
+            #print("i", origin, target, journey_labels)
             if len(journey_labels) == 0:
                 continue
 

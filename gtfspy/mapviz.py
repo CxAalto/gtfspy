@@ -346,10 +346,12 @@ def plot_route_network_thumbnail(g, map_style=None):
                                         map_style=map_style)
 
 
-def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list, s=0.5, spatial_bounds=None,
-                                           colorbar=False, ax=None, cmap=None, norm=None, alpha=None, colors=None):
+def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list, s=1, spatial_bounds=None,
+                                           colorbar=False, ax=None, cmap=None, norm=None, alpha=None, colors=None, markers=None, scalebar=True):
     if not colors:
         colors = mcolors.BASE_COLORS
+    if not markers:
+        markers = [".", "o", "v", "^", "P", "*"]
     if not spatial_bounds:
         lon_min = min([min(x) for x in lons_list])
         lon_max = max([max(x) for x in lons_list])
@@ -384,12 +386,17 @@ def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list
     ax.set_xticks([])
     ax.set_yticks([])
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=0.8)
+    bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
+                                                         numpy.array([lon_min, lon_max]))
+    if scalebar:
+        _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
 
     axes = []
-    for lats, lons, attributes, c in zip(lats_list, lons_list, attributes_list, colors):
+    for lats, lons, attributes, c, marker in zip(lats_list, lons_list, attributes_list, colors, markers):
         x, y = zip(*[smopy_map.to_pixels(lat, lon) for lat, lon in zip(lats, lons)])
-        ax = plt.scatter(x, y, s=s, c=c)  # , marker=".")
+        ax = plt.scatter(x, y, s=s, c=c, marker=marker)
         axes.append(ax)
+
     return axes
 
 
