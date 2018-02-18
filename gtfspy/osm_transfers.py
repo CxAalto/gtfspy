@@ -140,7 +140,7 @@ def create_walk_network_from_osm(osm_file):
 
     # Remove all singleton nodes (note that taking the giant component does not necessarily provide proper results.
     assert isinstance(walk_network, networkx.Graph)
-    for node, degree in walk_network.degree:
+    for node, degree in list(walk_network.degree):
         if degree is 0:
             walk_network.remove_node(node)
 

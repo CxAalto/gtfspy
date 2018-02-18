@@ -99,7 +99,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         self._n_boardings_to_simple_time_analyzers = {}
         self._transfers_on_fastest_paths_analyzer = self._get_transfers_on_fastest_path_analyzer()
 
-    def __get_fastest_path_analyzer(self):
+    def _get_fastest_path_analyzer(self):
         return FastestPathAnalyzer(self.all_labels,
                                    self.start_time_dep,
                                    self.end_time_dep,
@@ -107,7 +107,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                    label_props_to_consider=["n_boardings"])
 
     def _get_transfers_on_fastest_path_analyzer(self):
-        fp_analyzer = self.__get_fastest_path_analyzer()
+        fp_analyzer = self._get_fastest_path_analyzer()
         if self._walk_to_target_duration < float('inf'):
             cutoff_value = 0
         else:
@@ -488,7 +488,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        blocks = self.__get_fastest_path_analyzer().get_fastest_path_temporal_distance_blocks()
+        blocks = self._get_fastest_path_analyzer().get_fastest_path_temporal_distance_blocks()
 
         walking_is_fastest_time = 0
         non_walk_blocks = []

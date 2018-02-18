@@ -163,6 +163,9 @@ class JourneyDataManager:
         self.conn.executemany(statement, rows)
 
     def _insert_journeys_with_route_into_db(self, stop_I_to_journey_labels, target_stop):
+        # TODO: basic function to loop trough journeys and derive measures, then possibly store these in a db
+        # TODO: possible measures: route diversity, circuity,
+        # inputs could be
         print("Collecting journey and connection data")
         journey_id = (self._get_largest_journey_id() if self._get_largest_journey_id() else 0) + 1
         journey_list = []
@@ -521,7 +524,7 @@ class JourneyDataManager:
                                                 analysis_end_time):
         measure_summaries = {}
         kwargs = {"from_stop_I": origin, "to_stop_I": target}
-        walking_distance = self.gtfs.get_stop_distance(origin, target)
+        walking_distance = self.gtfs.get_stop_walk_distance(origin, target)
 
         if walking_distance:
             walking_duration = walking_distance / self.routing_params_input["walk_speed"]
