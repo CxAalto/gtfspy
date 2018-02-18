@@ -130,7 +130,12 @@ class GTFS(object):
         distance_query = query_template.format(trip_I=trip_I, from_stop_seq=from_stop_seq, to_stop_seq=to_stop_seq)
         return self.conn.execute(distance_query).fetchone()[0]
 
-    def get_stop_distance(self, from_stop_I, to_stop_I):
+    def get_distance_between_stops_euclidean(self, from_stop_I, to_stop_I):
+        lat1, lon1 = self.get_stop_coordinates(from_stop_I)
+        lat2, lon2 = self.get_stop_coordinates(to_stop_I)
+        return wgs84_distance(lat1, lon1, lat2, lon2)
+
+    def get_stop_walk_distance(self, from_stop_I, to_stop_I):
         query_template = "SELECT d_walk FROM stop_distances WHERE from_stop_I={from_stop_I} AND to_stop_I={to_stop_I} "
         q = query_template.format(from_stop_I=int(from_stop_I), to_stop_I=int(to_stop_I))
         if self.conn.execute(q).fetchone():
@@ -1935,24 +1940,7 @@ def main(cmd, args):
         # noinspection PyPackageRequirements
         import IPython
         IPython.embed()
-    elif 'export_shapefile' in cmd:
-        from gtfspy.util import write_shapefile
-        from_db = args[
-            0]  # '/m/cs/project/networks/jweckstr/transit/scratch/proc_latest/helsinki/2016-04-06/main.day.sqlite'
-        shapefile_path = args[1]  # '/m/cs/project/networks/jweckstr/TESTDATA/helsinki_routes.shp'
-        g = GTFS(from_db)
-        data = None
-        if cmd == 'export_shapefile_routes':
-            data = g.get_all_route_shapes(use_shapes=True)
-        elif cmd == 'export_shapefile_segment_counts':
-            date = args[2]  # '2016-04-06'
-            d = datetime.datetime.strptime(date, '%Y-%m-%d').date()
-            day_start = g.get_day_start_ut(d + datetime.timedelta(7 - d.isoweekday() + 1))
-            start_time = day_start + 3600 * 7
-            end_time = day_start + 3600 * 8
-            data = g.get_segment_count_data(start_time, end_time, use_shapes=True)
 
-        write_shapefile(data, shapefile_path)
     else:
         print("Unrecognized command: %s" % cmd)
         exit(1)
