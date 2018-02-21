@@ -126,11 +126,11 @@ def write_static_networks(gtfs, output_dir, fmt=None):
     output_dir: str, unicode
         a path where to write
     fmt: None, optional
-        defaulting to "edg" and writing results as ".edg" files
+        defaulting to "csv" and writing results as ".csv" files
          If "csv" csv files are produced instead
     """
     if fmt is None:
-        fmt = "edg"
+        fmt = "csv"
     single_layer_networks = stop_to_stop_networks_by_type(gtfs)
     util.makedirs(output_dir)
     for route_type, net in single_layer_networks.items():
@@ -189,7 +189,7 @@ def _write_stop_to_stop_network_edges(net, file_name_without_extension, data=Tru
         If "csv" write out the network in csv format.
     """
     if fmt is None:
-        fmt = "edg"
+        fmt = "csv"
 
     if fmt == "edg":
         if data:
@@ -200,11 +200,10 @@ def _write_stop_to_stop_network_edges(net, file_name_without_extension, data=Tru
         with open(file_name_without_extension, 'w') as f:
             # writing out the header
             _, _, edge_data = list(net.edges(data=True))[0]
-            edge_data_keys = list(sorted(edge_data['attr_dict'].keys()))
+            edge_data_keys = list(sorted(edge_data.keys()))
             header = ";".join(["from_stop_I", "to_stop_I"] + edge_data_keys)
             f.write(header)
             for from_node_I, to_node_I, data in net.edges(data=True):
-                data = data['attr_dict']
                 f.write("\n")
                 values = [str(from_node_I), str(to_node_I)]
                 data_values = []
@@ -226,9 +225,9 @@ def create_sections_geojson_dict(G, start_time_ut=None, end_time_ut=None):
     features = []
     gjson["features"] = features
     linksWithData = list(multi_di_graph.edges(data=True))
-    linksWithData.sort(key=lambda el: ROUTE_TYPE_TO_ZORDER[el[2]['attr_dict']['route_type']])
+    linksWithData.sort(key=lambda el: ROUTE_TYPE_TO_ZORDER[el[2]['route_type']])
     for from_stop_I, to_stop_I, linkData in linksWithData:
-        linkData = linkData['attr_dict']
+        linkData = linkData
         feature = {"type": "Feature"}
         geometry = {
             "type": "LineString",

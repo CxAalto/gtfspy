@@ -52,9 +52,9 @@ class ExportsTest(unittest.TestCase):
 
     def test_write_stop_to_stop_networks(self):
         exports.write_static_networks(self.gtfs, self.extract_output_dir)
-        self.assertTrue(os.path.exists(self.extract_output_dir + "network_walk.edg"))
-        self.assertTrue(os.path.exists(self.extract_output_dir + "network_bus.edg"))
-        self.assertFalse(os.path.exists(self.extract_output_dir + "network_gondola.edg"))
+        self.assertTrue(os.path.exists(self.extract_output_dir + "network_walk.csv"))
+        self.assertTrue(os.path.exists(self.extract_output_dir + "network_bus.csv"))
+        self.assertFalse(os.path.exists(self.extract_output_dir + "network_gondola.csv"))
 
     def test_write_combined_stop_to_stop_networks(self):
         output = os.path.join(self.extract_output_dir + "network_combined")
@@ -86,7 +86,7 @@ class ExportsTest(unittest.TestCase):
 
         at_least_one_shape_distance = False
         for from_I, to_I, data in edges:
-            linkData = data['attr_dict']
+            linkData = data
             ds = linkData['distance_shape']
             self.assertTrue(isinstance(ds, int) or (ds is None),
                             "distance_shape should be either int or None (in case shapes are not available)")
@@ -110,7 +110,7 @@ class ExportsTest(unittest.TestCase):
         multi_di_graph = networks.combined_stop_to_stop_transit_network(self.gtfs)
         self.assertIsInstance(multi_di_graph, networkx.MultiDiGraph)
         for from_node, to_node, data in multi_di_graph.edges(data=True):
-            self.assertIn("route_type", data['attr_dict'])
+            self.assertIn("route_type", data)
 
     def test_temporal_network(self):
         temporal_pd = networks.temporal_network(self.gtfs)
