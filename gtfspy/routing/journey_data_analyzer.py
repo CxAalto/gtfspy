@@ -189,6 +189,7 @@ class JourneyDataAnalyzer:
 
         return df
 
+
     def journey_alternative_data_time_weighted(self, target, start_time, end_time):
         query = """SELECT sum(p*p) AS simpson, sum(n_trips) AS n_trips, count(*) AS n_routes, from_stop_I, to_stop_I FROM
                     (SELECT 1.0*sum(pre_journey_wait_fp)/total_time AS p, count(*) AS n_trips, route, 
@@ -219,26 +220,32 @@ class JourneyDataAnalyzer:
         df = read_sql_query(query, self.conn)
         return df
 
-    def get_upstream_stops_ratio(self, target, trough_stops, ratio):
+    def get_upstream_stops_ratio(self, target, trough_stops, ratio, walk_to_trough_stop=False):
         """
         Selects the stops for which the ratio or higher proportion of trips to the target passes trough a set of trough stops
         :param target: target of trips
         :param trough_stops: stops where the selected trips are passing trough
         :param ratio: threshold for inclusion
+        :param walk_to_trough_stop: bool, added condition for walking trips
         :return:
         """
+        walk_condition = ""
         if isinstance(trough_stops, list):
             trough_stops = ",".join(trough_stops)
+        if walk_to_trough_stop:
+            walk_condition = " AND legs.seq = 1 AND legs.trip_I = -1"
         query = """SELECT stops.* FROM other.stops, 
                     (SELECT q2.from_stop_I AS stop_I FROM 
                     (SELECT journeys.from_stop_I, count(*) AS n_total FROM journeys
                     WHERE journeys.to_stop_I = {target} 
                     GROUP BY from_stop_I) q1,
                     (SELECT journeys.from_stop_I, count(*) AS n_trough FROM journeys, legs 
-                    WHERE journeys.journey_id=legs.journey_id AND legs.from_stop_I IN ({trough_stops}) AND journeys.to_stop_I = {target}
+                    WHERE journeys.journey_id=legs.journey_id AND legs.to_stop_I IN ({trough_stops}) 
+                    AND journeys.to_stop_I = {target} AND journeys.fastest_path=1 {walk_condition}
                     GROUP BY journeys.from_stop_I) q2
                     WHERE q1.from_stop_I = q2.from_stop_I AND n_trough/(n_total*1.0) >= {ratio}) q1
-                    WHERE stops.stop_I = q1.stop_I""".format(target=target, trough_stops=trough_stops, ratio=ratio)
+                    WHERE stops.stop_I = q1.stop_I""".format(target=target, trough_stops=trough_stops, ratio=ratio,
+                                                             walk_condition=walk_condition)
         df = read_sql_query(query, self.conn)
         return df
 

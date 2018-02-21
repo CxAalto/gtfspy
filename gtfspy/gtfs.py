@@ -130,7 +130,12 @@ class GTFS(object):
         distance_query = query_template.format(trip_I=trip_I, from_stop_seq=from_stop_seq, to_stop_seq=to_stop_seq)
         return self.conn.execute(distance_query).fetchone()[0]
 
-    def get_stop_distance(self, from_stop_I, to_stop_I):
+    def get_distance_between_stops_euclidean(self, from_stop_I, to_stop_I):
+        lat1, lon1 = self.get_stop_coordinates(from_stop_I)
+        lat2, lon2 = self.get_stop_coordinates(to_stop_I)
+        return wgs84_distance(lat1, lon1, lat2, lon2)
+
+    def get_stop_walk_distance(self, from_stop_I, to_stop_I):
         query_template = "SELECT d_walk FROM stop_distances WHERE from_stop_I={from_stop_I} AND to_stop_I={to_stop_I} "
         q = query_template.format(from_stop_I=int(from_stop_I), to_stop_I=int(to_stop_I))
         if self.conn.execute(q).fetchone():
@@ -1250,7 +1255,7 @@ class GTFS(object):
                 trip_I_dict[day_start_ut] = trip_Is
         return trip_I_dict
 
-    def stops(self, require_reference_in_stop_times=False, exclude_parent_stops=False):
+    def stops(self, require_reference_in_stop_times=False, exclude_parent_stops=False, order_by=None):
         """
         Get all stop data as a pandas DataFrame
 
@@ -1266,6 +1271,8 @@ class GTFS(object):
             conditions.append(" stops.stop_I NOT IN (SELECT DISTINCT parent_I FROM stops WHERE parent_I IS NOT NULL) ")
         if len(conditions) > 0:
             sql += " WHERE " + " AND ".join(conditions)
+        if order_by:
+            sql += " ORDER BY {table}".format(table=order_by)
         return pd.read_sql(sql, self.conn)
 
     def stop(self, stop_I):
@@ -1495,7 +1502,7 @@ class GTFS(object):
         print("unique routes B", len(other_df))
         return this_df, other_df
 
-    def get_section_difference_with_other_db(self, other_conn, start_time, end_time):
+    def get_section_difference_with_other_db(self, other_gtfs, start_time, end_time):
         query = """SELECT from_stop_I, to_stop_I, sum(n_trips) AS n_trips, count(*) AS n_routes,
                     group_concat(route_id) AS all_routes FROM
                     (SELECT route_id, from_stop_I, to_stop_I, count(*) AS n_trips FROM
@@ -1513,8 +1520,8 @@ class GTFS(object):
 
         prev_df = None
         result = pd.DataFrame
-        for conn in [self.conn, other_conn]:
-            df = conn.execute_custom_query_pandas(query)
+        for gtfs in [self, other_gtfs]:
+            df = gtfs.execute_custom_query_pandas(query)
             df.set_index(["from_stop_I", "to_stop_I"], inplace=True, drop=True)
             if prev_df is not None:
                 result = prev_df.merge(df, how="outer", left_index=True, right_index=True, suffixes=["_old", "_new"])
@@ -1642,7 +1649,7 @@ class GTFS(object):
         """
         cur = self.conn.cursor()
         self.attach_gtfs_database(source)
-
+        # t1.stop_id=t2.stop_id AND
         query_inner_join = """SELECT t1.*
                               FROM stops t1
                               INNER JOIN other.stops t2
@@ -1706,11 +1713,11 @@ class GTFS(object):
         self.conn.commit()
         print("finished")
 
-    def replace_stop_i_with_stop_pair_i(self):
+    def replace_stop_i_with_stop_pair_i(self, colname="sort_by"):
         cur = self.conn.cursor()
         queries = [
             "UPDATE stop_times SET stop_I = "
-            "(SELECT stops.stop_pair_I AS stop_I FROM stops WHERE stops.stop_I = stop_times.stop_I)",
+            "(SELECT stops.{column} AS stop_I FROM stops WHERE stops.stop_I = stop_times.stop_I)".format(column=colname),
             # Replace stop_distances
             "ALTER TABLE stop_distances RENAME TO stop_distances_old",
 
@@ -1718,18 +1725,19 @@ class GTFS(object):
             "timed_transfer INT, UNIQUE (from_stop_I, to_stop_I))",
 
             "INSERT INTO stop_distances(from_stop_I, to_stop_I, d, d_walk, min_transfer_time, timed_transfer) "
-            "SELECT f_stop.stop_pair_I AS from_stop_I, t_stop.stop_pair_I AS to_stop_I, d, d_walk, min_transfer_time, "
+            "SELECT f_stop.{column} AS from_stop_I, t_stop.{column} AS to_stop_I, d, d_walk, min_transfer_time, "
             "timed_transfer "
             "FROM "
             "(SELECT from_stop_I, to_stop_I, d, d_walk, min_transfer_time, "
             "timed_transfer "
             "FROM stop_distances_old) sd_o "
             "LEFT JOIN "
-            "(SELECT stop_I, stop_pair_I FROM stops) f_stop "
+            "(SELECT stop_I, {column} FROM stops) f_stop "
             "ON sd_o.from_stop_I = f_stop.stop_I "
             " JOIN "
-            "(SELECT stop_I, stop_pair_I FROM stops) t_stop "
-            "ON sd_o.to_stop_I = t_stop.stop_I ;",
+            "(SELECT stop_I, {column} FROM stops) t_stop "
+            "ON sd_o.to_stop_I = t_stop.stop_I "
+            "GROUP BY f_stop.{column}, t_stop.{column};".format(column=colname),
 
             "DROP TABLE stop_distances_old",
 
@@ -1742,9 +1750,10 @@ class GTFS(object):
 
             "INSERT INTO stops(stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
             "wheelchair_boarding, self_or_parent_I, old_stop_I) "
-            "SELECT stop_pair_I AS stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
+            "SELECT {column} AS stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
             "wheelchair_boarding, self_or_parent_I, stop_I AS old_stop_I "
-            "FROM stops_old;",
+            "FROM stops_old "
+            "GROUP BY {column};".format(column=colname),
 
             "DROP TABLE stops_old",
 
@@ -1767,8 +1776,13 @@ class GTFS(object):
         cur.execute("UPDATE stops SET self_or_parent_I=stop_I where stop_id=?", (stop_id,))
         self.conn.commit()
 
-    def recalculate_stop_distances(self, max_distance):
+    def recalculate_stop_distances(self, max_distance, remove_old_table=False):
         from gtfspy.calc_transfers import calc_transfers
+        if remove_old_table:
+            self.execute_custom_query("DROP TABLE stop_distances")
+            self.execute_custom_query(
+                "CREATE TABLE stop_distances (from_stop_I INT, to_stop_I INT, d INT, d_walk INT, min_transfer_time INT, "
+                "timed_transfer INT, UNIQUE (from_stop_I, to_stop_I))")
         calc_transfers(self.conn, max_distance)
 
     def attach_gtfs_database(self, gtfs_dir):
@@ -1926,24 +1940,7 @@ def main(cmd, args):
         # noinspection PyPackageRequirements
         import IPython
         IPython.embed()
-    elif 'export_shapefile' in cmd:
-        from gtfspy.util import write_shapefile
-        from_db = args[
-            0]  # '/m/cs/project/networks/jweckstr/transit/scratch/proc_latest/helsinki/2016-04-06/main.day.sqlite'
-        shapefile_path = args[1]  # '/m/cs/project/networks/jweckstr/TESTDATA/helsinki_routes.shp'
-        g = GTFS(from_db)
-        data = None
-        if cmd == 'export_shapefile_routes':
-            data = g.get_all_route_shapes(use_shapes=True)
-        elif cmd == 'export_shapefile_segment_counts':
-            date = args[2]  # '2016-04-06'
-            d = datetime.datetime.strptime(date, '%Y-%m-%d').date()
-            day_start = g.get_day_start_ut(d + datetime.timedelta(7 - d.isoweekday() + 1))
-            start_time = day_start + 3600 * 7
-            end_time = day_start + 3600 * 8
-            data = g.get_segment_count_data(start_time, end_time, use_shapes=True)
 
-        write_shapefile(data, shapefile_path)
     else:
         print("Unrecognized command: %s" % cmd)
         exit(1)
