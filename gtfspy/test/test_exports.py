@@ -57,9 +57,14 @@ class ExportsTest(unittest.TestCase):
         self.assertFalse(os.path.exists(self.extract_output_dir + "network_gondola.edg"))
 
     def test_write_combined_stop_to_stop_networks(self):
-        output = os.path.join(self.extract_output_dir + "network_combined.edg")
-        exports.write_combined_transit_stop_to_stop_network(self.gtfs, output)
+        output = os.path.join(self.extract_output_dir + "network_combined")
+        exports.write_combined_transit_stop_to_stop_network(self.gtfs, output, fmt="csv")
         self.assertTrue(os.path.exists(output))
+        df = pandas.read_csv(output, ";")
+        self.assertIn("duration_avg", df.columns)
+        self.assertIn("d", df.columns)
+        self.assertIn("n_vehicles", df.columns)
+        self.assertIn("route_type", df.columns)
 
     def test_stop_to_stop_network_by_route_type(self):
         # test that distance works
@@ -115,7 +120,7 @@ class ExportsTest(unittest.TestCase):
         path = os.path.join(self.extract_output_dir, "combined.tnet")
         exports.write_temporal_network(self.gtfs, path, None, None)
         self.assertTrue(os.path.exists(path))
-        df = pandas.read_csv(path)
+        df = pandas.read_csv(path, sep=";")
         columns_should_exist = ["dep_time_ut", "arr_time_ut", "from_stop_I", "to_stop_I",
                                 "route_type", "trip_I"]
         for col in columns_should_exist:

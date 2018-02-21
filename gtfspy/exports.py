@@ -171,7 +171,7 @@ def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_u
     """
     util.makedirs(os.path.dirname(os.path.abspath(output_filename)))
     pandas_data_frame = temporal_network(gtfs, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-    pandas_data_frame.to_csv(output_filename, encoding='utf-8', index=False)
+    pandas_data_frame.to_csv(output_filename, encoding='utf-8', index=False, sep=";")
 
 
 def _write_stop_to_stop_network_edges(net, file_name_without_extension, data=True, fmt=None):
@@ -200,10 +200,11 @@ def _write_stop_to_stop_network_edges(net, file_name_without_extension, data=Tru
         with open(file_name_without_extension, 'w') as f:
             # writing out the header
             _, _, edge_data = list(net.edges(data=True))[0]
-            edge_data_keys = list(sorted(edge_data.keys()))
+            edge_data_keys = list(sorted(edge_data['attr_dict'].keys()))
             header = ";".join(["from_stop_I", "to_stop_I"] + edge_data_keys)
             f.write(header)
             for from_node_I, to_node_I, data in net.edges(data=True):
+                data = data['attr_dict']
                 f.write("\n")
                 values = [str(from_node_I), str(to_node_I)]
                 data_values = []
