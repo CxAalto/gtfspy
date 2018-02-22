@@ -1302,7 +1302,11 @@ class GTFS(object):
         return df_merged3
 
     def get_n_stops(self):
-        return pd.read_sql_query("SELECT count(*) from stops;", self.conn).values[0, 0]
+        return self.get_n_rows("stops")
+
+    def get_n_rows(self, table_name):
+        return pd.read_sql_query("SELECT count(*) from {table_name}".format(table_name=table_name), self.conn).values[0, 0]
+
 
     def get_modes(self):
         modes = list(pd.read_sql_query("SELECT distinct(type) from routes;", self.conn).values.flatten())

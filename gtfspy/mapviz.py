@@ -80,17 +80,11 @@ def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None,
         bbox = ax.get_window_extent().transformed(ax.figure.dpi_scale_trans.inverted())
         width, height = bbox.width, bbox.height
         spatial_bounds = _expand_spatial_bounds_to_fit_axes(spatial_bounds, width, height)
-    return plot_as_routes(route_shapes,
-                          ax=ax,
-                          spatial_bounds=spatial_bounds,
-                          map_alpha=map_alpha,
-                          scalebar=scalebar,
-                          legend=legend,
-                          return_smopy_map=return_smopy_map,
-                          map_style=map_style)
+    return plot_as_routes(route_shapes, spatial_bounds, ax=ax, map_alpha=map_alpha, scalebar=scalebar,
+                          legend=legend, return_smopy_map=return_smopy_map, map_style=map_style)
 
 
-def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, scalebar=True, legend=True,
+def plot_as_routes(route_shapes, spatial_bounds, ax=None, map_alpha=0.8, scalebar=True, legend=True,
                    return_smopy_map=False, line_width_attribute=None, line_width_scale=1.0, map_style=None):
     """
     Parameters
@@ -113,8 +107,6 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, sc
     line_width_scale: float
     map_style: str, optional
         background map style, one of MAP_STYLES
-
-
 
 
     Returns
@@ -144,8 +136,10 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, sc
         else:
             line_width = 1
         xs, ys = smopy_map.to_pixels(lats, lons)
-        line, = ax.plot(xs, ys, linewidth=line_width, color=ROUTE_TYPE_TO_COLOR[route_type],
-                        zorder=ROUTE_TYPE_TO_ZORDER[route_type])
+        line, = ax.plot(xs, ys,
+                        linewidth=line_width,
+                        color=ROUTE_TYPE_TO_COLOR[route_type],
+                        zorder=ROUTE_TYPE_TO_ZORDER[route_type] / 10)
         route_types_to_lines[route_type] = line
 
     if legend:

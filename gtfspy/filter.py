@@ -4,6 +4,8 @@ import shutil
 import logging
 import sqlite3
 import datetime
+from collections import Counter
+import warnings
 
 import pandas
 
@@ -31,8 +33,6 @@ DELETE_DAYS_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL = \
     "DELETE FROM days WHERE trip_I NOT IN (SELECT trip_I FROM trips)"
 DELETE_DAY_TRIPS2_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL = \
     "DELETE FROM day_trips2 WHERE trip_I NOT IN (SELECT trip_I FROM trips)"
-DELETE_FREQUENCIES_ENTRIES_NOT_PRESENT_IN_TRIPS = \
-    "DELETE FROM frequencies WHERE trip_I NOT IN (SELECT trip_I FROM trips)"
 DELETE_CALENDAR_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL = \
     "DELETE FROM calendar WHERE service_I NOT IN (SELECT distinct(service_I) FROM trips)"
 DELETE_CALENDAR_DATES_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL = \
@@ -49,6 +49,8 @@ DELETE_TRIPS_NOT_IN_DAYS_SQL = \
     'DELETE FROM trips WHERE trip_I NOT IN (SELECT trip_I FROM days)'
 DELETE_TRIPS_NOT_REFERENCED_IN_STOP_TIMES = \
     'DELETE FROM trips WHERE trip_I NOT IN (SELECT trip_I FROM stop_times)'
+DELETE_TRIPS_NOT_IN_DAY_TRIPS2_SQL = \
+    'DELETE FROM trips WHERE trip_I NOT IN (SELECT DISTINCT trip_I FROM day_trips)'
 
 
 class FilterExtract(object):
@@ -63,7 +65,9 @@ class FilterExtract(object):
                  start_date=None,
                  end_date=None,
                  agency_ids_to_preserve=None,
-                 agency_distance=None):
+                 agency_distance=None,
+                 trip_earliest_start_time_ut=None,
+                 trip_latest_start_time_ut=None):
         """
         Copy a database, and then based on various filters.
         Only method `create_filtered_copy` is provided as we do not want to take the risk of
@@ -99,6 +103,11 @@ class FilterExtract(object):
             Longitude of the buffer zone center
         buffer_distance : float
             Distance from the buffer zone center (in kilometers)
+        trip_start_ut: int
+            Earliest possible trip start time (included)
+        trip_end_ut: int
+            Earliest possible trip end time (excluded)
+
 
         Returns
         -------
@@ -120,6 +129,10 @@ class FilterExtract(object):
         else:
             self.start_date = None
             self.end_date = None
+
+        self.trip_earliest_start_time_ut = trip_earliest_start_time_ut
+        self.trip_latest_start_time_ut = trip_latest_start_time_ut
+
         self.copy_db_conn = None
         self.copy_db_path = copy_db_path
 
@@ -150,6 +163,7 @@ class FilterExtract(object):
 
             filtered = False
             filtered = self._delete_rows_by_start_and_end_date() or filtered
+            filtered = self._filter_by_trip_start_time_uts() or filtered
             if self.copy_db_conn.execute('SELECT count(*) FROM days').fetchone() == (0,):
                 raise ValueError('No data left after filtering')
             filtered = self._filter_by_calendar() or filtered
@@ -161,6 +175,123 @@ class FilterExtract(object):
             if self.update_metadata:
                 self._update_metadata()
         return
+
+    def _filter_by_trip_start_time_uts(self):
+        if (self.trip_earliest_start_time_ut is not None) or (self.trip_latest_start_time_ut is not None):
+            n_day_trips_before = self.copy_db_conn.execute("SELECT count(*) FROM day_trips2").fetchone()[0]
+
+            if n_day_trips_before == 0:
+                raise RuntimeError("The table day_trips2 is empty. Filtering based on trip_start_time_uts is not possible")
+
+            if self.trip_earliest_start_time_ut:
+                self.copy_db_conn.execute("DELETE FROM day_trips2 WHERE start_time_ut < {earliest_ut}".format(earliest_ut=self.trip_earliest_start_time_ut))
+            if self.trip_latest_start_time_ut:
+                self.copy_db_conn.execute("DELETE FROM day_trips2 WHERE start_time_ut >= {latest_ut}".format(latest_ut=self.trip_latest_start_time_ut))
+
+            n_day_trips_after = self.copy_db_conn.execute("SELECT count(*) FROM day_trips2").fetchone()[0]
+            if n_day_trips_before == n_day_trips_after:
+                warnings.warn("No filtering was done based on trip_start_time_uts")
+                return NOT_FILTERED
+
+            preserved_trips_by_day = pandas.read_sql("SELECT day_trips2.trip_I, "
+                                                     "min(day_trips2.day_start_ut) AS min_day_start_ut, "
+                                                     "max(day_trips2.day_start_ut) AS max_day_start_ut, "
+                                                     "min(date) AS min_date, "
+                                                     "max(date) AS max_date, "
+                                                     "min(day_trips2.start_time_ut) - min(day_trips2.day_start_ut) AS trip_start_time_day_seconds, "
+                                                     "trips.service_I AS service_I "
+                                                     "FROM day_trips2, trips WHERE day_trips2.trip_I=trips.trip_I GROUP BY day_trips2.trip_I", self.copy_db_conn)
+
+            for row in preserved_trips_by_day.itertuples():
+                DELETE_FROM_DAYS_IF_DAY_START_NOT_WITHIN_LIMITS_SQL = \
+                    "DELETE FROM days " \
+                    " WHERE trip_I={trip_I} " \
+                    " AND (day_start_ut < {min_day_start_ut} " \
+                    "      OR day_start_ut > {max_day_start_ut})".format(trip_I=row.trip_I,
+                                                                         min_day_start_ut=row.min_day_start_ut,
+                                                                         max_day_start_ut=row.max_day_start_ut)
+                self.copy_db_conn.execute(DELETE_FROM_DAYS_IF_DAY_START_NOT_WITHIN_LIMITS_SQL)
+
+
+            # Adjust calendar and calendar_dates
+            for orig_service_I, service_I_group_df in preserved_trips_by_day.groupby(by="service_I"):
+                min_and_max_day_starts = [(row.min_day_start_ut,row.max_day_start_ut) for row in service_I_group_df.itertuples()]
+                service_I_dsut_counter = Counter(min_and_max_day_starts)
+                for i, ((min_day_start_ut, max_day_start_ut), count) in enumerate(service_I_dsut_counter.most_common()):
+                    trip_Is_for_this_service_I = service_I_group_df.loc[(service_I_group_df["min_day_start_ut"] == min_day_start_ut) & (service_I_group_df["max_day_start_ut"] == max_day_start_ut)]
+                    new_service_I = self.__copy_calendar_and_calendar_dates_services_and_get_new_service_I(orig_service_I, i)
+                    min_date = service_I_group_df.loc[service_I_group_df['min_day_start_ut'] == min_day_start_ut].to_dict("records")[0]['min_date']
+                    max_date = service_I_group_df.loc[service_I_group_df['max_day_start_ut'] == max_day_start_ut].to_dict("records")[0]['max_date']
+                    self.__filter_calendar_information_for_service_I(new_service_I, min_date, max_date)
+                    # update each trip with information on new service_I
+                    for trip_I in trip_Is_for_this_service_I['trip_I']:
+                        trips_table_service_I_update_sql = "UPDATE trips SET service_I={new_service_I} WHERE trip_I={trip_I}".format(new_service_I=new_service_I, trip_I=trip_I)
+                        self.copy_db_conn.execute(trips_table_service_I_update_sql)
+
+                delete_old_service_I_from_calendar_sql = "DELETE FROM calendar WHERE service_I={service_I}".format(service_I=orig_service_I)
+                delete_old_service_I_from_calendar_dates_sql = "DELETE FROM calendar_dates WHERE service_I = {service_I}".format(service_I=orig_service_I)
+                self.copy_db_conn.execute(delete_old_service_I_from_calendar_sql)
+                self.copy_db_conn.execute(delete_old_service_I_from_calendar_dates_sql)
+
+
+            self.copy_db_conn.execute(DELETE_TRIPS_NOT_IN_DAY_TRIPS2_SQL)
+            self.copy_db_conn.execute(DELETE_CALENDAR_DATES_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL)
+            self.copy_db_conn.execute(DELETE_CALENDAR_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL)
+            self.copy_db_conn.execute(DELETE_STOP_TIMES_NOT_REFERENCED_IN_TRIPS_SQL)
+            self.copy_db_conn.execute(DELETE_DAYS_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL)
+            delete_stops_not_in_stop_times_and_not_as_parent_stop(self.copy_db_conn)
+            self.copy_db_conn.execute(DELETE_ROUTES_NOT_PRESENT_IN_TRIPS_SQL)
+            self.copy_db_conn.execute(DELETE_STOP_DISTANCE_ENTRIES_WITH_NONEXISTENT_STOPS_SQL)
+            self.copy_db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
+            self.copy_db_conn.execute(DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL)
+            self.copy_db_conn.execute(DELETE_FREQUENCIES_NOT_REFERENCED_IN_TRIPS_SQL)
+
+            self.copy_db_conn.commit()
+            return FILTERED
+        else:
+            return NOT_FILTERED
+
+    def __copy_calendar_and_calendar_dates_services_and_get_new_service_I(self, service_I, postfix_index):
+        original_service_info_in_calendar = pandas.read_sql("SELECT * FROM calendar WHERE service_I={service_I}".format(service_I=service_I), self.copy_db_conn).to_dict("records")[0]
+
+        new_service_id_info_in_calendar = dict(**original_service_info_in_calendar)
+        new_service_id = original_service_info_in_calendar['service_id'] + "_temporally_filtered_" + str(postfix_index)
+        new_service_id_info_in_calendar['service_id'] = new_service_id
+        insertion_sql = "INSERT INTO calendar (service_id, m, t, w, th, f, s, su, start_date, end_date) " \
+                        "VALUES (\"{service_id}\", {m}, {t}, {w}, {th}, {f}, {s}, {su}, \"{start_date}\", \"{end_date}\")"\
+            .format(**new_service_id_info_in_calendar)
+        self.copy_db_conn.execute(insertion_sql)
+
+        new_service_I = self.copy_db_conn.execute("SELECT service_I FROM calendar WHERE service_id=\"{new_service_id}\"".format(new_service_id=new_service_id)).fetchone()[0]
+
+        # copy information on calendar dates
+        copy_information_on_calendar_dates_sql = "INSERT INTO calendar_dates (service_I, date, exception_type) SELECT {new_service_I}, date, exception_type FROM calendar_dates WHERE service_I={old_service_I}".format(new_service_I=new_service_I, old_service_I=service_I)
+        self.copy_db_conn.execute(copy_information_on_calendar_dates_sql)
+        return new_service_I
+
+    def __filter_calendar_information_for_service_I(self, service_I, date_start, date_end):
+        assert isinstance(service_I, int)
+        assert isinstance(date_start, str)
+        assert isinstance(date_end, str)
+
+        # Adjust time span of calendar (check what is done in filter_by_calendar)
+        start_date_query = "UPDATE calendar " \
+                           "SET start_date='{start_date}' " \
+                           "WHERE start_date<'{start_date}' AND service_I={service_I}".format(start_date=date_start,
+                                                                                              service_I=service_I)
+        self.copy_db_conn.execute(start_date_query)
+
+        end_date_query = "UPDATE calendar " \
+                         "SET end_date='{end_date_to_include}' " \
+                         "WHERE end_date>'{end_date_to_include}' AND service_I={service_I}" \
+            .format(end_date_to_include=date_end, service_I=service_I)
+        self.copy_db_conn.execute(end_date_query)
+
+        # remove any calendar_dates entries that are not within specified time frame
+        self.copy_db_conn.execute("DELETE FROM calendar_dates WHERE date < \"{min_date}\" OR date > \"{max_date}\"".format(min_date=date_start, max_date=date_end))
+
+
+
 
     def _delete_rows_by_start_and_end_date(self):
         """
@@ -399,7 +530,7 @@ class FilterExtract(object):
         self.copy_db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
         self.copy_db_conn.execute(DELETE_SHAPES_NOT_REFERENCED_IN_TRIPS_SQL)
         self.copy_db_conn.execute(DELETE_STOP_DISTANCE_ENTRIES_WITH_NONEXISTENT_STOPS_SQL)
-        self.copy_db_conn.execute(DELETE_FREQUENCIES_ENTRIES_NOT_PRESENT_IN_TRIPS)
+        self.copy_db_conn.execute(DELETE_FREQUENCIES_NOT_REFERENCED_IN_TRIPS_SQL)
         remove_dangling_shapes(self.copy_db_conn)
         self.copy_db_conn.commit()
         return FILTERED
@@ -504,7 +635,7 @@ def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffe
     db_conn.execute(DELETE_DAY_TRIPS2_ENTRIES_NOT_PRESENT_IN_TRIPS_SQL)
     db_conn.execute(DELETE_CALENDAR_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL)
     db_conn.execute(DELETE_CALENDAR_DATES_ENTRIES_FOR_NON_REFERENCE_SERVICE_IS_SQL)
-    db_conn.execute(DELETE_FREQUENCIES_ENTRIES_NOT_PRESENT_IN_TRIPS)
+    db_conn.execute(DELETE_FREQUENCIES_NOT_REFERENCED_IN_TRIPS_SQL)
     db_conn.execute(DELETE_AGENCIES_NOT_REFERENCED_IN_ROUTES_SQL)
     if update_secondary_data:
         update_secondary_data_copies(db_conn)
@@ -589,6 +720,9 @@ def _split_trip(copy_db_conn, orig_trip_I, stop_times_within_buffer_df):
                          " (SELECT DISTINCT shapes.shape_id FROM shapes, trips "
                          "     WHERE trip_I={orig_trip_I} AND shapes.shape_id=trips.shape_id)"
                          .format(orig_trip_I=orig_trip_I))
+
+
+
 
 
 def update_secondary_data_copies(db_conn):
