@@ -229,7 +229,7 @@ class FilterExtract(object):
                         self.copy_db_conn.execute(trips_table_service_I_update_sql)
 
                 delete_old_service_I_from_calendar_sql = "DELETE FROM calendar WHERE service_I={service_I}".format(service_I=orig_service_I)
-                delete_old_service_I_from_calendar_dates_sql = "DELETE FROM calendar_dates WHERE service_I = {service_I}".format(service_I=orig_service_I)
+                delete_old_service_I_from_calendar_dates_sql = "DELETE FROM calendar_dates WHERE service_I={service_I}".format(service_I=orig_service_I)
                 self.copy_db_conn.execute(delete_old_service_I_from_calendar_sql)
                 self.copy_db_conn.execute(delete_old_service_I_from_calendar_dates_sql)
 
@@ -288,8 +288,10 @@ class FilterExtract(object):
         self.copy_db_conn.execute(end_date_query)
 
         # remove any calendar_dates entries that are not within specified time frame
-        self.copy_db_conn.execute("DELETE FROM calendar_dates WHERE date < \"{min_date}\" OR date > \"{max_date}\"".format(min_date=date_start, max_date=date_end))
-
+        self.copy_db_conn.execute(
+            "DELETE FROM calendar_dates "
+            "WHERE (date < \"{date_start}\" OR date > \"{date_end}\") AND service_I={service_I}"
+                .format(date_start=date_start, date_end=date_end, service_I=service_I))
 
 
 
