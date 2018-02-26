@@ -37,16 +37,17 @@ class StopTimesLoader(TableLoader):
                     seq           = int(row['stop_sequence']),
                 )
 
-    def post_import(self, cur):
+    def post_import(self, conn):
         # The following makes an arr_time_hour column that has an
         # integer of the arrival time hour.  Conversion to integer is
         # done in the sqlite engine, since the column affinity is
         # declared to be INT.
+        cur = conn.cursor()
         cur.execute('UPDATE stop_times SET arr_time_hour = substr(arr_time, -8, 2)')
-        calculate_trip_shape_breakpoints(self._conn)
+        calculate_trip_shape_breakpoints(conn)
 
         # Resequence seq value to increments of 1 starting from 1
-        resequence_stop_times_seq_values(self._conn)
+        resequence_stop_times_seq_values(conn)
 
 
     @classmethod

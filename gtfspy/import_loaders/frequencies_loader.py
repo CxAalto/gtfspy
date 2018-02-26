@@ -37,9 +37,10 @@ class FrequenciesLoader(TableLoader):
                     exact_times=int(row['exact_times']) if 'exact_times' in row and row['exact_times'].isdigit() else 0
                 )
 
-    def post_import(self, cur):
+    def post_import(self, conn):
+        cur = conn.cursor()
         # For each (start_time_dependent) trip_I in frequencies.txt
-        conn = self._conn
+        conn = self._conn  # why this other connection ???
         frequencies_df = pandas.read_sql("SELECT * FROM " + self.table, conn)
 
         for freq_tuple in frequencies_df.itertuples():

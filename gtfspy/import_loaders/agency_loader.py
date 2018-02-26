@@ -27,7 +27,8 @@ class AgencyLoader(TableLoader):
                     phone         = decode_six(row['agency_phone']) if 'agency_phone' in row else None,
                 )
 
-    def post_import(self, cur):
+    def post_import(self, conn):
+        cur = conn.cursor()
         TZs = cur.execute('SELECT DISTINCT timezone FROM agencies').fetchall()
         if len(TZs) == 0:
             raise ValueError("Error: no timezones defined in sources: %s" % self.gtfs_sources)

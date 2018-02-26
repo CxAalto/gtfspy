@@ -322,8 +322,7 @@ class TableLoader(object):
     def run_post_import(self, conn):
         if self.print_progress:
             print('Post-import %s into %s' % (self.fname, self.table))
-        cur = conn.cursor()
-        self.post_import(cur)
+        self.post_import(conn)
         conn.commit()
 
     def create_index(self, conn):

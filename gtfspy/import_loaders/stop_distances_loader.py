@@ -19,9 +19,7 @@ class StopDistancesLoader(TableLoader):
     tabledef = calc_transfers.create_stmt
     threshold = 1000
 
-    def post_import(self, cur):
-        # why is cur not used?
-        conn = self._conn
+    def post_import(self, conn):
         cur = conn.cursor()
         cur2 = conn.cursor()
         if self.print_progress:

@@ -26,7 +26,8 @@ class ShapeLoader(TableLoader):
         cur.execute('CREATE INDEX IF NOT EXISTS idx_shapes_id_seq ON shapes (shape_id, seq)')
 
     @classmethod
-    def post_import(cls, cur):
+    def post_import(cls, conn):
+        cur = conn.cursor()
         from gtfspy import shapes
         cur.execute('SELECT DISTINCT shape_id FROM shapes')
         shape_ids = tuple(x[0] for x in cur)

@@ -27,7 +27,8 @@ class StopLoader(TableLoader):
                     wheelchair_boarding = int(row['wheelchair_boarding']) if row.get('wheelchair_boarding','') else None,
                 )
 
-    def post_import(self, cur):
+    def post_import(self, conn):
+        cur = conn.cursor()
         # if parent_id, set  also parent_I:
         # :_parent_id stands for a named parameter _parent_id
         # inputted through a dictionary in cur.executemany
