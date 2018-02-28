@@ -71,7 +71,7 @@ class FastestPathAnalyzer:
         if include_next_label_outside_interval or not self._fastest_path_labels:
             return self._fastest_path_labels
         else:
-            if self._fastest_path_labels[-1].departure_time == self.end_time_dep:
+            if self._fastest_path_labels[-1].departure_time <= self.end_time_dep:
                 return self._fastest_path_labels
             else:
                 return self._fastest_path_labels[:-1]
@@ -84,6 +84,46 @@ class FastestPathAnalyzer:
             else:
                 label.pre_journey_wait_fp = label.departure_time - self.start_time_dep
             previous_label = label
+
+    def get_labels_faster_than_walk(self):
+        return [x for x in self._fastest_path_labels if (x.arrival_time_target - x.departure_time) <= self.walk_duration]
+
+    def calculate_pre_journey_waiting_times_to_list(self):
+        pre_journey_waits = []
+        previous_label = None
+        fp_labels = self.get_labels_faster_than_walk()
+        if not fp_labels and self.walk_duration < float("inf"):
+            return [], self.end_time_dep - self.start_time_dep
+
+        if not fp_labels and self.walk_duration == float("inf"):
+            return None, None
+
+        if fp_labels[-1].departure_time < self.end_time_dep:
+            return None, None
+
+        for label in fp_labels:
+            max_pre_journey_wait_considering_walk = max(self.walk_duration - (label.arrival_time_target - label.departure_time), 0)
+            if label.departure_time > self.end_time_dep:
+                assert label == fp_labels[-1]
+                cut_max_pre_journey_wait_considering_walk = \
+                    max(max_pre_journey_wait_considering_walk - (label.departure_time-self.end_time_dep), 0)
+                if previous_label:
+                    pre_journey_waits.append(min(self.end_time_dep - previous_label.departure_time,
+                                                 cut_max_pre_journey_wait_considering_walk))
+                else:
+                    pre_journey_waits.append(min(self.end_time_dep - self.start_time_dep,
+                                                 cut_max_pre_journey_wait_considering_walk))
+            elif previous_label:
+                pre_journey_waits.append(min(label.departure_time - previous_label.departure_time,
+                                             max_pre_journey_wait_considering_walk))
+            else:
+                pre_journey_waits.append(min(label.departure_time - self.start_time_dep,
+                                             max_pre_journey_wait_considering_walk))
+            previous_label = label
+
+        walk_time = (self.end_time_dep - self.start_time_dep) - sum(pre_journey_waits)
+
+        return pre_journey_waits, walk_time
 
     def get_fastest_path_temporal_distance_blocks(self):
         """
