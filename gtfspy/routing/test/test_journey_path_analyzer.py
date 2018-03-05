@@ -111,5 +111,15 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         self.assertEqual(njpa.journey_variant_simpson_diversity(stop_sets=njpa.journey_set_variants), None)
         self.assertEqual(njpa.journey_variant_simpson_diversity(weights=njpa.variant_proportions), None)
 
-        # TODO: investigate problem with simpson's diversity
+        njpa.journey_set_variants = [frozenset({1, 2, 3}), frozenset({1, 2, 3}), frozenset({1, 2, 3})]
+        njpa.variant_proportions = [1]
+        njpa.fastest_path_labels = 3*self._get_simple_label_list()
 
+        self.assertEqual(njpa.most_probable_departure_stop(), 1)
+        self.assertEqual(njpa.most_probable_journey_variant(), 1)
+        # TODO: maybe look if this should look at the jorney variants or if it is ok just to assume that
+        # self.journey_variants does not have duplicats
+        self.assertEqual(njpa.number_of_journey_variants(), 3)
+        self.assertEqual(njpa.number_of_fp_journeys(), 3)
+        self.assertEqual(njpa.journey_variant_simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
+        self.assertEqual(njpa.journey_variant_simpson_diversity(weights=njpa.variant_proportions), 1)

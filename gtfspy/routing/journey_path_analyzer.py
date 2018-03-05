@@ -94,15 +94,15 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                     if prev_trip_id:
                         leg_stops.append(connection.departure_stop)
 
-                        leg_values = (
-                            int(leg_departure_stop),
-                            int(leg_arrival_stop),
-                            int(leg_departure_time),
-                            int(leg_arrival_time),
-                            int(prev_trip_id),
-                            int(seq),
-                            [int(x) for x in leg_stops]
-                        )
+                        leg_values = {
+                            "dep_stop": int(leg_departure_stop),
+                            "arr_stop": int(leg_arrival_stop),
+                            "dep_time": int(leg_departure_time),
+                            "arr_time": int(leg_arrival_time),
+                            "trip_id": int(prev_trip_id),
+                            "seq": int(seq),
+                            "leg_stops": [int(x) for x in leg_stops]
+                        }
                         leg_value_list.append(leg_values)
                         seq += 1
                         leg_stops = []
@@ -119,21 +119,31 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
             if not cur_label.previous_label:
                 leg_stops.append(connection.arrival_stop)
                 all_stops.append(connection.arrival_stop)
-                leg_values = (
-                    int(leg_departure_stop),
-                    int(leg_arrival_stop),
-                    int(leg_departure_time),
-                    int(leg_arrival_time),
-                    int(prev_trip_id),
-                    int(seq),
-                    [int(x) for x in leg_stops]
-                )
+                leg_values = {
+                    "dep_stop": int(leg_departure_stop),
+                    "arr_stop": int(leg_arrival_stop),
+                    "dep_time": int(leg_departure_time),
+                    "arr_time": int(leg_arrival_time),
+                    "trip_id": int(prev_trip_id),
+                    "seq": int(seq),
+                    "leg_stops": [int(x) for x in leg_stops]
+                }
                 leg_value_list.append(leg_values)
                 break
 
             cur_label = cur_label.previous_label
         boarding_stops = [int(x) for x in boarding_stops]
         return origin_stop, target_stop, leg_value_list, boarding_stops, all_stops
+
+    # TODO: make a function that assigns a label for each journey variant that can be used in journey plots and temporal distance plots
+    def get_journey_trajectories(self):
+        journeys = self.connection_list
+
+        for journey in journeys:
+            for leg in journey:
+                lats, lons = zip(*[self.gtfs.get_stop_coordinates(x) for x in leg["leg_stops"]])
+                _, leg_type = (None, -1) if leg["trip_id"] == -1 else self.gtfs.get_route_name_and_type_of_tripI(leg["trip_id"])
+                yield lats, lons, leg_type
 
     def get_pre_journey_waiting_times(self):
         pre_journey_waits, walk_time = self.fpa.calculate_pre_journey_waiting_times_to_list()
