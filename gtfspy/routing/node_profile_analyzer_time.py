@@ -44,10 +44,10 @@ class NodeProfileAnalyzerTime:
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
         # used for computing temporal distances:
-        all_pareto_optimal_tuples = [pt for pt in labels if
-                                      (start_time_dep < pt.departure_time < end_time_dep)]
+        all_pareto_optimal_tuples = [pt for pt in labels if (start_time_dep < pt.departure_time < end_time_dep)]
 
         labels_after_dep_time = [label for label in labels if label.departure_time >= self.end_time_dep]
+
         if labels_after_dep_time:
             next_label_after_end_time = min(labels_after_dep_time, key=lambda el: el.arrival_time_target)
             all_pareto_optimal_tuples.append(next_label_after_end_time)
@@ -73,7 +73,6 @@ class NodeProfileAnalyzerTime:
             if trip_pareto_tuple.departure_time > self.end_time_dep:
                 continue
             if self._walk_time_to_target <= trip_pareto_tuple.duration():
-                print(self._walk_time_to_target, trip_pareto_tuple.duration())
                 assert(self._walk_time_to_target > trip_pareto_tuple.duration())
             effective_trip_previous_departure_time = max(
                 previous_departure_time,
@@ -464,14 +463,16 @@ class NodeProfileAnalyzerTime:
         if plot_tdist_stats:
             line_tyles = ["-.", "--", "-"][::-1]
             # to_plot_labels = ["maximum temporal distance", "mean temporal distance", "minimum temporal distance"]
-            to_plot_labels  = ["$\\tau_\\mathrm{max} \\;$ = ", "$\\tau_\\mathrm{mean}$ = ", "$\\tau_\\mathrm{min} \\:\\:$ = "]
+            to_plot_labels = ["$\\tau_\\mathrm{max} \\;$ = ",
+                              "$\\tau_\\mathrm{mean}$ = ",
+                              "$\\tau_\\mathrm{min} \\:\\:$ = "]
             to_plot_funcs = [self.max_temporal_distance, self.mean_temporal_distance, self.min_temporal_distance]
 
             xmin, xmax = ax.get_xlim()
             for to_plot_label, to_plot_func, ls in zip(to_plot_labels, to_plot_funcs, line_tyles):
                 y = to_plot_func() / duration_divider
                 assert y < float('inf'), to_plot_label
-                to_plot_label = to_plot_label + "%.1f min" % (y)
+                to_plot_label = to_plot_label + "%.1f min" % y
                 ax.plot([xmin, xmax], [y, y], color="black", ls=ls, lw=1, label=to_plot_label)
 
         if plot_trip_stats:
@@ -517,19 +518,24 @@ class NodeProfileAnalyzerTime:
             if journey_letters is None:
                 journey_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-                def cycle_journey_letters(journey_letters):
-                    # cycle('ABCD') --> A B C D A B C D A B C D ...
-                    saved = []
+            def cycle_journey_letters(journey_letters):
+                # cycle('ABCD') --> A B C D A B C D A B C D ...
+                """                saved = []
+                for element in journey_letters:
+                    print(element)
+
+                    #yield element
+                    saved.append(element)
+                """
+                count = 1
+                while True:
                     for element in journey_letters:
-                        yield element
-                        saved.append(element)
-                    count = 1
-                    while saved:
-                        for element in saved:
-                            yield element + str(count)
-                        count += 1
-                journey_letters_iterator = cycle_journey_letters(journey_letters)
+                        yield element + (str(count) if count > 1 else "")
+                    count += 1
+            journey_letters_iterator = cycle_journey_letters(journey_letters)
             time_letters = {int(time): letter for letter, time in zip(journey_letters_iterator, self.trip_departure_times)}
+            journey_letters_iterator = cycle_journey_letters(journey_letters)
+
             for x, y, letter in zip(xs, ys, journey_letters_iterator):
                 walking = - self._walk_time_to_target / 30 if numpy.isfinite(self._walk_time_to_target) else 0
                 ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 60),

@@ -379,8 +379,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         n_boardings_to_fill_color, n_boardings_to_line_color = self._get_fill_and_line_colors(min_n, max_n)
 
         # get all trips ordered by departure time
-
-
         deptime_ordered_labels = sorted(list(self.all_labels), key=lambda x: x.departure_time)
 
         n_boardings_to_labels = defaultdict(list)
