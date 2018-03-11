@@ -1,6 +1,9 @@
+import datetime
+from matplotlib import dates as md
 from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAnalyzerTimeAndVehLegs
 from gtfspy.routing.label import LabelTimeBoardingsAndRoute, LabelTimeAndRoute
 from gtfspy.routing.connection import Connection
+from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
 
 
 class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
@@ -20,10 +23,13 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         self.variant_proportions = None
         self.walk_to_target_duration = walk_to_target_duration
         self.unpack_fastest_path_journeys()
+        self.journey_letters, self.stop_dict = None, None
 
     def unpack_fastest_path_journeys(self):
+        # TODO: generalized cost function
         if not self.fastest_path_labels:
             self.fastest_path_labels = self.fpa.get_labels_faster_than_walk()
+        print("fp_labels: ", [x.arrival_time_target for x in self.fastest_path_labels])
         self._unpack_journeys(self.fastest_path_labels)
         self._aggregate_time_weights()
 
@@ -36,6 +42,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         :param labels:
         :return:
         """
+        labels = sorted(list(labels), key=lambda x: x.departure_time)
+
         connection_list = []
         journey_boarding_stops = []
         all_journey_stops = []
@@ -135,7 +143,35 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         boarding_stops = [int(x) for x in boarding_stops]
         return origin_stop, target_stop, leg_value_list, boarding_stops, all_stops
 
-    # TODO: make a function that assigns a label for each journey variant that can be used in journey plots and temporal distance plots
+    def assign_path_letters(self, features_to_check):
+        """
+        Function that assigns a littera for each journey variant that can be used in journey plots and temporal distance plots
+        :param features_to_check: frozenset
+        :return:
+        """
+        variant_dict = {}
+
+        def letter_generator():
+            journey_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            for letter in journey_letters:
+                yield letter
+
+        lg = letter_generator()
+        for feature in features_to_check:
+            if feature not in variant_dict.keys():
+                variant_dict[feature] = next(lg)
+
+        stop_dict = {}
+        for variant, letter in variant_dict.items():
+            for stop in variant:
+                try:
+                    stop_dict[stop] += [letter]
+                except KeyError:
+                    stop_dict[stop] = [letter]
+        self.journey_letters = [variant_dict[x] for x in features_to_check]
+        self.stop_dict = stop_dict
+        return self.journey_letters, self.stop_dict
+
     def get_journey_trajectories(self):
         journeys = self.connection_list
 
@@ -175,6 +211,79 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
         self.journey_set_variants = list(weight_dict.keys())
         self.variant_proportions = [x / sum(weight_dict.values()) for x in weight_dict.values()]
+
+    def plot_journey_graph(self, ax, format_string="%H:%M:%S"):
+        """
+        for first leg, print start and end stop name, then only end stop. Departure and arrival time determine line trajectory, route type, the color
+        Print route name/or type over each line segment
+        :return:
+                        {
+                    "dep_stop": int(leg_departure_stop),
+                    "arr_stop": int(leg_arrival_stop),
+                    "dep_time": int(leg_departure_time),
+                    "arr_time": int(leg_arrival_time),
+                    "trip_id": int(prev_trip_id),
+                    "seq": int(seq),
+                    "leg_stops": [int(x) for x in leg_stops]
+                }
+        """
+        tz = self.gtfs.get_timezone_pytz()
+
+        def _ut_to_unloc_datetime(ut):
+            dt = datetime.datetime.fromtimestamp(ut, tz)
+            return dt.replace(tzinfo=None)
+        y_level = 0
+        prev_arr_time = None
+        font_size = 7
+        wait_length = None
+        for journey, letter in zip(self.connection_list, self.journey_letters):
+            for leg in journey:
+                if leg["seq"] == 1:
+                    prev_arr_time = None
+
+                arr_stop_name = self.gtfs.get_name_from_stop_I(leg["arr_stop"])
+                n_stops = len(leg["leg_stops"])
+                dep_time, arr_time = _ut_to_unloc_datetime(leg["dep_time"]), _ut_to_unloc_datetime(leg["arr_time"])
+
+
+
+                    #ax.text(dep_time + (prev_arr_time - dep_time)/2, y_level+1, "wait", fontsize=font_size, color="black")
+
+                if not leg["trip_id"] == -1:
+                    route_name, route_type = self.gtfs.get_route_name_and_type_of_tripI(leg["trip_id"])
+                else:
+                    route_name, route_type = "", -1
+
+                if prev_arr_time and dep_time - prev_arr_time > datetime.timedelta(0) and route_type == -1:
+                    walk_length = arr_time - dep_time
+                    walk_end = prev_arr_time+walk_length
+                    ax.plot([prev_arr_time, walk_end], [y_level, y_level], c=ROUTE_TYPE_TO_COLOR[route_type])
+                    ax.plot([walk_end, arr_time], [y_level, y_level], ':', c=ROUTE_TYPE_TO_COLOR[-1])
+
+                else:
+                    if prev_arr_time and dep_time - prev_arr_time > datetime.timedelta(0):
+                        ax.plot([prev_arr_time, dep_time], [y_level, y_level], ':', c=ROUTE_TYPE_TO_COLOR[-1])
+
+                    ax.plot([dep_time, arr_time], [y_level, y_level], c=ROUTE_TYPE_TO_COLOR[route_type])
+                    ax.text((arr_time + (dep_time - arr_time)/2), y_level+0.5, route_name, fontsize=font_size,
+                            color="black", ha='center')
+
+                    text_string = "for {0} stops".format(n_stops-2) if n_stops-2 > 1 else "for 1 stop" if n_stops-2 == 1 else ""
+                    ax.text((arr_time + (dep_time - arr_time)/2), y_level-font_size+1, text_string, fontsize=font_size-2,
+                            color="black", ha='center')
+
+                if leg["seq"] == 1:
+                    dep_stop_name = self.gtfs.get_name_from_stop_I(leg["dep_stop"])
+                    ax.text(dep_time-datetime.timedelta(minutes=1), y_level, letter,
+                            fontsize=font_size,
+                            color="black", ha='right', va='center')
+                prev_arr_time = arr_time
+                wait_length = None
+
+            y_level += -15
+        x_axis_formatter = md.DateFormatter(format_string)
+        ax.xaxis.set_major_formatter(x_axis_formatter)
+        return ax
 
     def get_simple_diversities(self):
         return {"number_of_journey_variants": self.number_of_journey_variants(),

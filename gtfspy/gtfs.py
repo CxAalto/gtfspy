@@ -1255,6 +1255,18 @@ class GTFS(object):
                 trip_I_dict[day_start_ut] = trip_Is
         return trip_I_dict
 
+    def get_stop_I_from_name(self, name):
+        sql = "SELECT stop_I FROM stops WHERE lower(name) = lower('{name}')".format(name=name)
+        cur = self.conn.cursor()
+        stop_I = cur.execute(sql).fetchone()[0]
+        return stop_I
+
+    def get_name_from_stop_I(self, stop_I):
+        sql = "SELECT name FROM stops WHERE stop_I = {stop_I}".format(stop_I=stop_I)
+        cur = self.conn.cursor()
+        name = cur.execute(sql).fetchone()[0]
+        return name
+
     def stops(self, require_reference_in_stop_times=False, exclude_parent_stops=False, order_by=None):
         """
         Get all stop data as a pandas DataFrame

@@ -35,6 +35,9 @@ class SmopyAxes(Axes):
         self.maps = {}
         self.prev_plots = []
         self.prev_scatter = []
+        self.prev_text = []
+        self.axes.get_xaxis().set_visible(False)
+        self.axes.get_yaxis().set_visible(False)
 
     def scatter(self, lons, lats, update=True, **kwargs):
         if not hasattr(lats, '__iter__'):
@@ -49,10 +52,12 @@ class SmopyAxes(Axes):
                 self.prev_scatter.append((lons, lats, dict(**kwargs)))
 
         _x, _y = self.smopy_map.to_pixels(lats, lons)
-        super().imshow(self.smopy_map.to_pil())
         super().scatter(_x, _y, **kwargs)
 
     def plot(self, lons, lats, update=True, **kwargs):
+        if not hasattr(lats, '__iter__'):
+            lats = [lats]
+            lons = [lons]
         lons = numpy.array(lons)
         lats = numpy.array(lats)
         if update:
@@ -61,32 +66,22 @@ class SmopyAxes(Axes):
                 self.prev_plots.append((lons, lats, dict(**kwargs)))
 
         _x, _y = self.smopy_map.to_pixels(lats, lons)
-        super().imshow(self.smopy_map.to_pil())
         super().plot(_x, _y, **kwargs)
 
-    def plot_line_segments(self, from_lons, from_lats, to_lons, to_lats, width_attributes=None, color_attributes=None,
-                           zorders=None, **kwargs):
-        # TODO: to make this compatible, segment coords should be converted to lons = [lon1, lon2], lats = [lat1, lat2]
-        self.set_spatial_bounds(min(from_lons+to_lons), max(from_lons+to_lons),
-                                min(from_lats+to_lats), max(from_lats+to_lats))
-        for from_lon, from_lat, to_lon, to_lat, width_attribute, color_attribute, zorder in zip(from_lons,
-                                                                                                from_lats,
-                                                                                                to_lons,
-                                                                                                to_lats,
-                                                                                                width_attributes,
-                                                                                                color_attributes,
-                                                                                                zorders):
+    def text(self, lons, lats, s, update=True, **kwargs):
+        if not hasattr(lats, '__iter__'):
+            lats = [lats]
+            lons = [lons]
 
-            self.plot(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]),
-                      color=color_attribute,
-                      linewidth=width_attribute,
-                      zorder=zorder,
-                      **kwargs)
+        lons = numpy.array(lons)
+        lats = numpy.array(lats)
+        if update:
+            if not self.smopy_map or not self.map_fixed:
+                self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
+                self.prev_text.append((lons, lats, s, dict(**kwargs)))
 
-    def set_spatial_bounds(self, min_lon, max_lon, min_lat, max_lat, **kwargs):
-        self.smopy_map = self._init_smopy_map(min_lon, max_lon, min_lat, max_lat, **kwargs)
-        self.map_fixed = True
-        super().imshow(self.smopy_map.to_pil())
+        _x, _y = self.smopy_map.to_pixels(lats, lons)
+        super().text(_x, _y, s, **kwargs)
 
     def _get_smopy_map_from_coords(self, lons, lats, **kwargs):
 
@@ -99,12 +94,12 @@ class SmopyAxes(Axes):
                     min_lat == self.min_lat,
                     max_lon == self.max_lon,
                     max_lat == self.max_lat]):
-
-            new_map = self._init_smopy_map(self.min_lon, self.max_lon, self.min_lat, self.max_lat, **kwargs)
+            self.smopy_map = self._init_smopy_map(self.min_lon, self.max_lon, self.min_lat, self.max_lat, **kwargs)
             self.update_plots()
-            return new_map
-        else:
-            return self.smopy_map
+            super().imshow(self.smopy_map.to_pil())
+
+
+        return self.smopy_map
 
     def update_plots(self):
         self.clear()
@@ -112,6 +107,8 @@ class SmopyAxes(Axes):
             self.plot(lons, lats, update=False, **kwords)
         for (lons, lats, kwords) in self.prev_scatter:
             self.scatter(lons, lats, update=False, **kwords)
+        for (lons, lats, s, kwords) in self.prev_text:
+            self.text(lons, lats, s, update=False, **kwords)
 
     def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style="dark_nolabels"):
 
@@ -138,5 +135,28 @@ class SmopyAxes(Axes):
         smopy.TILE_SERVER = ORIG_TILE_SERVER
         return self.maps[args]
 
+    def set_spatial_bounds(self, min_lon, max_lon, min_lat, max_lat, **kwargs):
+        self.smopy_map = self._init_smopy_map(min_lon, max_lon, min_lat, max_lat, **kwargs)
+        self.map_fixed = True
+        super().imshow(self.smopy_map.to_pil())
+
+    def plot_line_segments(self, from_lons, from_lats, to_lons, to_lats, width_attributes=None, color_attributes=None,
+                           zorders=None, **kwargs):
+        # TODO: to make this compatible, segment coords should be converted to lons = [lon1, lon2], lats = [lat1, lat2]
+        self.set_spatial_bounds(min(from_lons+to_lons), max(from_lons+to_lons),
+                                min(from_lats+to_lats), max(from_lats+to_lats))
+        for from_lon, from_lat, to_lon, to_lat, width_attribute, color_attribute, zorder in zip(from_lons,
+                                                                                                from_lats,
+                                                                                                to_lons,
+                                                                                                to_lats,
+                                                                                                width_attributes,
+                                                                                                color_attributes,
+                                                                                                zorders):
+
+            self.plot(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]),
+                      color=color_attribute,
+                      linewidth=width_attribute,
+                      zorder=zorder,
+                      **kwargs)
 
 register_projection(SmopyAxes)
