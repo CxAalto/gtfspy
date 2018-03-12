@@ -374,11 +374,12 @@ class TestLabelTimeBoardingsAndRoute(TestCase):
         self.assertTrue(labela.dominates(labelb))
 
     def test_dominates_ignoring_dep_time_finalization_less_movement_duration(self):
+        # movement duration is ignored in this calculation
         labela = LabelTimeBoardingsAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, n_boardings=1,
                                    first_leg_is_walk=False)
         labelb = LabelTimeBoardingsAndRoute(departure_time=1, arrival_time_target=10, movement_duration=1, n_boardings=1,
                                    first_leg_is_walk=False)
-        self.assertFalse(labelb.dominates_ignoring_dep_time_finalization(labela))
+        self.assertTrue(labelb.dominates_ignoring_dep_time_finalization(labela))
         self.assertTrue(labela.dominates_ignoring_dep_time_finalization(labelb))
 
     def test_dominates_ignoring_dep_time_finalization_arrival_time(self):
@@ -398,11 +399,12 @@ class TestLabelTimeBoardingsAndRoute(TestCase):
         self.assertFalse(labela.dominates_ignoring_dep_time_finalization(labelb))
 
     def test_dominates_ignoring_dep_time_less_movement_duration(self):
+        # movement duration is ignored in this calculation
         labela = LabelTimeBoardingsAndRoute(departure_time=1, arrival_time_target=10, movement_duration=0, n_boardings=1,
                                             first_leg_is_walk=False)
         labelb = LabelTimeBoardingsAndRoute(departure_time=1, arrival_time_target=10, movement_duration=1, n_boardings=1,
                                             first_leg_is_walk=False)
-        self.assertFalse(labelb.dominates_ignoring_dep_time(labela))
+        self.assertTrue(labelb.dominates_ignoring_dep_time(labela))
         self.assertTrue(labela.dominates_ignoring_dep_time(labelb))
 
     def test_dominates_ignoring_dep_time_arrival_time(self):
@@ -412,6 +414,15 @@ class TestLabelTimeBoardingsAndRoute(TestCase):
                                             first_leg_is_walk=False)
         self.assertFalse(labelb.dominates_ignoring_dep_time(labela))
         self.assertTrue(labela.dominates_ignoring_dep_time(labelb))
+
+    def test_dominates_ignoring_boardings(self):
+        label_a = LabelTimeBoardingsAndRoute(2.0, 13.0, 2, 1, False)
+        label_b = LabelTimeBoardingsAndRoute(2.0, 12.0, 2, 2, False)
+        label_c = LabelTimeBoardingsAndRoute(2.0, 11.0, 2, 3, False)
+        label_d = LabelTimeBoardingsAndRoute(2.0, 10.0, 2, 4, False)
+
+        self.assertFalse(label_a.dominates_ignoring_dep_time_and_n_boardings(label_d))
+        self.assertTrue(label_d.dominates_ignoring_dep_time_and_n_boardings(label_a))
 
     def test_various_dominates(self):
         labela = LabelTimeBoardingsAndRoute(departure_time=1481520618, arrival_time_target=1481521300, n_boardings=1,
@@ -482,10 +493,39 @@ class TestLabelTimeBoardingsAndRoute(TestCase):
         self.assertEqual(arrival_time, label.arrival_time_target)
 
 
-
-
-
 class TestParetoFrontier(TestCase):
+    def test_compute_pareto_front_simple(self):
+        label_a = LabelTimeBoardingsAndRoute(2.0, 10.0, 2, 1, False)
+        label_b = LabelTimeBoardingsAndRoute(2.0, 10.0, 2, 2, False)
+        label_c = LabelTimeBoardingsAndRoute(2.0, 10.0, 2, 3, False)
+        label_d = LabelTimeBoardingsAndRoute(2.0, 10.0, 2, 4, False)
+        labels = [label_b, label_a, label_d, label_c]
+
+        self.assertEqual(1, compute_pareto_front(labels)[0].movement_duration)
+        self.assertEqual(1, len(compute_pareto_front(labels)))
+
+    def test_compute_pareto_front(self):
+        label_a = LabelTimeBoardingsAndRoute(1.0, 9.0, 2, 1, False)
+        label_b = LabelTimeBoardingsAndRoute(2.0, 11.0, 2, 2, False)
+        label_c = LabelTimeBoardingsAndRoute(3.0, 11.0, 2, 3, False)
+        label_d = LabelTimeBoardingsAndRoute(2.0, 10.0, 2, 3, False)
+        label_e = LabelTimeBoardingsAndRoute(2.0, 10.0, 2, 4, False)
+        labels = [label_a, label_b, label_c, label_d, label_e]
+
+        self.assertEqual(3, compute_pareto_front(labels)[1].movement_duration)
+        self.assertEqual(3, compute_pareto_front(labels)[0].movement_duration)
+        self.assertEqual(1, compute_pareto_front(labels)[2].movement_duration)
+        self.assertEqual(3, len(compute_pareto_front(labels)))
+
+    def test_compute_pareto_front_same_dep(self):
+        label_a = LabelTimeBoardingsAndRoute(2.0, 13.0, 2, 1, False)
+        label_b = LabelTimeBoardingsAndRoute(2.0, 12.0, 2, 2, False)
+        label_c = LabelTimeBoardingsAndRoute(2.0, 11.0, 2, 3, False)
+        label_d = LabelTimeBoardingsAndRoute(2.0, 10.0, 2, 4, False)
+        labels = [label_b, label_a, label_d, label_c]
+
+        self.assertEqual(1, len(compute_pareto_front(labels)))
+        self.assertEqual(4, compute_pareto_front(labels)[0].movement_duration)
 
     def test_compute_pareto_front_all_include(self):
         label_a = LabelTimeWithBoardingsCount(departure_time=1, arrival_time_target=2, n_boardings=0, first_leg_is_walk=False)

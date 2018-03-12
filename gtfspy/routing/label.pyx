@@ -329,7 +329,6 @@ def compute_pareto_front(list label_list, finalization=False, ignore_n_boardings
     else:
         dominates = label.__class__.dominates_ignoring_dep_time
 
-
     label_list = list(reversed(sorted(label_list)))  # n log(n)
     # assume only that label_list is sorted by departure time (best last)
     current_best_labels_wo_deptime = []
@@ -516,45 +515,41 @@ cdef class LabelTimeBoardingsAndRoute:
             return True
 
     cpdef int dominates_ignoring_dep_time_finalization(self, LabelTimeBoardingsAndRoute other):
-        if any([self.arrival_time_target > other.arrival_time_target, self.n_boardings > other.n_boardings]):
-            return False
-        elif all([self.arrival_time_target == other.arrival_time_target, self.n_boardings == other.n_boardings]) \
-                and self.movement_duration > other.movement_duration:
-            return False
-        else:
-            return True
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target and
+            self.n_boardings <= other.n_boardings
+        )
+        return dominates
 
     cpdef int dominates_ignoring_dep_time(self, LabelTimeBoardingsAndRoute other):
-        if any([self.arrival_time_target > other.arrival_time_target,
-                self.n_boardings > other.n_boardings,
-                self.first_leg_is_walk > other.first_leg_is_walk]):
-            return False
-        elif all([self.arrival_time_target == other.arrival_time_target,
-                self.n_boardings == other.n_boardings,
-                self.first_leg_is_walk == other.first_leg_is_walk]) and self.movement_duration > other.movement_duration:
-            return False
-        else:
-            return True
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target and
+            self.n_boardings <= other.n_boardings and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
 
     cpdef int dominates_ignoring_time(self, LabelTimeBoardingsAndRoute other):
-        if any([self.n_boardings > other.n_boardings,
-                self.first_leg_is_walk > other.first_leg_is_walk]):
-            return False
-        elif all([self.n_boardings == other.n_boardings,
-                self.first_leg_is_walk == other.first_leg_is_walk]) and self.movement_duration > other.movement_duration:
-            return False
-        else:
-            return True
+        cdef:
+            int dominates
+        dominates = (
+            self.n_boardings <= other.n_boardings and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
 
     cpdef int dominates_ignoring_dep_time_and_n_boardings(self, LabelTimeBoardingsAndRoute other):
-        if any([self.arrival_time_target > other.arrival_time_target,
-                self.first_leg_is_walk > other.first_leg_is_walk]):
-            return False
-        elif all([self.arrival_time_target == other.arrival_time_target,
-                self.first_leg_is_walk == other.first_leg_is_walk]) and self.movement_duration > other.movement_duration:
-            return False
-        else:
-            return True
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
 
     cpdef get_label_with_connection_added(self, connection):
         return LabelTimeBoardingsAndRoute(self.departure_time, self.arrival_time_target,
@@ -583,7 +578,7 @@ cdef class LabelTimeBoardingsAndRoute:
 
 cdef class LabelTimeAndRoute:
     # implement added constraint for cases when two labels are tied:
-    # The trip with minimal "movement time" should be chosen = maximizing the waiting time for robustness
+    # The trip with minimal "movement duration" should be chosen = maximizing the waiting time for robustness
     cdef:
         public double departure_time
         public double arrival_time_target
