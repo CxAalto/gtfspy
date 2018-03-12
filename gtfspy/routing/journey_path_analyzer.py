@@ -29,7 +29,6 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         # TODO: generalized cost function
         if not self.fastest_path_labels:
             self.fastest_path_labels = self.fpa.get_labels_faster_than_walk()
-        print("fp_labels: ", [x.arrival_time_target for x in self.fastest_path_labels])
         self._unpack_journeys(self.fastest_path_labels)
         self._aggregate_time_weights()
 

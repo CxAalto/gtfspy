@@ -53,7 +53,6 @@ class FastestPathAnalyzer:
             if hasattr(label, "first_leg_is_walk"):
                 label.first_leg_is_walk = False
         fp_labels = list(reversed(compute_pareto_front(relevant_labels, ignore_n_boardings=True)))
-
         # assert ordered:
         for i in range(len(fp_labels) - 1):
             try:
