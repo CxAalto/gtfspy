@@ -855,9 +855,18 @@ class GTFS(object):
         lat_diff = 0
 
         if buffer_ratio:
-            distance = buffer_ratio * wgs84_distance(min_lat, min_lon, max_lat, max_lon)
-            lat_diff = wgs84_height(distance)
-            lon_diff = wgs84_width(distance, (max_lat - min_lat) / 2 + min_lat)
+            width = buffer_ratio * wgs84_distance((max_lat - min_lat) / 2 + min_lat, min_lon,
+                                                  (max_lat - min_lat) / 2 + min_lat, max_lon)
+            height = buffer_ratio * wgs84_distance(min_lat, (max_lon - min_lon) / 2 + min_lon,
+                                                   max_lat, (max_lon - min_lon) / 2 + min_lon)
+
+            lat_diff = wgs84_height(height)
+            lon_diff = wgs84_width(width, (max_lat - min_lat) / 2 + min_lat)
+
+            return {"lat_min": ((max_lat - min_lat) / 2 + min_lat) - lat_diff/2,
+                    "lat_max": ((max_lat - min_lat) / 2 + min_lat) + lat_diff/2,
+                    "lon_min": ((max_lon - min_lon) / 2 + min_lon) - lon_diff/2,
+                    "lon_max": ((max_lon - min_lon) / 2 + min_lon) + lon_diff/2}
 
         return {"lat_min": min_lat - lat_diff,
                 "lat_max": max_lat + lat_diff,
@@ -1302,14 +1311,14 @@ class GTFS(object):
         """
         return pd.read_sql_query("SELECT * FROM stops WHERE stop_I={stop_I}".format(stop_I=stop_I), self.conn)
 
-    def add_coordinates_to_df(self, df, join_column='stop_I', lat_name="lat", lon_name="lon"):
+    def add_coordinates_to_df(self, df, join_column='stop_I', lat_name="lat", lon_name="lon", retain_stop_I=False):
         assert join_column in df.columns
         stops_df = self.stops()
         coord_df = stops_df[["stop_I", "lat", "lon"]]
 
         df_merged = pd.merge(coord_df, df, left_on='stop_I', right_on=join_column)
-
-        df_merged.drop(["stop_I"], axis=1, inplace=True)
+        if not retain_stop_I:
+            df_merged.drop(["stop_I"], axis=1, inplace=True)
         df_merged3 = df_merged.rename(columns={"lat": lat_name, "lon": lon_name})
         return df_merged3
 

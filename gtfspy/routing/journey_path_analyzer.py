@@ -4,6 +4,7 @@ from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAn
 from gtfspy.routing.label import LabelTimeBoardingsAndRoute, LabelTimeAndRoute
 from gtfspy.routing.connection import Connection
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
+from gtfspy.smopy_plot_helper import legend_pt_modes
 
 
 class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
@@ -234,6 +235,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         prev_arr_time = None
         font_size = 7
         wait_length = None
+        route_types = set()
         for journey, letter in zip(self.connection_list, self.journey_letters):
             for leg in journey:
                 if leg["seq"] == 1:
@@ -252,11 +254,14 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 else:
                     route_name, route_type = "", -1
 
+                route_types.add(route_type)
                 if prev_arr_time and dep_time - prev_arr_time > datetime.timedelta(0) and route_type == -1:
                     walk_length = arr_time - dep_time
                     walk_end = prev_arr_time+walk_length
                     ax.plot([prev_arr_time, walk_end], [y_level, y_level], c=ROUTE_TYPE_TO_COLOR[route_type])
                     ax.plot([walk_end, arr_time], [y_level, y_level], ':', c=ROUTE_TYPE_TO_COLOR[-1])
+                    route_types.add("wait")
+
 
                 else:
                     if prev_arr_time and dep_time - prev_arr_time > datetime.timedelta(0):
@@ -279,8 +284,10 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 wait_length = None
 
             y_level += -15
+        ax = legend_pt_modes(ax, route_types)
         x_axis_formatter = md.DateFormatter(format_string)
         ax.xaxis.set_major_formatter(x_axis_formatter)
+        ax.axes.get_yaxis().set_visible(False)
         return ax
 
     def get_simple_diversities(self):
