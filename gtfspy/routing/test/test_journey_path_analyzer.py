@@ -50,21 +50,21 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         njpa = self._get_analyzer(label_list, 0, 700, float("inf"))
 
         self.assertEqual(njpa.all_journey_stops, [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
-        self.assertEqual(njpa.journey_set_variants, [frozenset({1090, 791})])
+        self.assertEqual(njpa.journey_set_variants, [(791, 1090)])
 
         njpa = self._get_analyzer(label_list, 0, 700, 600)
         self.assertEqual(njpa.all_journey_stops, [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
-        self.assertEqual(njpa.journey_set_variants, [frozenset({1090, 791}), frozenset({791})])
+        self.assertEqual(njpa.journey_set_variants, [(791, 1090), (791,)])
 
         njpa = self._get_analyzer(label_list, 0, 700, 500)
         self.assertEqual(njpa.all_journey_stops, [])
-        self.assertEqual(njpa.journey_set_variants, [frozenset({791})])
+        self.assertEqual(njpa.journey_set_variants, [(791,)])
 
     def test_basic_diversity(self):
         label_list = self._get_simple_label_list()
         njpa = self._get_analyzer(label_list, 0, 1000, float("inf"))
 
-        njpa.journey_set_variants = [frozenset({1, 2, 3}), frozenset({1, 3, 4}), frozenset({3, 4, 5})]
+        njpa.journey_set_variants = [(1, 2, 3), (1, 3, 4), (3, 4, 5)]
         njpa.variant_proportions = [1/3, 1/3, 1/3]
         njpa.fastest_path_labels = 3*self._get_simple_label_list()
 

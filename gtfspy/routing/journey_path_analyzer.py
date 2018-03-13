@@ -67,7 +67,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
         # self.origin_stop = origin_stop
         self.target_stop = target_stop
-        self.journey_boarding_stops = [frozenset(x) for x in journey_boarding_stops]
+        self.journey_boarding_stops = [tuple(x) for x in journey_boarding_stops]
         self.connection_list = connection_list
         self.all_journey_stops = all_journey_stops
 
@@ -189,7 +189,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
             pre_journey_waits, walk_is_optimal_duration = self.fpa.calculate_pre_journey_waiting_times_to_list()
 
         if stop_sets:
-            stop_sets = [frozenset(x) for x in stop_sets]
+            stop_sets = [tuple(x) for x in stop_sets]
         else:
             stop_sets = self.journey_boarding_stops
 
@@ -201,9 +201,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         weight_dict = {x: 0 for x in set(stop_sets)}
         for stop_set, pre_journey_wait in zip(stop_sets, pre_journey_waits):
             weight_dict[stop_set] += pre_journey_wait
-
         if walk_is_optimal_duration > 0:
-            weight_dict[frozenset({self.origin_stop})] = walk_is_optimal_duration
+            weight_dict[tuple({self.origin_stop})] = walk_is_optimal_duration
 
         # removal of journey variants without time weight
         weight_dict = {key: value for key, value in weight_dict.items() if value > 0}
@@ -332,8 +331,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
         assert (stop_sets and not weights) or (not stop_sets and weights)
         if not weights:
-            if not isinstance(stop_sets[0], frozenset):
-                stop_sets = [frozenset(x) for x in stop_sets]
+            if not isinstance(stop_sets[0], tuple):
+                stop_sets = [tuple(x) for x in stop_sets]
             weight_dict = {x: stop_sets.count(x) for x in set(stop_sets)}
             weights = [weight_dict[x]/sum(weight_dict.values()) for x in weight_dict.keys()]
 
@@ -348,7 +347,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         :param stop_sets:
         :return:
         """
-        stop_sets = [frozenset(x) for x in stop_sets]
+        stop_sets = [tuple(x) for x in stop_sets]
         if not weights:
             weight_dict = {x: stop_sets.count(x)/len(stop_sets) for x in set(stop_sets)}
             weights = [weight_dict[x] for x in stop_sets]
