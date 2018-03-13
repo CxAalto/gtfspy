@@ -3,6 +3,8 @@ from urllib.error import URLError
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
+
 import numpy
 import smopy
 from matplotlib import colors as mcolors
@@ -239,7 +241,6 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
                     color='green', fontsize=15)
 
     legend = True if color_attributes[0] is not None else False
-    import matplotlib.lines as mlines
 
     if legend:
         unique_types = set(color_attributes)
