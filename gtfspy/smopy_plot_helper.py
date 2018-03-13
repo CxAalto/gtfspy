@@ -110,7 +110,7 @@ class SmopyAxes(Axes):
         for (lons, lats, s, kwords) in self.prev_text:
             self.text(lons, lats, s, update=False, **kwords)
 
-    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style="dark_nolabels"):
+    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style="light_nolabels"):
 
         ORIG_TILE_SERVER = smopy.TILE_SERVER
         if map_style is not None:
