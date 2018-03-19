@@ -840,7 +840,7 @@ class GTFS(object):
         lat, lon = results.fetchone()
         return lat, lon
 
-    def get_bounding_box_by_stops(self, stop_Is, buffer_ratio=None):
+    def get_bounding_box_by_stops(self, stop_Is, scale_ratio=None):
         lats = []
         lons = []
         for stop_I in stop_Is:
@@ -854,11 +854,11 @@ class GTFS(object):
         lon_diff = 0
         lat_diff = 0
 
-        if buffer_ratio:
-            width = buffer_ratio * wgs84_distance((max_lat - min_lat) / 2 + min_lat, min_lon,
-                                                  (max_lat - min_lat) / 2 + min_lat, max_lon)
-            height = buffer_ratio * wgs84_distance(min_lat, (max_lon - min_lon) / 2 + min_lon,
-                                                   max_lat, (max_lon - min_lon) / 2 + min_lon)
+        if scale_ratio:
+            width = scale_ratio * wgs84_distance((max_lat - min_lat) / 2 + min_lat, min_lon,
+                                                 (max_lat - min_lat) / 2 + min_lat, max_lon)
+            height = scale_ratio * wgs84_distance(min_lat, (max_lon - min_lon) / 2 + min_lon,
+                                                  max_lat, (max_lon - min_lon) / 2 + min_lon)
 
             lat_diff = wgs84_height(height)
             lon_diff = wgs84_width(width, (max_lat - min_lat) / 2 + min_lat)

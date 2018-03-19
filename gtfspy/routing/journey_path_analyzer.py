@@ -143,6 +143,14 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         boarding_stops = [int(x) for x in boarding_stops]
         return origin_stop, target_stop, leg_value_list, boarding_stops, all_stops
 
+    def get_optimal_generalized_cost_journeys(self):
+        """
+        Idea: produce labels with departure time and "generalized arrival time": departure time + generalized cost
+        Find Pareto front
+         based on these two criteria
+        :return:
+        """
+
     def assign_path_letters(self, features_to_check):
         """
         Function that assigns a littera for each journey variant that can be used in journey plots and temporal distance plots

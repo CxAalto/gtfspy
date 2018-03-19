@@ -38,6 +38,7 @@ class FastestPathAnalyzer:
     def _compute_fastest_path_labels(self, labels):
         relevant_labels = [label.get_copy() for label in labels if
                            (self.start_time_dep < label.departure_time <= self.end_time_dep)]
+
         if len(relevant_labels) is 0 or relevant_labels[-1].departure_time < self.end_time_dep:
             # add an after label
             smallest_arr_time_after_end_time = float('inf')
@@ -52,6 +53,7 @@ class FastestPathAnalyzer:
         for label in relevant_labels:
             if hasattr(label, "first_leg_is_walk"):
                 label.first_leg_is_walk = False
+
         fp_labels = list(reversed(compute_pareto_front(relevant_labels, ignore_n_boardings=True)))
         # assert ordered:
         for i in range(len(fp_labels) - 1):
