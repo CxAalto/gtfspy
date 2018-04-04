@@ -1,12 +1,8 @@
-import unittest
-from math import isnan
 from unittest import TestCase
 
-from gtfspy.routing.label import LabelTimeBoardingsAndRoute
-from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAnalyzerTimeAndVehLegs
-from gtfspy.routing.journey_path_analyzer import NodeJourneyPathAnalyzer
 from gtfspy.routing.connection import Connection
+from gtfspy.routing.journey_path_analyzer import NodeJourneyPathAnalyzer
+from gtfspy.routing.label import LabelTimeBoardingsAndRoute
 
 
 class TestNodeJourneyPathAnalyzer(TestCase):
@@ -54,11 +50,11 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         njpa = self._get_analyzer(label_list, 0, 700, 600)
         self.assertEqual(njpa.all_journey_stops, [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
-        self.assertEqual(njpa.journey_set_variants, [(791, 1090), (791,)])
+        self.assertEqual(set(njpa.journey_set_variants), {(791, 1090), (791,)})
 
         njpa = self._get_analyzer(label_list, 0, 700, 500)
         self.assertEqual(njpa.all_journey_stops, [])
-        self.assertEqual(njpa.journey_set_variants, [(791,)])
+        self.assertEqual(set(njpa.journey_set_variants), {(791,)})
 
     def test_basic_diversity(self):
         label_list = self._get_simple_label_list()
@@ -117,7 +113,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), 1)
         self.assertEqual(njpa.most_probable_journey_variant(), 1)
-        # TODO: maybe look if this should look at the jorney variants or if it is ok just to assume that
+        # TODO: maybe look if this should look at the journey variants or if it is ok just to assume that
         # self.journey_variants does not have duplicats
         self.assertEqual(njpa.number_of_journey_variants(), 3)
         self.assertEqual(njpa.number_of_fp_journeys(), 3)
