@@ -222,5 +222,91 @@ class TestGTFSFilter(unittest.TestCase):
         remove_all_trips_fully_outside_buffer(self.G.conn, float(stop_1.lat), float(stop_1.lon), 0.002)
         self.assertEqual(len(self.G.get_table("trips")), 2)  # value "2" comes from the data
 
+    def test_filtering_based_on_trip_start_times_basic(self):
+        for i, G in enumerate([self.G, self.G_filter_test]):
+            self.tearDown()
+            self.setUp()
+            first_day_start_ut, last_day_start_ut = G.get_day_start_ut_span()
+            print(first_day_start_ut, last_day_start_ut)
+
+            self.assertEqual(G.get_n_rows("days"), G.get_n_rows("day_trips2"))
+
+            FilterExtract(G,
+                          self.fname_copy,
+                          trip_earliest_start_time_ut=first_day_start_ut,
+                          trip_latest_start_time_ut=first_day_start_ut + 2 * 24 * 3600,
+                          ).create_filtered_copy()
+
+            G_copy = GTFS(self.fname_copy)
+
+            self.assertGreater(G.get_n_rows("days"), G_copy.get_n_rows("days"))
+            self.assertGreater(G.get_n_rows("day_trips2"), G_copy.get_n_rows("day_trips2"))
+            self.assertEqual(G_copy.get_n_rows("days"), G_copy.get_n_rows("day_trips2"))
+
+            # Tests for calendar, and calendar dates.
+            for table in ["calendar", "calendar_dates"]:
+                self.assertLessEqual(G_copy.get_n_rows(table), G.get_n_rows(table), table)
+
+    def test_trip_start_time_filtering_based_on_trip_start_times_simple_calendar(self):
+        G = self.G
+        first_day_start_ut, last_day_start_ut = G.get_day_start_ut_span()
+        n_days = 10
+        FilterExtract(G,
+                      self.fname_copy,
+                      trip_earliest_start_time_ut=first_day_start_ut,
+                      trip_latest_start_time_ut=first_day_start_ut + n_days * 24 * 3600 + (6 * 3600 + 60 * 10),
+                      ).create_filtered_copy()
+        G_copy = GTFS(self.fname_copy)
+        # Tests for calendar, and calendar dates.
+        self.assertGreater(G_copy.get_n_rows("calendar"), G.get_n_rows("calendar"))
+        # The exception should no be in the time frame
+        self.assertLess(G_copy.get_n_rows("calendar_dates"), G.get_n_rows("calendar_dates"))
+
+
+    def test_trip_start_time_filtering_on_exception(self):
+        G = self.G
+        first_day_start_ut, last_day_start_ut = G.get_day_start_ut_span()
+        n_days = 7 * 30 # past the exception date
+        FilterExtract(G,
+                      self.fname_copy,
+                      trip_earliest_start_time_ut=first_day_start_ut,
+                      trip_latest_start_time_ut=first_day_start_ut + n_days * 24 * 3600 + (6 * 3600 + 60 * 10)).create_filtered_copy()
+        G_copy = GTFS(self.fname_copy)
+        # Tests for calendar, and calendar dates.
+        self.assertGreater(G_copy.get_n_rows("calendar"), G.get_n_rows("calendar"))
+        # The exception should no be in the time frame
+        self.assertGreater(G_copy.get_n_rows("calendar_dates"), G.get_n_rows("calendar_dates"))
+        self.assertEqual(G_copy.get_n_rows("trips"), G.get_n_rows("trips"))
+
+
+    def test_trip_start_time_only_beginning(self):
+        G = self.G
+        first_day_start_ut, last_day_start_ut = G.get_day_start_ut_span()
+        trip_latest_start_time_ut = first_day_start_ut + 6 * 3600 + 60 * 10
+        FilterExtract(G,
+                      self.fname_copy,
+                      trip_earliest_start_time_ut=first_day_start_ut,
+                      trip_latest_start_time_ut=trip_latest_start_time_ut).create_filtered_copy()
+        G_copy = GTFS(self.fname_copy)
+        # Tests for calendar, and calendar dates.
+        self.assertLess(G_copy.get_n_rows("calendar"), G.get_n_rows("calendar"))
+        # The exception should no be in the time frame
+        self.assertLess(G_copy.get_n_rows("trips"), G.get_n_rows("trips"))
+        self.assertLess(G_copy.get_n_rows("calendar_dates"), G.get_n_rows("calendar_dates"))
+        self.assertLess(G_copy.get_n_rows("stop_times"), G.get_n_rows("stop_times"))
+
+        from gtfspy import exports
+        net_old = exports.temporal_network(G, first_day_start_ut, trip_latest_start_time_ut)
+        net_new = exports.temporal_network(G_copy)
+        self.assertGreater(len(net_new), len(net_old))
+
+        net_old = exports.temporal_network(G, first_day_start_ut, trip_latest_start_time_ut)
+        net_new = exports.temporal_network(G_copy, first_day_start_ut, trip_latest_start_time_ut)
+        self.assertEqual(len(net_new), len(net_old))
+
+        net_old = exports.temporal_network(G, first_day_start_ut, trip_latest_start_time_ut + 2 * 3600)
+        net_new = exports.temporal_network(G_copy, first_day_start_ut, trip_latest_start_time_ut + 2 * 3600)
+        self.assertLess(len(net_new), len(net_old))
+
 
 

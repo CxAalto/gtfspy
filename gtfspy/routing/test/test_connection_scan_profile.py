@@ -22,8 +22,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
         ]
         self.transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         self.walk_network = networkx.Graph()
-        self.walk_network.add_edge(1, 2, {"d_walk": 20})
-        self.walk_network.add_edge(3, 4, {"d_walk": 15})
+        self.walk_network.add_edge(1, 2, d_walk=20)
+        self.walk_network.add_edge(3, 4, d_walk=15)
         self.walk_speed = 1
         self.source_stop = 1
         self.target_stop = 4
@@ -32,9 +32,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
         self.end_time = 50
 
     def test_basics(self):
-        csa_profile = ConnectionScanProfiler(self.transit_connections, self.target_stop,
-                                             self.start_time, self.end_time, self.transfer_margin,
-                                             self.walk_network, self.walk_speed)
+        csa_profile = ConnectionScanProfiler(self.transit_connections, self.target_stop, self.walk_network,
+                                             self.end_time, self.transfer_margin, self.start_time, self.walk_speed)
         csa_profile.run()
 
         stop_3_pareto_tuples = csa_profile.stop_profiles[3].get_final_optimal_labels()
@@ -68,9 +67,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
             (1, 3, 32, 40, "trip_5", 1),
             (2, 4, 40, 50, "trip_5", 1)
         ]
-        csa_profile = ConnectionScanProfiler(event_list_wrong_ordering, self.target_stop,
-                                             self.start_time, self.end_time, self.transfer_margin,
-                                             self.walk_network, self.walk_speed)
+        csa_profile = ConnectionScanProfiler(event_list_wrong_ordering, self.target_stop, self.walk_network,
+                                             self.end_time, self.transfer_margin, self.start_time, self.walk_speed)
         self.assertRaises(AssertionError, csa_profile.run)
 
     def test_simple(self):
@@ -79,8 +77,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 20})
-        walk_network.add_edge(3, 4, {"d_walk": 15})
+        walk_network.add_edge(1, 2, d_walk=20)
+        walk_network.add_edge(3, 4, d_walk=15)
         walk_speed = 1
         source_stop = 1
         target_stop = 4
@@ -91,9 +89,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
         pareto_tuples = list()
         pareto_tuples.append(LabelTimeSimple(departure_time=20, arrival_time_target=50))
 
-        csa_profile = ConnectionScanProfiler(transit_connections, target_stop,
-                                             start_time, end_time, transfer_margin,
-                                             walk_network, walk_speed)
+        csa_profile = ConnectionScanProfiler(transit_connections, target_stop, walk_network, end_time, transfer_margin,
+                                             start_time, walk_speed)
         csa_profile.run()
         source_stop_profile = csa_profile.stop_profiles[source_stop]
         source_stop_pareto_tuples = source_stop_profile.get_final_optimal_labels()
@@ -109,7 +106,7 @@ class ConnectionScanProfileTest(unittest.TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 20})
+        walk_network.add_edge(1, 2, d_walk=20)
 
         walk_speed = 1
         source_stop = 0
@@ -120,9 +117,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
         pareto_tuples = list()
         pareto_tuples.append(LabelTimeSimple(departure_time=0, arrival_time_target=30))
 
-        csa_profile = ConnectionScanProfiler(transit_connections, target_stop,
-                                             start_time, end_time, transfer_margin,
-                                             walk_network, walk_speed)
+        csa_profile = ConnectionScanProfiler(transit_connections, target_stop, walk_network, end_time, transfer_margin,
+                                             start_time, walk_speed)
         csa_profile.run()
         found_tuples = csa_profile.stop_profiles[source_stop].get_final_optimal_labels()
         self._assert_pareto_labels_equal(found_tuples, pareto_tuples)
@@ -140,10 +136,9 @@ class ConnectionScanProfileTest(unittest.TestCase):
         end_time = 50
 
         walk_network = networkx.Graph()
-        walk_network.add_edge(0, 1, {"d_walk": 1})
-        csa_profile = ConnectionScanProfiler(transit_connections, target_stop,
-                                             start_time, end_time, transfer_margin,
-                                             walk_network, walk_speed)
+        walk_network.add_edge(0, 1, d_walk=1)
+        csa_profile = ConnectionScanProfiler(transit_connections, target_stop, walk_network, end_time, transfer_margin,
+                                             start_time, walk_speed)
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
         self.assertEqual(source_profile.evaluate_earliest_arrival_time_at_target(0, 0), 0.5)
@@ -163,9 +158,8 @@ class ConnectionScanProfileTest(unittest.TestCase):
         end_time = 50
 
         walk_network = networkx.Graph()
-        csa_profile = ConnectionScanProfiler(transit_connections, target_stop,
-                                             start_time, end_time, transfer_margin,
-                                             walk_network, walk_speed)
+        csa_profile = ConnectionScanProfiler(transit_connections, target_stop, walk_network, end_time, transfer_margin,
+                                             start_time, walk_speed)
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
         self.assertEqual(source_profile.evaluate_earliest_arrival_time_at_target(0, 0), 10)

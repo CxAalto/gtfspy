@@ -524,3 +524,8 @@ class TestImport(unittest.TestCase):
     def test_metaData(self):
         # TODO! untested
         pass
+
+    @unittest.skip("Test not implemented")
+    def test_exceptions_only(self):
+        # Code should work, testing for real data is to be done.
+        pass

@@ -29,6 +29,10 @@ def write_walk_transfer_edges(gtfs, output_file_name):
 
 def write_nodes(gtfs, output, fields=None):
     """
+    Write out network nodes as a semicolon (;) separated file.
+
+    Keep only those nodes which are referened in the stop times.
+
     Parameters
     ----------
     gtfs: gtfspy.GTFS
@@ -37,7 +41,7 @@ def write_nodes(gtfs, output, fields=None):
     fields: list, optional
         which pieces of information to provide
     """
-    nodes = gtfs.get_table("stops")
+    nodes = gtfs.stops(require_reference_in_stop_times=True)
     if fields is not None:
         nodes = nodes[fields]
     with util.create_file(output, tmpdir=True, keepext=True) as tmpfile:
@@ -45,7 +49,7 @@ def write_nodes(gtfs, output, fields=None):
 
 
 def create_stops_geojson_dict(gtfs, fields=None):
-    nodes = gtfs.get_table("stops")
+    nodes = gtfs.stops(require_reference_in_stop_times=True)
     if fields is None:
         fields = {'name': 'stop_name', 'stop_I': 'stop_I', 'lat': 'lat', 'lon': 'lon'}
     assert (fields['lat'] == 'lat' and fields['lon'] == 'lon')
@@ -77,6 +81,7 @@ def create_stops_geojson_dict(gtfs, fields=None):
         "features": features
     }
     return geojson
+
 
 def write_stops_geojson(gtfs, out_file, fields=None):
     """
@@ -118,14 +123,14 @@ def write_static_networks(gtfs, output_dir, fmt=None):
     Parameters
     ----------
     gtfs: gtfspy.GTFS
-    output_dir: (str, unicode)
+    output_dir: str, unicode
         a path where to write
     fmt: None, optional
-        defaulting to "edg" and writing results as ".edg" files
+        defaulting to "csv" and writing results as ".csv" files
          If "csv" csv files are produced instead
     """
     if fmt is None:
-        fmt = "edg"
+        fmt = "csv"
     single_layer_networks = stop_to_stop_networks_by_type(gtfs)
     util.makedirs(output_dir)
     for route_type, net in single_layer_networks.items():
@@ -166,44 +171,43 @@ def write_temporal_network(gtfs, output_filename, start_time_ut=None, end_time_u
     """
     util.makedirs(os.path.dirname(os.path.abspath(output_filename)))
     pandas_data_frame = temporal_network(gtfs, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-    pandas_data_frame.to_csv(output_filename, encoding='utf-8', index=False)
+    pandas_data_frame.to_csv(output_filename, encoding='utf-8', index=False, sep=";")
 
 
-def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
+def _write_stop_to_stop_network_edges(net, file_name_without_extension, data=True, fmt=None):
     """
     Write out a network
 
     Parameters
     ----------
     net: networkx.DiGraph
-    base_name: str
-        path to the filename (without extension)
+    file_name_without_extension: str
+        path to the filename (without a filename extension)
     data: bool, optional
         whether or not to write out any edge data present
     fmt: str, optional
         If "csv" write out the network in csv format.
     """
     if fmt is None:
-        fmt = "edg"
+        fmt = "csv"
 
     if fmt == "edg":
         if data:
-            networkx.write_edgelist(net, file_name, data=True)
+            networkx.write_edgelist(net, file_name_without_extension, data=True)
         else:
-            networkx.write_edgelist(net, file_name)
+            networkx.write_edgelist(net, file_name_without_extension)
     elif fmt == "csv":
-        with open(file_name, 'w') as f:
+        with open(file_name_without_extension, 'w') as f:
             # writing out the header
-            edge_iter = net.edges_iter(data=True)
-            _, _, edg_data = next(edge_iter)
-            edg_data_keys = list(sorted(edg_data.keys()))
-            header = ";".join(["from_stop_I", "to_stop_I"] + edg_data_keys)
+            _, _, edge_data = list(net.edges(data=True))[0]
+            edge_data_keys = list(sorted(edge_data.keys()))
+            header = ";".join(["from_stop_I", "to_stop_I"] + edge_data_keys)
             f.write(header)
-            for from_node_I, to_node_I, data in net.edges_iter(data=True):
+            for from_node_I, to_node_I, data in net.edges(data=True):
                 f.write("\n")
                 values = [str(from_node_I), str(to_node_I)]
                 data_values = []
-                for key in edg_data_keys:
+                for key in edge_data_keys:
                     if key == "route_I_counts":
                         route_I_counts_string = str(data[key]).replace(" ", "")[1:-1]
                         data_values.append(route_I_counts_string)
@@ -215,29 +219,34 @@ def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
 
 def create_sections_geojson_dict(G, start_time_ut=None, end_time_ut=None):
     multi_di_graph = combined_stop_to_stop_transit_network(G, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
-    stops = G.get_table("stops")
+    stops = G.stops(require_reference_in_stop_times=True)
     stop_I_to_coords = {row.stop_I: [row.lon, row.lat] for row in stops.itertuples()}
     gjson = {"type": "FeatureCollection"}
     features = []
     gjson["features"] = features
-    data = list(multi_di_graph.edges(data=True))
-    data.sort(key=lambda el: ROUTE_TYPE_TO_ZORDER[el[2]['route_type']])
-    for from_stop_I, to_stop_I, data in data:
+    linksWithData = list(multi_di_graph.edges(data=True))
+    linksWithData.sort(key=lambda el: ROUTE_TYPE_TO_ZORDER[el[2]['route_type']])
+    for from_stop_I, to_stop_I, linkData in linksWithData:
+        linkData = linkData
         feature = {"type": "Feature"}
         geometry = {
             "type": "LineString",
             'coordinates': [stop_I_to_coords[from_stop_I], stop_I_to_coords[to_stop_I]]
         }
         feature['geometry'] = geometry
-        route_I_counts = data['route_I_counts']
-        route_I_counts = {str(key): int(value) for key, value in route_I_counts.items()}
-        data['route_I_counts'] = route_I_counts
-        properties = data
+
+        properties = dict()
+        properties['n_vehicles'] = linkData['n_vehicles']
+        properties['duration_avg'] = linkData['duration_avg']
+        properties['route_type'] = linkData['route_type']
+        route_I_counts = {str(key): int(value) for key, value in linkData['route_I_counts'].items()}
+        properties['route_I_counts'] = route_I_counts
         properties['from_stop_I'] = int(from_stop_I)
         properties['to_stop_I'] = int(to_stop_I)
-        feature['properties'] = data
+        feature['properties'] = properties
         features.append(feature)
     return gjson
+
 
 def write_sections_geojson(G, output_file, start_time_ut=None, end_time_ut=None):
     gjson = create_sections_geojson_dict(G, start_time_ut=start_time_ut, end_time_ut=end_time_ut)
@@ -246,6 +255,7 @@ def write_sections_geojson(G, output_file, start_time_ut=None, end_time_ut=None)
     else:
         with open(output_file, 'w') as f:
             f.write(json.dumps(gjson))
+
 
 def create_routes_geojson_dict(G):
     assert(isinstance(G, GTFS))
@@ -266,6 +276,7 @@ def create_routes_geojson_dict(G):
     gjson['features'] = features
     return gjson
 
+
 def write_routes_geojson(G, output_file):
     gjson = create_routes_geojson_dict(G)
     if hasattr(output_file, "write"):
@@ -274,7 +285,6 @@ def write_routes_geojson(G, output_file):
         with open(output_file, 'w') as f:
             f.write(json.dumps(gjson))
     return None
-
 
 
 def write_gtfs(gtfs, output):
@@ -295,14 +305,14 @@ def write_gtfs(gtfs, output):
     output = os.path.abspath(output)
     uuid_str = "tmp_" + str(uuid.uuid1())
     if output[-4:] == '.zip':
-        zip = True
+        create_zipfile = True
         out_basepath = os.path.dirname(os.path.abspath(output))
         if not os.path.exists(out_basepath):
             raise IOError(out_basepath + " does not exist, cannot write gtfs as a zip")
         tmp_dir = os.path.join(out_basepath, str(uuid_str))
         # zip_file_na,e = ../out_basedir + ".zip
     else:
-        zip = False
+        create_zipfile = False
         out_basepath = output
         tmp_dir = os.path.join(out_basepath + "_" + str(uuid_str))
 
@@ -329,13 +339,12 @@ def write_gtfs(gtfs, output):
         print(fname_to_write)
         writer(gtfs, open(os.path.join(tmp_dir, table + '.txt'), 'w'))
 
-    if zip:
+    if create_zipfile:
         shutil.make_archive(output[:-4], 'zip', tmp_dir)
         shutil.rmtree(tmp_dir)
     else:
         print("moving " + str(tmp_dir) + " to " + out_basepath)
         os.rename(tmp_dir, out_basepath)
-
 
 
 def _remove_I_columns(df):
@@ -530,17 +539,6 @@ def _write_gtfs_stop_distances(gtfs, output_file):
     stop_distances.to_csv(output_file, index=False)
 
 
-# for row in stop_times_table.itertuples():
-#     dep_time = gtfs.unixtime_seconds_to_gtfs_datetime(row.dep_time_ds).strftime('%H:%M%S')
-#     arr_time = gtfs.unixtime_seconds_to_gtfs_datetime(row.arr_time_ds).strftime('%H:%M%S')
-#     departure_times.append(dep_time)
-#     arrival_times.append(arr_time)
-# stop_times_table['arrival_time'] = pandas.Series(arrival_times, stop_times_table.index)
-# stop_times_table['departure_time'] = pandas.Series(departure_times, stop_times_table.index)
-
-
-
-
 def main():
     import argparse
 
@@ -582,5 +580,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

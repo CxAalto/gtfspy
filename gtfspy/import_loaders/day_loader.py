@@ -10,8 +10,8 @@ class DayLoader(TableLoader):
     tabledef = '(date TEXT, day_start_ut INT, trip_I INT)'
     copy_where = "WHERE  {start_ut} <= day_start_ut  AND  day_start_ut < {end_ut}"
 
-    def post_import(self, cur):
-        insert_data_to_days(cur, self._conn)
+    def post_import(self, conn):
+        insert_data_to_days(conn.cursor(), self._conn)
 
     def index(self, cur):
         create_day_table_indices(cur)

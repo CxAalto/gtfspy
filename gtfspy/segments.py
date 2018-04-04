@@ -1,9 +1,6 @@
-
-
 class Segments(object):
-
     def __init__(self, gtfs):
-        self._gtfs
+        self._gtfs = gtfs
 
     def get_segments(self):
         """
@@ -35,9 +32,7 @@ class Segments(object):
                    ''')
 
 
-
 class Segment(object):
-
     def __init__(self, from_node, to_node, distance, time, vehicle_count, capacity_per_hour, lines, modes):
         self.from_node = from_node
         self.to_node = to_node
@@ -47,4 +42,3 @@ class Segment(object):
         self.capacity_per_hour = capacity_per_hour
         self.lines = lines
         self.modes = modes
-

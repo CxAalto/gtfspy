@@ -18,18 +18,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
     http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf
     """
 
-    def __init__(self,
-                 transit_events,
-                 targets,
-                 start_time_ut=None,
-                 end_time_ut=None,
-                 transfer_margin=0,
-                 walk_network=None,
-                 walk_speed=1.5,
-                 verbose=False,
-                 track_vehicle_legs=True,
-                 track_time=True,
-                 track_route=False):
+    def __init__(self, transit_events, targets, walk_network, end_time_ut=None, transfer_margin=0, start_time_ut=None,
+                 walk_speed=1.5, verbose=False, track_vehicle_legs=True, track_time=True, track_route=False):
         """
         Parameters
         ----------
@@ -37,6 +27,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             events are assumed to be ordered in DECREASING departure_time (!)
         targets: int, list
             index of the target stop
+        walk_network: networkx.Graph
+            each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         start_time_ut : int, optional
             start time in unixtime seconds
         end_time_ut: int, optional
@@ -45,8 +37,6 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             required extra margin required for transfers in seconds
         walk_speed: float, optional
             walking speed between stops in meters / second.
-        walk_network: networkx.Graph, optional
-            each edge should have the walking distance as a data attribute ("distance_shape") expressed in meters
         verbose: boolean, optional
             whether to print out progress
         track_vehicle_legs: boolean, optional

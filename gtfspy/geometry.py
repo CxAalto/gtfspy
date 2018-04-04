@@ -10,16 +10,17 @@ def get_convex_hull_coordinates(gtfs):
 
     Returns
     -------
-    lons: list
+    hull_lons: list
         of floats
-    lats: list
+    hull_lats: list
         of floats
     """
     lons, lats = _get_stop_lat_lons(gtfs)
     lon_lats = list(zip(lons, lats))
     polygon = MultiPoint(lon_lats).convex_hull
-    hull_lons, hull_lats= polygon.exterior.coords.xy
+    hull_lons, hull_lats = polygon.exterior.coords.xy
     return hull_lats, hull_lons
+
 
 def _get_stop_lat_lons(gtfs):
     stops = gtfs.stops()
@@ -27,14 +28,17 @@ def _get_stop_lat_lons(gtfs):
     lons = stops['lon']
     return lons, lats
 
+
 def get_approximate_convex_hull_area_km2(gtfs):
     lons, lats = _get_stop_lat_lons(gtfs)
     return approximate_convex_hull_area(lons, lats)
+
 
 def approximate_convex_hull_area(lons, lats):
     lon_meters, lat_meters = _get_lon_lat_meters(lons, lats)
     lon_lat_meters = list(zip(lon_meters, lat_meters))
     return MultiPoint(lon_lat_meters).convex_hull.area / 1000 ** 2
+
 
 def _get_lon_lat_meters(lons, lats):
     lat_min = min(lats)
@@ -89,4 +93,3 @@ def compute_buffered_area_of_stops(lats, lons, buffer_meters, resolution=16):
         lat_meters = lats
 
     return MultiPoint(points=list(zip(lon_meters, lat_meters))).buffer(buffer_meters, resolution=resolution).area
-

@@ -1,5 +1,6 @@
-from gtfspy.import_loaders.table_loader import TableLoader, decode_six
+import pandas
 
+from gtfspy.import_loaders.table_loader import TableLoader, decode_six
 
 class CalendarDatesLoader(TableLoader):
     fname = 'calendar_dates.txt'
@@ -41,3 +42,20 @@ class CalendarDatesLoader(TableLoader):
                     date          = date_str,
                     exception_type= int(row['exception_type']),
                 )
+
+    def post_import(self, conn):
+        update_calendar_table_exceptions_only_entries(conn)
+
+def update_calendar_table_exceptions_only_entries(conn):
+    # Exceptions do not run on any weekdays (m=0, t=0, w=0, th=0, f=0, s=0, and su=0)
+    exceptions_only_entries = pandas.read_sql("SELECT service_I FROM calendar WHERE m=0 AND t=0 AND w=0 AND th=0 AND f=0 AND s=0 AND su=0;", conn)
+    print(exceptions_only_entries)
+    for service_I in exceptions_only_entries['service_I'].values:
+        service_I = int(service_I)
+        conn.execute("UPDATE calendar "
+                       "SET start_date=(SELECT min(date) FROM calendar_dates WHERE service_I=?), "
+                            "end_date=(SELECT max(date) FROM calendar_dates WHERE service_I=?) WHERE calendar.service_I=?",
+                       (service_I, service_I, service_I))
+
+
+

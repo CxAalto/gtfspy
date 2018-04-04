@@ -41,9 +41,9 @@ def print_coords(rows, prefix=''):
     pasted into Python for visualization."""
     lat = [row['lat'] for row in rows]
     lon = [row['lon'] for row in rows]
-    print('COORDS'+'-' * 5)
+    print('COORDS' + '-' * 5)
     print("%slat, %slon = %r, %r" % (prefix, prefix, lat, lon))
-    print('-'*5)
+    print('-' * 5)
 
 
 def find_segments(stops, shape):
@@ -166,17 +166,17 @@ def find_best_segments(cur, stops, shape_ids, route_id=None,
             print("No data for route_id=%s" % route_id)
             return [], None, None, None
         #
-        shape_ids = zip(*data)[0]
+        shape_ids = list(zip(*data))[0]
     # print 'find_best_segments:', shape_ids
     results = []
     for shape_id in shape_ids:
         shape = get_shape_points(cur, shape_id)
         breakpoints, badness = find_segments(stops, shape)
         results.append([badness, breakpoints, shape, shape_id])
-        if len(stops) > 5 and badness < 5*(len(stops)):
+        if len(stops) > 5 and badness < 5 * len(stops):
             break
 
-    best = np.argmin(zip(*results)[0])
+    best = np.argmin(list(zip(*results))[0])
     # print 'best', best
     badness = results[best][0]
     breakpoints = results[best][1]
@@ -201,12 +201,11 @@ def return_segments(shape, break_points):
     # print break_points
     # assert len(stops) == len(break_points)
     segs = []
-    bp = 0 # not used
     bp2 = 0
-    for i in range(len(break_points)-1):
+    for i in range(len(break_points) - 1):
         bp = break_points[i] if break_points[i] is not None else bp2
-        bp2 = break_points[i+1] if break_points[i+1] is not None else bp
-        segs.append(shape[bp:bp2+1])
+        bp2 = break_points[i + 1] if break_points[i + 1] is not None else bp
+        segs.append(shape[bp:(bp2 + 1)])
     segs.append([])
     return segs
 
@@ -230,10 +229,10 @@ def gen_cumulative_distances(stops):
     """
     stops[0]['d'] = 0.0
     for i in range(1, len(stops)):
-        stops[i]['d'] = stops[i-1]['d'] + wgs84_distance(
-            stops[i-1]['lat'], stops[i-1]['lon'],
+        stops[i]['d'] = stops[i - 1]['d'] + wgs84_distance(
+            stops[i - 1]['lat'], stops[i - 1]['lon'],
             stops[i]['lat'], stops[i]['lon'],
-            )
+        )
     for stop in stops:
         stop['d'] = int(stop['d'])
         # stop['d'] = round(stop['d'], 1)
@@ -445,18 +444,18 @@ def interpolate_shape_times(shape_distances, shape_breaks, stop_times):
     """
     shape_times = np.zeros(len(shape_distances))
     shape_times[:shape_breaks[0]] = stop_times[0]
-    for i in range(len(shape_breaks)-1):
+    for i in range(len(shape_breaks) - 1):
         cur_break = shape_breaks[i]
         cur_time = stop_times[i]
-        next_break = shape_breaks[i+1]
-        next_time = stop_times[i+1]
+        next_break = shape_breaks[i + 1]
+        next_time = stop_times[i + 1]
         if cur_break == next_break:
             shape_times[cur_break] = stop_times[i]
         else:
-            cur_distances = shape_distances[cur_break:next_break+1]
-            norm_distances = ((np.array(cur_distances)-float(cur_distances[0])) /
+            cur_distances = shape_distances[cur_break:next_break + 1]
+            norm_distances = ((np.array(cur_distances) - float(cur_distances[0])) /
                               float(cur_distances[-1] - cur_distances[0]))
-            times = (1.-norm_distances)*cur_time+norm_distances*next_time
+            times = (1. - norm_distances) * cur_time + norm_distances * next_time
             shape_times[cur_break:next_break] = times[:-1]
     # deal final ones separately:
     shape_times[shape_breaks[-1]:] = stop_times[-1]

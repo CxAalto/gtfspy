@@ -41,16 +41,11 @@ walk_network = get_walk_network(G, MAX_WALK_LENGTH)
 
 
 
-mpCSA = MultiObjectivePseudoCSAProfiler(connections,
-                                        targets=[to_stop_I],
-                                        start_time_ut=CONNECTION_SCAN_START_TIME_UT,
-                                        end_time_ut=CONNECTION_SCAN_END_TIME_UT,
-                                        transfer_margin=120,  # seconds
-                                        walk_network=walk_network,
-                                        walk_speed=1.5,  # meters per second
-                                        verbose=True,
-                                        track_vehicle_legs=True,
-                                        track_time=True)
+
+mpCSA = MultiObjectivePseudoCSAProfiler(connections, targets=[to_stop_I], walk_network=walk_network,
+                                        end_time_ut=ROUTING_END_TIME_UT, transfer_margin=120,
+                                        start_time_ut=ROUTING_START_TIME_UT, walk_speed=1.5, verbose=True,
+                                        track_vehicle_legs=True, track_time=True)
 
 mpCSA.run()
 profiles = mpCSA.stop_profiles

@@ -52,14 +52,19 @@ class ExportsTest(unittest.TestCase):
 
     def test_write_stop_to_stop_networks(self):
         exports.write_static_networks(self.gtfs, self.extract_output_dir)
-        self.assertTrue(os.path.exists(self.extract_output_dir + "network_walk.edg"))
-        self.assertTrue(os.path.exists(self.extract_output_dir + "network_bus.edg"))
-        self.assertFalse(os.path.exists(self.extract_output_dir + "network_gondola.edg"))
+        self.assertTrue(os.path.exists(self.extract_output_dir + "network_walk.csv"))
+        self.assertTrue(os.path.exists(self.extract_output_dir + "network_bus.csv"))
+        self.assertFalse(os.path.exists(self.extract_output_dir + "network_gondola.csv"))
 
     def test_write_combined_stop_to_stop_networks(self):
-        output = os.path.join(self.extract_output_dir + "network_combined.edg")
-        exports.write_combined_transit_stop_to_stop_network(self.gtfs, output)
+        output = os.path.join(self.extract_output_dir + "network_combined")
+        exports.write_combined_transit_stop_to_stop_network(self.gtfs, output, fmt="csv")
         self.assertTrue(os.path.exists(output))
+        df = pandas.read_csv(output, ";")
+        self.assertIn("duration_avg", df.columns)
+        self.assertIn("d", df.columns)
+        self.assertIn("n_vehicles", df.columns)
+        self.assertIn("route_type", df.columns)
 
     def test_stop_to_stop_network_by_route_type(self):
         # test that distance works
@@ -80,7 +85,8 @@ class ExportsTest(unittest.TestCase):
         self.assertGreater(len(edges), 0)
 
         at_least_one_shape_distance = False
-        for from_I, to_I, linkData in edges:
+        for from_I, to_I, data in edges:
+            linkData = data
             ds = linkData['distance_shape']
             self.assertTrue(isinstance(ds, int) or (ds is None),
                             "distance_shape should be either int or None (in case shapes are not available)")
@@ -114,7 +120,7 @@ class ExportsTest(unittest.TestCase):
         path = os.path.join(self.extract_output_dir, "combined.tnet")
         exports.write_temporal_network(self.gtfs, path, None, None)
         self.assertTrue(os.path.exists(path))
-        df = pandas.read_csv(path)
+        df = pandas.read_csv(path, sep=";")
         columns_should_exist = ["dep_time_ut", "arr_time_ut", "from_stop_I", "to_stop_I",
                                 "route_type", "trip_I"]
         for col in columns_should_exist:
