@@ -400,7 +400,7 @@ def plot_stops_with_attributes(lats, lons, attribute, s=0.5, spatial_bounds=None
     return ax
 
 
-def plot_all_stops(g, ax=None, scalebar=False):
+def plot_all_stops(g, ax=None, scalebar=False, map_style=None):
     """
     Parameters
     ----------
@@ -417,7 +417,7 @@ def plot_all_stops(g, ax=None, scalebar=False):
     """
     assert(isinstance(g, GTFS))
     lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
-    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max, map_style=map_style)
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
