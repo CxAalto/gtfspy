@@ -436,6 +436,10 @@ class NodeProfileAnalyzerTime:
             if None, the original values are used
         plot_journeys: bool, optional
             if True, small dots are plotted at the departure times
+
+        Returns
+        -------
+        ax: The axis object where the temporal distance profile has been plotted to.
         """
         if ax is None:
             fig = plt.figure()
