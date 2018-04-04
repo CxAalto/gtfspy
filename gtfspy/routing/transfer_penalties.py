@@ -43,7 +43,8 @@ def get_fastest_path_analyzer_after_transfer_penalties(labels,
                               start_time_dep,
                               end_time_dep,
                               walk_duration=walk_duration,
-                              label_props_to_consider=label_props_to_consider)
+                              label_props_to_consider=label_props_to_consider,
+                              **kwargs)
     return fpa
 
 
