@@ -32,7 +32,7 @@ MAP_STYLES = [
 ]
 
 
-def _get_median_centered_plot_bounds(g):
+def get_median_centered_plot_bounds(g):
     lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
     lat_median, lon_median = get_median_lat_lon_of_stops(g)
     lon_diff = max(abs(lon_median - lon_min), abs(lon_median - lon_max))
@@ -41,7 +41,7 @@ def _get_median_centered_plot_bounds(g):
     plot_lon_max = lon_median + lon_diff
     plot_lat_min = lat_median - lat_diff
     plot_lat_max = lat_median + lat_diff
-    return plot_lon_min, plot_lon_max, plot_lat_min, plot_lat_max
+    return {"lon_min": plot_lon_min, "lon_max": plot_lon_max, "lat_min": plot_lat_min, "lat_max": plot_lat_max}
 
 
 def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None,

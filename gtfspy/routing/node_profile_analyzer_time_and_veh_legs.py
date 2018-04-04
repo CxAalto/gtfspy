@@ -342,6 +342,28 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                                     legend_alpha=0.9,
                                                     journey_letters=None,
                                                     legend_font_size=None):
+        """
+        Parameters
+        ----------
+        timezone: str
+        format_string: str
+        duration_divider: float
+        ax: matplotlib.Axes object
+        plot_journeys: bool
+        highlight_fastest_path: bool
+        default_lw: float
+        ncol_legend: int
+            number of columns in legend
+        fastest_path_lw: float
+            linewidth for the fastest path
+        legend_alpha: float
+        journey_letters: list
+        legend_font_size: float
+
+        Returns
+        -------
+        ax: matplotlib.Axes
+        """
         max_n = self.max_finite_n_boardings_on_fastest_paths()
         min_n = self.min_n_boardings()
         if self._walk_to_target_duration < float('inf'):
@@ -351,7 +373,6 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-        fig = ax.figure
         assert (isinstance(ax, matplotlib.axes.Axes))
 
         if timezone is None:
@@ -480,7 +501,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         ax.set_ylim(0, 1.1 * max_tdist)
         ax.set_xlabel("Departure time $t_\\mathrm{dep}$")
         ax.set_ylabel("Temporal distance $\\tau$")
-        return fig
+        return ax
 
     def plot_temporal_distance_pdf_horizontal(self, use_minutes=True, ax=None, duration_divider=60.0,
                                               legend_font_size=None, legend_loc=None):
