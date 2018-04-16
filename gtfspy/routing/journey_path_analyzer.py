@@ -11,10 +11,10 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
     # TODO: possible measures: route diversity, circuity,
 
     """Subclass of NodeProfileAnalyzerTimeAndVehLegs, with extended support for route trajectories"""
-    def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep, origin_stop):
+    def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep, origin_stop, gtfs=None):
         super().__init__(labels, walk_to_target_duration, start_time_dep, end_time_dep)
         self.fastest_path_labels = None
-        self.gtfs = None
+        self.gtfs = gtfs
         self.origin_stop = origin_stop
         self.target_stop = None
         self.fpa = super(NodeJourneyPathAnalyzer, self)._get_fastest_path_analyzer()
@@ -304,7 +304,9 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 "most_probable_journey_variant": self.most_probable_journey_variant(),
                 "most_probable_departure_stop": self.most_probable_departure_stop(),
                 "journey_variant_weighted_simpson": self.journey_variant_simpson_diversity(stop_sets=self.journey_boarding_stops),
-                "time_weighted_simpson": self.journey_variant_simpson_diversity(weights=self.variant_proportions)}
+                "time_weighted_simpson": self.journey_variant_simpson_diversity(weights=self.variant_proportions),
+                "avg_circuity": self.avg_circuity(),
+                "avg_speed": self.avg_journey_speed()}
 
     def number_of_journey_variants(self):
         if not self.journey_set_variants:
@@ -331,6 +333,43 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         for stop_set, proportion in zip(self.journey_set_variants, self.variant_proportions):
             stop_dict[list(stop_set)[0]] += proportion
         return max(stop_dict.values())
+
+    def avg_journey_trajectory_length(self):
+        journey_distances = []
+        if self.all_journey_stops:
+            for journey_stops in self.all_journey_stops:
+                distance = sum([self.gtfs.get_distance_between_stops_euclidean(prev_stop, stop)
+                                for prev_stop, stop in zip(journey_stops, journey_stops[1:])])
+                journey_distances.append(distance)
+            return sum(journey_distances)/len(journey_distances)
+        else:
+            return None
+
+    def avg_journey_duration(self):
+        # TODO: decide if this should be avg journey duration, weighted avg jd or temporal distance
+        journey_durations = []
+        if self.fastest_path_labels:
+            for label in self.fastest_path_labels:
+                journey_durations.append(label.arrival_time_target - label.departure_time)
+            return sum(journey_durations)/len(journey_durations)
+        else:
+            return None
+
+    def avg_circuity(self):
+        avg_journey_trajectory_length = self.avg_journey_trajectory_length()
+        euclidean_distance = self.gtfs.get_distance_between_stops_euclidean(self.origin_stop, self.target_stop)
+        if not avg_journey_trajectory_length or not euclidean_distance:
+            return None
+        else:
+            return avg_journey_trajectory_length/euclidean_distance
+
+    def avg_journey_speed(self):
+        avg_journey_trajectory_length = self.avg_journey_trajectory_length()
+        avg_journey_duration = self.avg_journey_duration()
+        if not avg_journey_trajectory_length or not avg_journey_duration:
+            return None
+        else:
+            return avg_journey_trajectory_length/avg_journey_duration
 
     @staticmethod
     def journey_variant_simpson_diversity(stop_sets=None, weights=None):
