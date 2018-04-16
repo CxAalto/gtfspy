@@ -1,12 +1,7 @@
-import unittest
-from math import isnan
 from unittest import TestCase
 
-from gtfspy.routing.label import LabelTimeBoardingsAndRoute, LabelTimeWithBoardingsCount, LabelGeneric
-from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAnalyzerTimeAndVehLegs
 from gtfspy.routing.fastest_path_analyzer import FastestPathAnalyzer
-from gtfspy.routing.connection import Connection
+from gtfspy.routing.label import LabelTimeWithBoardingsCount
 
 
 class TestNodeJourneyPathAnalyzer(TestCase):
@@ -15,7 +10,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         pass
 
     def _get_analyzer(self, labels, start_time_dep, end_time_dep, walk_duration=float('inf')):
-        analyzer = FastestPathAnalyzer(labels, start_time_dep, end_time_dep, walk_duration=walk_duration, label_props_to_consider=None)
+        analyzer = FastestPathAnalyzer(labels, start_time_dep, end_time_dep, walk_duration=walk_duration)
         return analyzer
 
     def test_get_fastest_paths(self):
