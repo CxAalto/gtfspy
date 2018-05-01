@@ -10,6 +10,7 @@ import smopy
 from matplotlib import colors as mcolors
 from matplotlib_scalebar.scalebar import ScaleBar
 
+import gtfspy.smopy_plot_helper
 from gtfspy import util
 from gtfspy.gtfs import GTFS
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_ZORDER, ROUTE_TYPE_TO_SHORT_DESCRIPTION
@@ -183,8 +184,8 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
                                         use_log_scale=False):
     if attributes is None:
         attributes = len(list(from_lats)) * [None]
-        if not linewidth:
-            linewidth = 1
+    if not linewidth:
+        linewidth = 1
     if color_attributes is None:
         color_attributes = len(list(from_lats)) * [None]
         assert c is not None
@@ -207,7 +208,7 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max, map_style="dark_nolabels")
     ax = smopy_map.show_mpl(figsize=None, ax=ax, alpha=map_alpha)
     bound_pixel_xs, bound_pixel_ys = smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                                          numpy.array([lon_min, lon_max]))
@@ -271,9 +272,9 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
         return ax
 
 
-def _add_scale_bar(ax, lat, lon_min, lon_max, width_pixels):
+def _add_scale_bar(ax, lat, lon_min, lon_max, width_pixels, font_properties=None):
     distance_m = util.wgs84_distance(lat, lon_min, lat, lon_max)
-    scalebar = ScaleBar(distance_m / width_pixels)  # 1 pixel = 0.2 meter
+    scalebar = ScaleBar(distance_m / width_pixels, font_properties=font_properties)  # 1 pixel = 0.2 meter
     ax.add_artist(scalebar)
 
 
@@ -347,6 +348,31 @@ def plot_route_network_thumbnail(g, map_style=None):
                                         map_style=map_style)
 
 
+def plot_stops_with_categorical_attributes_with_smopy_helper(lats_list, lons_list, attributes_list, labels=None, s=1, spatial_bounds=None,
+                                           colorbar=False, ax=None, cmap=None, norm=None, alpha=None, colors=None,
+                                           markers=None, scalebar=True):
+    if not colors:
+        colors = mcolors.BASE_COLORS
+    if not markers:
+        markers = [".", "o", "v", "^", "P", "*"]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="smopy_axes")
+
+    axes = []
+    for lats, lons, attributes, c, marker, label in zip(lats_list, lons_list, attributes_list, colors, markers, labels):
+        ax.scatter(lons, lats, s=s, c=c, marker=marker, label=label)
+
+    if scalebar:
+        ax.add_scale_bar()
+    if spatial_bounds:
+        ax.set_plot_bounds(**spatial_bounds)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    return ax
+
+
 def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list, s=1, spatial_bounds=None,
                                            colorbar=False, ax=None, cmap=None, norm=None, alpha=None, colors=None, markers=None, scalebar=True):
     if not colors:
@@ -398,7 +424,7 @@ def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list
         ax = plt.scatter(x, y, s=s, c=c, marker=marker)
         axes.append(ax)
 
-    return axes
+    return axes, smopy_map
 
 
 def plot_stops_with_attributes(lats, lons, attribute, s=0.5, spatial_bounds=None, colorbar=False, ax=None,
@@ -428,7 +454,7 @@ def plot_stops_with_attributes(lats, lons, attribute, s=0.5, spatial_bounds=None
     ax.set_xlim(bound_pixel_xs)
     ax.set_ylim(bound_pixel_ys)
     if scalebar:
-        _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
+        _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min(), font_properties={"size": 15})
     if colorbar:
         return ax, cax, smopy_map
 
