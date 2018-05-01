@@ -124,7 +124,6 @@ class SmopyAxes(Axes):
             self.update_plots()
             super().imshow(self.smopy_map.to_pil())
 
-
         return self.smopy_map
 
     def update_plots(self):
@@ -161,7 +160,7 @@ class SmopyAxes(Axes):
         smopy.TILE_SERVER = ORIG_TILE_SERVER
         return self.maps[args]
 
-    def set_map_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+    def _set_map_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = lon_min, lon_max, lat_min, lat_max
         self.smopy_map = self._init_smopy_map(lon_min, lon_max, lat_min, lat_max)
         self.map_fixed = True
@@ -169,6 +168,7 @@ class SmopyAxes(Axes):
 
     def set_plot_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
         assert self.smopy_map
+        assert all([lon_max, lon_min, lat_min, lat_max])
         xs, ys = self.smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                           numpy.array([lon_min, lon_max]))
         self.set_xlim(xs)
