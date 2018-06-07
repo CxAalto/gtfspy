@@ -20,10 +20,11 @@ def get_spatial_bounds(gtfs, as_dict=False):
 
     Returns
     -------
-    min_lon: float
-    max_lon: float
-    min_lat: float
-    max_lat: float
+    dict or list:
+        min_lon: float
+        max_lon: float
+        min_lat: float
+        max_lat: float
     """
     stats = get_stats(gtfs)
     lon_min = stats['lon_min']

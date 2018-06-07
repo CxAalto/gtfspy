@@ -1,11 +1,11 @@
-from gtfspy.routing.journey_path_analyzer import NodeJourneyPathAnalyzer
-from gtfspy.routing.helpers import get_transit_connections, get_walk_network
-from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
-from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
-
 from matplotlib import pyplot as plt
-from matplotlib import rc
+
 import example_import
+from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
+from gtfspy.routing.helpers import get_transit_connections, get_walk_network
+from gtfspy.routing.journey_animator import JourneyAnimator
+from gtfspy.routing.journey_path_analyzer import NodeJourneyPathAnalyzer
+from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
 
 G = example_import.load_or_import_example_gtfs()
 tz = G.get_timezone_pytz()
@@ -20,19 +20,14 @@ for stop_I, data in stop_dict.items():
         from_stop_I = stop_I
     if data['name'] == to_stop_name:
         to_stop_I = stop_I
-assert(from_stop_I is not None)
-assert(to_stop_I is not None)
-
-
-
+assert (from_stop_I is not None)
+assert (to_stop_I is not None)
 
 ROUTING_START_TIME_UT = G.get_suitable_date_for_daily_extract(ut=True) + 10 * 3600
 ROUTING_END_TIME_UT = G.get_suitable_date_for_daily_extract(ut=True) + 14 * 3600
 
-
 connections = get_transit_connections(G, ROUTING_START_TIME_UT, ROUTING_END_TIME_UT)
 walk_network = get_walk_network(G)
-
 
 mpCSA = MultiObjectivePseudoCSAProfiler(connections, targets=[to_stop_I], walk_network=walk_network,
                                         end_time_ut=ROUTING_END_TIME_UT, transfer_margin=120,
@@ -42,7 +37,6 @@ mpCSA = MultiObjectivePseudoCSAProfiler(connections, targets=[to_stop_I], walk_n
 mpCSA.run()
 profiles = mpCSA.stop_profiles
 
-stop_profile = profiles[from_stop_I]
 CUTOFF_TIME = 2 * 3600
 labels = dict((key, value.get_final_optimal_labels()) for (key, value) in profiles.items())
 walk_times = dict((key, value.get_walk_to_target_duration()) for (key, value) in profiles.items())
@@ -90,5 +84,12 @@ the_table.set_fontsize(10)
 
 ax4 = fig.add_subplot(224)
 ax4 = nra.plot_journey_graph(ax4)
+
+# An animation showing the optimal journey alternatives:
+ea = JourneyAnimator(labels[from_stop_I], G)
+ani = ea.animation(anim_length_seconds=60, fps=10)
+
+# ani is an instance of matplotlib.animation.FuncAnimation
+# ani.save('test_video.mp4')
 
 plt.show()
