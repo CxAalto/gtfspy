@@ -60,7 +60,7 @@ class SmopyAxes(Axes):
         self.map_fixed = False
         self.maps = {}
         self.prev_plots = []
-        self.prev_scatter = []
+        self.prev_scatters = []
         self.prev_text = []
         self.axes.get_xaxis().set_visible(False)
         self.axes.get_yaxis().set_visible(False)
@@ -75,7 +75,7 @@ class SmopyAxes(Axes):
         if update:
             if not self.smopy_map or not self.map_fixed:
                 self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
-                self.prev_scatter.append((lons, lats, dict(**kwargs)))
+                self.prev_scatters.append((lons, lats, dict(**kwargs)))
 
         _x, _y = self.smopy_map.to_pixels(lats, lons)
         return super().scatter(_x, _y, **kwargs)
@@ -87,7 +87,7 @@ class SmopyAxes(Axes):
         lons = numpy.array(lons)
         lats = numpy.array(lats)
         if update:
-            if not self.smopy_map or not self.map_fixed:
+            if not (self.smopy_map and self.map_fixed):
                 self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
                 self.prev_plots.append((lons, lats, dict(**kwargs)))
 
@@ -110,7 +110,6 @@ class SmopyAxes(Axes):
         return super().text(_x, _y, s, **kwargs)
 
     def _get_smopy_map_from_coords(self, lons, lats, **kwargs):
-
         lon_min, lon_max, lat_min, lat_max = self.lon_min, self.lon_max, self.lat_min, self.lat_max
         self.lon_min = min(list(lons) + [lon_min]) if lon_min else min(list(lons))
         self.lat_min = min(list(lats) + [lat_min]) if lat_min else min(list(lats))
@@ -130,7 +129,7 @@ class SmopyAxes(Axes):
         self.clear()
         for (lons, lats, kwords) in self.prev_plots:
             self.plot(lons, lats, update=False, **kwords)
-        for (lons, lats, kwords) in self.prev_scatter:
+        for (lons, lats, kwords) in self.prev_scatters:
             self.scatter(lons, lats, update=False, **kwords)
         for (lons, lats, s, kwords) in self.prev_text:
             self.text(lons, lats, s, update=False, **kwords)
@@ -160,14 +159,43 @@ class SmopyAxes(Axes):
         smopy.TILE_SERVER = ORIG_TILE_SERVER
         return self.maps[args]
 
-    def _set_map_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+    def set_map_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+        """
+        Sets the bounds for the background map.
+
+        Parameters
+        ----------
+        lon_min: float
+        lon_max: float
+        lat_min: float
+        lat_max: float
+
+        See also
+        --------
+        set_plot_bounds
+        """
+
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = lon_min, lon_max, lat_min, lat_max
         self.smopy_map = self._init_smopy_map(lon_min, lon_max, lat_min, lat_max)
         self.map_fixed = True
         super().imshow(self.smopy_map.to_pil())
 
     def set_plot_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
-        assert self.smopy_map
+        """
+        Sets the plot bounds similar to ax.set_xlim() and ax.set_ylim()
+
+        Parameters
+        ----------
+        lon_min: float
+        lon_max: float
+        lat_min: float
+        lat_max: float
+
+        See also
+        --------
+        set_map_bounds
+        """
+        assert self.smopy_map, "The smopy map needs to be intialized using set_map_bounds"
         assert all([lon_max, lon_min, lat_min, lat_max])
         xs, ys = self.smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                           numpy.array([lon_min, lon_max]))

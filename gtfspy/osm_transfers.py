@@ -87,13 +87,11 @@ def match_stops_to_nodes(gtfs, walk_network):
     stop_I_to_dist: dict
         maps stop_I to the distance to the closest walk_network node
     """
-    network_nodes = walk_network.nodes(data="true")
-
     stop_Is = set(gtfs.get_straight_line_transfer_distances()['from_stop_I'])
     stops_df = gtfs.stops()
 
     geo_index = GeoGridIndex(precision=6)
-    for net_node, data in network_nodes:
+    for net_node, data in walk_network.nodes(data=True):
         geo_index.add_point(GeoPoint(data['lat'], data['lon'], ref=net_node))
     stop_I_to_node = {}
     stop_I_to_dist = {}

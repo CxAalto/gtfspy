@@ -146,16 +146,23 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
     def get_optimal_generalized_cost_journeys(self):
         """
         Idea: produce labels with departure time and "generalized arrival time": departure time + generalized cost
-        Find Pareto front
-         based on these two criteria
-        :return:
+        Find Pareto front based on these two criteria
+
+        Returns
+        -------
         """
+        pass
 
     def assign_path_letters(self, features_to_check):
         """
         Function that assigns a littera for each journey variant that can be used in journey plots and temporal distance plots
-        :param features_to_check: frozenset
-        :return:
+
+        Parameters
+        ----------
+        features_to_check: frozenset
+
+        Returns
+        -------
         """
         variant_dict = {}
 
@@ -182,7 +189,6 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
     def get_journey_trajectories(self):
         journeys = self.connection_list
-
         for journey in journeys:
             for leg in journey:
                 lats, lons = zip(*[self.gtfs.get_stop_coordinates(x) for x in leg["leg_stops"]])

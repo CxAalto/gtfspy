@@ -118,8 +118,6 @@ def plot_as_routes(route_shapes, ax=None, spatial_bounds=None, map_alpha=0.8, sc
         background map style, one of MAP_STYLES
 
 
-
-
     Returns
     -------
     ax: matplotlib.axes object
@@ -461,13 +459,14 @@ def plot_stops_with_attributes(lats, lons, attribute, s=0.5, spatial_bounds=None
     return ax
 
 
-def plot_all_stops(g, ax=None):
+def plot_all_stops(g, ax=None, spatial_bounds=None):
     """
     Parameters
     ----------
     g: A gtfspy.gtfs.GTFS object
     ax: matplotlib.Axes object, optional
         If None, a new figure and an axis is created, otherwise results are plotted on the axis.
+    spatial_bounds: dict, optional
 
     Returns
     -------
@@ -475,8 +474,10 @@ def plot_all_stops(g, ax=None):
 
     """
     assert (isinstance(g, GTFS))
-    lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
-    smopy_map = get_smopy_map(lon_min, lon_max, lat_min, lat_max)
+    if spatial_bounds is None:
+        spatial_bounds = get_spatial_bounds(g, as_dict=True)
+    sb = spatial_bounds
+    smopy_map = get_smopy_map(sb['lon_min'], sb['lon_max'], sb['lat_min'], sb['lat_max'])
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
