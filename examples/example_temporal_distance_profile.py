@@ -9,16 +9,13 @@ G = example_import.load_or_import_example_gtfs()
 
 from_stop_name = "Ahkiotie 2 E"
 to_stop_name = "Kauppahalli P"
-from_stop_I = None
-to_stop_I = None
-stop_dict = G.stops().to_dict("index")
-for stop_I, data in stop_dict.items():
-    if data['name'] == from_stop_name:
-        from_stop_I = stop_I
-    if data['name'] == to_stop_name:
-        to_stop_I = stop_I
+from_stop_I = G.get_stop_I_from_name(from_stop_name)
+to_stop_I = G.get_stop_I_from_name(to_stop_name)
 assert(from_stop_I is not None)
 assert(to_stop_I is not None)
+
+stop_dict = G.stops().to_dict("index")
+
 
 
 
