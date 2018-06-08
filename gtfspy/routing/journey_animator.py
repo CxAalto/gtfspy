@@ -7,6 +7,7 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
+import gtfspy.smopy_plot_helper
 
 PlotConnection = namedtuple('PlotConnection', 'route_type from_lat from_lon to_lat to_lon departure_time arrival_time')
 
@@ -101,16 +102,17 @@ class JourneyAnimator:
         """
         if ax is None:
             fig = plt.figure()
+            # plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
             ax = fig.add_subplot(111, projection="smopy_axes")
             ax.set_map_bounds(**self.spatial_bounds)
             ax.set_plot_bounds(**self.spatial_bounds)
         self.__plot_paths(ax, self.plot_journeys, time_ut)
-
         time_str = datetime.datetime.fromtimestamp(time_ut).strftime('%Y-%m-%d %H:%M:%S')
-        ax.set_title(time_str)
+        ax.set_title(time_str, ha="center")
 
-    def animation(self, fps=5, anim_length_seconds=20):
+    def get_animation(self, fps=10, anim_length_seconds=20):
         fig = plt.figure()
+        plt.subplots_adjust(left=0.0, right=1.0, top=0.9, bottom=0.0)
         ax = fig.add_subplot(111, projection="smopy_axes")
         ax.set_map_bounds(**self.spatial_bounds)
         ax.set_plot_bounds(**self.spatial_bounds)
@@ -180,7 +182,7 @@ class JourneyAnimator:
                 real_lon = c.from_lon + frac_end * (c.to_lon - c.from_lon)
                 real_lat = c.from_lat + frac_end * (c.to_lat - c.from_lat)
 
-                ax.plot([tail_lon, real_lon], [tail_lat, real_lat], color=ROUTE_TYPE_TO_COLOR[c.route_type])
+                ax.plot([tail_lon, real_lon], [tail_lat, real_lat], lw=2, color=ROUTE_TYPE_TO_COLOR[c.route_type])
                 cur_lat = real_lat
                 cur_lon = real_lon
 

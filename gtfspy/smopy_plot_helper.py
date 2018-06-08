@@ -1,15 +1,17 @@
+import matplotlib.lines as mlines
+import numpy
+import smopy
+from contextlib import contextmanager
 from matplotlib.axes import Axes
 from matplotlib.projections import register_projection
-import matplotlib.lines as mlines
 from matplotlib_scalebar.scalebar import ScaleBar
 from urllib.error import URLError
-import smopy
-import numpy
 
 from gtfspy import util
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_SHORT_DESCRIPTION
 
 MAP_STYLES = [
+    "openstreetmap_default",
     "rastertiles/voyager",
     "rastertiles/voyager_nolabels",
     "rastertiles/voyager_only_labels",
@@ -69,7 +71,7 @@ class SmopyAxes(Axes):
         if not hasattr(lats, '__iter__'):
             lats = [lats]
             lons = [lons]
-        
+
         lons = numpy.array(lons)
         lats = numpy.array(lats)
         if update:
@@ -134,29 +136,21 @@ class SmopyAxes(Axes):
         for (lons, lats, s, kwords) in self.prev_text:
             self.text(lons, lats, s, update=False, **kwords)
 
-    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style="light_nolabels"):
-
-        ORIG_TILE_SERVER = smopy.TILE_SERVER
-        if map_style is not None:
-            assert map_style in MAP_STYLES, \
-                map_style + " (map_style parameter) is not a valid CartoDB mapping style. " \
-                            "Options are " + str(MAP_STYLES)
-            smopy.TILE_SERVER = "http://1.basemaps.cartocdn.com/" + map_style + "/{z}/{x}/{y}.png"
-
-        args = (lat_min, lat_max, lon_min, lon_max, map_style, z)
-        if args not in self.maps:
-            kwargs = {}
-            if z is not None:  # this hack may not work
-                smopy.Map.get_allowed_zoom = lambda _self, _el: z
-                kwargs['z'] = z
-            try:
-                self.maps[args] = smopy.Map((lat_min, lon_min, lat_max, lon_max), **kwargs)
-            except URLError:
-                raise RuntimeError("\n Could not load background map from the tile server: " +
-                                   smopy.TILE_SERVER +
-                                   "\n Please check that the tile server exists and "
-                                   "that your are connected to the internet.")
-        smopy.TILE_SERVER = ORIG_TILE_SERVER
+    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
+        with using_smopy_map_style(map_style):
+            args = (lat_min, lat_max, lon_min, lon_max, smopy.TILE_SERVER, z)
+            if args not in self.maps:
+                kwargs = {}
+                if z is not None:  # this hack may not work
+                    smopy.Map.get_allowed_zoom = lambda _self, _el: z
+                    kwargs['z'] = z
+                try:
+                    self.maps[args] = smopy.Map((lat_min, lon_min, lat_max, lon_max), **kwargs)
+                except URLError:
+                    raise RuntimeError("\n Could not load background map from the tile server: " +
+                                       smopy.TILE_SERVER +
+                                       "\n Please check that the tile server exists and "
+                                       "that your are connected to the internet.")
         return self.maps[args]
 
     def set_map_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
@@ -213,7 +207,7 @@ class SmopyAxes(Axes):
                            zorders=None, **kwargs):
         # TODO: to make this compatible, segment coords should be converted to lons = [lon1, lon2], lats = [lat1, lat2]
         self.set_map_bounds(min(from_lons + to_lons), max(from_lons + to_lons),
-                            min(from_lats+to_lats), max(from_lats+to_lats))
+                            min(from_lats + to_lats), max(from_lats + to_lats))
         for from_lon, from_lat, to_lon, to_lat, width_attribute, color_attribute, zorder in zip(from_lons,
                                                                                                 from_lats,
                                                                                                 to_lons,
@@ -221,11 +215,27 @@ class SmopyAxes(Axes):
                                                                                                 width_attributes,
                                                                                                 color_attributes,
                                                                                                 zorders):
-
             self.plot(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]),
                       color=color_attribute,
                       linewidth=width_attribute,
                       zorder=zorder,
                       **kwargs)
+
+
+@contextmanager
+def using_smopy_map_style(map_style):
+    orig_tile_server = smopy.TILE_SERVER
+    if map_style is not None:
+        assert map_style in MAP_STYLES, \
+            map_style + " (map_style parameter) is not a valid mapping style. " \
+                        "Options are " + str(MAP_STYLES)
+        if map_style == "openstreetmap_default":
+            smopy.TILE_SERVER = "http://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        else:
+            smopy.TILE_SERVER = "http://1.basemaps.cartocdn.com/" + map_style + "/{z}/{x}/{y}.png"
+
+    yield
+    smopy.TILE_SERVER = orig_tile_server
+
 
 register_projection(SmopyAxes)

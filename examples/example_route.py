@@ -6,6 +6,7 @@ from gtfspy.routing.helpers import get_transit_connections, get_walk_network
 from gtfspy.routing.journey_animator import JourneyAnimator
 from gtfspy.routing.journey_path_analyzer import NodeJourneyPathAnalyzer
 from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
+from gtfspy.smopy_plot_helper import using_smopy_map_style
 
 G = example_import.load_or_import_example_gtfs()
 tz = G.get_timezone_pytz()
@@ -55,41 +56,45 @@ nra.plot_fastest_temporal_distance_profile(ax=ax1,
                                            format_string="%H:%M:%S")
 
 nra.gtfs = G
-ax2 = fig.add_subplot(222, projection="smopy_axes")
 
-for lats, lons, leg_type in nra.get_journey_trajectories():
-    ax2.plot(lons, lats, c=ROUTE_TYPE_TO_COLOR[leg_type], zorder=1)
 
-lat, lon = G.get_stop_coordinates(to_stop_I)
-ax2.scatter(lon, lat, s=100, c="green", marker="X", zorder=2)
-lat, lon = G.get_stop_coordinates(from_stop_I)
-ax2.scatter(lon, lat, s=100, c="red", marker="X", zorder=2)
-for stop_id, letters in stop_letter_dict.items():
-    lat, lon = G.get_stop_coordinates(stop_id)
-    ax2.scatter(lon, lat, s=20, c="grey", marker="o", zorder=2)
-    text = ax2.text(lon, lat, ",".join(letters), color="m", fontsize=10, va="top", ha="left", zorder=10)
+with using_smopy_map_style("dark_all"):
 
-ax2.add_scale_bar()
+    ax2 = fig.add_subplot(222, projection="smopy_axes")
 
-ax3 = fig.add_subplot(223)
-diversity_dict = nra.get_simple_diversities()
-ax3.axis('tight')
-ax3.axis('off')
-the_table = ax3.table(cellText=[[str(round(x, 3))] for x in diversity_dict.values()],
-                      rowLabels=list(diversity_dict.keys()),
-                      colWidths=[0.5, 0.2],
-                      loc='center')
-the_table.auto_set_font_size(False)
-the_table.set_fontsize(10)
+    for lats, lons, leg_type in nra.get_journey_trajectories():
+        ax2.plot(lons, lats, c=ROUTE_TYPE_TO_COLOR[leg_type], zorder=1)
 
-ax4 = fig.add_subplot(224)
-ax4 = nra.plot_journey_graph(ax4)
+    lat, lon = G.get_stop_coordinates(to_stop_I)
+    ax2.scatter(lon, lat, s=100, c="green", marker="X", zorder=2)
+    lat, lon = G.get_stop_coordinates(from_stop_I)
+    ax2.scatter(lon, lat, s=100, c="red", marker="X", zorder=2)
+    for stop_id, letters in stop_letter_dict.items():
+        lat, lon = G.get_stop_coordinates(stop_id)
+        ax2.scatter(lon, lat, s=20, c="grey", marker="o", zorder=2)
+        text = ax2.text(lon, lat, ",".join(letters), color="m", fontsize=10, va="top", ha="left", zorder=10)
 
-# An animation showing the optimal journey alternatives:
-ea = JourneyAnimator(labels[from_stop_I], G)
-ani = ea.animation(anim_length_seconds=60, fps=10)
+    ax2.add_scale_bar()
 
-# ani is an instance of matplotlib.animation.FuncAnimation
-# ani.save('test_video.mp4')
+    ax3 = fig.add_subplot(223)
+    diversity_dict = nra.get_simple_diversities()
+    ax3.axis('tight')
+    ax3.axis('off')
+    the_table = ax3.table(cellText=[[str(round(x, 3))] for x in diversity_dict.values()],
+                          rowLabels=list(diversity_dict.keys()),
+                          colWidths=[0.5, 0.2],
+                          loc='center')
+    the_table.auto_set_font_size(False)
+    the_table.set_fontsize(10)
 
-plt.show()
+    ax4 = fig.add_subplot(224)
+    ax4 = nra.plot_journey_graph(ax4)
+
+    # An animation showing the optimal journey alternatives:
+    ea = JourneyAnimator(labels[from_stop_I], G)
+    ani = ea.get_animation(anim_length_seconds=60, fps=10)
+
+    # ani is an instance of matplotlib.animation.FuncAnimation
+    # ani.save('test_video.mp4')
+
+    plt.show()
