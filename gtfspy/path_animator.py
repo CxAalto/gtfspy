@@ -7,7 +7,7 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
-import gtfspy.smopy_plot_helper # This is required for registering the smopy_map projection.
+import gtfspy.smopy_plot_helper  # This is required for registering the "smopy_axes" projection.
 
 PlotConnection = namedtuple('PlotConnection', 'route_type from_lat from_lon to_lat to_lon departure_time arrival_time')
 
@@ -215,6 +215,7 @@ class PathAnimator:
         for path in paths:
             cur_lat = None
             cur_lon = None
+            marker_color = "#636363"
             for c in path:  # c is a connection
                 tail_time = time_ut - self.tail_seconds
                 if tail_time > c.arrival_time or time_ut < c.departure_time:
@@ -248,6 +249,7 @@ class PathAnimator:
                 ax.plot([tail_lon, real_lon], [tail_lat, real_lat], lw=2, color=ROUTE_TYPE_TO_COLOR[c.route_type])
                 cur_lat = real_lat
                 cur_lon = real_lon
+                marker_color = ROUTE_TYPE_TO_COLOR[c.route_type]
 
             if cur_lat is None:
                 # Each path's connections do not always cover the whole time-span of the path.
@@ -258,7 +260,8 @@ class PathAnimator:
                         c = next(c for c in path[-1::-1] if c.arrival_time < time_ut)
                         cur_lat = c.to_lat
                         cur_lon = c.to_lon
+                        marker_color = ROUTE_TYPE_TO_COLOR[c.route_type]
                 except StopIteration:
                     pass
             if self.show_journey_markers and (cur_lat and cur_lon):
-                ax.scatter([cur_lon], [cur_lat], "o", color="#636363", s=8)
+                ax.scatter([cur_lon], [cur_lat], "o", color=marker_color, s=8)

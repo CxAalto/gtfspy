@@ -89,6 +89,6 @@ with using_smopy_map_style(MAP_STYLE_DARK_ALL):
     ani = ea.get_animation(anim_length_seconds=60, fps=10)
 
     # ani is an instance of matplotlib.animation.FuncAnimation
-    # ani.save('test_video.mp4')
+    ani.save('test_journey_animation.mp4')
 
     plt.show()
