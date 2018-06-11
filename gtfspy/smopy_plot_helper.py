@@ -10,14 +10,18 @@ from urllib.error import URLError
 from gtfspy import util
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_SHORT_DESCRIPTION
 
+MAP_STYLE_OSM_DEFAULT = "openstreetmap_default"
+MAP_STYLE_LIGHT_ALL = "light_all"
+MAP_STYLE_DARK_ALL = "dark_all"
+
 MAP_STYLES = [
-    "openstreetmap_default",
+    MAP_STYLE_OSM_DEFAULT,
     "rastertiles/voyager",
     "rastertiles/voyager_nolabels",
     "rastertiles/voyager_only_labels",
     "rastertiles/voyager_labels_under",
-    "light_all",
-    "dark_all",
+    MAP_STYLE_LIGHT_ALL,
+    MAP_STYLE_DARK_ALL,
     "light_nolabels",
     "light_only_labels",
     "dark_nolabels",
