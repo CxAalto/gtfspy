@@ -7,32 +7,31 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
-import gtfspy.smopy_plot_helper
+import gtfspy.smopy_plot_helper # This is required for registering the smopy_map projection.
 
 PlotConnection = namedtuple('PlotConnection', 'route_type from_lat from_lon to_lat to_lon departure_time arrival_time')
 
 
-class JourneyAnimator:
+class PathAnimator:
 
-    def __init__(self, journey_labels, G, spatial_bounds=None, tail_seconds=120, journey_markers=True):
+    def __init__(self, plot_paths, spatial_bounds=None, tail_seconds=120, journey_markers=True):
         """
         Parameters
         ----------
-        journey_labels: list[gtfspy.routing.label]
-        G: gtfspy.gtfs.GTFS
+        plot_paths: list[list[PlotConnection]]
         spatial_bounds: dict, optional
         tail_seconds: int
         journey_markers: bool
         """
         self.__anim_ax = None
         self.tail_seconds = tail_seconds
-        self.path_markers = journey_markers
-        self.plot_journeys = self.__get_coordinate_augmented_connections_from_labels(journey_labels, G)
+        self.show_journey_markers = journey_markers
+        self.plot_paths = plot_paths
         if spatial_bounds is None:
-            from_lats = [pc.from_lat for journey in self.plot_journeys for pc in journey]
-            to_lats = [pc.to_lat for journey in self.plot_journeys for pc in journey]
-            from_lons = [pc.from_lon for journey in self.plot_journeys for pc in journey]
-            to_lons = [pc.to_lon for journey in self.plot_journeys for pc in journey]
+            from_lats = [pc.from_lat for journey in self.plot_paths for pc in journey]
+            to_lats = [pc.to_lat for journey in self.plot_paths for pc in journey]
+            from_lons = [pc.from_lon for journey in self.plot_paths for pc in journey]
+            to_lons = [pc.to_lon for journey in self.plot_paths for pc in journey]
             min_lat = min((min(from_lats), min(to_lats)))
             max_lat = max((max(from_lats), max(to_lats)))
             min_lon = min((min(from_lons), min(to_lons)))
@@ -46,26 +45,89 @@ class JourneyAnimator:
         else:
             self.spatial_bounds = spatial_bounds
 
-    @staticmethod
-    def __get_coordinate_augmented_connections_from_labels(journey_labels, G):
+    @classmethod
+    def from_journey_labels(cls, journey_labels, G, **kwargs):
         """
-        Expand labels into connection lists and augment each connection with coordinates.
+        Parameters
+        ----------
+        journey_labels: list[gtfspy.routing.label]
+        G: gtfspy.gtfs.GTFS
+        kwargs:
+            These are passed forward to PathAnimator.__init__()
 
-        Return
-        ------
-        list[list[PlotJourney]]
+        Returns
+        -------
+        animator: PathAnimator
         """
-        # Two helper dicts:
+        plot_journeys = cls.__get_plot_connection_lists_from_labels(journey_labels, G)
+        animator = PathAnimator(plot_journeys, **kwargs)
+        return animator
+
+    @classmethod
+    def from_gtfs_db_trips(cls, G, start_time_ut, end_time_ut, **kwargs):
+        """
+        Parameters
+        ----------
+        G: gtfspy.gtfs.GTFS
+        start_time_ut: int
+        end_time_ut: int
+        kwargs: int
+
+        Returns
+        -------
+        animator: PathAnimator
+        """
+        # Note:
+        # If shapes are wanted, G.get_trip_trajectories_within_timespan() could be used!
+        transit_events_df = G.get_transit_events(start_time_ut, end_time_ut)
+        transit_events_df.sort_values(by=['route_I', 'trip_I', 'dep_time_ut'])
+        stopI_to_pos = PathAnimator.__get_stop_I_to_pos_dict(G)
+
+        plot_trips = []
+        for trip_I, trip_I_events_df in transit_events_df.groupby(['trip_I']):
+            plot_trip = []
+            for event in trip_I_events_df.itertuples():
+                pc = PlotConnection(event.route_type,
+                                    stopI_to_pos[event.from_stop_I]['lat'],
+                                    stopI_to_pos[event.from_stop_I]['lon'],
+                                    stopI_to_pos[event.to_stop_I]['lat'],
+                                    stopI_to_pos[event.to_stop_I]['lon'],
+                                    event.dep_time_ut,
+                                    event.arr_time_ut)
+                plot_trip.append(pc)
+            plot_trips.append(plot_trip)
+        animator = PathAnimator(plot_trips, **kwargs)
+        return animator
+
+    @staticmethod
+    def __get_stop_I_to_pos_dict(G):
         stopI_to_pos = {}
         for i, row in pd.read_sql("SELECT * FROM stops", G.conn).iterrows():
             stopI_to_pos[row['stop_I']] = {'lat': row['lat'], 'lon': row['lon']}
+        return stopI_to_pos
 
+    @staticmethod
+    def __get_trip_I_to_route_type_dict(G):
         trip_I_to_route_type = {}
         for i, row in pd.read_sql("SELECT trips.trip_I as trip_I, routes.type as route_type "
                                   "FROM trips LEFT JOIN routes "
                                   "ON trips.route_I=routes.route_I", G.conn).iterrows():
             trip_I_to_route_type[row['trip_I']] = row['route_type']
         trip_I_to_route_type[-1] = -1
+        return trip_I_to_route_type
+
+    @staticmethod
+    def __get_plot_connection_lists_from_labels(journey_labels, G):
+        """
+        Expand labels into connection lists and augment each connection with coordinates.
+
+        Return
+        ------
+        list[list[PlotConnection]]
+        """
+        # Two helper dicts:
+        stopI_to_pos = PathAnimator.__get_stop_I_to_pos_dict(G)
+        trip_I_to_route_type = PathAnimator.__get_trip_I_to_route_type_dict(G)
 
         # Do the actual mapping:
         plot_journeys = []
@@ -106,9 +168,10 @@ class JourneyAnimator:
             ax = fig.add_subplot(111, projection="smopy_axes")
             ax.set_map_bounds(**self.spatial_bounds)
             ax.set_plot_bounds(**self.spatial_bounds)
-        self.__plot_paths(ax, self.plot_journeys, time_ut)
+        self.__plot_paths(ax, self.plot_paths, time_ut)
         time_str = datetime.datetime.fromtimestamp(time_ut).strftime('%Y-%m-%d %H:%M:%S')
         ax.set_title(time_str, ha="center")
+        return ax
 
     def get_animation(self, fps=10, anim_length_seconds=20):
         fig = plt.figure()
@@ -118,8 +181,8 @@ class JourneyAnimator:
         ax.set_plot_bounds(**self.spatial_bounds)
 
         start_time_ut = min(
-            c.departure_time for journey_path in self.plot_journeys for c in journey_path) - self.tail_seconds - 1
-        end_time_ut = max(c.arrival_time for path in self.plot_journeys for c in path) + self.tail_seconds + 1
+            c.departure_time for journey_path in self.plot_paths for c in journey_path) - self.tail_seconds - 1
+        end_time_ut = max(c.arrival_time for path in self.plot_paths for c in path) + self.tail_seconds + 1
 
         n_frames = fps * anim_length_seconds
 
@@ -197,5 +260,5 @@ class JourneyAnimator:
                         cur_lon = c.to_lon
                 except StopIteration:
                     pass
-            if self.path_markers and (cur_lat and cur_lon):
+            if self.show_journey_markers and (cur_lat and cur_lon):
                 ax.scatter([cur_lon], [cur_lat], "o", color="#636363", s=8)

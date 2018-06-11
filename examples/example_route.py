@@ -3,18 +3,16 @@ from matplotlib import pyplot as plt
 import example_import
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
 from gtfspy.routing.helpers import get_transit_connections, get_walk_network
-from gtfspy.routing.journey_animator import JourneyAnimator
+from gtfspy.path_animator import PathAnimator
 from gtfspy.routing.journey_path_analyzer import NodeJourneyPathAnalyzer
 from gtfspy.routing.multi_objective_pseudo_connection_scan_profiler import MultiObjectivePseudoCSAProfiler
-from gtfspy.smopy_plot_helper import using_smopy_map_style
+from gtfspy.smopy_plot_helper import using_smopy_map_style, MAP_STYLE_DARK_ALL
 
 G = example_import.load_or_import_example_gtfs()
 tz = G.get_timezone_pytz()
 
 from_stop_name = "Ahkiotie 2 E"
 to_stop_name = "Kauppahalli P"
-from_stop_I = None
-to_stop_I = None
 from_stop_I = G.get_stop_I_from_name(from_stop_name)
 to_stop_I = G.get_stop_I_from_name(to_stop_name)
 assert (from_stop_I is not None)
@@ -54,7 +52,7 @@ nra.plot_fastest_temporal_distance_profile(ax=ax1,
 nra.gtfs = G
 
 
-with using_smopy_map_style("dark_all"):
+with using_smopy_map_style(MAP_STYLE_DARK_ALL):
 
     ax2 = fig.add_subplot(222, projection="smopy_axes")
 
@@ -87,7 +85,7 @@ with using_smopy_map_style("dark_all"):
     ax4 = nra.plot_journey_graph(ax4)
 
     # An animation showing the optimal journey alternatives:
-    ea = JourneyAnimator(labels[from_stop_I], G)
+    ea = PathAnimator.from_journey_labels(labels[from_stop_I], G)
     ani = ea.get_animation(anim_length_seconds=60, fps=10)
 
     # ani is an instance of matplotlib.animation.FuncAnimation
