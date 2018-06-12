@@ -14,7 +14,7 @@ PlotConnection = namedtuple('PlotConnection', 'route_type from_lat from_lon to_l
 
 class PathAnimator:
 
-    def __init__(self, plot_paths, spatial_bounds=None, tail_seconds=120, journey_markers=True):
+    def __init__(self, plot_paths, spatial_bounds=None, tail_seconds=120, journey_markers=True, alpha=1.0):
         """
         Parameters
         ----------
@@ -27,6 +27,7 @@ class PathAnimator:
         self.tail_seconds = tail_seconds
         self.show_journey_markers = journey_markers
         self.plot_paths = plot_paths
+        self.alpha = alpha
         if spatial_bounds is None:
             from_lats = [pc.from_lat for journey in self.plot_paths for pc in journey]
             to_lats = [pc.to_lat for journey in self.plot_paths for pc in journey]
@@ -59,7 +60,7 @@ class PathAnimator:
         -------
         animator: PathAnimator
         """
-        plot_journeys = cls.__get_plot_connection_lists_from_labels(journey_labels, G)
+        plot_journeys = cls.__get_plot_connection_lists_from_journey_labels(journey_labels, G)
         animator = PathAnimator(plot_journeys, **kwargs)
         return animator
 
@@ -102,22 +103,22 @@ class PathAnimator:
     @staticmethod
     def __get_stop_I_to_pos_dict(G):
         stopI_to_pos = {}
-        for i, row in pd.read_sql("SELECT * FROM stops", G.conn).iterrows():
-            stopI_to_pos[row['stop_I']] = {'lat': row['lat'], 'lon': row['lon']}
+        for row in pd.read_sql("SELECT * FROM stops", G.conn).itertuples():
+            stopI_to_pos[row.stop_I] = {'lat': row.lat, 'lon': row.lon}
         return stopI_to_pos
 
     @staticmethod
     def __get_trip_I_to_route_type_dict(G):
         trip_I_to_route_type = {}
-        for i, row in pd.read_sql("SELECT trips.trip_I as trip_I, routes.type as route_type "
+        for row in pd.read_sql("SELECT trips.trip_I as trip_I, routes.type as route_type "
                                   "FROM trips LEFT JOIN routes "
-                                  "ON trips.route_I=routes.route_I", G.conn).iterrows():
-            trip_I_to_route_type[row['trip_I']] = row['route_type']
+                                  "ON trips.route_I=routes.route_I", G.conn).itertuples():
+            trip_I_to_route_type[row.trip_I] = row.route_type
         trip_I_to_route_type[-1] = -1
         return trip_I_to_route_type
 
     @staticmethod
-    def __get_plot_connection_lists_from_labels(journey_labels, G):
+    def __get_plot_connection_lists_from_journey_labels(journey_labels, G):
         """
         Expand labels into connection lists and augment each connection with coordinates.
 
@@ -131,11 +132,17 @@ class PathAnimator:
 
         # Do the actual mapping:
         plot_journeys = []
-        for label in journey_labels:
+        n_labels = len(journey_labels)
+        for i, label in enumerate(journey_labels):
+            if (i % 10 == 9):
+                print("\rPreprocessed " + str(i + 1) + " journeys out of " + str(n_labels) + " for animation", end="")
             plot_connections = []
             cur_label = label
             while cur_label:
                 cur_conn = cur_label.connection
+                if cur_conn is None:
+                    assert (cur_label.arrival_time_target == cur_label.departure_time), "Weird label encountered..."
+                    break
                 pc = PlotConnection(trip_I_to_route_type[cur_conn.trip_id],
                                     stopI_to_pos[cur_conn.departure_stop]['lat'],
                                     stopI_to_pos[cur_conn.departure_stop]['lon'],
@@ -148,7 +155,9 @@ class PathAnimator:
                     cur_label = cur_label.previous_label
                 else:
                     cur_label = None
-            plot_journeys.append(plot_connections)
+            if len(plot_connections) > 0:
+                plot_journeys.append(plot_connections)
+        print("\r All journeys (" + str(n_labels) + ") have been preprocessed.")
         return plot_journeys
 
     def snapshot(self, time_ut, ax=None):
@@ -173,34 +182,43 @@ class PathAnimator:
         ax.set_title(time_str, ha="center")
         return ax
 
-    def get_animation(self, fps=10, anim_length_seconds=20):
-        fig = plt.figure()
-        plt.subplots_adjust(left=0.0, right=1.0, top=0.9, bottom=0.0)
-        ax = fig.add_subplot(111, projection="smopy_axes")
-        ax.set_map_bounds(**self.spatial_bounds)
-        ax.set_plot_bounds(**self.spatial_bounds)
+    def __init_func_anim(self):
+        self.__anim_ax = self.__anim_fig.add_subplot(111, projection="smopy_axes")
+        self.__anim_ax.set_map_bounds(**self.spatial_bounds)
+        self.__anim_ax.set_plot_bounds(**self.spatial_bounds)
+        return [self.__anim_ax]
 
-        start_time_ut = min(
+    def get_animation(self, fps=10, anim_length_seconds=20):
+        self.__anim_fig = plt.figure()
+        plt.subplots_adjust(left=0.0, right=1.0, top=0.9, bottom=0.0)
+
+        self.__start_time_ut = min(
             c.departure_time for journey_path in self.plot_paths for c in journey_path) - self.tail_seconds - 1
-        end_time_ut = max(c.arrival_time for path in self.plot_paths for c in path) + self.tail_seconds + 1
+        self.__end_time_ut = max(c.arrival_time for path in self.plot_paths for c in path) + self.tail_seconds + 1
 
         n_frames = fps * anim_length_seconds
 
-        ani = animation.FuncAnimation(fig,
+        ani = animation.FuncAnimation(self.__anim_fig,
                                       self.__animation_frame,
-                                      frames=np.linspace(start_time_ut, end_time_ut, num=n_frames),
-                                      fargs=(ax,),
-                                      interval=1. / fps * 1000)
+                                      frames=np.linspace(self.__start_time_ut, self.__end_time_ut, num=n_frames),
+                                      init_func=self.__init_func_anim,
+                                      interval=1. / fps * 1000) # blitting does not work for some reason
         return ani
 
-    def __animation_frame(self, time_ut, ax):
+    def __animation_frame(self, time_ut):
+        ax = self.__anim_ax
         ax.lines = []
         ax.texts = []
         ax.collections = []
+        # Adjusting some smopy map internals:
         ax.prev_texts = []
         ax.prev_plots = []
         ax.prev_scatters = []
         self.snapshot(time_ut, ax)
+        percentage = (time_ut - self.__start_time_ut) / (self.__end_time_ut - self.__start_time_ut) * 100
+        print("\r%.2f %% of frames done" % percentage, end="")
+        return ax.lines + ax.texts + ax.collections
+
 
     def __plot_paths(self, ax, paths, time_ut):
         """
@@ -246,7 +264,7 @@ class PathAnimator:
                 real_lon = c.from_lon + frac_end * (c.to_lon - c.from_lon)
                 real_lat = c.from_lat + frac_end * (c.to_lat - c.from_lat)
 
-                ax.plot([tail_lon, real_lon], [tail_lat, real_lat], lw=2, color=ROUTE_TYPE_TO_COLOR[c.route_type])
+                ax.plot([tail_lon, real_lon], [tail_lat, real_lat], lw=2, color=ROUTE_TYPE_TO_COLOR[c.route_type], alpha=self.alpha)
                 cur_lat = real_lat
                 cur_lon = real_lon
                 marker_color = ROUTE_TYPE_TO_COLOR[c.route_type]
@@ -264,4 +282,4 @@ class PathAnimator:
                 except StopIteration:
                     pass
             if self.show_journey_markers and (cur_lat and cur_lon):
-                ax.scatter([cur_lon], [cur_lat], "o", color=marker_color, s=8)
+                ax.scatter([cur_lon], [cur_lat], "o", color=marker_color, s=8, alpha=self.alpha)
