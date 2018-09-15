@@ -840,7 +840,10 @@ class GTFS(object):
         lat, lon = results.fetchone()
         return lat, lon
 
-    def get_bounding_box_by_stops(self, stop_Is, scale_ratio=None):
+    def get_bounding_box_by_stops(self, stop_Is=None, scale_ratio=None):
+        if not stop_Is:
+            stop_Is = self.stops()
+            stop_Is = stop_Is["stop_I"].tolist()
         lats = []
         lons = []
         for stop_I in stop_Is:

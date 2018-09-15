@@ -4,8 +4,19 @@ import smopy
 from contextlib import contextmanager
 from matplotlib.axes import Axes
 from matplotlib.projections import register_projection
+<<<<<<< HEAD
 from matplotlib_scalebar.scalebar import ScaleBar
 from urllib.error import URLError
+=======
+from matplotlib.collections import LineCollection
+
+import matplotlib.lines as mlines
+from matplotlib_scalebar.scalebar import ScaleBar
+from urllib.error import URLError
+from shapely.geometry import LineString
+import smopy
+import numpy
+>>>>>>> gtfspy/smopy_plot_helper.py: implemented multiwidth plotting using line collection
 
 from gtfspy import util
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_SHORT_DESCRIPTION
@@ -194,24 +205,49 @@ class SmopyAxes(Axes):
         set_map_bounds
         """
         assert self.smopy_map, "The smopy map needs to be intialized using set_map_bounds"
+
         assert all([lon_max, lon_min, lat_min, lat_max])
         xs, ys = self.smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                           numpy.array([lon_min, lon_max]))
         self.set_xlim(xs)
         self.set_ylim(ys)
 
-    def add_scale_bar(self):
+    def add_scalebar(self):
         distance_m = util.wgs84_distance(self.lat_min, self.lon_min, self.lat_min, self.lon_max)
         xs, ys = self.smopy_map.to_pixels(numpy.array([self.lat_min, self.lat_min]),
                                           numpy.array([self.lon_min, self.lon_max]))
         scalebar = ScaleBar(distance_m / (xs.max() - xs.min()))
         self.add_artist(scalebar)
 
-    def plot_line_segments(self, from_lons, from_lats, to_lons, to_lats, width_attributes=None, color_attributes=None,
-                           zorders=None, **kwargs):
-        # TODO: to make this compatible, segment coords should be converted to lons = [lon1, lon2], lats = [lat1, lat2]
-        self.set_map_bounds(min(from_lons + to_lons), max(from_lons + to_lons),
-                            min(from_lats + to_lats), max(from_lats + to_lats))
+
+    def plot_line_segments(self, coords=None,
+                           linewidths=None,
+                           color=None,
+                           zorders=None,
+                           update=True, **kwargs):
+        """
+
+        :param coords: list of coordinate trajectories eg: [(row.from_lon, row.from_lat), (row.to_lon, row.to_lat)]
+        :param linewidths: list
+        :param color: list
+        :param zorders:
+        :param kwargs:
+        :return:
+        """
+        lons = [x[0][0] for x in coords] + [x[1][0] for x in coords]
+        lats = [x[0][1] for x in coords] + [x[1][1] for x in coords]
+        #self.set_map_bounds(min(lons), max(lons), min(lats), max(lats))
+        lons = numpy.array(lons)
+        lats = numpy.array(lats)
+
+        if update:
+            if not self.smopy_map or not self.map_fixed:
+                self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
+                #self.prev_plots.append((lons, lats, dict(**kwargs)))
+        xy_coords = [[self.smopy_map.to_pixels(x[0][1],x[0][0]), self.smopy_map.to_pixels(x[1][1],x[1][0])] for x in coords]
+        #print(xy_coords)
+        """
+        gtfspy/smopy_plot_helper.py: implemented multiwidth plotting using line collection
         for from_lon, from_lat, to_lon, to_lat, width_attribute, color_attribute, zorder in zip(from_lons,
                                                                                                 from_lats,
                                                                                                 to_lons,
@@ -224,6 +260,25 @@ class SmopyAxes(Axes):
                       linewidth=width_attribute,
                       zorder=zorder,
                       **kwargs)
+"""
+
+        lc = LineCollection(xy_coords, linewidths=linewidths,
+                            color=color)
+        return super().add_collection(lc)
+
+    def plot_geometry(self, geometries, **kwargs):
+        if not hasattr(geometries, '__iter__'):
+            geometries = [geometries]
+
+        assert isinstance(geometries[0], LineString)
+        lons = []
+        lats = []
+        for geometry in geometries:
+            lats = [segment[1] for segment in geometry.coords]
+            lons = [segment[0] for segment in geometry.coords]
+
+        self.plot(lons, lats, **kwargs)
+
 
 
 @contextmanager
