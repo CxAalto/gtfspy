@@ -357,7 +357,12 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
     def avg_circuity(self):
         avg_journey_trajectory_length = self.avg_journey_trajectory_length()
-        euclidean_distance = self.gtfs.get_distance_between_stops_euclidean(self.origin_stop, self.target_stop)
+
+        try:
+            euclidean_distance = self.gtfs.get_distance_between_stops_euclidean(self.origin_stop, self.target_stop)
+        except:
+            euclidean_distance = None
+            print("WARNING: INVALID STOP ID: ", self.origin_stop, self.target_stop)
         if not avg_journey_trajectory_length or not euclidean_distance:
             return None
         else:

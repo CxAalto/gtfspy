@@ -288,8 +288,8 @@ def temporal_network(gtfs,
 
 def route_to_route_network(gtfs, walking_threshold, start_time, end_time):
     """
-    Creates networkx graph where the nodes are bus routes and a edge indicates that there is a possibility to transfer
-    between the routes
+    Creates networkx graph where the nodes are public transport routes and a edge indicates that there is a possibility
+    to transfer between the routes
     :param gtfs:
     :param walking_threshold:
     :param start_time:

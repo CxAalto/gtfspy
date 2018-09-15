@@ -252,10 +252,20 @@ def plot_routes_as_stop_to_stop_network(from_lats, from_lons, to_lats, to_lons, 
                                  label=ROUTE_TYPE_TO_SHORT_DESCRIPTION[i])
 
             lines.append(line)
+
+        #line = mlines.Line2D([0], [0], color="w")
+        #lines.append(line)
+
+        for i in [50, 100, 200, 500, 1000]:
+            line = mlines.Line2D([], [], color="black", linewidth=i*linewidth_multiplier,
+                                 label="{0: >4}".format(str(i))
+                                 if not i == 200 else "{0: >4}".format(str(i))+" veh./day")
+
+            lines.append(line)
         handles = lines
         labels = [h.get_label() for h in handles]
 
-        ax.legend(handles=handles, labels=labels, loc=4)
+        ax.legend(handles=handles, labels=labels, loc=2, ncol=2, prop={'size': 7})
 
     if scalebar:
         _add_scale_bar(ax, lat_max, lon_min, lon_max, bound_pixel_xs.max() - bound_pixel_xs.min())
@@ -354,7 +364,7 @@ def plot_stops_with_categorical_attributes_with_smopy_helper(lats_list, lons_lis
     if not colors:
         colors = mcolors.BASE_COLORS
     if not markers:
-        markers = [".", "o", "v", "^", "P", "*"]
+        markers = ["."]*5
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="smopy_axes")
@@ -364,7 +374,7 @@ def plot_stops_with_categorical_attributes_with_smopy_helper(lats_list, lons_lis
         ax.scatter(lons, lats, s=s, c=c, marker=marker, label=label)
 
     if scalebar:
-        ax.add_scale_bar()
+        ax.add_scalebar()
     if spatial_bounds:
         ax.set_plot_bounds(**spatial_bounds)
     ax.set_xticks([])
