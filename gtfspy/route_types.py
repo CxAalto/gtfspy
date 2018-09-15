@@ -81,7 +81,7 @@ ROUTE_TYPE_TO_APPROXIMATE_CAPACITY = {
 }
 
 ROUTE_TYPE_TO_COLOR = {
-    WALK: "black",
+    WALK: "#bdbdbd",
     TRAM: '#33a02c',
     SUBWAY: "#ff7f00",
     RAIL: '#e31a1c',

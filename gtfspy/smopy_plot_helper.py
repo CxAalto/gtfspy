@@ -1,3 +1,7 @@
+import matplotlib.lines as mlines
+import numpy
+import smopy
+from contextlib import contextmanager
 from matplotlib.axes import Axes
 from matplotlib.projections import register_projection
 from matplotlib.collections import LineCollection
@@ -9,16 +13,22 @@ from shapely.geometry import LineString
 import smopy
 import numpy
 
+
 from gtfspy import util
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_SHORT_DESCRIPTION
 
+MAP_STYLE_OSM_DEFAULT = "openstreetmap_default"
+MAP_STYLE_LIGHT_ALL = "light_all"
+MAP_STYLE_DARK_ALL = "dark_all"
+
 MAP_STYLES = [
+    MAP_STYLE_OSM_DEFAULT,
     "rastertiles/voyager",
     "rastertiles/voyager_nolabels",
     "rastertiles/voyager_only_labels",
     "rastertiles/voyager_labels_under",
-    "light_all",
-    "dark_all",
+    MAP_STYLE_LIGHT_ALL,
+    MAP_STYLE_DARK_ALL,
     "light_nolabels",
     "light_only_labels",
     "dark_nolabels",
@@ -63,7 +73,7 @@ class SmopyAxes(Axes):
         self.map_fixed = False
         self.maps = {}
         self.prev_plots = []
-        self.prev_scatter = []
+        self.prev_scatters = []
         self.prev_text = []
         self.axes.get_xaxis().set_visible(False)
         self.axes.get_yaxis().set_visible(False)
@@ -72,13 +82,13 @@ class SmopyAxes(Axes):
         if not hasattr(lats, '__iter__'):
             lats = [lats]
             lons = [lons]
-        
+
         lons = numpy.array(lons)
         lats = numpy.array(lats)
         if update:
             if not self.smopy_map or not self.map_fixed:
                 self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
-                self.prev_scatter.append((lons, lats, dict(**kwargs)))
+                self.prev_scatters.append((lons, lats, dict(**kwargs)))
 
         _x, _y = self.smopy_map.to_pixels(lats, lons)
         return super().scatter(_x, _y, **kwargs)
@@ -90,7 +100,7 @@ class SmopyAxes(Axes):
         lons = numpy.array(lons)
         lats = numpy.array(lats)
         if update:
-            if not self.smopy_map or not self.map_fixed:
+            if not (self.smopy_map and self.map_fixed):
                 self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
                 self.prev_plots.append((lons, lats, dict(**kwargs)))
 
@@ -113,7 +123,6 @@ class SmopyAxes(Axes):
         return super().text(_x, _y, s, **kwargs)
 
     def _get_smopy_map_from_coords(self, lons, lats, **kwargs):
-
         lon_min, lon_max, lat_min, lat_max = self.lon_min, self.lon_max, self.lat_min, self.lat_max
         self.lon_min = min(list(lons) + [lon_min]) if lon_min else min(list(lons))
         self.lat_min = min(list(lats) + [lat_min]) if lat_min else min(list(lats))
@@ -133,37 +142,43 @@ class SmopyAxes(Axes):
         self.clear()
         for (lons, lats, kwords) in self.prev_plots:
             self.plot(lons, lats, update=False, **kwords)
-        for (lons, lats, kwords) in self.prev_scatter:
+        for (lons, lats, kwords) in self.prev_scatters:
             self.scatter(lons, lats, update=False, **kwords)
         for (lons, lats, s, kwords) in self.prev_text:
             self.text(lons, lats, s, update=False, **kwords)
 
-    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style="light_nolabels"):
-
-        ORIG_TILE_SERVER = smopy.TILE_SERVER
-        if map_style is not None:
-            assert map_style in MAP_STYLES, \
-                map_style + " (map_style parameter) is not a valid CartoDB mapping style. " \
-                            "Options are " + str(MAP_STYLES)
-            smopy.TILE_SERVER = "http://1.basemaps.cartocdn.com/" + map_style + "/{z}/{x}/{y}.png"
-
-        args = (lat_min, lat_max, lon_min, lon_max, map_style, z)
-        if args not in self.maps:
-            kwargs = {}
-            if z is not None:  # this hack may not work
-                smopy.Map.get_allowed_zoom = lambda _self, _el: z
-                kwargs['z'] = z
-            try:
-                self.maps[args] = smopy.Map((lat_min, lon_min, lat_max, lon_max), **kwargs)
-            except URLError:
-                raise RuntimeError("\n Could not load background map from the tile server: " +
-                                   smopy.TILE_SERVER +
-                                   "\n Please check that the tile server exists and "
-                                   "that your are connected to the internet.")
-        smopy.TILE_SERVER = ORIG_TILE_SERVER
+    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
+        with using_smopy_map_style(map_style):
+            args = (lat_min, lat_max, lon_min, lon_max, smopy.TILE_SERVER, z)
+            if args not in self.maps:
+                kwargs = {}
+                if z is not None:  # this hack may not work
+                    smopy.Map.get_allowed_zoom = lambda _self, _el: z
+                    kwargs['z'] = z
+                try:
+                    self.maps[args] = smopy.Map((lat_min, lon_min, lat_max, lon_max), **kwargs)
+                except URLError:
+                    raise RuntimeError("\n Could not load background map from the tile server: " +
+                                       smopy.TILE_SERVER +
+                                       "\n Please check that the tile server exists and "
+                                       "that your are connected to the internet.")
         return self.maps[args]
 
     def set_map_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+        """
+        Sets the bounds for the background map.
+
+        Parameters
+        ----------
+        lon_min: float
+        lon_max: float
+        lat_min: float
+        lat_max: float
+
+        See also
+        --------
+        set_plot_bounds
+        """
 
         self.lon_min, self.lon_max, self.lat_min, self.lat_max = lon_min, lon_max, lat_min, lat_max
         self.smopy_map = self._init_smopy_map(lon_min, lon_max, lat_min, lat_max)
@@ -172,7 +187,21 @@ class SmopyAxes(Axes):
 
     def set_plot_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
 
-        assert self.smopy_map
+        """
+        Sets the plot bounds similar to ax.set_xlim() and ax.set_ylim()
+
+        Parameters
+        ----------
+        lon_min: float
+        lon_max: float
+        lat_min: float
+        lat_max: float
+
+        See also
+        --------
+        set_map_bounds
+        """
+        assert self.smopy_map, "The smopy map needs to be intialized using set_map_bounds"
         assert all([lon_max, lon_min, lat_min, lat_max])
         xs, ys = self.smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                           numpy.array([lon_min, lon_max]))
@@ -210,23 +239,7 @@ class SmopyAxes(Axes):
             if not self.smopy_map or not self.map_fixed:
                 self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
                 #self.prev_plots.append((lons, lats, dict(**kwargs)))
-        xy_coords = [[self.smopy_map.to_pixels(x[0][1],x[0][0]), self.smopy_map.to_pixels(x[1][1],x[1][0])] for x in coords]
-        #print(xy_coords)
-        """
-        for from_lon, from_lat, to_lon, to_lat, width_attribute, color_attribute, zorder in zip(from_lons,
-                                                                                                from_lats,
-                                                                                                to_lons,
-                                                                                                to_lats,
-                                                                                                width_attributes,
-                                                                                                color_attributes,
-                                                                                                zorders):
-
-            self.plot(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]),
-                      color=color_attribute,
-                      linewidth=width_attribute,
-                      zorder=zorder,
-                      **kwargs)
-"""
+        xy_coords = [[self.smopy_map.to_pixels(x[0][1], x[0][0]), self.smopy_map.to_pixels(x[1][1], x[1][0])] for x in coords]
 
         lc = LineCollection(xy_coords, linewidths=linewidths,
                             color=color)
@@ -244,6 +257,23 @@ class SmopyAxes(Axes):
             lons = [segment[0] for segment in geometry.coords]
 
         self.plot(lons, lats, **kwargs)
+
+
+
+@contextmanager
+def using_smopy_map_style(map_style):
+    orig_tile_server = smopy.TILE_SERVER
+    if map_style is not None:
+        assert map_style in MAP_STYLES, \
+            map_style + " (map_style parameter) is not a valid mapping style. " \
+                        "Options are " + str(MAP_STYLES)
+        if map_style == "openstreetmap_default":
+            smopy.TILE_SERVER = "http://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        else:
+            smopy.TILE_SERVER = "http://1.basemaps.cartocdn.com/" + map_style + "/{z}/{x}/{y}.png"
+
+    yield
+    smopy.TILE_SERVER = orig_tile_server
 
 
 register_projection(SmopyAxes)

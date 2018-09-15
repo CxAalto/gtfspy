@@ -1267,11 +1267,23 @@ class GTFS(object):
                 trip_I_dict[day_start_ut] = trip_Is
         return trip_I_dict
 
-    def get_stop_I_from_name(self, name):
-        sql = "SELECT stop_I FROM stops WHERE lower(name) = lower('{name}')".format(name=name)
+    def get_stop_I_from_name(self, stop_name):
+        """
+        Parameters
+        ----------
+        stop_name: str
+
+        Returns
+        -------
+        stop_I: int
+        """
+        sql = "SELECT stop_I FROM stops WHERE lower(name) = lower('{name}')".format(name=stop_name)
         cur = self.conn.cursor()
-        stop_I = cur.execute(sql).fetchone()[0]
-        return stop_I
+        try:
+            stop_I = cur.execute(sql).fetchone()[0]
+            return stop_I
+        except TypeError as e:
+            raise ValueError("Stop with name {name} was not found.".format(name=stop_name))
 
     def get_name_from_stop_I(self, stop_I):
         sql = "SELECT name FROM stops WHERE stop_I = {stop_I}".format(stop_I=stop_I)
