@@ -62,6 +62,8 @@ class FilterExtract(object):
                  update_metadata=True,
                  start_date=None,
                  end_date=None,
+                 trip_earliest_start_time_ut=None,
+                 trip_latest_start_time_ut=None,
                  agency_ids_to_preserve=None,
                  agency_distance=None):
         """
@@ -120,6 +122,8 @@ class FilterExtract(object):
         else:
             self.start_date = None
             self.end_date = None
+        self.start_time_ut = trip_earliest_start_time_ut
+        self.end_time_ut = trip_latest_start_time_ut
         self.copy_db_conn = None
         self.copy_db_path = copy_db_path
 
@@ -167,9 +171,16 @@ class FilterExtract(object):
         Removes rows from the sqlite database copy that are out of the time span defined by start_date and end_date.
         """
         # filter by start_time_ut and end_date_ut:
+        start_date_ut = None
+        end_date_ut = None
+        if self.start_time_ut and self.end_time_ut:
+            start_date_ut = self.start_time_ut
+            end_date_ut = self.end_time_ut
         if (self.start_date is not None) and (self.end_date is not None):
             start_date_ut = self.gtfs.get_day_start_ut(self.start_date)
             end_date_ut = self.gtfs.get_day_start_ut(self.end_date)
+
+        if end_date_ut and start_date_ut:
             if self.copy_db_conn.execute("SELECT count(*) FROM day_trips2 WHERE start_time_ut IS null "
                                          "OR end_time_ut IS null").fetchone() != (0,):
                 raise ValueError("Missing information in day_trips2 (start_time_ut and/or end_time_ut), "

@@ -4,10 +4,7 @@ import smopy
 from contextlib import contextmanager
 from matplotlib.axes import Axes
 from matplotlib.projections import register_projection
-<<<<<<< HEAD
-from matplotlib_scalebar.scalebar import ScaleBar
-from urllib.error import URLError
-=======
+
 from matplotlib.collections import LineCollection
 
 import matplotlib.lines as mlines
@@ -16,7 +13,6 @@ from urllib.error import URLError
 from shapely.geometry import LineString
 import smopy
 import numpy
->>>>>>> gtfspy/smopy_plot_helper.py: implemented multiwidth plotting using line collection
 
 from gtfspy import util
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_SHORT_DESCRIPTION
