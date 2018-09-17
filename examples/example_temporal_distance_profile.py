@@ -18,7 +18,6 @@ assert(to_stop_I is not None)
 
 stop_dict = G.stops().to_dict("index")
 
-
 # The start and end times between which PT operations (and footpaths) are scanned:
 ANALYSIS_START_TIME_UT = G.get_suitable_date_for_daily_extract(ut=True) + 10 * 3600
 # Analyze tremporal distances / travel times for one hour departure time interval:
@@ -49,7 +48,6 @@ mpCSA = MultiObjectivePseudoCSAProfiler(connections,
                                         verbose=True,
                                         track_vehicle_legs=True,
                                         track_time=True)
-
 
 mpCSA.run()
 profiles = mpCSA.stop_profiles

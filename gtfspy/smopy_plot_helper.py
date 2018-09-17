@@ -4,9 +4,7 @@ import smopy
 from contextlib import contextmanager
 from matplotlib.axes import Axes
 from matplotlib.projections import register_projection
-
 from matplotlib.collections import LineCollection
-
 import matplotlib.lines as mlines
 from matplotlib_scalebar.scalebar import ScaleBar
 from urllib.error import URLError
@@ -186,6 +184,7 @@ class SmopyAxes(Axes):
         super().imshow(self.smopy_map.to_pil())
 
     def set_plot_bounds(self, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+
         """
         Sets the plot bounds similar to ax.set_xlim() and ax.set_ylim()
 
@@ -201,7 +200,6 @@ class SmopyAxes(Axes):
         set_map_bounds
         """
         assert self.smopy_map, "The smopy map needs to be intialized using set_map_bounds"
-
         assert all([lon_max, lon_min, lat_min, lat_max])
         xs, ys = self.smopy_map.to_pixels(numpy.array([lat_min, lat_max]),
                                           numpy.array([lon_min, lon_max]))
@@ -214,7 +212,6 @@ class SmopyAxes(Axes):
                                           numpy.array([self.lon_min, self.lon_max]))
         scalebar = ScaleBar(distance_m / (xs.max() - xs.min()))
         self.add_artist(scalebar)
-
 
     def plot_line_segments(self, coords=None,
                            linewidths=None,
@@ -240,23 +237,8 @@ class SmopyAxes(Axes):
             if not self.smopy_map or not self.map_fixed:
                 self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
                 #self.prev_plots.append((lons, lats, dict(**kwargs)))
-        xy_coords = [[self.smopy_map.to_pixels(x[0][1],x[0][0]), self.smopy_map.to_pixels(x[1][1],x[1][0])] for x in coords]
-        #print(xy_coords)
-        """
-        gtfspy/smopy_plot_helper.py: implemented multiwidth plotting using line collection
-        for from_lon, from_lat, to_lon, to_lat, width_attribute, color_attribute, zorder in zip(from_lons,
-                                                                                                from_lats,
-                                                                                                to_lons,
-                                                                                                to_lats,
-                                                                                                width_attributes,
-                                                                                                color_attributes,
-                                                                                                zorders):
-            self.plot(numpy.array([from_lat, to_lat]), numpy.array([from_lon, to_lon]),
-                      color=color_attribute,
-                      linewidth=width_attribute,
-                      zorder=zorder,
-                      **kwargs)
-"""
+
+        xy_coords = [[self.smopy_map.to_pixels(x[0][1], x[0][0]), self.smopy_map.to_pixels(x[1][1], x[1][0])] for x in coords]
 
         lc = LineCollection(xy_coords, linewidths=linewidths,
                             color=color)
