@@ -31,13 +31,14 @@ class TransfersLoader(TableLoader):
     def gen_rows(self, readers, prefixes):
         for reader, prefix in zip(readers, prefixes):
             for row in reader:
-                #print row
+
                 yield dict(
                     _from_stop_id     = prefix + decode_six(row['from_stop_id']).strip(),
                     _to_stop_id       = prefix + decode_six(row['to_stop_id']).strip(),
-                    transfer_type     = int(row['transfer_type']),
+                    transfer_type     = 0 if row['transfer_type'] == '' else int(row['transfer_type']),
+                    # according to GTFS standard transfer_type can be empty which means 0
                     min_transfer_time = int(row['min_transfer_time'])
                                         if ('min_transfer_time' in row
-                                        and (row.get('min_transfer_time').strip()) )
+                                        and (row.get('min_transfer_time').strip()))
                                         else None
             )

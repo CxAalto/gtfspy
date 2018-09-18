@@ -145,7 +145,7 @@ class SmopyAxes(Axes):
         for (lons, lats, s, kwords) in self.prev_text:
             self.text(lons, lats, s, update=False, **kwords)
 
-    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
+    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style="dark_nolabels"):
         with using_smopy_map_style(map_style):
             args = (lat_min, lat_max, lon_min, lon_max, smopy.TILE_SERVER, z)
             if args not in self.maps:
