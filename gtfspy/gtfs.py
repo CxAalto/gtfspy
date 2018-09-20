@@ -1750,6 +1750,12 @@ class GTFS(object):
         print("finished")
 
     def replace_stop_i_with_stop_pair_i(self, colname="sort_by"):
+        """
+        Replaces stop_I with the values of a column attached to the stops table. Stops with the same new stop_I will be
+        merged. However, only the data of one of the original rows will be stored.
+        :param colname: name of the column that will replace the old stop_I
+        :return:
+        """
         cur = self.conn.cursor()
         queries = [
             "UPDATE stop_times SET stop_I = "

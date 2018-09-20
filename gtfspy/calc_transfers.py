@@ -77,6 +77,7 @@ def calc_transfers(conn, threshold_meters=1000):
                            zip(from_stop_Is, to_stop_Is, distances, [None] * n_pairs,
                                [None] * n_pairs, [None] * n_pairs))
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_sd_fsid ON stop_distances (from_stop_I);')
+        conn.commit()
 
 
 def _export_transfers(conn, fname):
