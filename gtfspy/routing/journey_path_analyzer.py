@@ -8,7 +8,6 @@ from gtfspy.smopy_plot_helper import legend_pt_modes
 
 
 class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
-    # TODO: possible measures: route diversity, circuity,
 
     """Subclass of NodeProfileAnalyzerTimeAndVehLegs, with extended support for route trajectories"""
     def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep, origin_stop, gtfs=None):
@@ -254,6 +253,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
             for leg in journey:
                 if leg["seq"] == 1:
                     prev_arr_time = None
+                    y_level = _ut_to_unloc_datetime(leg["dep_time"])
 
                 arr_stop_name = self.gtfs.get_name_from_stop_I(leg["arr_stop"])
                 n_stops = len(leg["leg_stops"])
@@ -282,11 +282,11 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                         ax.plot([prev_arr_time, dep_time], [y_level, y_level], ':', c=ROUTE_TYPE_TO_COLOR[-1])
 
                     ax.plot([dep_time, arr_time], [y_level, y_level], c=ROUTE_TYPE_TO_COLOR[route_type])
-                    ax.text((arr_time + (dep_time - arr_time)/2), y_level+0.5, route_name, fontsize=font_size,
+                    ax.text((arr_time + (dep_time - arr_time)/2), y_level - datetime.timedelta(seconds=30), route_name, fontsize=font_size,
                             color="black", ha='center')
 
                     text_string = "for {0} stops".format(n_stops-2) if n_stops-2 > 1 else "for 1 stop" if n_stops-2 == 1 else ""
-                    ax.text((arr_time + (dep_time - arr_time)/2), y_level-font_size+1, text_string, fontsize=font_size-2,
+                    ax.text((arr_time + (dep_time - arr_time)/2), y_level + datetime.timedelta(seconds=70), text_string, fontsize=font_size-2,
                             color="black", ha='center')
 
                 if leg["seq"] == 1:
@@ -297,11 +297,17 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 prev_arr_time = arr_time
                 wait_length = None
 
-            y_level += -15
+            # y_level += -15
+        ax.set_ylim([_ut_to_unloc_datetime(self.end_time_dep), _ut_to_unloc_datetime(self.start_time_dep)])
+
         ax = legend_pt_modes(ax, route_types)
         x_axis_formatter = md.DateFormatter(format_string)
         ax.xaxis.set_major_formatter(x_axis_formatter)
-        ax.axes.get_yaxis().set_visible(False)
+
+        y_axis_formatter = md.DateFormatter(format_string)
+        ax.yaxis.set_major_formatter(y_axis_formatter)
+
+        # ax.axes.get_yaxis().set_visible(False)
         return ax
 
     def get_simple_diversities(self):
@@ -309,10 +315,12 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 "number_of_fp_journeys": self.number_of_fp_journeys(),
                 "most_probable_journey_variant": self.most_probable_journey_variant(),
                 "most_probable_departure_stop": self.most_probable_departure_stop(),
-                "journey_variant_weighted_simpson": self.journey_variant_simpson_diversity(stop_sets=self.journey_boarding_stops),
+                "journey_variant_weighted_simpson":
+                    self.journey_variant_simpson_diversity(stop_sets=self.journey_boarding_stops),
                 "time_weighted_simpson": self.journey_variant_simpson_diversity(weights=self.variant_proportions),
                 "avg_circuity": self.avg_circuity(),
-                "avg_speed": self.avg_journey_speed()}
+                "avg_speed": self.avg_journey_speed(),
+                "temporal_distance": round(self.mean_temporal_distance()/60.0, 2)}
 
     def number_of_journey_variants(self):
         if not self.journey_set_variants:

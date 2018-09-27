@@ -441,6 +441,7 @@ class NodeProfileAnalyzerTime:
         -------
         ax: The axis object where the temporal distance profile has been plotted to.
         """
+        print("plotting temporal distance profile")
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -515,7 +516,7 @@ class NodeProfileAnalyzerTime:
 
         assert (isinstance(ax, plt.Axes))
 
-        if plot_journeys:
+        if plot_journeys and self.trip_departure_times:
             xs = [_ut_to_unloc_datetime(x) for x in self.trip_departure_times]
             ys = self.trip_durations
             ax.plot(xs, numpy.array(ys) / duration_divider, "o", color="black", ms=8, label="journeys")
@@ -544,6 +545,10 @@ class NodeProfileAnalyzerTime:
                 walking = - self._walk_time_to_target / 30 if numpy.isfinite(self._walk_time_to_target) else 0
                 ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 60),
                         (y + walking) / duration_divider, letter, va="top", ha="left")
+        elif not self.trip_departure_times:
+            print(self.trip_departure_times)
+            print("no trips, terminating")
+            return
 
         fill_between_x = []
         fill_between_y = []

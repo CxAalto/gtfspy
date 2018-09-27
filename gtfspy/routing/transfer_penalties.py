@@ -30,6 +30,7 @@ def add_transfer_penalties_to_arrival_times(journey_labels, penalty_seconds, ign
         new_labels.append(new_label)
     return new_labels
 
+
 def get_fastest_path_analyzer_after_transfer_penalties(labels,
                                                        start_time_dep,
                                                        end_time_dep,

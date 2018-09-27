@@ -272,10 +272,6 @@ def _cluster_stops_multi(df, distance):
     gdf_poly["everything"] = 1
     gdf_poly = gdf_poly.dissolve(by="everything")
 
-    import matplotlib.pyplot as plt
-    gdf_poly.plot()
-    plt.show()
-
     polygons = None
     for geoms in gdf_poly["geometry"]:
         polygons = [polygon for polygon in geoms]

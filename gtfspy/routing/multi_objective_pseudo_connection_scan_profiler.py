@@ -19,7 +19,8 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
     """
 
     def __init__(self, transit_events, targets, walk_network, end_time_ut=None, transfer_margin=0, start_time_ut=None,
-                 walk_speed=1.5, verbose=False, track_vehicle_legs=True, track_time=True, track_route=False):
+                 walk_speed=1.5, verbose=False, track_vehicle_legs=True, track_time=True, track_route=False,
+                 distance_type="d_walk"):
         """
         Parameters
         ----------
@@ -59,6 +60,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         self._walk_network = walk_network
         self._walk_speed = walk_speed
         self._verbose = verbose
+        self.d_type = distance_type
 
         # algorithm internals
 
@@ -127,7 +129,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                 for target in self._targets:
                     if self._walk_network.has_edge(target, node):
                         edge_data = self._walk_network.get_edge_data(target, node)
-                        walk_duration = int(edge_data["d_walk"] / float(self._walk_speed))
+                        walk_duration = int(edge_data[self.d_type] / float(self._walk_speed))
                         if walk_duration_to_target > walk_duration:
                             walk_duration_to_target = walk_duration
                             closest_target = target
@@ -158,7 +160,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         pseudo_connections = []
         # DiGraph makes things iterate both ways (!)
         for u, v, data in networkx.DiGraph(self._walk_network).edges(data=True):
-            walk_duration = int(data["d_walk"] / float(self._walk_speed))  # round to one second accuracy
+            walk_duration = int(data[self.d_type] / float(self._walk_speed))  # round to one second accuracy
             total_walk_time_with_transfer = walk_duration + self._transfer_margin
             in_times = self._stop_arrival_times[u]
             out_times = self._stop_departure_times[v]
@@ -291,7 +293,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                     assert (isinstance(neighbor_profile, NodeProfileMultiObjective))
                     neighbor_real_connection_labels = neighbor_profile.get_labels_for_real_connections()
                     neighbor_label_bags.append(neighbor_real_connection_labels)
-                    walk_durations_to_neighbors.append(int(self._walk_network.get_edge_data(stop, neighbor)["d_walk"] /
+                    walk_durations_to_neighbors.append(int(self._walk_network.get_edge_data(stop, neighbor)[self.d_type] /
                                                        self._walk_speed))
                     departure_arrival_stop_pairs.append((stop, neighbor))
             stop_profile.finalize(neighbor_label_bags, walk_durations_to_neighbors, departure_arrival_stop_pairs)
