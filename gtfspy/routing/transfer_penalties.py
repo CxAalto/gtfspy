@@ -26,7 +26,7 @@ def add_transfer_penalties_to_arrival_times(journey_labels, penalty_seconds, ign
             new_label.arrival_time_target += max(0, label.n_boardings - 1) * penalty_seconds
         else:
             new_label.arrival_time_target += label.n_boardings * penalty_seconds
-        new_label.n_boardings = -1  # To mark that boarding counts have been taken away.
+        # new_label.n_boardings = -1  # To mark that boarding counts have been taken away.
         new_labels.append(new_label)
     return new_labels
 

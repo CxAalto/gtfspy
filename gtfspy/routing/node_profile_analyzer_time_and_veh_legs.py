@@ -66,7 +66,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                                                  start_time_dep,
                                                  end_time_dep)
 
-    def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep):
+    def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep, **kwargs):
         """
         Initialize the data structures required by
 
@@ -97,6 +97,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
         self._walk_to_target_duration = walk_to_target_duration
         self._n_boardings_to_simple_time_analyzers = {}
+        self.transfer_penalty_seconds = kwargs.pop("transfer_penalty_seconds", None)
         self._transfers_on_fastest_paths_analyzer = self._get_transfers_on_fastest_path_analyzer()
 
     def _get_fastest_path_analyzer(self):

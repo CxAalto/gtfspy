@@ -5,18 +5,23 @@ from gtfspy.routing.label import LabelTimeBoardingsAndRoute, LabelTimeAndRoute
 from gtfspy.routing.connection import Connection
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
 from gtfspy.smopy_plot_helper import legend_pt_modes
+from gtfspy.routing.transfer_penalties import get_fastest_path_analyzer_after_transfer_penalties
 
 
 class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
     """Subclass of NodeProfileAnalyzerTimeAndVehLegs, with extended support for route trajectories"""
-    def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep, origin_stop, gtfs=None):
-        super().__init__(labels, walk_to_target_duration, start_time_dep, end_time_dep)
+    def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep, origin_stop, gtfs=None,
+                 transfer_penalty_seconds=0):
+        super().__init__(labels, walk_to_target_duration, start_time_dep, end_time_dep,
+                         transfer_penalty_seconds=transfer_penalty_seconds)
         self.fastest_path_labels = None
         self.gtfs = gtfs
         self.origin_stop = origin_stop
         self.target_stop = None
-        self.fpa = super(NodeJourneyPathAnalyzer, self)._get_fastest_path_analyzer()
+        self.transfer_penalty_seconds = transfer_penalty_seconds
+        # self.fpa = super(NodeJourneyPathAnalyzer, self)._get_fastest_path_analyzer()
+        self.fpa = self._get_fastest_path_analyzer()
         self.journey_boarding_stops = None
         self.journey_set_variants = None
         self.journey_waits = None
@@ -24,6 +29,15 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         self.walk_to_target_duration = walk_to_target_duration
         self.unpack_fastest_path_journeys()
         self.journey_letters, self.stop_dict = None, None
+
+    def _get_fastest_path_analyzer(self):
+        fpa = get_fastest_path_analyzer_after_transfer_penalties(self.all_labels,
+                                                                 self.start_time_dep,
+                                                                 self.end_time_dep,
+                                                                 walk_duration=self._walk_to_target_duration,
+                                                                 label_props_to_consider=["n_boardings"],
+                                                                 transfer_penalty_seconds=self.transfer_penalty_seconds)
+        return fpa
 
     def unpack_fastest_path_journeys(self):
         # TODO: generalized cost function
@@ -142,16 +156,6 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         boarding_stops = [int(x) for x in boarding_stops]
         return origin_stop, target_stop, leg_value_list, boarding_stops, all_stops
 
-    def get_optimal_generalized_cost_journeys(self):
-        """
-        Idea: produce labels with departure time and "generalized arrival time": departure time + generalized cost
-        Find Pareto front based on these two criteria
-
-        Returns
-        -------
-        """
-        pass
-
     def assign_path_letters(self, features_to_check):
         """
         Function that assigns a littera for each journey variant that can be used in journey plots and temporal distance plots
@@ -194,26 +198,30 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 _, leg_type = (None, -1) if leg["trip_id"] == -1 else self.gtfs.get_route_name_and_type_of_tripI(leg["trip_id"])
                 yield lats, lons, leg_type
 
-    def get_pre_journey_waiting_times(self):
-        pre_journey_waits, walk_time = self.fpa.calculate_pre_journey_waiting_times_to_list()
-        return pre_journey_waits, walk_time
-
-    def _aggregate_time_weights(self, stop_sets=None, pre_journey_waits=None, walk_is_optimal_duration=None):
+    def _aggregate_time_weights(self, stop_tuple=None, pre_journey_waits=None, walk_is_optimal_duration=None):
+        """
+        Collects the data needed for self.journey_set_variants, and self.variant_proportions, that is all journey
+        variants and the proportion of those in time
+        :param stop_tuple: list of tuples. Tuples of the boarding stop_Is describing trajectory of each included trip
+        :param pre_journey_waits: list of ints
+        :param walk_is_optimal_duration: int
+        :return:
+        """
         if not pre_journey_waits:
             pre_journey_waits, walk_is_optimal_duration = self.fpa.calculate_pre_journey_waiting_times_to_list()
 
-        if stop_sets:
-            stop_sets = [tuple(x) for x in stop_sets]
+        if stop_tuple:
+            stop_tuple = [tuple(x) for x in stop_tuple]
         else:
-            stop_sets = self.journey_boarding_stops
+            stop_tuple = self.journey_boarding_stops
 
         if not pre_journey_waits and not walk_is_optimal_duration:
             self.journey_set_variants = None
             self.variant_proportions = None
             return
 
-        weight_dict = {x: 0 for x in set(stop_sets)}
-        for stop_set, pre_journey_wait in zip(stop_sets, pre_journey_waits):
+        weight_dict = {x: 0 for x in set(stop_tuple)}
+        for stop_set, pre_journey_wait in zip(stop_tuple, pre_journey_waits):
             weight_dict[stop_set] += pre_journey_wait
         if walk_is_optimal_duration > 0:
             weight_dict[tuple({self.origin_stop})] = walk_is_optimal_duration
@@ -320,7 +328,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 "time_weighted_simpson": self.journey_variant_simpson_diversity(weights=self.variant_proportions),
                 "avg_circuity": self.avg_circuity(),
                 "avg_speed": self.avg_journey_speed(),
-                "temporal_distance": round(self.mean_temporal_distance()/60.0, 2)}
+                "mean_temporal_distance": round(self.mean_temporal_distance()/60.0, 2),
+                "mean_trip_n_boardings": self.mean_n_boardings_on_shortest_paths()}
 
     def number_of_journey_variants(self):
         if not self.journey_set_variants:
