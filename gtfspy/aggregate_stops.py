@@ -1,6 +1,6 @@
 import networkx
 import sqlite3
-import pandas
+import pandas as pd
 from gtfspy.gtfs import GTFS
 
 
@@ -20,7 +20,6 @@ def merge_stops_tables(gtfs_self, gtfs_other):
     cur_other = g_other.conn.cursor()
 
     #g_self.attach_gtfs_database(gtfs_other)
-
 
     len_self = len(g_self.execute_custom_query_pandas("SELECT * FROM stops"))
     len_other = len(g_other.execute_custom_query_pandas("SELECT * FROM stops"))
@@ -102,7 +101,38 @@ def merge_stops_tables(gtfs_self, gtfs_other):
     g_other.conn.commit()
 
 
-def merge_stops_tables_multi(gtfs_cons, buffer_distance_m=5):
+def remove_unmatching_stops_multi(gtfs_cons, new_gtfs_paths, max_distance=500, distance_type="d"):
+    from gtfspy.filter import FilterExtract
+    query = """
+                WITH 
+                    a AS (
+                    SELECT DISTINCT stop_I FROM stop_times),
+                    
+                    b AS (
+                    SELECT DISTINCT to_stop_I AS stop_I FROM stop_distances, a
+                    WHERE from_stop_I = a.stop_I and {distance_type} <= {max_distance})
+                
+                SELECT * FROM b""".format(max_distance=max_distance, distance_type=distance_type)
+    query2 = """SELECT DISTINCT stop_I FROM stop_times"""
+    candidate_stops = []
+    for gtfs in gtfs_cons:
+        df1 = gtfs.execute_custom_query_pandas(query)
+        df2 = gtfs.execute_custom_query_pandas(query2)
+        stops_within_threshold = set(df1["stop_I"])
+        all_active_stops = set(df2["stop_I"])
+        stops_within_threshold = stops_within_threshold | all_active_stops
+        candidate_stops.append(stops_within_threshold)
+
+    stops_intersection = set.intersection(*candidate_stops)
+    stops_union = set.union(*candidate_stops)
+    if len(stops_intersection) == len(stops_union):
+        print("no stops to remove")
+    for gtfs, new_gtfs_path in zip(gtfs_cons, new_gtfs_paths):
+        fe = FilterExtract(gtfs, new_gtfs_path, stops_to_keep=stops_intersection)
+        fe.create_filtered_copy()
+
+
+def merge_stops_tables_multi(gtfs_cons, threshold_meters=5):
     """
     Takes the stops from multiple feeds and adds everything into a master stop list, with a feed
     identifier column.
@@ -115,7 +145,7 @@ def merge_stops_tables_multi(gtfs_cons, buffer_distance_m=5):
     lens = [len(x.execute_custom_query_pandas("SELECT * FROM stops")) for x in gtfs_cons]
     to_be_added = []
     to_be_updated = []
-    df = pandas.DataFrame()
+    df = pd.DataFrame()
     for i, gtfs in enumerate(gtfs_cons):
         print(i)
         new_df = gtfs.execute_custom_query_pandas("SELECT stop_I, stop_id, code, name, desc, lat, lon, "
@@ -135,7 +165,7 @@ def merge_stops_tables_multi(gtfs_cons, buffer_distance_m=5):
     min_stop_pair = min_stop_pair.reset_index()
     df = df.merge(min_stop_pair[["stop_pair_I", "lat", "lon"]], left_on=["lat", "lon"], right_on=["lat", "lon"])
     """
-    df = _cluster_stops_multi(df, buffer_distance_m)
+    df = _cluster_stops_multi(df, threshold_meters)
 
     # create a df of all stops without stop_pair_I duplicates
     df_all_default_stops = df.copy()
@@ -161,9 +191,9 @@ def merge_stops_tables_multi(gtfs_cons, buffer_distance_m=5):
 
         rows_to_add = []
 
-        for items in i_add_df.itertuples(index=False):
+        for j, items in enumerate(i_add_df.itertuples(index=False)):
             rows_to_add.append((int(items.stop_pair_I),
-                                "__added__" + str(items.stop_id),
+                                "__added__{i}_{j}__".format(i=i, j=j) + str(items.stop_id),
                                 str(items.code),
                                 str(items.name),
                                 str(items.desc),
@@ -296,6 +326,7 @@ def cluster_stops(gtfs_a, gtfs_b, distance=2):
 
     crs_wgs = {'init': 'epsg:4326'}
     crs_eurefin = {'init': 'epsg:3067'}
+    print("WARNING; THIS WORKS ONLY FOR AREAS WITHIN EUREFIN CRS")
     """
     merges stops that are within distance together into one stop
     :param stops_set: iterable that lists stop_I's

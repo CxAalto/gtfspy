@@ -7,6 +7,7 @@ import pandas
 from gtfspy.gtfs import GTFS
 from gtfspy.filter import FilterExtract
 from gtfspy.filter import remove_all_trips_fully_outside_buffer
+from gtfspy.aggregate_stops import remove_unmatching_stops_multi
 
 from gtfspy.import_gtfs import import_gtfs
 import hashlib
@@ -24,6 +25,8 @@ class TestGTFSFilter(unittest.TestCase):
         self.fname = self.gtfs_source_dir + "/test_gtfs.sqlite"
         self.fname_copy = self.gtfs_source_dir + "/test_gtfs_copy.sqlite"
         self.fname_filter = self.gtfs_source_dir + "/test_gtfs_filter_test.sqlite"
+        self.fname1 = self.gtfs_source_dir + "/test_gtfs1.sqlite"
+        self.fname2 = self.gtfs_source_dir + "/test_gtfs2.sqlite"
 
         self._remove_temporary_files()
         self.assertFalse(os.path.exists(self.fname_copy))
@@ -39,7 +42,7 @@ class TestGTFSFilter(unittest.TestCase):
         self.hash_orig = hashlib.md5(open(self.fname, 'rb').read()).hexdigest()
 
     def _remove_temporary_files(self):
-        for fn in [self.fname, self.fname_copy, self.fname_filter]:
+        for fn in [self.fname, self.fname_copy, self.fname_filter, self.fname1, self.fname2]:
             if os.path.exists(fn) and os.path.isfile(fn):
                 os.remove(fn)
 
@@ -87,7 +90,6 @@ class TestGTFSFilter(unittest.TestCase):
         assert 3600 + (32 * 60) + 45 not in stop_times_table['arr_time']
         os.remove(self.fname_copy)
 
-
     def test_filter_by_start_and_end_full_range(self):
         # untested tables with filtering: stops, shapes
         # test filtering by start and end time, copy full range
@@ -122,7 +124,8 @@ class TestGTFSFilter(unittest.TestCase):
 
     def test_filter_spatially(self):
         # test that the db is split by a given spatial boundary
-        FilterExtract(self.G, self.fname_copy, buffer_lat=36.914893, buffer_lon=-116.76821, buffer_distance_km=50).create_filtered_copy()
+        FilterExtract(self.G, self.fname_copy, buffer_lat=36.914893, buffer_lon=-116.76821,
+                      buffer_distance_km=50).create_filtered_copy()
         G_copy = GTFS(self.fname_copy)
 
         stops_table = G_copy.get_table("stops")
@@ -209,18 +212,93 @@ class TestGTFSFilter(unittest.TestCase):
             max_values = pandas.read_sql("SELECT max(seq) FROM stop_times GROUP BY trip_I ORDER BY trip_I", G_copy.conn)
             self.assertTrue((counts.values == max_values.values).all())
 
+    def test_filter_by_stops(self):
+        stops_table_old = self.G.stops()
+        stops_table_old = stops_table_old[stops_table_old.stop_id != "FUR_CREEK_RES"]
+        stops_to_preserve = stops_table_old["stop_I"].tolist()
+
+        FilterExtract(self.G, self.fname_copy, stops_to_keep=stops_to_preserve).create_filtered_copy()
+        G_copy = GTFS(self.fname_copy)
+
+        stops_table = G_copy.get_table("stops")
+
+        self.assertNotIn("FUR_CREEK_RES", stops_table['stop_id'].values)
+        self.assertIn("AMV", stops_table['stop_id'].values)
+        self.assertEqual(len(stops_table['stop_id'].values), 8)
+
+        conn_copy = sqlite3.connect(self.fname_copy)
+        stop_ids_df = pandas.read_sql('SELECT stop_id from stop_times '
+                                      'left join stops '
+                                      'on stops.stop_I = stop_times.stop_I', conn_copy)
+        stop_ids = stop_ids_df["stop_id"].values
+
+        self.assertNotIn("FUR_CREEK_RES", stop_ids)
+        self.assertIn("AMV", stop_ids)
+
+        trips_table = G_copy.get_table("trips")
+        self.assertNotIn("BFC1", trips_table['trip_id'].values)
+
+        routes_table = G_copy.get_table("routes")
+        self.assertNotIn("BFC", routes_table['route_id'].values)
+
     def test_remove_all_trips_fully_outside_buffer(self):
         stops = self.G.stops()
         stop_1 = stops[stops['stop_I'] == 1]
 
-        n_trips_before = len(self.G.get_table("trips"))
+        n_trips_before = len(self.G.get_table("trips").index)
 
         remove_all_trips_fully_outside_buffer(self.G.conn, float(stop_1.lat), float(stop_1.lon), 100000)
-        self.assertEqual(len(self.G.get_table("trips")), n_trips_before)
+        self.assertEqual(len(self.G.get_table("trips").index), n_trips_before)
 
         # 0.002 (=max 2 meters from the stop), rounding errors can take place...
         remove_all_trips_fully_outside_buffer(self.G.conn, float(stop_1.lat), float(stop_1.lon), 0.002)
-        self.assertEqual(len(self.G.get_table("trips")), 2)  # value "2" comes from the data
+        self.assertEqual(len(self.G.get_table("trips").index), 2)  # value "2" comes from the data
 
+    def test_remove_unmatching_stops_multi_outside_threshold(self):
+        stops_table_old = self.G.stops()
 
+        stop_table_old_length = len(stops_table_old.index)
+        stops_table_old = stops_table_old[stops_table_old.stop_id == "STAGECOACH"]
+        stop_to_remove = stops_table_old.iloc[0]["stop_I"]
+        FilterExtract(self.G, self.fname_copy).create_filtered_copy()
+        gtfs1 = GTFS(self.fname_copy)
+
+        gtfs1.execute_custom_query("DELETE FROM stop_times WHERE stop_I={stop_to_remove}".
+                                   format(stop_to_remove=stop_to_remove))
+        gtfs1.conn.commit()
+
+        gtfs2 = self.G
+
+        self.assertEqual(len(gtfs1.get_table("stop_times").index) + 41, len(gtfs2.get_table("stop_times").index))
+        conns = [gtfs1, gtfs2]
+        fnames = [self.fname1, self.fname2]
+        remove_unmatching_stops_multi(conns, fnames, 2, distance_type="d")
+        gtfs1 = GTFS(self.fname1)
+        gtfs2 = GTFS(self.fname2)
+        self.assertEqual(len(gtfs1.stops().index) + 1, stop_table_old_length)
+        self.assertEqual(len(gtfs1.stops().index), len(gtfs2.stops().index))
+
+    def test_remove_unmatching_stops_multi_inside_threshold(self):
+        stops_table_old = self.G.stops()
+
+        stop_table_old_length = len(stops_table_old.index)
+        stops_table_old = stops_table_old[stops_table_old.stop_id == "STAGECOACH"]
+        stop_to_remove = stops_table_old.iloc[0]["stop_I"]
+        FilterExtract(self.G, self.fname_copy).create_filtered_copy()
+        gtfs1 = GTFS(self.fname_copy)
+
+        gtfs1.execute_custom_query("DELETE FROM stop_times WHERE stop_I={stop_to_remove}".
+                                   format(stop_to_remove=stop_to_remove))
+        gtfs1.conn.commit()
+
+        gtfs2 = self.G
+
+        self.assertEqual(len(gtfs1.get_table("stop_times").index) + 41, len(gtfs2.get_table("stop_times").index))
+        conns = [gtfs1, gtfs2]
+        fnames = [self.fname1, self.fname2]
+        remove_unmatching_stops_multi(conns, fnames, 1000, distance_type="d")
+        gtfs1 = GTFS(self.fname1)
+        gtfs2 = GTFS(self.fname2)
+        self.assertEqual(len(gtfs1.stops().index), stop_table_old_length)
+        self.assertEqual(len(gtfs1.stops().index), len(gtfs2.stops().index))
 

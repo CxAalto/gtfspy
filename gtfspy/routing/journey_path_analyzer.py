@@ -318,18 +318,25 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         # ax.axes.get_yaxis().set_visible(False)
         return ax
 
-    def get_simple_diversities(self):
-        return {"number_of_journey_variants": self.number_of_journey_variants(),
-                "number_of_fp_journeys": self.number_of_fp_journeys(),
-                "most_probable_journey_variant": self.most_probable_journey_variant(),
-                "most_probable_departure_stop": self.most_probable_departure_stop(),
-                "journey_variant_weighted_simpson":
-                    self.journey_variant_simpson_diversity(stop_sets=self.journey_boarding_stops),
-                "time_weighted_simpson": self.journey_variant_simpson_diversity(weights=self.variant_proportions),
-                "avg_circuity": self.avg_circuity(),
-                "avg_speed": self.avg_journey_speed(),
-                "mean_temporal_distance": round(self.mean_temporal_distance()/60.0, 2),
-                "mean_trip_n_boardings": self.mean_n_boardings_on_shortest_paths()}
+    def get_simple_diversities(self, measures=None):
+        pm_calls = {"number_of_journey_variants": self.number_of_journey_variants,
+                    "number_of_fp_journeys": self.number_of_fp_journeys,
+                    "most_probable_journey_variant": self.most_probable_journey_variant,
+                    "most_probable_departure_stop": self.most_probable_departure_stop,
+                    "journey_variant_weighted_simpson": self.journey_variant_weighted_diversity,
+                    "time_weighted_simpson": self.time_weighted_diversity,
+                    "avg_circuity": self.avg_circuity,
+                    "avg_speed": self.avg_journey_speed,
+                    "mean_temporal_distance": self.mean_temporal_distance_minutes,
+                    "mean_trip_n_boardings": self.mean_n_boardings_on_shortest_paths}
+        if measures:
+            return {pm: value() for pm, value in pm_calls.items() if pm in measures}
+
+        return {pm: value() for pm, value in pm_calls.items()}
+    # TODO: frequency of most probable journey variant
+
+    def mean_temporal_distance_minutes(self):
+        return round(self.mean_temporal_distance()/60.0, 2)
 
     def number_of_journey_variants(self):
         if not self.journey_set_variants:
@@ -399,8 +406,14 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         else:
             return avg_journey_trajectory_length/avg_journey_duration
 
+    def journey_variant_weighted_diversity(self):
+        return self.simpson_diversity(stop_sets=self.journey_boarding_stops)
+
+    def time_weighted_diversity(self):
+        return self.simpson_diversity(weights=self.variant_proportions)
+
     @staticmethod
-    def journey_variant_simpson_diversity(stop_sets=None, weights=None):
+    def simpson_diversity(stop_sets=None, weights=None):
         """
         Diversity measure that takes into account the number of trip variants and
         the distribution of trips by variant.

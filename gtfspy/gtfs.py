@@ -1749,7 +1749,7 @@ class GTFS(object):
         self.conn.commit()
         print("finished")
 
-    def replace_stop_i_with_stop_pair_i(self, colname="sort_by"):
+    def replace_stop_i_with_stop_pair_i(self, colname="stop_pair_I"):
         """
         Replaces stop_I with the values of a column attached to the stops table. Stops with the same new stop_I will be
         merged. However, only the data of one of the original rows will be stored.
@@ -1792,10 +1792,15 @@ class GTFS(object):
 
             "INSERT INTO stops(stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
             "wheelchair_boarding, self_or_parent_I, old_stop_I) "
-            "SELECT {column} AS stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
+            "WITH "
+            "a AS (SELECT stop_I, {column} AS parent_I FROM stops_old),"
+            "b AS (SELECT {column} AS stop_I, stop_id, code, name, desc, lat, lon, parent_I, location_type, "
             "wheelchair_boarding, self_or_parent_I, stop_I AS old_stop_I "
             "FROM stops_old "
-            "GROUP BY {column};".format(column=colname),
+            "GROUP BY {column}) "
+            "SELECT b.stop_I, stop_id, code, name, desc, lat, lon, a.parent_I, location_type, "
+            "wheelchair_boarding, coalesce(a.parent_I, b.stop_I) AS self_or_parent_I, old_stop_I "
+            "FROM b LEFT JOIN a ON b.parent_I=a.stop_I;".format(column=colname),
 
             "DROP TABLE stops_old",
 

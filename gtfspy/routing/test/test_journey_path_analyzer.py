@@ -68,8 +68,8 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         self.assertEqual(njpa.most_probable_journey_variant(), 1/3)
         self.assertEqual(njpa.number_of_journey_variants(), 3)
         self.assertEqual(njpa.number_of_fp_journeys(), 3)
-        self.assertEqual(njpa.journey_variant_simpson_diversity(stop_sets=njpa.journey_set_variants), 1/3)
-        self.assertEqual(njpa.journey_variant_simpson_diversity(weights=njpa.variant_proportions), 1/3)
+        self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1 / 3)
+        self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1 / 3)
 
         njpa.journey_set_variants = [frozenset({3, 4, 5})]
         njpa.variant_proportions = [1]
@@ -79,8 +79,8 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         self.assertEqual(njpa.most_probable_journey_variant(), 1)
         self.assertEqual(njpa.number_of_journey_variants(), 1)
         self.assertEqual(njpa.number_of_fp_journeys(), 1)
-        self.assertEqual(njpa.journey_variant_simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
-        self.assertEqual(njpa.journey_variant_simpson_diversity(weights=njpa.variant_proportions), 1)
+        self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
+        self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1)
 
         njpa.journey_set_variants = []
         njpa.variant_proportions = []
@@ -90,8 +90,8 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         self.assertEqual(njpa.most_probable_journey_variant(), None)
         self.assertEqual(njpa.number_of_journey_variants(), None)
         self.assertEqual(njpa.number_of_fp_journeys(), None)
-        self.assertEqual(njpa.journey_variant_simpson_diversity(stop_sets=njpa.journey_set_variants), None)
-        self.assertEqual(njpa.journey_variant_simpson_diversity(weights=njpa.variant_proportions), None)
+        self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), None)
+        self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), None)
 
         # With walking distance
         njpa = self._get_analyzer(label_list, 0, 1000, 500)
@@ -104,8 +104,8 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         self.assertEqual(njpa.most_probable_journey_variant(), None)
         self.assertEqual(njpa.number_of_journey_variants(), None)
         self.assertEqual(njpa.number_of_fp_journeys(), float("inf"))
-        self.assertEqual(njpa.journey_variant_simpson_diversity(stop_sets=njpa.journey_set_variants), None)
-        self.assertEqual(njpa.journey_variant_simpson_diversity(weights=njpa.variant_proportions), None)
+        self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), None)
+        self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), None)
 
         njpa.journey_set_variants = [frozenset({1, 2, 3}), frozenset({1, 2, 3}), frozenset({1, 2, 3})]
         njpa.variant_proportions = [1]
@@ -117,5 +117,5 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         # self.journey_variants does not have duplicats
         self.assertEqual(njpa.number_of_journey_variants(), 3)
         self.assertEqual(njpa.number_of_fp_journeys(), 3)
-        self.assertEqual(njpa.journey_variant_simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
-        self.assertEqual(njpa.journey_variant_simpson_diversity(weights=njpa.variant_proportions), 1)
+        self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
+        self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1)
