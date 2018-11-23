@@ -100,10 +100,7 @@ class TestGTFSFilter(unittest.TestCase):
         self.assertGreater(len(dsut_to_trip_I), 0)
         os.remove(self.fname_copy)
 
-    def test_filter_end_date_not_included(self):
-        # the end date should not be included:
-        FilterExtract(self.G, self.fname_copy, start_date="2007-01-02", end_date="2010-12-31").create_filtered_copy()
-
+    def _perform_time_filter_tests(self):
         hash_copy = hashlib.md5(open(self.fname_copy, 'rb').read()).hexdigest()
         self.assertNotEqual(self.hash_orig, hash_copy)
         G_copy = GTFS(self.fname_copy)
@@ -121,6 +118,27 @@ class TestGTFSFilter(unittest.TestCase):
         self.assertLess(max_date_calendar, end_date_not_included, msg="the last date should not be included in calendar")
         self.assertLess(start_date_not_included, min_date_calendar)
         os.remove(self.fname_copy)
+
+    def test_filter_end_date_not_included(self):
+        # the end date should not be included:
+        FilterExtract(self.G, self.fname_copy, start_date="2007-01-02", end_date="2010-12-31").create_filtered_copy()
+        self._perform_time_filter_tests()
+
+    def test_filter_trip_latest_start_time_ut_not_included(self):
+        # the end date should not be included:
+        FilterExtract(self.G, self.fname_copy, trip_earliest_start_time_ut=self.G.get_day_start_ut("2007-01-02"),
+                      trip_latest_start_time_ut=self.G.get_day_start_ut("2010-12-31")).create_filtered_copy()
+        self._perform_time_filter_tests()
+
+    def test_delete_rows_by_start_and_end_date(self):
+        FilterExtract(self.G, self.fname_copy, trip_earliest_start_time_ut=self.G.get_day_start_ut("2008-01-01"),
+                      trip_latest_start_time_ut=self.G.get_day_start_ut("2008-12-31")).create_filtered_copy()
+        G_copy = GTFS(self.fname_copy)
+        self.assertGreater(len(self.G.get_table("days").index), len(G_copy.get_table("days").index))
+        self.assertEqual(len(G_copy.get_table("calendar_dates")), 0)
+        self.assertEqual(len(G_copy.get_table("days")), 16841)
+
+
 
     def test_filter_spatially(self):
         # test that the db is split by a given spatial boundary
@@ -272,7 +290,7 @@ class TestGTFSFilter(unittest.TestCase):
         self.assertEqual(len(gtfs1.get_table("stop_times").index) + 41, len(gtfs2.get_table("stop_times").index))
         conns = [gtfs1, gtfs2]
         fnames = [self.fname1, self.fname2]
-        remove_unmatching_stops_multi(conns, fnames, 2, distance_type="d")
+        remove_unmatching_stops_multi(conns, fnames, 2)
         gtfs1 = GTFS(self.fname1)
         gtfs2 = GTFS(self.fname2)
         self.assertEqual(len(gtfs1.stops().index) + 1, stop_table_old_length)
@@ -296,7 +314,7 @@ class TestGTFSFilter(unittest.TestCase):
         self.assertEqual(len(gtfs1.get_table("stop_times").index) + 41, len(gtfs2.get_table("stop_times").index))
         conns = [gtfs1, gtfs2]
         fnames = [self.fname1, self.fname2]
-        remove_unmatching_stops_multi(conns, fnames, 1000, distance_type="d")
+        remove_unmatching_stops_multi(conns, fnames, 1000)
         gtfs1 = GTFS(self.fname1)
         gtfs2 = GTFS(self.fname2)
         self.assertEqual(len(gtfs1.stops().index), stop_table_old_length)

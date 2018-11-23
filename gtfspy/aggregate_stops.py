@@ -1,7 +1,13 @@
 import networkx
 import sqlite3
 import pandas as pd
+import math
 from gtfspy.gtfs import GTFS
+from shapely.geometry import Point, MultiPoint
+from geopandas import GeoDataFrame, sjoin
+from gtfspy.util import get_utm_srid_from_wgs
+
+crs_wgs = {'init': 'epsg:4326'}
 
 
 def merge_stops_tables(gtfs_self, gtfs_other):
@@ -101,50 +107,48 @@ def merge_stops_tables(gtfs_self, gtfs_other):
     g_other.conn.commit()
 
 
-def remove_unmatching_stops_multi(gtfs_cons, new_gtfs_paths, max_distance=500, distance_type="d"):
+def remove_unmatching_stops_multi(gtfs_cons, new_gtfs_paths, max_distance=500):
     from gtfspy.filter import FilterExtract
-    query = """
-                WITH 
-                    a AS (
-                    SELECT DISTINCT stop_I FROM stop_times),
-                    
-                    b AS (
-                    SELECT DISTINCT to_stop_I AS stop_I FROM stop_distances, a
-                    WHERE from_stop_I = a.stop_I and {distance_type} <= {max_distance})
-                
-                SELECT * FROM b""".format(max_distance=max_distance, distance_type=distance_type)
-    query2 = """SELECT DISTINCT stop_I FROM stop_times"""
+    print("removing unmatching stops")
     candidate_stops = []
     for gtfs in gtfs_cons:
-        df1 = gtfs.execute_custom_query_pandas(query)
-        df2 = gtfs.execute_custom_query_pandas(query2)
-        stops_within_threshold = set(df1["stop_I"])
-        all_active_stops = set(df2["stop_I"])
-        stops_within_threshold = stops_within_threshold | all_active_stops
-        candidate_stops.append(stops_within_threshold)
+        all_stops = gtfs.stops()
+        active_stops = gtfs.stops(require_reference_in_stop_times=True, exclude_parent_stops=True)
 
+        all_stops_gdf, srid = _to_utm_gdf(all_stops)
+        all_stops_orig = all_stops_gdf
+        active_stops_gdf, _ = _to_utm_gdf(active_stops)
+        active_stops_gdf["geometry"] = active_stops_gdf["geometry"].buffer(max_distance)
+        active_stops_gdf["everything"] = 1
+        active_stops_gdf = active_stops_gdf[["geometry", "everything"]]
+        active_stops_gdf = active_stops_gdf.dissolve(by="everything")
+
+        all_stops_gdf = sjoin(all_stops_gdf, active_stops_gdf, how="left", op='within')
+
+        stops_within_threshold_gdf = all_stops_gdf.loc[all_stops_gdf.index_right == 1]
+        stops_within_threshold = set(stops_within_threshold_gdf["stop_I"].tolist())
+        candidate_stops.append(stops_within_threshold)
     stops_intersection = set.intersection(*candidate_stops)
     stops_union = set.union(*candidate_stops)
+
     if len(stops_intersection) == len(stops_union):
         print("no stops to remove")
     for gtfs, new_gtfs_path in zip(gtfs_cons, new_gtfs_paths):
-        fe = FilterExtract(gtfs, new_gtfs_path, stops_to_keep=stops_intersection)
+        fe = FilterExtract(gtfs, new_gtfs_path, stops_to_keep=stops_intersection,
+                           split_trips_partially_outside_buffer=False)
         fe.create_filtered_copy()
 
 
 def merge_stops_tables_multi(gtfs_cons, threshold_meters=5):
     """
-    Takes the stops from multiple feeds and adds everything into a master stop list, with a feed
+    Takes the stops from multiple feeds and adds everything into a master stop dataframe, with a feed
     identifier column.
-    The list is spatially aggregated, pairing all stop_Is + feed identifier with a universal stop_pair_I.
+    The dataframe is spatially aggregated, pairing all stop_Is + feed identifier with a universal stop_pair_I.
     The stop_pair_I is added to all feed databases.
     The unmatched stops for each DB is also added: stop_pair_Is not present among the original stops of each feed
     stop_Is of the feeds are replaced with stop_pair_I along with all references to stop_I
     """
-
-    lens = [len(x.execute_custom_query_pandas("SELECT * FROM stops")) for x in gtfs_cons]
-    to_be_added = []
-    to_be_updated = []
+    print("merging stop tables")
     df = pd.DataFrame()
     for i, gtfs in enumerate(gtfs_cons):
         print(i)
@@ -175,7 +179,7 @@ def merge_stops_tables_multi(gtfs_cons, threshold_meters=5):
 
     for i, gtfs in enumerate(gtfs_cons):
         i_upd_df = df.loc[df.gtfs_id == i].copy()
-        to_be_updated.append(i_upd_df)
+        # to_be_updated.append(i_upd_df)
         i_add_df = df_all_default_stops.loc[~(df_all_default_stops.stop_pair_I.isin(i_upd_df.stop_pair_I))].copy()
         #print(i_add_df)
         print("to add:", len(i_add_df.index), "rows")
@@ -184,23 +188,28 @@ def merge_stops_tables_multi(gtfs_cons, threshold_meters=5):
             gtfs.execute_custom_query("""ALTER TABLE stops ADD COLUMN stop_pair_I INT""")
         except:
             pass
-        query_update = "UPDATE stops SET stop_pair_I = ? WHERE stop_I = (?)"
-        rows_to_update = [(int(x), int(y)) for x, y in list(i_upd_df[['stop_pair_I', 'stop_I']].itertuples(index=False, name=None))]
+        query_update = "UPDATE stops SET stop_pair_I = ?, lat = ?, lon = ? WHERE stop_I = (?)"
+        rows_to_update = [(int(a), float(b), float(c), int(d)) for a, b, c, d in
+                          list(i_upd_df[['stop_pair_I', 'lat', 'lon', 'stop_I']].itertuples(index=False, name=None))]
         gtfs.conn.executemany(query_update, rows_to_update)
         gtfs.replace_stop_i_with_stop_pair_i(colname="stop_pair_I")
 
         rows_to_add = []
 
         for j, items in enumerate(i_add_df.itertuples(index=False)):
-            rows_to_add.append((int(items.stop_pair_I),
-                                "__added__{i}_{j}__".format(i=i, j=j) + str(items.stop_id),
-                                str(items.code),
-                                str(items.name),
-                                str(items.desc),
-                                float(items.lat),
-                                float(items.lon),
-                                int(items.location_type) if items.location_type else items.location_type,
-                                bool(items.wheelchair_boarding)))
+            try:
+                rows_to_add.append((int(items.stop_pair_I),
+                                    "__added__{i}_{j}__".format(i=i, j=j) + str(items.stop_id),
+                                    str(items.code),
+                                    str(items.name),
+                                    str(items.desc),
+                                    float(items.lat),
+                                    float(items.lon),
+                                    int(items.location_type) if isinstance(items.location_type, (int, float)) else items.location_type,
+                                    bool(items.wheelchair_boarding)))
+            except:
+                print(items)
+                raise
 
         query_add_row = """INSERT INTO stops(stop_I,
                                     stop_id,
@@ -282,6 +291,22 @@ def aggregate_stops_spatially(gtfs, threshold_meters=2, order_by=None):
     gtfs.conn.commit()
 
 
+def _to_utm_gdf(df):
+    """
+    Converts pandas dataframe with lon and lat columns to a geodataframe with a UTM projection
+    :param df:
+    :return:
+    """
+    df["geometry"] = df.apply(lambda row: Point((row["lon"], row["lat"])), axis=1)
+
+    gdf = GeoDataFrame(df, crs=crs_wgs, geometry=df["geometry"])
+    origin_centroid = MultiPoint(gdf["geometry"].tolist()).centroid
+    srid = {'init': 'epsg:{srid}'.format(srid=get_utm_srid_from_wgs(origin_centroid.x, origin_centroid.y))}
+
+    gdf = gdf.to_crs(crs=srid)
+    return gdf, srid
+
+
 def _cluster_stops_multi(df, distance):
     """
 
@@ -289,16 +314,10 @@ def _cluster_stops_multi(df, distance):
     :param distance: int, meters
     :return:
     """
-    from shapely.geometry import Point
-    from geopandas import GeoDataFrame, sjoin
-    from gtfspy.util import wgs84_height
-    crs_wgs = {'init': 'epsg:4326'}
+    gdf, srid = _to_utm_gdf(df)
 
-    df["geometry"] = df.apply(lambda row: Point((row["lon"], row["lat"])), axis=1)
-
-    gdf = GeoDataFrame(df, crs=crs_wgs, geometry=df["geometry"])
     gdf_poly = gdf.copy()
-    gdf_poly["geometry"] = gdf_poly["geometry"].buffer(wgs84_height(distance))
+    gdf_poly["geometry"] = gdf_poly["geometry"].buffer(distance)
     gdf_poly["everything"] = 1
     gdf_poly = gdf_poly.dissolve(by="everything")
 
@@ -306,12 +325,14 @@ def _cluster_stops_multi(df, distance):
     for geoms in gdf_poly["geometry"]:
         polygons = [polygon for polygon in geoms]
 
-    single_parts = GeoDataFrame(crs=crs_wgs, geometry=polygons)
+    single_parts = GeoDataFrame(crs=srid, geometry=polygons)
     single_parts['stop_pair_I'] = single_parts.index
     gdf_joined = sjoin(gdf, single_parts, how="left", op='within')
     single_parts["geometry"] = single_parts.centroid
     gdf_joined = gdf_joined.drop('geometry', 1)
     centroid_stops = single_parts.merge(gdf_joined, on="stop_pair_I")
+
+    centroid_stops = centroid_stops.to_crs(crs_wgs)
     centroid_stops["lat"] = centroid_stops.apply(lambda row: row.geometry.y, axis=1)
     centroid_stops["lon"] = centroid_stops.apply(lambda row: row.geometry.x, axis=1)
     centroid_stops = centroid_stops.drop('geometry', 1)

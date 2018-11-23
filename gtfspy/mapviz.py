@@ -49,7 +49,7 @@ def _get_median_centered_plot_bounds(g):
 
 def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None,
                                  map_alpha=0.8, scalebar=True, legend=True,
-                                 return_smopy_map=False, map_style=None):
+                                 return_smopy_map=False, map_style=None, use_shapes=True):
     """
     Parameters
     ----------
@@ -75,7 +75,7 @@ def plot_route_network_from_gtfs(g, ax=None, spatial_bounds=None,
     ax: matplotlib.axes.Axes
     """
     assert (isinstance(g, GTFS))
-    route_shapes = g.get_all_route_shapes()
+    route_shapes = g.get_all_route_shapes(use_shapes)
 
     if spatial_bounds is None:
         spatial_bounds = get_spatial_bounds(g, as_dict=True)
@@ -355,9 +355,12 @@ def plot_route_network_thumbnail(g, map_style=None):
     return plot_route_network_from_gtfs(g, ax, spatial_bounds, map_alpha=1.0, scalebar=False, legend=False,
                                         map_style=map_style)
 
-def plot_stops_with_categorical_attributes_with_smopy_helper(lats_list, lons_list, attributes_list, labels=None, s=1, spatial_bounds=None,
-                                           colorbar=False, ax=None, cmap=None, norm=None, alpha=None, colors=None,
-                                           markers=None, scalebar=True):
+
+def plot_stops_with_categorical_attributes_with_smopy_helper(lats_list, lons_list, attributes_list, labels=None, s=1,
+                                                             spatial_bounds=None,
+                                                             colorbar=False, ax=None, cmap=None, norm=None, alpha=None,
+                                                             colors=None,
+                                                             markers=None, scalebar=True):
     if not colors:
         colors = mcolors.BASE_COLORS
     if not markers:
@@ -381,37 +384,8 @@ def plot_stops_with_categorical_attributes_with_smopy_helper(lats_list, lons_lis
 
 
 def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list, s=1, spatial_bounds=None,
-                                           colorbar=False, ax=None, cmap=None, norm=None, alpha=None, colors=None, markers=None, scalebar=True):
-    if not colors:
-        colors = mcolors.BASE_COLORS
-
-def plot_stops_with_categorical_attributes_with_smopy_helper(lats_list, lons_list, attributes_list, labels=None, s=1, spatial_bounds=None,
-                                           colorbar=False, ax=None, cmap=None, norm=None, alpha=None, colors=None,
-                                           markers=None, scalebar=True):
-    if not colors:
-        colors = mcolors.BASE_COLORS
-    if not markers:
-        markers = ["."]*5
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection="smopy_axes")
-
-    axes = []
-    for lats, lons, attributes, c, marker, label in zip(lats_list, lons_list, attributes_list, colors, markers, labels):
-        ax.scatter(lons, lats, s=s, c=c, marker=marker, label=label)
-
-    if scalebar:
-        ax.add_scalebar()
-    if spatial_bounds:
-        ax.set_plot_bounds(**spatial_bounds)
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    return ax
-
-
-def plot_stops_with_categorical_attributes(lats_list, lons_list, attributes_list, s=1, spatial_bounds=None,
-                                           colorbar=False, ax=None, cmap=None, norm=None, alpha=None, colors=None, markers=None, scalebar=True):
+                                           colorbar=False, ax=None, cmap=None, norm=None, alpha=None,
+                                           colors=None, markers=None, scalebar=True):
     if not colors:
         colors = mcolors.BASE_COLORS
     if not markers:

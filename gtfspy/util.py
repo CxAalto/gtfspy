@@ -63,6 +63,18 @@ def wgs84_width(meters, lat):
     return meters / (R2 * TORADIANS)
 
 
+def get_utm_srid_from_wgs(lon, lat):
+    """this can be used for quicker distance calculations with projections using meters as native distance unit"""
+    # convert_wgs_to_utm function, see https://stackoverflow.com/questions/40132542/get-a-cartesian-projection-accurate-around-a-lat-lng-pair
+    utm_band = str((math.floor((lon + 180) / 6) % 60) + 1)
+    if len(utm_band) == 1:
+        utm_band = '0'+utm_band
+    if lat >= 0:
+        epsg_code = '326' + utm_band
+    else:
+        epsg_code = '327' + utm_band
+    return epsg_code
+
 # cython implementation of this.  It is called _often_.
 try:
     from gtfspy.cutil import wgs84_distance
@@ -201,6 +213,10 @@ def to_date_string(date):
 def ut_to_utc_datetime_str(time_ut):
     dt = datetime.datetime.utcfromtimestamp(time_ut)
     return dt.strftime("%b %d %Y %H:%M:%S")
+
+
+def ut_to_utc_datetime(time_ut, tz):
+    return datetime.datetime.fromtimestamp(time_ut, tz)
 
 
 def str_time_to_day_seconds(time_string):

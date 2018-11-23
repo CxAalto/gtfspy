@@ -5,7 +5,7 @@ from gtfspy import calc_transfers
 from gtfspy.aggregate_stops import aggregate_stops_spatially, merge_stops_tables_multi
 from gtfspy.gtfs import GTFS
 from gtfspy.filter import FilterExtract
-
+from gtfspy.util import timeit
 
 class AggregateStopsTest(unittest.TestCase):
     def setUp(self):
@@ -67,3 +67,28 @@ class AggregateStopsTest(unittest.TestCase):
         n_stops_after2 = len(gtfs2.stops())
         self.assertEqual(n_stops_after1, n_stops_after2, "The dbs should have the same stops")
         return n_stops_after1, n_stops_before1
+
+    def test_calc_transfers(self):
+        import numpy as np
+        s = 1000
+        d = 0.01
+        samp1 = np.random.uniform(low=-d, high=d, size=(s,))
+        samp2 = np.random.uniform(low=-d, high=d, size=(s,))
+
+        for i, (s1, s2) in enumerate(zip(samp1, samp2)):
+            self.gtfs.add_stop(str(i), "Amargosa Valley (Demo)", "Phantom_stop", "", 36.641496+s1, -116.40094+s2)
+        self._calc_transfers_new()
+        print("n_stop_distances", len(self.gtfs.get_table("stop_distances").index))
+        self.setUp()
+        for i, (s1, s2) in enumerate(zip(samp1, samp2)):
+            self.gtfs.add_stop(str(i), "Amargosa Valley (Demo)", "Phantom_stop", "", 36.641496+s1, -116.40094+s2)
+        self._calc_transfers_old()
+        print("n_stop_distances", len(self.gtfs.get_table("stop_distances").index))
+
+    @timeit
+    def _calc_transfers_old(self):
+        calc_transfers.calc_transfers(self.gtfs.conn)
+
+    @timeit
+    def _calc_transfers_new(self):
+        calc_transfers.calc_transfers_using_geopandas(self.gtfs.conn)

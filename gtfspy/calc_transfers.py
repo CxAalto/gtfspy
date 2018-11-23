@@ -41,12 +41,12 @@ def _get_geo_hash_precision(search_radius_in_km):
 
 
 def calc_transfers(conn, threshold_meters=1000):
+    g = GTFS(conn)
+    cursor = conn.cursor()
     geohash_precision = _get_geo_hash_precision(threshold_meters / 1000.)
     geo_index = GeoGridIndex(precision=geohash_precision)
-    g = GTFS(conn)
     stops = g.get_table("stops")
     stop_geopoints = []
-    cursor = conn.cursor()
 
     for stop in stops.itertuples():
         stop_geopoint = GeoPoint(stop.lat, stop.lon, ref=stop.stop_I)
@@ -78,6 +78,55 @@ def calc_transfers(conn, threshold_meters=1000):
                                [None] * n_pairs, [None] * n_pairs))
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_sd_fsid ON stop_distances (from_stop_I);')
         conn.commit()
+
+
+def calc_transfers_using_geopandas(conn, threshold_meters=1000, return_sd_table=False, sd_table=None):
+    """
+    This ended up as slower/as fast compared to the original calc_transfers function.
+    Performance depends on how the points are distributed
+    :return:
+    """
+    from geopandas import GeoDataFrame, sjoin
+    from gtfspy.util import get_utm_srid_from_wgs
+    from shapely.geometry import Point, MultiPoint
+
+    g = GTFS(conn)
+    cursor = conn.cursor()
+    gdf_joined = sd_table
+    if gdf_joined is None:
+        stops = g.get_table("stops")
+        crs_wgs = {'init': 'epsg:4326'}
+
+        stops["geometry"] = stops.apply(lambda row: Point((row["lon"], row["lat"])), axis=1)
+
+        gdf = GeoDataFrame(stops, crs=crs_wgs, geometry=stops["geometry"])
+        origin_centroid = MultiPoint(gdf["geometry"].tolist()).centroid
+        srid = get_utm_srid_from_wgs(origin_centroid.x, origin_centroid.y)
+        gdf = gdf.to_crs({'init': 'epsg:{srid}'.format(srid=srid)})
+
+        gdf["from_stop_I"] = gdf["stop_I"]
+        gdf["point_a"] = gdf["geometry"]
+        gdf = gdf[["from_stop_I", "point_a", "geometry"]]
+        gdf_poly = gdf.copy()
+        gdf_poly["point_b"] = gdf_poly["point_a"]
+        gdf_poly["to_stop_I"] = gdf_poly["from_stop_I"]
+        gdf_poly = gdf_poly[["to_stop_I", "point_b", "geometry"]]
+
+        gdf_poly["geometry"] = gdf_poly["geometry"].buffer(threshold_meters)
+        gdf_joined = sjoin(gdf, gdf_poly, how="left", op='within')
+        gdf_joined["d"] = gdf_joined.apply(lambda row: int(row.point_a.distance(row.point_b)), axis=1)
+        gdf_joined = gdf_joined.loc[gdf_joined.from_stop_I != gdf_joined.to_stop_I]
+
+    n_pairs = len(gdf_joined.index)
+
+    cursor.executemany('INSERT OR REPLACE INTO stop_distances VALUES (?, ?, ?, ?, ?, ?);',
+                       zip(gdf_joined["from_stop_I"].tolist(), gdf_joined["to_stop_I"].tolist(),
+                           gdf_joined["d"].tolist(), [None] * n_pairs,
+                           [None] * n_pairs, [None] * n_pairs))
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_sd_fsid ON stop_distances (from_stop_I);')
+    conn.commit()
+    if return_sd_table:
+        return gdf_joined
 
 
 def _export_transfers(conn, fname):

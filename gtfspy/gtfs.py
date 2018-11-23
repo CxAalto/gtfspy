@@ -680,6 +680,28 @@ class GTFS(object):
                 else:
                     return row.date_str
 
+    def get_weekly_extract_start_date_based_on_max_week(self, ut=False):
+        daily_trip_counts = self.get_trip_counts_per_day()
+        feed_min_date = daily_trip_counts['date'].min()
+        feed_max_date = daily_trip_counts['date'].max()
+        assert (feed_max_date - feed_min_date >= datetime.timedelta(days=7)), \
+            "Dataset is not long enough for providing week long extracts"
+        daily_trip_counts["week"] = daily_trip_counts.apply(lambda row: row.date.isocalendar()[1], axis=1)
+        daily_trip_counts["year"] = daily_trip_counts.apply(lambda row: row.date.isocalendar()[0], axis=1)
+
+        daily_trip_counts_grouped = daily_trip_counts.groupby(["week", 'year'])
+        daily_trip_counts_grouped = daily_trip_counts_grouped.agg({'date': lambda x: x.iloc[0],
+                                                                   'date_str': lambda x: x.iloc[0],
+                                                                   'trip_counts': "sum"},  axis=1)
+        daily_trip_counts_grouped = daily_trip_counts_grouped.reset_index()
+        daily_trip_counts_grouped = daily_trip_counts_grouped.sort_values(['trip_counts'], ascending=False)
+        daily_trip_counts_grouped = daily_trip_counts_grouped.reset_index()
+
+        if ut:
+            return self.get_day_start_ut(daily_trip_counts_grouped.loc[0, "date_str"])
+        else:
+            return daily_trip_counts_grouped.loc[0, "date"]
+
     def get_weekly_extract_start_date(self, ut=False, weekdays_at_least_of_max=0.9, download_date_override=None):
         """
         Find a suitable weekly extract start date (monday).
@@ -1830,7 +1852,18 @@ class GTFS(object):
             self.execute_custom_query(
                 "CREATE TABLE stop_distances (from_stop_I INT, to_stop_I INT, d INT, d_walk INT, min_transfer_time INT, "
                 "timed_transfer INT, UNIQUE (from_stop_I, to_stop_I))")
-        calc_transfers(self.conn, max_distance)
+
+        return calc_transfers(self.conn, max_distance)
+
+    def recalculate_stop_distances2(self, max_distance, remove_old_table=False, return_sd_table=False, sd_table=None):
+        from gtfspy.calc_transfers import calc_transfers_using_geopandas
+        if remove_old_table:
+            self.execute_custom_query("DROP TABLE stop_distances")
+            self.execute_custom_query(
+                "CREATE TABLE stop_distances (from_stop_I INT, to_stop_I INT, d INT, d_walk INT, min_transfer_time INT, "
+                "timed_transfer INT, UNIQUE (from_stop_I, to_stop_I))")
+
+        return calc_transfers_using_geopandas(self.conn, max_distance, return_sd_table=return_sd_table, sd_table=sd_table)
 
     def attach_gtfs_database(self, gtfs_dir):
         cur = self.conn.cursor()

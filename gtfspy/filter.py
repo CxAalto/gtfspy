@@ -66,7 +66,8 @@ class FilterExtract(object):
                  trip_earliest_start_time_ut=None,
                  trip_latest_start_time_ut=None,
                  agency_ids_to_preserve=None,
-                 agency_distance=None):
+                 agency_distance=None,
+                 split_trips_partially_outside_buffer=True):
         """
         Copy a database, and then based on various filters.
         Only method `create_filtered_copy` is provided as we do not want to take the risk of
@@ -107,6 +108,13 @@ class FilterExtract(object):
         -------
         None
         """
+        self.gtfs = G
+        tz = self.gtfs.get_timezone_pytz()
+        self.start_time_ut = trip_earliest_start_time_ut
+        self.end_time_ut = trip_latest_start_time_ut
+        if self.start_time_ut and self.end_time_ut:
+            start_date = util.ut_to_utc_datetime(self.start_time_ut, tz)
+            end_date = util.ut_to_utc_datetime(self.end_time_ut, tz)
         if start_date and end_date:
             if isinstance(start_date, (datetime.datetime, datetime.date)):
                 self.start_date = start_date.strftime("%Y-%m-%d")
@@ -123,13 +131,12 @@ class FilterExtract(object):
         else:
             self.start_date = None
             self.end_date = None
-        self.start_time_ut = trip_earliest_start_time_ut
-        self.end_time_ut = trip_latest_start_time_ut
+
         self.copy_db_conn = None
         self.copy_db_path = copy_db_path
 
         self.agency_ids_to_preserve = agency_ids_to_preserve
-        self.gtfs = G
+        self.split_trips_partially_outside_buffer = split_trips_partially_outside_buffer
         self.buffer_lat = buffer_lat
         self.buffer_lon = buffer_lon
         self.buffer_distance_km = buffer_distance_km
@@ -204,7 +211,6 @@ class FilterExtract(object):
             }
             table_to_remove_map = \
                 {key: "WHERE NOT ( " + to_preserve + " );" for key, to_preserve in table_to_preserve_map.items()}
-
             # Ensure that process timezone is correct as we rely on 'localtime' in the SQL statements.
             GTFS(self.copy_db_conn).set_current_process_time_zone()
             # remove the 'source' entries from tables
@@ -213,6 +219,7 @@ class FilterExtract(object):
                               "filter_end_ut": str(end_date_ut)}
                 query = "DELETE FROM " + table + " " + \
                         query_template.format(**param_dict)
+
                 self.copy_db_conn.execute(query)
                 self.copy_db_conn.commit()
 
@@ -314,6 +321,9 @@ class FilterExtract(object):
                                                   self.buffer_distance_km,
                                                   update_secondary_data=False)
         elif self.stops_to_keep is not None:
+            remove_all_trips_fully_outside_buffer(self.copy_db_conn,
+                                                  stops_to_keep=self.stops_to_keep,
+                                                  update_secondary_data=False)
             print("stops to preserve", len(self.stops_to_keep))
         logging.info("Making spatial extract")
 
@@ -375,8 +385,13 @@ class FilterExtract(object):
                 stop_times_within_buffer_df = pandas.read_sql(STOPS_NOT_WITHIN_BUFFER__FOR_TRIP_SQL, self.copy_db_conn)
                 if stop_times_within_buffer_df['within'].all():
                     continue
-                else:
+                elif self.split_trips_partially_outside_buffer:
                     _split_trip(self.copy_db_conn, trip_I, stop_times_within_buffer_df)
+                else:
+                    # just delete the stop_times, without splitting trip
+                    self.copy_db_conn.execute("DELETE FROM stop_times WHERE stop_I NOT IN {stop_I_list}".format(
+                        stop_I_list=stops_within_buffer_string))
+
 
         # Delete all shapes that are not fully within the buffer to avoid shapes going outside
         # the buffer area in a some cases.
@@ -489,7 +504,7 @@ def add_wgs84_distance_function_to_db(conn):
     return function_name
 
 
-def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffer_km,
+def remove_all_trips_fully_outside_buffer(db_conn, center_lat=None, center_lon=None, buffer_km=None,
                                           update_secondary_data=True, stops_to_keep=None):
     """
     Not used in the regular filter process for the time being.
@@ -506,11 +521,15 @@ def remove_all_trips_fully_outside_buffer(db_conn, center_lat, center_lon, buffe
         stop_times, days, and day_trips2 tables.
         True recommended, unless you know what you are doing.
     """
-    distance_function_str = add_wgs84_distance_function_to_db(db_conn)
-    stops_within_buffer_query_sql = \
-        "SELECT stop_I FROM stops WHERE CAST(" + distance_function_str + \
-        "(lat, lon, {lat} , {lon}) AS INT) < {d_m}"\
-        .format(lat=float(center_lat), lon=float(center_lon), d_m=int(1000 * buffer_km))
+    if stops_to_keep is None:
+        distance_function_str = add_wgs84_distance_function_to_db(db_conn)
+        stops_within_buffer_query_sql = \
+            "SELECT stop_I FROM stops WHERE CAST(" + distance_function_str + \
+            "(lat, lon, {lat} , {lon}) AS INT) < {d_m}"\
+            .format(lat=float(center_lat), lon=float(center_lon), d_m=int(1000 * buffer_km))
+    else:
+        stops_within_buffer_query_sql = ",".join(str(x) for x in stops_to_keep)
+
     select_all_trip_Is_where_stop_I_is_within_buffer_sql = \
         "SELECT distinct(trip_I) FROM stop_times WHERE stop_I IN (" + stops_within_buffer_query_sql + ")"
     trip_Is_to_remove_sql = \
@@ -609,7 +628,7 @@ def _split_trip(copy_db_conn, orig_trip_I, stop_times_within_buffer_df):
         copy_db_conn.execute(stop_times_update_sql)
 
     copy_db_conn.execute("DELETE FROM trips WHERE trip_I={orig_trip_I}".format(orig_trip_I=orig_trip_I))
-    copy_db_conn.execute("DELETE from stop_times WHERE trip_I={orig_trip_I}".format(orig_trip_I=orig_trip_I))
+    copy_db_conn.execute("DELETE FROM stop_times WHERE trip_I={orig_trip_I}".format(orig_trip_I=orig_trip_I))
     copy_db_conn.execute("DELETE FROM shapes WHERE shape_id IN "
                          " (SELECT DISTINCT shapes.shape_id FROM shapes, trips "
                          "     WHERE trip_I={orig_trip_I} AND shapes.shape_id=trips.shape_id)"
