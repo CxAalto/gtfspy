@@ -22,9 +22,11 @@ class StopLoader(TableLoader):
                     desc          = decode_six(row['stop_desc']) if 'stop_desc' in row else None,
                     lat           = float(row['stop_lat']),
                     lon           = float(row['stop_lon']),
-                    _parent_id    = prefix + decode_six(row['parent_station']) if row.get('parent_station','') else None,
+                    _parent_id    = prefix + decode_six(row['parent_station']) if row.get('parent_station', '') and
+                                                                                  decode_six(row['stop_id']) !=
+                                                                                  decode_six(row['parent_station']) else None,
                     location_type = int(row['location_type']) if row.get('location_type') else None,
-                    wheelchair_boarding = int(row['wheelchair_boarding']) if row.get('wheelchair_boarding','') else None,
+                    wheelchair_boarding = int(row['wheelchair_boarding']) if row.get('wheelchair_boarding', '') else None,
                 )
 
     def post_import(self, cur):

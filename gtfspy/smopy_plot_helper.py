@@ -252,8 +252,8 @@ class SmopyAxes(Axes):
         lons = []
         lats = []
         for geometry in geometries:
-            lats = [segment[1] for segment in geometry.coords]
-            lons = [segment[0] for segment in geometry.coords]
+            lats.append([segment[1] for segment in geometry.coords])
+            lons.append([segment[0] for segment in geometry.coords])
 
         self.plot(lons, lats, **kwargs)
 

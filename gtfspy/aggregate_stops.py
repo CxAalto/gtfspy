@@ -113,11 +113,10 @@ def remove_unmatching_stops_multi(gtfs_cons, new_gtfs_paths, max_distance=500):
     candidate_stops = []
     for gtfs in gtfs_cons:
         all_stops = gtfs.stops()
-        active_stops = gtfs.stops(require_reference_in_stop_times=True, exclude_parent_stops=True)
+        active_stops = gtfs.stops(require_reference_in_stop_times=True)
 
-        all_stops_gdf, srid = _to_utm_gdf(all_stops)
-        all_stops_orig = all_stops_gdf
-        active_stops_gdf, _ = _to_utm_gdf(active_stops)
+        all_stops_gdf, srid = df_to_utm_gdf(all_stops)
+        active_stops_gdf, _ = df_to_utm_gdf(active_stops)
         active_stops_gdf["geometry"] = active_stops_gdf["geometry"].buffer(max_distance)
         active_stops_gdf["everything"] = 1
         active_stops_gdf = active_stops_gdf[["geometry", "everything"]]
@@ -129,6 +128,7 @@ def remove_unmatching_stops_multi(gtfs_cons, new_gtfs_paths, max_distance=500):
         stops_within_threshold = set(stops_within_threshold_gdf["stop_I"].tolist())
         candidate_stops.append(stops_within_threshold)
     stops_intersection = set.intersection(*candidate_stops)
+
     stops_union = set.union(*candidate_stops)
 
     if len(stops_intersection) == len(stops_union):
@@ -151,16 +151,16 @@ def merge_stops_tables_multi(gtfs_cons, threshold_meters=5):
     print("merging stop tables")
     df = pd.DataFrame()
     for i, gtfs in enumerate(gtfs_cons):
-        print(i)
-        new_df = gtfs.execute_custom_query_pandas("SELECT stop_I, stop_id, code, name, desc, lat, lon, "
+        new_df = gtfs.stops(exclude_parent_stops=False)
+        """execute_custom_query_pandas("SELECT stop_I, stop_id, code, name, desc, lat, lon, "
                                                           "CAST(parent_I AS INT) AS parent_I, "
                                                           "CAST(location_type AS INT) AS location_type,  "
                                                           "CAST(wheelchair_boarding AS INT) AS wheelchair_boarding, "
                                                           "self_or_parent_I"
-                                                          " FROM stops")
+                                                          " FROM stops")"""
         new_df["gtfs_id"] = i
         df = df.append(new_df)
-        print(len(new_df.index))
+        print("feed", i, "has", len(new_df.index), "stops")
     df = df.reset_index(drop=True)
     """
     min_stop_pair = df.copy()
@@ -173,6 +173,11 @@ def merge_stops_tables_multi(gtfs_cons, threshold_meters=5):
 
     # create a df of all stops without stop_pair_I duplicates
     df_all_default_stops = df.copy()
+    df_all_default_parent_stops = df_all_default_stops.loc[~(df_all_default_stops.location_type == 0 |
+                                                             df_all_default_stops.location_type.isnull())]
+
+    df_all_default_stops = df_all_default_stops.loc[df_all_default_stops.location_type == 0 |
+                                                    df_all_default_stops.location_type.isnull()]
     agg_dict = {i: lambda x: x.iloc[0] for i in list(df_all_default_stops)}
     df_all_default_stops = df_all_default_stops.groupby(by=['stop_pair_I']).agg(agg_dict,  axis=1)
     df_all_default_stops = df_all_default_stops.reset_index(drop=True)
@@ -291,7 +296,7 @@ def aggregate_stops_spatially(gtfs, threshold_meters=2, order_by=None):
     gtfs.conn.commit()
 
 
-def _to_utm_gdf(df):
+def df_to_utm_gdf(df):
     """
     Converts pandas dataframe with lon and lat columns to a geodataframe with a UTM projection
     :param df:
@@ -314,7 +319,7 @@ def _cluster_stops_multi(df, distance):
     :param distance: int, meters
     :return:
     """
-    gdf, srid = _to_utm_gdf(df)
+    gdf, srid = df_to_utm_gdf(df)
 
     gdf_poly = gdf.copy()
     gdf_poly["geometry"] = gdf_poly["geometry"].buffer(distance)
@@ -327,10 +332,10 @@ def _cluster_stops_multi(df, distance):
 
     single_parts = GeoDataFrame(crs=srid, geometry=polygons)
     single_parts['stop_pair_I'] = single_parts.index
-    gdf_joined = sjoin(gdf, single_parts, how="left", op='within')
+    gdf = sjoin(gdf, single_parts, how="left", op='within')
     single_parts["geometry"] = single_parts.centroid
-    gdf_joined = gdf_joined.drop('geometry', 1)
-    centroid_stops = single_parts.merge(gdf_joined, on="stop_pair_I")
+    gdf = gdf.drop('geometry', 1)
+    centroid_stops = single_parts.merge(gdf, on="stop_pair_I")
 
     centroid_stops = centroid_stops.to_crs(crs_wgs)
     centroid_stops["lat"] = centroid_stops.apply(lambda row: row.geometry.y, axis=1)

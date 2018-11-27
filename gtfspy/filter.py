@@ -486,11 +486,10 @@ def delete_stops_not_in_stop_times_and_not_as_parent_stop(conn, stops_to_keep=No
     _STOPS_REFERENCED_IN_STOP_TIMES_OR_AS_PARENT_STOP_I_SQL = \
         "SELECT DISTINCT stop_I FROM stop_times " \
         "UNION " \
-        "SELECT DISTINCT parent_I as stop_I FROM stops WHERE parent_I IS NOT NULL"
+        "SELECT DISTINCT parent_I AS stop_I FROM stops WHERE parent_I IS NOT NULL AND stop_I != parent_I"
     DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL = \
         "DELETE FROM stops WHERE stop_I NOT IN (" + \
         _STOPS_REFERENCED_IN_STOP_TIMES_OR_AS_PARENT_STOP_I_SQL + ")" + stops_to_keep_string
-    # TODO: make it so that stops in stops_to_keep are note deleted. also remember the stop_distances entries
     # It is possible that there is some "parent_I" recursion going on, and thus we
     # execute the same SQL query three times.
     conn.execute(DELETE_STOPS_NOT_REFERENCED_IN_STOP_TIMES_AND_NOT_PARENT_STOP_SQL)
