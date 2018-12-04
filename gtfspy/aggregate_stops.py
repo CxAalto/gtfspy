@@ -2,10 +2,10 @@ import networkx
 import sqlite3
 import pandas as pd
 import math
-from gtfspy.gtfs import GTFS
-from shapely.geometry import Point, MultiPoint
 from geopandas import GeoDataFrame, sjoin
-from gtfspy.util import get_utm_srid_from_wgs
+
+from gtfspy.gtfs import GTFS
+from gtfspy.util import df_to_utm_gdf
 
 crs_wgs = {'init': 'epsg:4326'}
 
@@ -296,20 +296,7 @@ def aggregate_stops_spatially(gtfs, threshold_meters=2, order_by=None):
     gtfs.conn.commit()
 
 
-def df_to_utm_gdf(df):
-    """
-    Converts pandas dataframe with lon and lat columns to a geodataframe with a UTM projection
-    :param df:
-    :return:
-    """
-    df["geometry"] = df.apply(lambda row: Point((row["lon"], row["lat"])), axis=1)
 
-    gdf = GeoDataFrame(df, crs=crs_wgs, geometry=df["geometry"])
-    origin_centroid = MultiPoint(gdf["geometry"].tolist()).centroid
-    srid = {'init': 'epsg:{srid}'.format(srid=get_utm_srid_from_wgs(origin_centroid.x, origin_centroid.y))}
-
-    gdf = gdf.to_crs(crs=srid)
-    return gdf, srid
 
 
 def _cluster_stops_multi(df, distance):

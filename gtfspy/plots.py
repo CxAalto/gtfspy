@@ -1,5 +1,6 @@
 import pandas
 from matplotlib import pyplot as plt
+import matplotlib.dates as mdates
 
 """
 A collection of various useful plots.
@@ -42,6 +43,35 @@ def plot_trip_counts_per_day(G, ax=None, highlight_dates=None, highlight_date_la
             color = "C" + str(int(i % 8 + 1))
             highlight_date = pandas.to_datetime(highlight_date)
             ax.axvline(highlight_date, color=color, label=label)
+    ax.legend(loc="best")
+    ax.grid()
+    if show:
+        plt.show()
+    return ax
+
+
+def plot_trip_counts_hourly(gtfs, ax=None, show=False):
+    """
+    Parameters
+    ----------
+    gtfs: gtfspy.GTFS
+    ax: maptlotlib.Axes, optional
+    show: bool, optional
+        whether or not to immediately show the results
+
+    Returns
+    -------
+    ax: maptlotlib.Axes object
+    """
+    daily_trip_counts = gtfs.get_continuous_trip_count()
+    if ax is None:
+        _fig, ax = plt.subplots()
+    daily_trip_counts["datetime"] = pandas.to_datetime(daily_trip_counts["date_str"])
+    daily_trip_counts.plot("date", "trip_counts", kind="line", ax=ax, marker="o", color="C0", ls=":",
+                           label="Trip counts")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Active trip count")
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d %Y %H:%M:%S", tz=gtfs.get_timezone_pytz()))
     ax.legend(loc="best")
     ax.grid()
     if show:

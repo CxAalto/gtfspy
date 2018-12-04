@@ -14,6 +14,10 @@ import networkx
 import numpy
 import pandas as pd
 
+from shapely.geometry import Point, MultiPoint, LineString, MultiLineString, MultiPolygon
+from shapely.wkt import loads
+from geopandas import GeoDataFrame
+
 """
 Various unrelated utility functions.
 """
@@ -25,6 +29,7 @@ os.umask(current_umask)
 
 TORADIANS = 3.141592653589793 / 180.
 EARTH_RADIUS = 6378137.
+crs_wgs = {'init': 'epsg:4326'}
 
 
 def set_process_timezone(TZ):
@@ -215,8 +220,12 @@ def ut_to_utc_datetime_str(time_ut):
     return dt.strftime("%b %d %Y %H:%M:%S")
 
 
-def ut_to_utc_datetime(time_ut, tz):
-    return datetime.datetime.fromtimestamp(time_ut, tz)
+def ut_to_utc_datetime(time_ut, tz=None, as_string=False):
+    if as_string:
+        dt = datetime.datetime.fromtimestamp(time_ut, tz)
+        return dt.strftime("%b %d %Y %H:%M:%S")
+    else:
+        return datetime.datetime.fromtimestamp(time_ut, tz)
 
 
 def str_time_to_day_seconds(time_string):
@@ -395,3 +404,45 @@ def difference_of_pandas_dfs(df_self, df_other, col_names=None):
     idx = [x[0] for x in list(df_gpby.groups.values()) if len(x) == 2]
     df_diff = df_diff.reindex(idx)
     return df_diff
+
+
+def df_to_utm_gdf(df):
+    """
+    Converts pandas dataframe with lon and lat columns to a geodataframe with a UTM projection
+    :param df:
+    :return:
+    """
+    if "wkt" in list(df):
+        df["geometry"] = df["wkt"].apply(lambda x: loads(x))
+
+    elif "lat" in list(df) and "lon" in list(df):
+        df["geometry"] = df.apply(lambda row: Point((row["lon"], row["lat"])), axis=1)
+
+    elif all(["from_lon" in list(df), "from_lat" in list(df), "to_lon" in list(df), "to_lat" in list(df)]):
+        df["geometry"] = df.apply(lambda row: LineString([Point(row.from_lon, row.from_lat),
+                                                          Point(row.to_lon, row.to_lat)]), axis=1)
+    else:
+        raise NameError
+
+    gdf = GeoDataFrame(df, crs=crs_wgs, geometry=df["geometry"])
+    if gdf.geom_type[0] == 'Point':
+        origin_centroid = MultiPoint(gdf["geometry"].tolist()).centroid
+    elif gdf.geom_type[0] == 'LineString':
+        origin_centroid = MultiLineString(gdf["geometry"].tolist()).centroid
+    elif gdf.geom_type[0] == 'Polygon':
+        origin_centroid = MultiPolygon(gdf["geometry"].tolist()).centroid
+    else:
+        raise NameError
+
+    crs = {'init': 'epsg:{srid}'.format(srid=get_utm_srid_from_wgs(origin_centroid.x, origin_centroid.y))}
+
+    gdf = gdf.to_crs(crs=crs)
+    return gdf, crs
+
+
+def utm_to_wgs(gdf):
+    gdf = gdf.to_crs(crs_wgs)
+    gdf["lat"] = gdf.apply(lambda row: row.geometry.y, axis=1)
+    gdf["lon"] = gdf.apply(lambda row: row.geometry.x, axis=1)
+    gdf = gdf.drop('geometry', 1)
+    return gdf

@@ -40,7 +40,6 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         return fpa
 
     def unpack_fastest_path_journeys(self):
-        # TODO: generalized cost function
         if not self.fastest_path_labels:
             self.fastest_path_labels = self.fpa.get_labels_faster_than_walk()
         self._unpack_journeys(self.fastest_path_labels)
@@ -55,6 +54,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         :param labels:
         :return:
         """
+        if not labels:
+            print("No labels for", self.origin_stop)
         labels = sorted(list(labels), key=lambda x: x.departure_time)
 
         connection_list = []
@@ -154,6 +155,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
             cur_label = cur_label.previous_label
         boarding_stops = [int(x) for x in boarding_stops]
+
         return origin_stop, target_stop, leg_value_list, boarding_stops, all_stops
 
     def assign_path_letters(self, features_to_check):
@@ -323,7 +325,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                     "number_of_fp_journeys": self.number_of_fp_journeys,
                     "most_probable_journey_variant": self.most_probable_journey_variant,
                     "most_probable_departure_stop": self.most_probable_departure_stop,
-                    "journey_variant_weighted_simpson": self.journey_variant_weighted_diversity,
+                    # "journey_variant_weighted_simpson": self.journey_variant_weighted_diversity,
                     "time_weighted_simpson": self.time_weighted_diversity,
                     "avg_circuity": self.avg_circuity,
                     "avg_speed": self.avg_journey_speed,

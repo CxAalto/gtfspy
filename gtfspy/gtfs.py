@@ -17,7 +17,7 @@ from six import string_types
 from gtfspy import shapes
 from gtfspy.route_types import ALL_ROUTE_TYPES
 from gtfspy.route_types import WALK
-from gtfspy.util import wgs84_distance, wgs84_width, wgs84_height, set_process_timezone
+from gtfspy.util import wgs84_distance, wgs84_width, wgs84_height, set_process_timezone, ut_to_utc_datetime_str, ut_to_utc_datetime
 
 
 class GTFS(object):
@@ -649,6 +649,28 @@ class GTFS(object):
         for date_string in trip_counts_per_day.index:
             assert date_string in date_strings
         data = {"date": dates, "date_str": date_strings, "trip_counts": trip_counts}
+        return pd.DataFrame(data)
+
+    def get_continuous_trip_count(self):
+        day_trips = self.get_table("day_trips2")
+        all_time_stamps = set(day_trips["end_time_ut"]) | set(day_trips["start_time_ut"])
+
+        change_dict = {x: 0 for x in all_time_stamps}
+        for index, row in day_trips.iterrows():
+            change_dict[row.start_time_ut] += 1
+            change_dict[row.end_time_ut] -= 1
+        all_time_stamps = list(all_time_stamps)
+        all_time_stamps.sort()
+        trip_counts = []
+        prev_value = 0
+        for t in all_time_stamps:
+            cur_value = change_dict[t]+prev_value
+            trip_counts.append(cur_value)
+            prev_value = cur_value
+        time_stamps = [ut_to_utc_datetime(x, tz=self.get_timezone_pytz()) for x in all_time_stamps]
+        time_stamps_str = [ut_to_utc_datetime_str(x) for x in all_time_stamps]
+
+        data = {"date": time_stamps, "date_str": time_stamps_str, "trip_counts": trip_counts}
         return pd.DataFrame(data)
 
     def get_suitable_date_for_daily_extract(self, date=None, ut=False):
