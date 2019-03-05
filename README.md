@@ -66,7 +66,7 @@ More precise versioning scheme will be decided upon later.
 ## Authors
 
 ### Package maintainers
-* Rainer Kujala (Rainer.Kujala@gmail.com)
+* Rainer Kujala
 * Richard Darst
 * Christoffer Weckström
 
