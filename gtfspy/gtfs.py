@@ -885,7 +885,7 @@ class GTFS(object):
         return lat, lon
 
     def get_bounding_box_by_stops(self, stop_Is=None, scale_ratio=None):
-        if stop_Is is not None:
+        if stop_Is is None:
             stop_Is = self.stops()
             stop_Is = stop_Is["stop_I"].tolist()
         lats = []

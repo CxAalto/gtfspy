@@ -442,7 +442,11 @@ def df_to_utm_gdf(df):
 
 def utm_to_wgs(gdf):
     gdf = gdf.to_crs(crs_wgs)
-    gdf["lat"] = gdf.apply(lambda row: row.geometry.y, axis=1)
-    gdf["lon"] = gdf.apply(lambda row: row.geometry.x, axis=1)
+    if gdf.geom_type[0] == 'Point':
+        gdf["lat"] = gdf.apply(lambda row: row.geometry.y, axis=1)
+        gdf["lon"] = gdf.apply(lambda row: row.geometry.x, axis=1)
+    elif gdf.geom_type[0] == 'LineString' or gdf.geom_type[0] == 'Polygon':
+        gdf["coord_seq"] = gdf.apply(lambda row: list(row.geometry.coords), axis=1)
+
     gdf = gdf.drop('geometry', 1)
     return gdf

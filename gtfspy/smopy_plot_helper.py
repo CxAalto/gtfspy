@@ -14,6 +14,7 @@ import numpy
 
 from gtfspy import util
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR, ROUTE_TYPE_TO_SHORT_DESCRIPTION
+from gtfspy.custom_scalebar import CustomScaleBar
 
 MAP_STYLE_OSM_DEFAULT = "openstreetmap_default"
 MAP_STYLE_LIGHT_ALL = "light_all"
@@ -63,6 +64,7 @@ class SmopyAxes(Axes):
 
     def __init__(self, *args, **kwargs):
         super(SmopyAxes, self).__init__(*args, **kwargs)
+        self.map_style = kwargs.pop("map_style", "light_nolabels")
         self.smopy_map = None
         self.lon_min = None
         self.lon_max = None
@@ -145,8 +147,8 @@ class SmopyAxes(Axes):
         for (lons, lats, s, kwords) in self.prev_text:
             self.text(lons, lats, s, update=False, **kwords)
 
-    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None, map_style="dark_nolabels"):
-        with using_smopy_map_style(map_style):
+    def _init_smopy_map(self, lon_min, lon_max, lat_min, lat_max, z=None):
+        with using_smopy_map_style(self.map_style):
             args = (lat_min, lat_max, lon_min, lon_max, smopy.TILE_SERVER, z)
             if args not in self.maps:
                 kwargs = {}
@@ -206,43 +208,47 @@ class SmopyAxes(Axes):
         self.set_xlim(xs)
         self.set_ylim(ys)
 
-    def add_scalebar(self):
+    def add_scalebar(self, **kwargs):
         distance_m = util.wgs84_distance(self.lat_min, self.lon_min, self.lat_min, self.lon_max)
         xs, ys = self.smopy_map.to_pixels(numpy.array([self.lat_min, self.lat_min]),
                                           numpy.array([self.lon_min, self.lon_max]))
-        scalebar = ScaleBar(distance_m / (xs.max() - xs.min()))
+        scalebar = CustomScaleBar(dx=distance_m / (xs.max() - xs.min()), **kwargs)
         self.add_artist(scalebar)
 
-    def plot_line_segments(self, coords=None,
-                           linewidths=None,
-                           color=None,
-                           zorders=None,
+    def plot_line_segments(self, coords,
+                           linewidths,
+                           colors,
+                           zorders,
                            update=True, **kwargs):
         """
 
         :param coords: list of coordinate trajectories eg: [(row.from_lon, row.from_lat), (row.to_lon, row.to_lat)]
         :param linewidths: list
-        :param color: list
+        :param colors: list
         :param zorders:
         :param kwargs:
         :return:
         """
         lons = [x[0][0] for x in coords] + [x[1][0] for x in coords]
         lats = [x[0][1] for x in coords] + [x[1][1] for x in coords]
-        #self.set_map_bounds(min(lons), max(lons), min(lats), max(lats))
         lons = numpy.array(lons)
         lats = numpy.array(lats)
 
         if update:
-            if not self.smopy_map or not self.map_fixed:
-                self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
+            raise NotImplementedError
+            #if not self.smopy_map or not self.map_fixed:
+                #self.smopy_map = self._get_smopy_map_from_coords(lons, lats)
                 #self.prev_plots.append((lons, lats, dict(**kwargs)))
 
         xy_coords = [[self.smopy_map.to_pixels(x[0][1], x[0][0]), self.smopy_map.to_pixels(x[1][1], x[1][0])] for x in coords]
+        for zorder in set(zorders):
 
-        lc = LineCollection(xy_coords, linewidths=linewidths,
-                            color=color)
-        return super().add_collection(lc)
+            lc = LineCollection([x for x, z in zip(xy_coords, zorders) if zorder == z],
+                                linewidths=[x for x, z in zip(linewidths, zorders) if zorder == z],
+                                color=[x for x, z in zip(colors, zorders) if zorder == z],
+                                zorder=zorder)
+            super().add_collection(lc)
+        return
 
     def plot_geometry(self, geometries, **kwargs):
         if not hasattr(geometries, '__iter__'):
@@ -256,8 +262,6 @@ class SmopyAxes(Axes):
             lons.append([segment[0] for segment in geometry.coords])
 
         self.plot(lons, lats, **kwargs)
-
-
 
 @contextmanager
 def using_smopy_map_style(map_style):
