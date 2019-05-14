@@ -51,7 +51,7 @@ class CustomScaleBar(ScaleBar):
         pad = _get_value('pad', 0.2)
         border_pad = _get_value('border_pad', 0.1)
         sep = _get_value('sep', 5)
-        frameon = _get_value('frameon', True)
+        frameon = _get_value('frameon', False)
         color = _get_value('color', 'k')
         sec_color = 'w'
         box_color = _get_value('box_color', 'w')

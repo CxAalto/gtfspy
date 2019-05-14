@@ -246,7 +246,7 @@ class SmopyAxes(Axes):
             lc = LineCollection([x for x, z in zip(xy_coords, zorders) if zorder == z],
                                 linewidths=[x for x, z in zip(linewidths, zorders) if zorder == z],
                                 color=[x for x, z in zip(colors, zorders) if zorder == z],
-                                zorder=zorder)
+                                zorder=zorder, **kwargs)
             super().add_collection(lc)
         return
 

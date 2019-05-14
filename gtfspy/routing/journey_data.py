@@ -351,7 +351,7 @@ class JourneyDataManager:
 
     def get_table_with_coordinates(self, table_name, target=None):
         df = self.get_table_as_dataframe(table_name, target)
-        return self.gtfs.add_coordinates_to_df(df, join_column='from_stop_I')
+        return self.gtfs.add_coordinates_to_df(df, stop_id_column='from_stop_I')
 
     def get_table_as_dataframe(self, table_name, to_stop_I_target=None):
         query = "SELECT * FROM " + table_name
@@ -875,7 +875,7 @@ class DiffDataManager:
 
     def get_table_with_coordinates(self, gtfs, table_name, target=None, use_relative=False):
         df = self.get_table_as_dataframe(table_name, use_relative, target)
-        return gtfs.add_coordinates_to_df(df, join_column='from_stop_I')
+        return gtfs.add_coordinates_to_df(df, stop_id_column='from_stop_I')
 
     def get_table_as_dataframe(self, table_name, use_relative, target=None):
         if use_relative:

@@ -135,8 +135,8 @@ class JourneyDataAnalyzer:
                      GROUP BY from_stop_I, to_stop_I, type""" % (str(origin), str(target), added_constraints)
         df = read_sql_query(query, self.conn)
         if add_coordinates:
-            df = self.g.add_coordinates_to_df(df, join_column="from_stop_I", lat_name="from_lat", lon_name="from_lon")
-            df = self.g.add_coordinates_to_df(df, join_column="to_stop_I", lat_name="to_lat", lon_name="to_lon")
+            df = self.g.add_coordinates_to_df(df, stop_id_column="from_stop_I", lat_name="from_lat", lon_name="from_lon")
+            df = self.g.add_coordinates_to_df(df, stop_id_column="to_stop_I", lat_name="to_lat", lon_name="to_lon")
         return df
 
     def get_journey_routes_not_in_other_db(self, target, other_journey_conn, fastest_path=True, min_boardings=False, all_leg_sections=True,
@@ -185,7 +185,7 @@ class JourneyDataAnalyzer:
                     GROUP BY route) sq1
                     GROUP BY from_stop_I, to_stop_I""" % (target, start_time, end_time)
         df = read_sql_query(query, self.conn)
-        df = self.g.add_coordinates_to_df(df, join_column="from_stop_I")
+        df = self.g.add_coordinates_to_df(df, stop_id_column="from_stop_I")
 
         return df
 
@@ -202,13 +202,13 @@ class JourneyDataAnalyzer:
                     GROUP BY route) sq2
                     GROUP BY from_stop_I, to_stop_I""" % (start_time, end_time, start_time, end_time, target)
         df = read_sql_query(query, self.conn)
-        df = self.g.add_coordinates_to_df(df, join_column="from_stop_I")
+        df = self.g.add_coordinates_to_df(df, stop_id_column="from_stop_I")
 
         return df
 
     def _add_to_from_coordinates_to_df(self, df):
-        df = self.g.add_coordinates_to_df(df, join_column="from_stop_I", lat_name="from_lat", lon_name="from_lon")
-        df = self.g.add_coordinates_to_df(df, join_column="to_stop_I", lat_name="to_lat", lon_name="to_lon")
+        df = self.g.add_coordinates_to_df(df, stop_id_column="from_stop_I", lat_name="from_lat", lon_name="from_lon")
+        df = self.g.add_coordinates_to_df(df, stop_id_column="to_stop_I", lat_name="to_lat", lon_name="to_lon")
         return df
 
     def get_upstream_stops(self, target, stop):

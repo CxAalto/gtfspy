@@ -1,11 +1,15 @@
 import datetime
 from matplotlib import dates as md
+from matplotlib import pyplot as plt
+
+from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
 from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAnalyzerTimeAndVehLegs
 from gtfspy.routing.label import LabelTimeBoardingsAndRoute, LabelTimeAndRoute
 from gtfspy.routing.connection import Connection
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
 from gtfspy.smopy_plot_helper import legend_pt_modes
 from gtfspy.routing.transfer_penalties import get_fastest_path_analyzer_after_transfer_penalties
+from research.route_diversity.rd_utils import seconds_to_minutes
 
 
 class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
@@ -26,6 +30,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         self.journey_set_variants = None
         self.journey_waits = None
         self.variant_proportions = None
+        self.pre_journey_waits = None
         self.walk_to_target_duration = walk_to_target_duration
         self.unpack_fastest_path_journeys()
         self.journey_letters, self.stop_dict = None, None
@@ -40,6 +45,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         return fpa
 
     def unpack_fastest_path_journeys(self):
+        # TODO: change this to unpack all labels, and indicate the fp labels in some other way
+        #
         if not self.fastest_path_labels:
             self.fastest_path_labels = self.fpa.get_labels_faster_than_walk()
         self._unpack_journeys(self.fastest_path_labels)
@@ -68,6 +75,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
             assert (isinstance(label, LabelTimeAndRoute) or isinstance(label, LabelTimeBoardingsAndRoute))
             # We need to "unpack" the journey to actually figure out where the trip went
             # (there can be several targets).
+            # TODO: look into why the weird label thing happens:
             if label.departure_time == label.arrival_time_target:
                 print("Weird label:", label)
                 continue
@@ -200,7 +208,20 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 _, leg_type = (None, -1) if leg["trip_id"] == -1 else self.gtfs.get_route_name_and_type_of_tripI(leg["trip_id"])
                 yield lats, lons, leg_type
 
-    def _aggregate_time_weights(self, stop_tuple=None, pre_journey_waits=None, walk_is_optimal_duration=None):
+    def leg_generator(self, use_leg_stops=False):
+        journeys = self.connection_list
+        for journey in journeys:
+            for leg in journey:
+                dict_to_yield = {key: value for key, value in leg.items() if key in ["dep_stop", "arr_stop", "trip_id"]}
+                if use_leg_stops:
+                    leg_stops = [{"dep_stop": a, "arr_stop": b} for a, b in zip(leg["leg_stops"][:-1], leg["leg_stops"][1:])]
+                    for leg_stop in leg_stops:
+                        dict_to_yield.update(leg_stop)
+                        yield dict_to_yield.copy()
+                else:
+                    yield dict_to_yield
+
+    def _aggregate_time_weights(self, stop_tuple=None, walk_is_optimal_duration=None):
         """
         Collects the data needed for self.journey_set_variants, and self.variant_proportions, that is all journey
         variants and the proportion of those in time
@@ -209,21 +230,21 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         :param walk_is_optimal_duration: int
         :return:
         """
-        if not pre_journey_waits:
-            pre_journey_waits, walk_is_optimal_duration = self.fpa.calculate_pre_journey_waiting_times_to_list()
+        if not self.pre_journey_waits:
+            self.pre_journey_waits, walk_is_optimal_duration = self.fpa.calculate_pre_journey_waiting_times_to_list()
 
         if stop_tuple:
             stop_tuple = [tuple(x) for x in stop_tuple]
         else:
             stop_tuple = self.journey_boarding_stops
 
-        if not pre_journey_waits and not walk_is_optimal_duration:
+        if not self.pre_journey_waits and not walk_is_optimal_duration:
             self.journey_set_variants = None
             self.variant_proportions = None
             return
 
         weight_dict = {x: 0 for x in set(stop_tuple)}
-        for stop_set, pre_journey_wait in zip(stop_tuple, pre_journey_waits):
+        for stop_set, pre_journey_wait in zip(stop_tuple, self.pre_journey_waits):
             weight_dict[stop_set] += pre_journey_wait
         if walk_is_optimal_duration > 0:
             weight_dict[tuple({self.origin_stop})] = walk_is_optimal_duration
@@ -236,7 +257,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
     def plot_journey_graph(self, ax, format_string="%H:%M:%S"):
         """
-        for first leg, print start and end stop name, then only end stop. Departure and arrival time determine line trajectory, route type, the color
+        for first leg, print start and end stop name, then only end stop. Departure and arrival time determine line
+        trajectory, route type, the color
         Print route name/or type over each line segment
         :return:
                         {
@@ -269,8 +291,6 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 n_stops = len(leg["leg_stops"])
                 dep_time, arr_time = _ut_to_unloc_datetime(leg["dep_time"]), _ut_to_unloc_datetime(leg["arr_time"])
 
-
-
                     #ax.text(dep_time + (prev_arr_time - dep_time)/2, y_level+1, "wait", fontsize=font_size, color="black")
 
                 if not leg["trip_id"] == -1:
@@ -286,17 +306,19 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                     ax.plot([walk_end, arr_time], [y_level, y_level], ':', c=ROUTE_TYPE_TO_COLOR[-1])
                     route_types.add("wait")
 
-
                 else:
                     if prev_arr_time and dep_time - prev_arr_time > datetime.timedelta(0):
                         ax.plot([prev_arr_time, dep_time], [y_level, y_level], ':', c=ROUTE_TYPE_TO_COLOR[-1])
 
                     ax.plot([dep_time, arr_time], [y_level, y_level], c=ROUTE_TYPE_TO_COLOR[route_type])
-                    ax.text((arr_time + (dep_time - arr_time)/2), y_level - datetime.timedelta(seconds=30), route_name, fontsize=font_size,
+                    ax.text((arr_time + (dep_time - arr_time)/2), y_level - datetime.timedelta(seconds=30), route_name,
+                            fontsize=font_size,
                             color="black", ha='center')
 
-                    text_string = "for {0} stops".format(n_stops-2) if n_stops-2 > 1 else "for 1 stop" if n_stops-2 == 1 else ""
-                    ax.text((arr_time + (dep_time - arr_time)/2), y_level + datetime.timedelta(seconds=70), text_string, fontsize=font_size-2,
+                    text_string = "for {0} stops".format(n_stops-2) if n_stops-2 > 1 else "for 1 stop" \
+                        if n_stops-2 == 1 else ""
+                    ax.text((arr_time + (dep_time - arr_time)/2), y_level + datetime.timedelta(seconds=70), text_string,
+                            fontsize=font_size-2,
                             color="black", ha='center')
 
                 if leg["seq"] == 1:
@@ -325,20 +347,50 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                     "number_of_fp_journeys": self.number_of_fp_journeys,
                     "most_probable_journey_variant": self.most_probable_journey_variant,
                     "most_probable_departure_stop": self.most_probable_departure_stop,
-                    # "journey_variant_weighted_simpson": self.journey_variant_weighted_diversity,
                     "time_weighted_simpson": self.time_weighted_diversity,
                     "avg_circuity": self.avg_circuity,
                     "avg_speed": self.avg_journey_speed,
                     "mean_temporal_distance": self.mean_temporal_distance_minutes,
-                    "mean_trip_n_boardings": self.mean_n_boardings_on_shortest_paths}
+                    "mean_trip_n_boardings": self.mean_n_boardings_on_shortest_paths,
+                    "largest_headway_gap": self.largest_headway_gap,
+                    "expected_pre_journey_waiting_time": self.expected_pre_journey_waiting_time}
         if measures:
             return {pm: value() for pm, value in pm_calls.items() if pm in measures}
 
         return {pm: value() for pm, value in pm_calls.items()}
-    # TODO: frequency of most probable journey variant
 
+    @seconds_to_minutes
+    def largest_headway_gap(self):
+        if self.pre_journey_waits:
+            return max(self.pre_journey_waits)
+        else:
+            return None
+
+    @seconds_to_minutes
+    def expected_pre_journey_waiting_time(self):
+        if not self.pre_journey_waits:
+            return None
+        elif max(self.pre_journey_waits) == 0:
+            return 0
+        else:
+            proportions = [x/sum(self.pre_journey_waits) for x in self.pre_journey_waits]
+            expected_waits = [x/2 for x in self.pre_journey_waits]
+            return sum([x*y for x, y in zip(proportions, expected_waits)])
+
+    def expected_waiting_time_at_most_probable_stop(self):
+        pass
+
+    def frequency_of_most_common_journey_variant(self):
+        """
+        starting data: origin stop, destination stop,
+        journey trips -> trips using same trajectory
+        :return:
+        """
+        pass
+
+    @seconds_to_minutes
     def mean_temporal_distance_minutes(self):
-        return round(self.mean_temporal_distance()/60.0, 2)
+        return self.mean_temporal_distance()
 
     def number_of_journey_variants(self):
         if not self.journey_set_variants:
@@ -406,7 +458,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         if not avg_journey_trajectory_length or not avg_journey_duration:
             return None
         else:
-            return avg_journey_trajectory_length/avg_journey_duration
+            return 3.6*avg_journey_trajectory_length/avg_journey_duration
 
     def journey_variant_weighted_diversity(self):
         return self.simpson_diversity(stop_sets=self.journey_boarding_stops)
@@ -509,3 +561,15 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
             sim = b/(a+b)
 
             return sor, sim
+
+    def plot_fastest_temporal_distance_profile(self, timezone=None, **kwargs):
+        if "ax" not in kwargs:
+            fig = plt.figure(figsize=(10, 6))
+            ax = fig.add_subplot(111)
+            kwargs["ax"] = ax
+        npat = NodeProfileAnalyzerTime(self.fastest_path_labels, self.walk_to_target_duration,
+                                       self.start_time_dep, self.end_time_dep)
+
+        fig = npat.plot_temporal_distance_profile(timezone=timezone,
+                                                  **kwargs)
+        return fig
