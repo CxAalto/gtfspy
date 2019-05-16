@@ -45,15 +45,15 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         njpa = self._get_analyzer(label_list, 0, 700, float("inf"))
 
-        self.assertEqual(njpa.all_journey_stops, [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
+        self.assertEqual(njpa.get_fp_all_journey_stops(), [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
         self.assertEqual(njpa.journey_set_variants, [(791, 1090)])
 
         njpa = self._get_analyzer(label_list, 0, 700, 600)
-        self.assertEqual(njpa.all_journey_stops, [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
+        self.assertEqual(njpa.get_fp_all_journey_stops(), [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
         self.assertEqual(set(njpa.journey_set_variants), {(791, 1090), (791,)})
 
         njpa = self._get_analyzer(label_list, 0, 700, 500)
-        self.assertEqual(njpa.all_journey_stops, [])
+        self.assertEqual(njpa.get_fp_all_journey_stops(), [])
         self.assertEqual(set(njpa.journey_set_variants), {(791,)})
 
     def test_basic_diversity(self):
@@ -62,7 +62,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         njpa.journey_set_variants = [(1, 2, 3), (1, 3, 4), (3, 4, 5)]
         njpa.variant_proportions = [1/3, 1/3, 1/3]
-        njpa.fastest_path_labels = 3*self._get_simple_label_list()
+        njpa.labels_faster_than_walk = 3 * self._get_simple_label_list()
 
         self.assertEqual(njpa.most_probable_departure_stop(), 2/3)
         self.assertEqual(njpa.most_probable_journey_variant(), 1/3)
@@ -73,7 +73,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         njpa.journey_set_variants = [frozenset({3, 4, 5})]
         njpa.variant_proportions = [1]
-        njpa.fastest_path_labels = self._get_simple_label_list()
+        njpa.labels_faster_than_walk = self._get_simple_label_list()
 
         self.assertEqual(njpa.most_probable_departure_stop(), 1)
         self.assertEqual(njpa.most_probable_journey_variant(), 1)
@@ -84,7 +84,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         njpa.journey_set_variants = []
         njpa.variant_proportions = []
-        njpa.fastest_path_labels = []
+        njpa.labels_faster_than_walk = []
 
         self.assertEqual(njpa.most_probable_departure_stop(), None)
         self.assertEqual(njpa.most_probable_journey_variant(), None)
@@ -98,7 +98,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         njpa.journey_set_variants = []
         njpa.variant_proportions = []
-        njpa.fastest_path_labels = []
+        njpa.labels_faster_than_walk = []
 
         self.assertEqual(njpa.most_probable_departure_stop(), None)
         self.assertEqual(njpa.most_probable_journey_variant(), None)
@@ -109,7 +109,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         njpa.journey_set_variants = [frozenset({1, 2, 3}), frozenset({1, 2, 3}), frozenset({1, 2, 3})]
         njpa.variant_proportions = [1]
-        njpa.fastest_path_labels = 3*self._get_simple_label_list()
+        njpa.labels_faster_than_walk = 3 * self._get_simple_label_list()
 
         self.assertEqual(njpa.most_probable_departure_stop(), 1)
         self.assertEqual(njpa.most_probable_journey_variant(), 1)

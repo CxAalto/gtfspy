@@ -1,6 +1,9 @@
 import datetime
+from collections import Counter
+
 from matplotlib import dates as md
 from matplotlib import pyplot as plt
+from pandas import DataFrame
 
 from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
 from gtfspy.routing.node_profile_analyzer_time_and_veh_legs import NodeProfileAnalyzerTimeAndVehLegs
@@ -15,42 +18,58 @@ from research.route_diversity.rd_utils import seconds_to_minutes
 class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
     """Subclass of NodeProfileAnalyzerTimeAndVehLegs, with extended support for route trajectories"""
-    def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep, origin_stop, gtfs=None,
-                 transfer_penalty_seconds=0):
+    def __init__(self, labels, walk_to_target_duration, start_time_dep, end_time_dep, origin_stop,
+                 transfer_penalty_seconds=0, gtfs=None):
         super().__init__(labels, walk_to_target_duration, start_time_dep, end_time_dep,
                          transfer_penalty_seconds=transfer_penalty_seconds)
-        self.fastest_path_labels = None
+        self.candidate_labels = self._get_labels_faster_than_walk()
+        self.unpacked_df = None
         self.gtfs = gtfs
         self.origin_stop = origin_stop
         self.target_stop = None
         self.transfer_penalty_seconds = transfer_penalty_seconds
-        # self.fpa = super(NodeJourneyPathAnalyzer, self)._get_fastest_path_analyzer()
         self.fpa = self._get_fastest_path_analyzer()
         self.journey_boarding_stops = None
         self.journey_set_variants = None
         self.journey_waits = None
         self.variant_proportions = None
         self.pre_journey_waits = None
-        self.walk_to_target_duration = walk_to_target_duration
         self.unpack_fastest_path_journeys()
-        self.journey_letters, self.stop_dict = None, None
+        self.processed_labels = None
 
     def _get_fastest_path_analyzer(self):
-        fpa = get_fastest_path_analyzer_after_transfer_penalties(self.all_labels,
-                                                                 self.start_time_dep,
-                                                                 self.end_time_dep,
-                                                                 walk_duration=self._walk_to_target_duration,
-                                                                 label_props_to_consider=["n_boardings"],
-                                                                 transfer_penalty_seconds=self.transfer_penalty_seconds)
-        return fpa
+        self.fpa = get_fastest_path_analyzer_after_transfer_penalties(self.all_labels,
+                                                                      self.start_time_dep,
+                                                                      self.end_time_dep,
+                                                                      walk_duration=self._walk_to_target_duration,
+                                                                      label_props_to_consider=["n_boardings"],
+                                                                      transfer_penalty_seconds=self.transfer_penalty_seconds)
+        return self.fpa
 
     def unpack_fastest_path_journeys(self):
-        # TODO: change this to unpack all labels, and indicate the fp labels in some other way
-        #
-        if not self.fastest_path_labels:
-            self.fastest_path_labels = self.fpa.get_labels_faster_than_walk()
-        self._unpack_journeys(self.fastest_path_labels)
+        self._unpack_journeys(self.candidate_labels)
+        self.assign_path_letters()
+        self.add_fastest_path_column()
+
+    def fp_colname(self):
+        return "fp_"+str(self.transfer_penalty_seconds)
+
+    def add_fastest_path_column(self, transfer_penalty=None):
+        if transfer_penalty:
+            self.transfer_penalty_seconds = transfer_penalty
+        fpa = self._get_fastest_path_analyzer()
+        fp_labels = [(label.departure_time, label.n_boardings) for label in
+                     fpa.get_labels_faster_than_walk()]
+        self.unpacked_df[self.fp_colname()] = False
+        self.unpacked_df.loc[self.unpacked_df["label_tuple"].isin(fp_labels), self.fp_colname()] = True
+
         self._aggregate_time_weights()
+
+        return self.unpacked_df
+
+    def _get_labels_faster_than_walk(self):
+        return [x for x in self.all_labels if (x.arrival_time_target - x.departure_time) <=
+                self._walk_to_target_duration]
 
     def _unpack_journeys(self, labels):
         """
@@ -64,13 +83,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         if not labels:
             print("No labels for", self.origin_stop)
         labels = sorted(list(labels), key=lambda x: x.departure_time)
-
-        connection_list = []
-        journey_boarding_stops = []
-        all_journey_stops = []
-        origin_stop = None
         target_stop = None
-        all_stops = None
+        unpacked_list = []
         for label in labels:
             assert (isinstance(label, LabelTimeAndRoute) or isinstance(label, LabelTimeBoardingsAndRoute))
             # We need to "unpack" the journey to actually figure out where the trip went
@@ -84,17 +98,33 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
             if origin_stop == target_stop:
                 continue
 
-            connection_list.append(leg_value_list)
-            journey_boarding_stops.append(boarding_stops)
-            all_journey_stops.append(all_stops)
+            unpacked_list.append({"connection_list": leg_value_list,
+                                  "journey_boarding_stops": tuple(boarding_stops),
+                                  "all_journey_stops": all_stops,
+                                  "label_tuple": (label.departure_time, label.n_boardings),
+                                  "label": label})
 
-        # self.origin_stop = origin_stop
         self.target_stop = target_stop
-        self.journey_boarding_stops = [tuple(x) for x in journey_boarding_stops]
-        self.connection_list = connection_list
-        self.all_journey_stops = all_journey_stops
+        self.unpacked_df = DataFrame(unpacked_list)
+        return self.unpacked_df
 
-    def _collect_connection_data(self, label):
+    def get_fp_connection_list(self):
+        return self.unpacked_df["connection_list"].loc[self.unpacked_df[self.fp_colname()]].tolist()
+
+    def get_fp_journey_boarding_stops(self):
+        return self.unpacked_df["journey_boarding_stops"].loc[self.unpacked_df[self.fp_colname()]].tolist()
+
+    def get_fp_all_journey_stops(self):
+        return self.unpacked_df["all_journey_stops"].loc[self.unpacked_df[self.fp_colname()]].tolist()
+
+    def get_fp_labels(self):
+        return self.unpacked_df["label"].loc[self.unpacked_df[self.fp_colname()]].tolist()
+
+    def get_fp_path_letters(self):
+        return self.unpacked_df["path_letters"].loc[self.unpacked_df[self.fp_colname()]].tolist()
+
+    @staticmethod
+    def _collect_connection_data(label):
         target_stop = None
         origin_stop = label.connection.departure_stop
         cur_label = label
@@ -166,7 +196,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
         return origin_stop, target_stop, leg_value_list, boarding_stops, all_stops
 
-    def assign_path_letters(self, features_to_check):
+    def assign_path_letters(self):
         """
         Function that assigns a littera for each journey variant that can be used in journey plots and temporal distance plots
 
@@ -180,28 +210,33 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         variant_dict = {}
 
         def letter_generator():
-            journey_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-            for letter in journey_letters:
-                yield letter
+            journey_letters = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            for f_letter in [""] + journey_letters:
+                for s_letter in journey_letters:
+                    yield f_letter+s_letter
 
         lg = letter_generator()
-        for feature in features_to_check:
+        for feature in self.unpacked_df["journey_boarding_stops"]:
             if feature not in variant_dict.keys():
-                variant_dict[feature] = next(lg)
-
-        stop_dict = {}
-        for variant, letter in variant_dict.items():
-            for stop in variant:
                 try:
-                    stop_dict[stop] += [letter]
-                except KeyError:
-                    stop_dict[stop] = [letter]
-        self.journey_letters = [variant_dict[x] for x in features_to_check]
-        self.stop_dict = stop_dict
-        return self.journey_letters, self.stop_dict
+                    variant_dict[feature] = next(lg)
+                except:
+                    print(lg)
+        self.unpacked_df["path_letters"] = self.unpacked_df.apply(lambda row: variant_dict[row.journey_boarding_stops],
+                                                                  axis=1)
+
+    def path_letters_for_stops(self):
+        journey_boarding_stops = self.get_fp_journey_boarding_stops()
+        path_letters = self.get_fp_path_letters()
+        stop_dict = {}
+        for variant, letter in zip(journey_boarding_stops, path_letters):
+            for stop in variant:
+                stop_dict.setdefault(stop, set())
+                stop_dict[stop] = set.union(stop_dict[stop], {letter})
+        return stop_dict
 
     def get_journey_trajectories(self):
-        journeys = self.connection_list
+        journeys = self.get_fp_connection_list()
         for journey in journeys:
             for leg in journey:
                 lats, lons = zip(*[self.gtfs.get_stop_coordinates(x) for x in leg["leg_stops"]])
@@ -209,7 +244,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                 yield lats, lons, leg_type
 
     def leg_generator(self, use_leg_stops=False):
-        journeys = self.connection_list
+        journeys = self.get_fp_connection_list()
         for journey in journeys:
             for leg in journey:
                 dict_to_yield = {key: value for key, value in leg.items() if key in ["dep_stop", "arr_stop", "trip_id"]}
@@ -236,7 +271,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         if stop_tuple:
             stop_tuple = [tuple(x) for x in stop_tuple]
         else:
-            stop_tuple = self.journey_boarding_stops
+            stop_tuple = self.get_fp_journey_boarding_stops()
 
         if not self.pre_journey_waits and not walk_is_optimal_duration:
             self.journey_set_variants = None
@@ -281,7 +316,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         font_size = 7
         wait_length = None
         route_types = set()
-        for journey, letter in zip(self.connection_list, self.journey_letters):
+        for journey, letter in zip(self.get_fp_connection_list(), self.get_fp_path_letters()):
             for leg in journey:
                 if leg["seq"] == 1:
                     prev_arr_time = None
@@ -345,6 +380,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
     def get_simple_diversities(self, measures=None):
         pm_calls = {"number_of_journey_variants": self.number_of_journey_variants,
                     "number_of_fp_journeys": self.number_of_fp_journeys,
+                    "number_of_most_common_journey_variant": self.number_of_most_common_journey_variant,
                     "most_probable_journey_variant": self.most_probable_journey_variant,
                     "most_probable_departure_stop": self.most_probable_departure_stop,
                     "time_weighted_simpson": self.time_weighted_diversity,
@@ -380,12 +416,15 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
     def expected_waiting_time_at_most_probable_stop(self):
         pass
 
-    def frequency_of_most_common_journey_variant(self):
+    def number_of_most_common_journey_variant(self):
         """
         starting data: origin stop, destination stop,
         journey trips -> trips using same trajectory
         :return:
         """
+        return max(Counter(self.unpacked_df["path_letters"].tolist()).values())
+
+    def fp_journeys_proportion_of_all_journeys(self):
         pass
 
     @seconds_to_minutes
@@ -398,12 +437,12 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         return len(self.journey_set_variants)
 
     def number_of_fp_journeys(self):
-        if self.walk_to_target_duration < float("inf") and len(self.fastest_path_labels) == 0:
+        if self._walk_to_target_duration < float("inf") and len(self.get_fp_labels()) == 0:
             return float("inf")
-        elif self.walk_to_target_duration == float("inf") and len(self.fastest_path_labels) == 0:
+        elif self._walk_to_target_duration == float("inf") and len(self.get_fp_labels()) == 0:
             return None
         else:
-            return len(self.fastest_path_labels)
+            return len(self.get_fp_labels())
 
     def most_probable_journey_variant(self):
         if not self.variant_proportions:
@@ -420,8 +459,9 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
     def avg_journey_trajectory_length(self):
         journey_distances = []
-        if self.all_journey_stops:
-            for journey_stops in self.all_journey_stops:
+        all_journey_stops = self.get_fp_all_journey_stops()
+        if all_journey_stops:
+            for journey_stops in all_journey_stops:
                 distance = sum([self.gtfs.get_distance_between_stops_euclidean(prev_stop, stop)
                                 for prev_stop, stop in zip(journey_stops, journey_stops[1:])])
                 journey_distances.append(distance)
@@ -432,8 +472,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
     def avg_journey_duration(self):
         # TODO: decide if this should be avg journey duration, weighted avg jd or temporal distance
         journey_durations = []
-        if self.fastest_path_labels:
-            for label in self.fastest_path_labels:
+        if self.get_fp_labels():
+            for label in self.get_fp_labels():
                 journey_durations.append(label.arrival_time_target - label.departure_time)
             return sum(journey_durations)/len(journey_durations)
         else:
@@ -461,7 +501,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
             return 3.6*avg_journey_trajectory_length/avg_journey_duration
 
     def journey_variant_weighted_diversity(self):
-        return self.simpson_diversity(stop_sets=self.journey_boarding_stops)
+        return self.simpson_diversity(stop_sets=self.get_fp_journey_boarding_stops())
 
     def time_weighted_diversity(self):
         return self.simpson_diversity(weights=self.variant_proportions)
@@ -567,7 +607,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
             fig = plt.figure(figsize=(10, 6))
             ax = fig.add_subplot(111)
             kwargs["ax"] = ax
-        npat = NodeProfileAnalyzerTime(self.fastest_path_labels, self.walk_to_target_duration,
+        npat = NodeProfileAnalyzerTime(self.get_fp_labels(), self._walk_to_target_duration,
                                        self.start_time_dep, self.end_time_dep)
 
         fig = npat.plot_temporal_distance_profile(timezone=timezone,

@@ -42,7 +42,8 @@ nra = NodeJourneyPathAnalyzer(labels[from_stop_I], walk_times[from_stop_I], ROUT
 fig = plt.figure()
 ax1 = fig.add_subplot(221)
 
-journey_path_letters, stop_letter_dict = nra.assign_path_letters(nra.journey_boarding_stops)
+journey_path_letters = nra.get_fp_path_letters()
+stop_letter_dict = nra.path_letters_for_stops()
 nra.plot_fastest_temporal_distance_profile(ax=ax1,
                                            timezone=tz,
                                            plot_journeys=True,
