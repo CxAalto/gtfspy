@@ -10,14 +10,18 @@ class TestNodeJourneyPathAnalyzer(TestCase):
     def setUp(self):
         self.label_class = LabelTimeBoardingsAndRoute
 
-    def _get_analyzer(self, labels, start_time, end_time, walk_to_target_duration=float('inf')):
+    @staticmethod
+    def _get_analyzer(labels, start_time, end_time, walk_to_target_duration=float('inf')):
         analyzer = NodeJourneyPathAnalyzer(labels, walk_to_target_duration, start_time, end_time, origin_stop=791)
         return analyzer
 
-    def _get_simple_label_list(self):
-        return self._get_incremented_label_list(0)
+    def _get_simple_label_list(self, increments=None):
+        if not increments:
+            increments = [100, 200, 300]
+        return [self._get_incremented_label(x)[0] for x in increments]
 
-    def _get_incremented_label_list(self, increment):
+    @staticmethod
+    def _get_incremented_label(increment):
         connection_1c = Connection(1117, 1040, 420+increment, 714+increment, None, True, float("inf"))
         connection_1b = Connection(1090, 1117, 300+increment, 420+increment, 1, False, 600)
         connection_1a = Connection(791, 1090, 180+increment, 300+increment, 121017, False, 480)
@@ -28,10 +32,6 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         return [label_1a]
 
-    def test_calculate_pre_journey_waiting_times_to_list(self):
-        
-        pass
-
     def test_unpackjourneys(self):
         """
         Cases to include,
@@ -41,7 +41,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         """
         label_list = []
         for i in [0, 600]:
-            label_list += self._get_incremented_label_list(increment=i)
+            label_list += self._get_incremented_label(increment=i)
 
         njpa = self._get_analyzer(label_list, 0, 700, float("inf"))
 
@@ -57,39 +57,37 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         self.assertEqual(set(njpa.journey_set_variants), {(791,)})
 
     def test_basic_diversity(self):
+        """
+        This tests the measures that are based on njpa.journey_set_variants and njpa.variant_proportions
+        :return:
+        """
         label_list = self._get_simple_label_list()
         njpa = self._get_analyzer(label_list, 0, 1000, float("inf"))
 
         njpa.journey_set_variants = [(1, 2, 3), (1, 3, 4), (3, 4, 5)]
         njpa.variant_proportions = [1/3, 1/3, 1/3]
-        njpa.labels_faster_than_walk = 3 * self._get_simple_label_list()
 
         self.assertEqual(njpa.most_probable_departure_stop(), 2/3)
         self.assertEqual(njpa.most_probable_journey_variant(), 1/3)
         self.assertEqual(njpa.number_of_journey_variants(), 3)
-        self.assertEqual(njpa.number_of_fp_journeys(), 3)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1 / 3)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1 / 3)
 
         njpa.journey_set_variants = [frozenset({3, 4, 5})]
         njpa.variant_proportions = [1]
-        njpa.labels_faster_than_walk = self._get_simple_label_list()
 
         self.assertEqual(njpa.most_probable_departure_stop(), 1)
         self.assertEqual(njpa.most_probable_journey_variant(), 1)
         self.assertEqual(njpa.number_of_journey_variants(), 1)
-        self.assertEqual(njpa.number_of_fp_journeys(), 1)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1)
 
         njpa.journey_set_variants = []
         njpa.variant_proportions = []
-        njpa.labels_faster_than_walk = []
 
         self.assertEqual(njpa.most_probable_departure_stop(), None)
         self.assertEqual(njpa.most_probable_journey_variant(), None)
         self.assertEqual(njpa.number_of_journey_variants(), None)
-        self.assertEqual(njpa.number_of_fp_journeys(), None)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), None)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), None)
 
@@ -103,7 +101,6 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         self.assertEqual(njpa.most_probable_departure_stop(), None)
         self.assertEqual(njpa.most_probable_journey_variant(), None)
         self.assertEqual(njpa.number_of_journey_variants(), None)
-        self.assertEqual(njpa.number_of_fp_journeys(), float("inf"))
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), None)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), None)
 
@@ -113,9 +110,20 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), 1)
         self.assertEqual(njpa.most_probable_journey_variant(), 1)
-        # TODO: maybe look if this should look at the journey variants or if it is ok just to assume that
-        # self.journey_variants does not have duplicats
         self.assertEqual(njpa.number_of_journey_variants(), 3)
-        self.assertEqual(njpa.number_of_fp_journeys(), 3)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1)
+
+    def test_label_based_diversity_measures(self):
+        """
+        :return:
+        """
+        label_list = self._get_simple_label_list()
+        print(label_list)
+        njpa = self._get_analyzer(label_list, 0, 1000, float("inf"))
+        self.assertEqual(njpa.number_of_fp_journeys(), 3)
+
+        njpa = self._get_analyzer(label_list, 0, 1000, 500)
+        self.assertEqual(njpa.number_of_fp_journeys(), float("inf"))
+
+

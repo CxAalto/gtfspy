@@ -15,6 +15,16 @@ from gtfspy.routing.transfer_penalties import get_fastest_path_analyzer_after_tr
 from research.route_diversity.rd_utils import seconds_to_minutes
 
 
+def if_df_empty_return_empty_list(apply_to_function):
+    def wrapper(*args, **kwargs):
+        try:
+            func = apply_to_function(*args, **kwargs)
+            return func
+        except KeyError:
+            return []
+    return wrapper
+
+
 class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
     """Subclass of NodeProfileAnalyzerTimeAndVehLegs, with extended support for route trajectories"""
@@ -48,10 +58,10 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
     def unpack_fastest_path_journeys(self):
         self._unpack_journeys(self.candidate_labels)
-        if self.unpacked_df.empty:
-            return
-        self.assign_path_letters()
-        self.add_fastest_path_column()
+        if not self.unpacked_df.empty:
+            self.assign_path_letters()
+            self.add_fastest_path_column()
+        self._aggregate_time_weights()
 
     def fp_colname(self):
         return "fp_"+str(self.transfer_penalty_seconds)
@@ -64,8 +74,6 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
                      fpa.get_labels_faster_than_walk()]
         self.unpacked_df[self.fp_colname()] = False
         self.unpacked_df.loc[self.unpacked_df["label_tuple"].isin(fp_labels), self.fp_colname()] = True
-        self._aggregate_time_weights()
-
         return self.unpacked_df
 
     def _get_labels_faster_than_walk(self):
@@ -110,15 +118,19 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
         return self.unpacked_df
 
+    @if_df_empty_return_empty_list
     def get_fp_connection_list(self):
         return self.unpacked_df["connection_list"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
+    @if_df_empty_return_empty_list
     def get_fp_journey_boarding_stops(self):
         return self.unpacked_df["journey_boarding_stops"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
+    @if_df_empty_return_empty_list
     def get_fp_all_journey_stops(self):
         return self.unpacked_df["all_journey_stops"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
+    @if_df_empty_return_empty_list
     def get_original_fp_labels(self):
         return self.unpacked_df["label"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
@@ -126,6 +138,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         fpa = self._get_fastest_path_analyzer()
         return fpa.get_labels_faster_than_walk()
 
+    @if_df_empty_return_empty_list
     def get_fp_path_letters(self):
         return self.unpacked_df["path_letters"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
@@ -269,27 +282,33 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         :param walk_is_optimal_duration: int
         :return:
         """
+        walk_tuple = tuple({self.origin_stop})
+        weight_dict = {}
+
         if not self.pre_journey_waits:
             self.pre_journey_waits, walk_is_optimal_duration = self.fpa.calculate_pre_journey_waiting_times_to_list()
-
-        if stop_tuple:
-            stop_tuple = [tuple(x) for x in stop_tuple]
-        else:
-            stop_tuple = self.get_fp_journey_boarding_stops()
 
         if not self.pre_journey_waits and not walk_is_optimal_duration:
             self.journey_set_variants = None
             self.variant_proportions = None
             return
 
-        weight_dict = {x: 0 for x in set(stop_tuple)}
-        for stop_set, pre_journey_wait in zip(stop_tuple, self.pre_journey_waits):
-            weight_dict[stop_set] += pre_journey_wait
-        if walk_is_optimal_duration > 0:
-            weight_dict[tuple({self.origin_stop})] = walk_is_optimal_duration
+        elif not self.pre_journey_waits:
+            weight_dict[walk_tuple] = walk_is_optimal_duration
+        else:
+            if stop_tuple:
+                stop_tuple = [tuple(x) for x in stop_tuple]
+            else:
+                stop_tuple = self.get_fp_journey_boarding_stops()
 
-        # removal of journey variants without time weight
-        weight_dict = {key: value for key, value in weight_dict.items() if value > 0}
+            weight_dict = {x: 0 for x in set(stop_tuple)}
+            for stop_set, pre_journey_wait in zip(stop_tuple, self.pre_journey_waits):
+                weight_dict[stop_set] += pre_journey_wait
+            if walk_is_optimal_duration > 0:
+                weight_dict[walk_tuple] = weight_dict.get(walk_tuple, 0) + walk_is_optimal_duration
+
+            # removal of journey variants without time weight
+            weight_dict = {key: value for key, value in weight_dict.items() if value > 0}
 
         self.journey_set_variants = list(weight_dict.keys())
         self.variant_proportions = [x / sum(weight_dict.values()) for x in weight_dict.values()]
