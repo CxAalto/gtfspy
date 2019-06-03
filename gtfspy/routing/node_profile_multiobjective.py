@@ -1,7 +1,7 @@
 import numpy
 
 from gtfspy.routing.label import LabelTimeWithBoardingsCount, merge_pareto_frontiers, compute_pareto_front, \
-    LabelVehLegCount, LabelTime, LabelTimeBoardingsAndRoute, LabelTimeAndRoute
+    LabelVehLegCount, LabelTime, LabelTimeBoardingsAndRoute, LabelTimeAndRoute, LabelExperimental
 from gtfspy.routing.connection import Connection
 
 
@@ -29,7 +29,7 @@ class NodeProfileMultiObjective:
         closest_target: int, optional
             stop_I of the closest target if within walking distance (and Routes are recorded)
         """
-
+        self.route_tracking_labels = [LabelTimeBoardingsAndRoute, LabelTimeAndRoute, LabelExperimental]
         if dep_times is None:
             dep_times = []
         n_dep_times = len(dep_times)
@@ -41,7 +41,7 @@ class NodeProfileMultiObjective:
         self._min_dep_time = float('inf')
         self.label_class = label_class
         self.closest_target = closest_target
-        if self.label_class == LabelTimeBoardingsAndRoute and self._walk_to_target_duration < float('inf'):
+        if self.label_class in self.route_tracking_labels and self._walk_to_target_duration < float('inf'):
             assert (self.closest_target is not None)
 
         if transit_connection_dep_times is not None:
@@ -180,7 +180,7 @@ class NodeProfileMultiObjective:
                 first_leg_is_walk = False
             else:
                 first_leg_is_walk = True
-            if self.label_class == LabelTimeBoardingsAndRoute or self.label_class == LabelTimeAndRoute:
+            if self.label_class in self.route_tracking_labels:
                 if self._walk_to_target_duration > 0:
                     walk_connection = Connection(self.node_id,
                                                  self.closest_target,
@@ -259,12 +259,12 @@ class NodeProfileMultiObjective:
 
     def _compute_real_connection_labels(self):
         pareto_optimal_labels = []
-        # do not take those bags with first event is a pseudo-connection
+        # do not take those bags where first event is a pseudo-connection
         for dep_time in self._connection_dep_times:
             index = self.dep_times_to_index[dep_time]
             pareto_optimal_labels.extend([label for label in self._label_bags[index] if not label.first_leg_is_walk])
         if self.label_class == LabelTimeWithBoardingsCount or self.label_class == LabelTime \
-                or self.label_class == LabelTimeBoardingsAndRoute:
+                or self.label_class in self.route_tracking_labels:
             pareto_optimal_labels = [label for label in pareto_optimal_labels
                                      if label.duration() < self._walk_to_target_duration]
 
@@ -277,7 +277,7 @@ class NodeProfileMultiObjective:
         labels_from_neighbors = []
         for i, (label_bag, walk_duration)in enumerate(zip(neighbor_label_bags, walk_durations)):
             for label in label_bag:
-                if self.label_class == LabelTimeBoardingsAndRoute or self.label_class == LabelTimeAndRoute:
+                if self.label_class in self.route_tracking_labels:
                     departure_arrival_tuple = departure_arrival_stops[i]
                     departure_time = label.departure_time - walk_duration
                     arrival_time = label.departure_time

@@ -7,7 +7,7 @@ from gtfspy.routing.connection import Connection
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.routing.label import merge_pareto_frontiers, LabelTimeWithBoardingsCount, LabelTime, compute_pareto_front, \
-    LabelVehLegCount, LabelTimeBoardingsAndRoute, LabelTimeAndRoute
+    LabelVehLegCount, LabelTimeBoardingsAndRoute, LabelTimeAndRoute, LabelExperimental
 from gtfspy.util import timeit
 
 
@@ -20,6 +20,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
 
     def __init__(self, transit_events, targets, walk_network, end_time_ut=None, transfer_margin=0, start_time_ut=None,
                  walk_speed=1.5, verbose=False, track_vehicle_legs=True, track_time=True, track_route=False,
+                 experimental=False,
                  distance_type="d_walk"):
         """
         Parameters
@@ -47,6 +48,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         """
         AbstractRoutingAlgorithm.__init__(self)
         assert (len(transit_events) == len(set(transit_events))), "Duplicate transit events spotted!"
+        self.route_tracking_labels = [LabelTimeBoardingsAndRoute, LabelTimeAndRoute, LabelExperimental]
         self._transit_connections = transit_events
         if start_time_ut is None:
             start_time_ut = transit_events[-1].departure_time
@@ -69,7 +71,9 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         self._consider_time = track_time
 
         assert(track_time or track_vehicle_legs)
-        if track_vehicle_legs:
+        if experimental:
+            self._label_class = LabelExperimental
+        elif track_vehicle_legs:
             if track_time:
                 if track_route:
                     self._label_class = LabelTimeBoardingsAndRoute
@@ -310,14 +314,14 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         return self._stop_profiles
 
     def _copy_and_modify_labels(self, labels, connection, increment_vehicle_count=False, first_leg_is_walk=False):
-        if self._label_class == LabelTimeBoardingsAndRoute or self._label_class == LabelTimeAndRoute:
+        if self._label_class in self.route_tracking_labels:
             labels_copy = [label.get_label_with_connection_added(connection) for label in labels]
         else:
             labels_copy = [label.get_copy() for label in labels]
 
         for label in labels_copy:
             label.departure_time = connection.departure_time
-            if self._label_class == LabelTimeAndRoute or self._label_class == LabelTimeBoardingsAndRoute:
+            if self._label_class in self.route_tracking_labels:
                 label.movement_duration += connection.duration()
             if increment_vehicle_count:
                 label.n_boardings += 1

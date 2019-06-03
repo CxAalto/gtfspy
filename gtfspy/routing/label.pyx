@@ -832,3 +832,146 @@ cdef class LabelGeneric:
     def __str__(self):
         return str((self.departure_time, self.arrival_time_target, self.movement_duration))
 
+cdef class LabelExperimental:
+    # Label with implemented added constraint for cases when two labels are tied:
+    # The trip with minimal "movement time" should be chosen = maximizing the waiting time for robustness
+    cdef:
+        public double departure_time
+        public double arrival_time_target
+        public int n_boardings
+        public int walking_duration
+        public int movement_duration
+        public bint first_leg_is_walk
+        public object previous_label
+        public object connection
+
+
+    def __init__(self, double departure_time, double arrival_time_target,
+                 int n_boardings, int walking_duration, int movement_duration, bint first_leg_is_walk,
+                 object connection=None, object previous_label=None):
+        self.departure_time = departure_time
+        self.arrival_time_target = arrival_time_target
+        self.n_boardings = n_boardings
+        self.walking_duration = walking_duration
+        self.movement_duration = movement_duration
+        self.first_leg_is_walk = first_leg_is_walk
+        self.previous_label = previous_label
+        self.connection = connection
+
+    def __getstate__(self):
+        return self.departure_time, self.arrival_time_target, self.n_boardings, self.walking_duration, \
+               self.movement_duration, self.connection, self.previous_label
+
+    def __setstate__(self, state):
+        self.departure_time, self.arrival_time_target, self.n_boardings, self.walking_duration, \
+        self.movement_duration, self.connection, self.previous_label = state
+
+    def _tuple_for_ordering(self):
+        return self.departure_time, -self.arrival_time_target, -self.n_boardings, -self.walking_duration, \
+               not self.first_leg_is_walk, -self.movement_duration
+
+    def __richcmp__(LabelExperimental self, LabelExperimental other, int op):
+        self_tuple = self._tuple_for_ordering()
+        other_tuple = other._tuple_for_ordering()
+        if op == 2:  # ==
+            return self_tuple == other_tuple
+        if op == 3:  # !=
+            return self_tuple != other_tuple
+        if op == 0:  # less than
+            return self_tuple < other_tuple
+        elif op == 4:  # greater than
+            return self_tuple > other_tuple
+        elif op == 1:  # <=
+            return self_tuple <= other_tuple
+        elif op == 5:  # >=
+            return self_tuple >= other_tuple
+
+    cpdef int dominates(self, LabelExperimental other):
+        """
+        Compute whether this LabelExperimental dominates the other LabelExperimental
+        Parameters
+        ----------
+        other: LabelExperimental
+        Returns
+        -------
+        dominates: bint
+            True if this ParetoTuple dominates the other, otherwise False
+        """
+        self_tuple = self._tuple_for_ordering()
+        other_tuple = other._tuple_for_ordering()
+        if any([(s < o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]):
+            return False
+        elif all([(s == o) for s, o in zip(self_tuple[:-1], other_tuple[:-1])]) and self_tuple[-1] < other_tuple[-1]:
+            return False
+        else:
+            return True
+
+    cpdef int dominates_ignoring_dep_time_finalization(self, LabelExperimental other):
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target and
+            self.n_boardings <= other.n_boardings and
+            self.walking_duration <= other.walking_duration
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_dep_time(self, LabelExperimental other):
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target and
+            self.n_boardings <= other.n_boardings and
+            self.walking_duration <= other.walking_duration and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_time(self, LabelExperimental other):
+        cdef:
+            int dominates
+        dominates = (
+            self.n_boardings <= other.n_boardings and
+            self.walking_duration <= other.walking_duration and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
+
+    cpdef int dominates_ignoring_dep_time_and_n_boardings(self, LabelExperimental other):
+        cdef:
+            int dominates
+        dominates = (
+            self.arrival_time_target <= other.arrival_time_target and
+            self.first_leg_is_walk <= other.first_leg_is_walk
+        )
+        return dominates
+
+    cpdef get_label_with_connection_added(self, connection):
+        return LabelExperimental(self.departure_time, self.arrival_time_target, self.n_boardings, self.walking_duration,
+                                 self.movement_duration, self.first_leg_is_walk, connection=connection,
+                                 previous_label=self)
+    cpdef get_copy(self):
+        return LabelExperimental(self.departure_time, self.arrival_time_target, self.n_boardings, self.walking_duration,
+                                 self.movement_duration, self.first_leg_is_walk, self.connection,
+                                 previous_label=self.previous_label)
+
+    cpdef get_copy_with_specified_departure_time(self, departure_time):
+        return LabelExperimental(departure_time, self.arrival_time_target, self.n_boardings, self.walking_duration,
+                                 self.movement_duration, self.first_leg_is_walk, self.connection,
+                                 previous_label=self.previous_label)
+
+    cpdef double duration(self):
+        return self.arrival_time_target - self.departure_time
+
+    @staticmethod
+    def direct_walk_label(departure_time, walk_duration):
+        return LabelExperimental(departure_time, departure_time + walk_duration, 0, True)
+
+    cpdef LabelExperimental get_copy_with_walk_added(self, double walk_duration, object connection):
+        return LabelExperimental(self.departure_time - walk_duration, self.arrival_time_target, self.n_boardings,
+                                 self.walking_duration+walk_duration, self.movement_duration+walk_duration, True,
+                                 connection=connection, previous_label=self)
+
+    def __str__(self):
+        return str((self.departure_time, self.arrival_time_target, self.n_boardings, self.walking_duration,
+                    self.movement_duration, self.first_leg_is_walk, self.previous_label, self.connection))
