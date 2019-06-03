@@ -6,6 +6,8 @@ from gtfspy.aggregate_stops import aggregate_stops_spatially, merge_stops_tables
 from gtfspy.gtfs import GTFS
 from gtfspy.filter import FilterExtract
 from gtfspy.util import timeit
+import numpy as np
+
 
 class AggregateStopsTest(unittest.TestCase):
     def setUp(self):
@@ -69,7 +71,7 @@ class AggregateStopsTest(unittest.TestCase):
         return n_stops_after1, n_stops_before1
 
     def test_calc_transfers(self):
-        import numpy as np
+
         s = 1000
         d = 0.01
         samp1 = np.random.uniform(low=-d, high=d, size=(s,))

@@ -27,7 +27,7 @@ class TestMapviz(unittest.TestCase):
 
     def test_plot_trip_counts_per_day(self):
         # simple "it compiles" tests:
-        ax = plot_route_network_from_gtfs(self.G)
+        #ax = plot_route_network_from_gtfs(self.G)
         ax = plot_route_network_from_gtfs(self.G, map_style="light_all")
         ax = plot_route_network_from_gtfs(self.G, map_style="dark_all")
         ax = plot_route_network_from_gtfs(self.G, map_style="rastertiles/voyager")

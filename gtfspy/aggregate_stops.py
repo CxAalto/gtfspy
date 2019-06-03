@@ -173,15 +173,16 @@ def merge_stops_tables_multi(gtfs_cons, threshold_meters=5):
 
     # create a df of all stops without stop_pair_I duplicates
     df_all_default_stops = df.copy()
-    df_all_default_parent_stops = df_all_default_stops.loc[~(df_all_default_stops.location_type == 0 |
-                                                             df_all_default_stops.location_type.isnull())]
 
-    df_all_default_stops = df_all_default_stops.loc[df_all_default_stops.location_type == 0 |
-                                                    df_all_default_stops.location_type.isnull()]
+    df_all_default_parent_stops = df_all_default_stops.loc[~((df_all_default_stops.location_type == 0) |
+                                                             (df_all_default_stops.location_type.isnull()))]
+
+    df_all_default_stops = df_all_default_stops.loc[(df_all_default_stops.location_type == 0) |
+                                                    (df_all_default_stops.location_type.isnull())]
+
     agg_dict = {i: lambda x: x.iloc[0] for i in list(df_all_default_stops)}
     df_all_default_stops = df_all_default_stops.groupby(by=['stop_pair_I']).agg(agg_dict,  axis=1)
     df_all_default_stops = df_all_default_stops.reset_index(drop=True)
-
     for i, gtfs in enumerate(gtfs_cons):
         i_upd_df = df.loc[df.gtfs_id == i].copy()
         # to_be_updated.append(i_upd_df)
@@ -192,6 +193,7 @@ def merge_stops_tables_multi(gtfs_cons, threshold_meters=5):
         try:
             gtfs.execute_custom_query("""ALTER TABLE stops ADD COLUMN stop_pair_I INT""")
         except:
+            print("adding column failed")
             pass
         query_update = "UPDATE stops SET stop_pair_I = ?, lat = ?, lon = ? WHERE stop_I = (?)"
         rows_to_update = [(int(a), float(b), float(c), int(d)) for a, b, c, d in
@@ -294,9 +296,6 @@ def aggregate_stops_spatially(gtfs, threshold_meters=2, order_by=None):
     # Remove the temporary index
     gtfs.conn.execute("DROP INDEX IF EXISTS tmp_index_stop_times_stop_I")
     gtfs.conn.commit()
-
-
-
 
 
 def _cluster_stops_multi(df, distance):
