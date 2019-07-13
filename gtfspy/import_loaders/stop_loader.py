@@ -41,10 +41,14 @@ class StopLoader(TableLoader):
         stmt = 'UPDATE %s ' \
                'SET self_or_parent_I=coalesce(parent_I, stop_I)' % self.table
         cur.execute(stmt)
+        cur.execute("SELECT InitSpatialMetaData()")
+        cur.execute("SELECT AddGeometryColumn ('stops', 'geometry', 4326, 'POINT', 2)")
+        cur.execute("""UPDATE stops SET geometry=MakePoint(lon, lat, 4326)""")
 
     def index(self, cur):
         # Make indexes/ views as needed.
         #cur.execute('CREATE INDEX IF NOT EXISTS idx_stop_sid ON stop (stop_id)')
         #cur.execute('CREATE INDEX IF NOT EXISTS idx_stops_pid_sid ON stops (parent_id, stop_I)')
-        #conn.commit()
-        pass
+        cur.execute("SELECT CreateSpatialIndex('stops', 'geometry');")
+        #cur.commit()
+        #pass

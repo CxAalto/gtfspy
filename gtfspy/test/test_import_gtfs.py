@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import os
-import sqlite3
+import spatialite
 import unittest
 
 from gtfspy.gtfs import GTFS
@@ -27,7 +27,7 @@ class TestImport(unittest.TestCase):
 
     def setUp(self):
         """This method is run once before _each_ test method is executed"""
-        self.conn = sqlite3.connect(':memory:')
+        self.conn = spatialite.connect(':memory:')
         self.agencyText = \
             'agency_id, agency_name, agency_timezone, agency_url' \
             '\n ag1, CompNet, Europe/Zurich, www.example.com'
@@ -462,7 +462,7 @@ class TestImport(unittest.TestCase):
         # check for duplicate trip_I's
         rows = self.conn.execute("SELECT count(*) FROM trips GROUP BY trip_I").fetchall()
         for row in rows:
-            self.assertIs(row[0],1)
+            self.assertIs(row[0], 1)
 
         # check for duplicate service_I's in calendar
         rows = self.conn.execute("SELECT count(*) FROM calendar GROUP BY service_I").fetchall()
@@ -520,6 +520,12 @@ class TestImport(unittest.TestCase):
         self.assertEqual(rows[1][0], 2)
         self.assertEqual(rows[2][0], 1)
         self.assertEqual(rows[3][0], 2)
+
+    def test_spatial_stops_works(self):
+        import_gtfs(self.fdict, self.conn, preserve_connection=True)
+        rows = self.conn.execute("SELECT AsText(geometry) FROM stops").fetchall()
+        rows = [row[0] for row in rows]
+        self.assertTrue('POINT(2 1)' in rows)
 
     def test_metaData(self):
         # TODO! untested
