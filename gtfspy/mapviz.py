@@ -30,6 +30,8 @@ MAP_STYLES = [
     "dark_only_labels"
 ]
 
+SMOPY_TILESERVER_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png" # as of smopy 0.0.7
+
 
 def _get_median_centered_plot_bounds(g):
     lon_min, lon_max, lat_min, lat_max = get_spatial_bounds(g)
@@ -436,12 +438,12 @@ def plot_all_stops(g, ax=None, scalebar=False):
 
 
 def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
-    ORIG_TILE_SERVER = smopy.TILE_SERVER
+    tileserver_url = SMOPY_TILESERVER_URL
     if map_style is not None:
         assert map_style in MAP_STYLES, map_style + \
                                         " (map_style parameter) is not a valid CartoDB mapping style. Options are " + \
                                         str(MAP_STYLES)
-        smopy.TILE_SERVER = "http://1.basemaps.cartocdn.com/" + map_style + "/{z}/{x}/{y}.png"
+        tileserver_url = "http://1.basemaps.cartocdn.com/" + map_style + "/{z}/{x}/{y}.png"
 
     args = (lat_min, lat_max, lon_min, lon_max, map_style, z)
     if args not in get_smopy_map.maps:
@@ -450,13 +452,12 @@ def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
             smopy.Map.get_allowed_zoom = lambda self, z: z
             kwargs['z'] = z
         try:
-            get_smopy_map.maps[args] = smopy.Map((lat_min, lon_min, lat_max, lon_max), **kwargs)
+            get_smopy_map.maps[args] = smopy.Map((lat_min, lon_min, lat_max, lon_max), tileserver=tileserver_url, **kwargs)
         except URLError:
             raise RuntimeError("\n Could not load background map from the tile server: "
-                               + smopy.TILE_SERVER +
+                               + tileserver_url +
                                "\n Please check that the tile server exists and "
                                "that your are connected to the internet.")
-    smopy.TILE_SERVER = ORIG_TILE_SERVER
     return get_smopy_map.maps[args]
 
 
