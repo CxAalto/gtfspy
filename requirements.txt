@@ -7,7 +7,7 @@ Cython
 six
 geoindex
 osmread
-geojson
+geojson==1.3.5
 shapely
 pyproj
 matplotlib-scalebar
