@@ -263,6 +263,7 @@ class SmopyAxes(Axes):
 
         self.plot(lons, lats, **kwargs)
 
+
 @contextmanager
 def using_smopy_map_style(map_style):
     orig_tile_server = smopy.TILE_SERVER

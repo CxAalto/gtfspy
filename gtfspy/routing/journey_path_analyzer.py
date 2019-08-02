@@ -13,6 +13,7 @@ from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
 from gtfspy.smopy_plot_helper import legend_pt_modes
 from gtfspy.routing.transfer_penalties import get_fastest_path_analyzer_after_transfer_penalties
 from research.route_diversity.rd_utils import seconds_to_minutes
+from research.route_diversity.measures_and_colormaps import *
 
 
 def if_df_empty_return_empty_list(apply_to_function):
@@ -401,19 +402,19 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         return ax
 
     def get_simple_diversities(self, measures=None):
-        pm_calls = {"number_of_journey_variants": self.number_of_journey_variants,
-                    "number_of_fp_journeys": self.number_of_fp_journeys,
-                    "number_of_most_common_journey_variant": self.number_of_most_common_journey_variant,
-                    "most_probable_journey_variant": self.most_probable_journey_variant,
-                    "most_probable_departure_stop": self.most_probable_departure_stop,
-                    "time_weighted_simpson": self.time_weighted_diversity,
-                    "avg_circuity": self.avg_circuity,
-                    "avg_speed": self.avg_journey_speed,
-                    "mean_temporal_distance": self.mean_temporal_distance_minutes,
-                    "mean_trip_n_boardings": self.mean_n_boardings_on_shortest_paths,
-                    "largest_headway_gap": self.largest_headway_gap,
-                    "expected_pre_journey_waiting_time": self.expected_pre_journey_waiting_time,
-                    "proportion_fp_journeys": self.proportion_fp_journeys}
+        pm_calls = {number_of_journey_variants: self.number_of_journey_variants,
+                    number_of_fp_journeys: self.number_of_fp_journeys,
+                    number_of_most_common_journey_variant: self.number_of_most_common_journey_variant,
+                    most_probable_journey_variant: self.most_probable_journey_variant,
+                    most_probable_departure_stop: self.most_probable_departure_stop,
+                    time_weighted_simpson: self.time_weighted_diversity,
+                    avg_circuity: self.avg_circuity,
+                    avg_speed: self.avg_journey_speed,
+                    mean_temporal_distance: self.mean_temporal_distance_minutes,
+                    mean_trip_n_boardings: self.mean_n_boardings_on_shortest_paths,
+                    largest_headway_gap: self.largest_headway_gap,
+                    expected_pre_journey_waiting_time: self.expected_pre_journey_waiting_time,
+                    proportion_fp_journeys: self.proportion_fp_journeys}
         if measures:
             pm_calls = {pm: value for pm, value in pm_calls.items() if pm in measures}
         if self.unpacked_df.empty:

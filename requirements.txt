@@ -1,7 +1,7 @@
 pandas
 networkx>=2.0
 pyshp
-smopy
+smopy==0.0.6
 nose
 Cython
 six
