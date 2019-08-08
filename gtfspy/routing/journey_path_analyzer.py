@@ -12,18 +12,8 @@ from gtfspy.routing.connection import Connection
 from gtfspy.route_types import ROUTE_TYPE_TO_COLOR
 from gtfspy.smopy_plot_helper import legend_pt_modes
 from gtfspy.routing.transfer_penalties import get_fastest_path_analyzer_after_transfer_penalties
-from research.route_diversity.rd_utils import seconds_to_minutes
+from gtfspy.routing.util import seconds_to_minutes, if_df_empty_return_specified
 from research.route_diversity.measures_and_colormaps import *
-
-
-def if_df_empty_return_empty_list(apply_to_function):
-    def wrapper(*args, **kwargs):
-        try:
-            func = apply_to_function(*args, **kwargs)
-            return func
-        except KeyError:
-            return []
-    return wrapper
 
 
 class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
@@ -49,12 +39,13 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         self.processed_labels = None
 
     def _get_fastest_path_analyzer(self):
-        self.fpa = get_fastest_path_analyzer_after_transfer_penalties(self.all_labels,
-                                                                      self.start_time_dep,
-                                                                      self.end_time_dep,
-                                                                      walk_duration=self._walk_to_target_duration,
-                                                                      label_props_to_consider=["n_boardings"],
-                                                                      transfer_penalty_seconds=self.transfer_penalty_seconds)
+        self.fpa = \
+            get_fastest_path_analyzer_after_transfer_penalties(self.all_labels,
+                                                               self.start_time_dep,
+                                                               self.end_time_dep,
+                                                               walk_duration=self._walk_to_target_duration,
+                                                               label_props_to_consider=["n_boardings"],
+                                                               transfer_penalty_seconds=self.transfer_penalty_seconds)
         return self.fpa
 
     def unpack_fastest_path_journeys(self):
@@ -119,19 +110,19 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
         return self.unpacked_df
 
-    @if_df_empty_return_empty_list
+    @if_df_empty_return_specified("unpacked_df")
     def get_fp_connection_list(self):
         return self.unpacked_df["connection_list"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
-    @if_df_empty_return_empty_list
+    @if_df_empty_return_specified("unpacked_df")
     def get_fp_journey_boarding_stops(self):
         return self.unpacked_df["journey_boarding_stops"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
-    @if_df_empty_return_empty_list
+    @if_df_empty_return_specified("unpacked_df")
     def get_fp_all_journey_stops(self):
         return self.unpacked_df["all_journey_stops"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
-    @if_df_empty_return_empty_list
+    @if_df_empty_return_specified("unpacked_df")
     def get_original_fp_labels(self):
         return self.unpacked_df["label"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
@@ -139,7 +130,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         fpa = self._get_fastest_path_analyzer()
         return fpa.get_labels_faster_than_walk()
 
-    @if_df_empty_return_empty_list
+    @if_df_empty_return_specified("unpacked_df")
     def get_fp_path_letters(self):
         return self.unpacked_df["path_letters"].loc[self.unpacked_df[self.fp_colname()]].tolist()
 
@@ -218,7 +209,8 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
     def assign_path_letters(self):
         """
-        Function that assigns a littera for each journey variant that can be used in journey plots and temporal distance plots
+        Function that assigns a letters for each journey variant that can be used in journey plots and temporal distance
+         plots
 
         Parameters
         ----------
@@ -288,7 +280,6 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
         if not self.pre_journey_waits:
             self.pre_journey_waits, walk_is_optimal_duration = self.fpa.calculate_pre_journey_waiting_times_to_list()
-
         if not self.pre_journey_waits and not walk_is_optimal_duration:
             self.journey_set_variants = None
             self.variant_proportions = None
@@ -402,7 +393,9 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         return ax
 
     def get_simple_diversities(self, measures=None):
-        pm_calls = {number_of_journey_variants: self.number_of_journey_variants,
+        pm_calls = {number_of_fp_journey_variants: self.number_of_fp_journey_variants,
+                    number_of_journey_variants: self.number_of_journey_variants,
+                    number_of_journeys: self.number_of_journeys,
                     number_of_fp_journeys: self.number_of_fp_journeys,
                     number_of_most_common_journey_variant: self.number_of_most_common_journey_variant,
                     most_probable_journey_variant: self.most_probable_journey_variant,
@@ -450,7 +443,28 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         journey trips -> trips using same trajectory
         :return:
         """
-        return max(Counter(self.unpacked_df["path_letters"].tolist()).values())
+        if self.unpacked_df.empty and self._walk_to_target_duration < float("inf"):
+            return float("inf")
+        elif self.unpacked_df.empty:
+            return None
+        else:
+            return max(Counter(self.unpacked_df["path_letters"].tolist()).values())
+
+    def number_of_journey_variants(self):
+        if self.unpacked_df.empty and self._walk_to_target_duration < float("inf"):
+            return 1
+        elif self.unpacked_df.empty:
+            return None
+        else:
+            return len(self.unpacked_df["path_letters"].unique().tolist())
+
+    def number_of_fp_journey_variants(self):
+        if self.unpacked_df.empty and self._walk_to_target_duration < float("inf"):
+            return 1
+        elif self.unpacked_df.empty:
+            return None
+        else:
+            return len(self.unpacked_df["path_letters"].loc[self.unpacked_df[self.fp_colname()]].unique().tolist())
 
     def proportion_fp_journeys(self):
         n_fp = self.number_of_fp_journeys()
@@ -459,16 +473,27 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         elif n_fp is None:
             return None
         else:
-            return n_fp / len(self.unpacked_df.index)
+            return n_fp / self.number_of_journeys()
+
+    def number_of_journeys(self):
+        if self.unpacked_df.empty and self._walk_to_target_duration < float("inf"):
+            return float("inf")
+        elif self.unpacked_df.empty:
+            return None
+        else:
+            return len(self.unpacked_df.index)
 
     @seconds_to_minutes
     def mean_temporal_distance_minutes(self):
         return self.mean_temporal_distance()
 
-    def number_of_journey_variants(self):
-        if not self.journey_set_variants:
-            return None
-        return len(self.journey_set_variants)
+    @seconds_to_minutes
+    def min_temporal_distance_minutes(self):
+        return self.min_temporal_distance()
+
+    @seconds_to_minutes
+    def max_temporal_distance_minutes(self):
+        return self.max_temporal_distance()
 
     def number_of_fp_journeys(self):
         if self._walk_to_target_duration < float("inf") and len(self.get_original_fp_labels()) == 0:

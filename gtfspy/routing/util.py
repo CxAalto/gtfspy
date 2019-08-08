@@ -15,3 +15,33 @@ def timeit(method):
         return result
 
     return timed
+
+
+def seconds_to_minutes(function):
+    def wrapper(*args, **kwargs):
+        func = function(*args, **kwargs)
+        if func:
+            return round(func / 60.0, 2)
+    return wrapper
+
+
+def if_df_empty_return_specified(target, value_to_return=[]):
+    def deco(function):
+        def inner(self, *args, **kwargs):
+            if not getattr(self, target).empty:
+                return function(self, *args, **kwargs)
+            else:
+                return value_to_return
+        return inner
+    return deco
+
+
+def if_error_return_empty_list(apply_to_function):
+    def wrapper(*args, **kwargs):
+        try:
+            func = apply_to_function(*args, **kwargs)
+            return func
+        except KeyError:
+            return []
+    return wrapper
+

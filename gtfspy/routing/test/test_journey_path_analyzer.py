@@ -69,7 +69,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), 2/3)
         self.assertEqual(njpa.most_probable_journey_variant(), 1/3)
-        self.assertEqual(njpa.number_of_journey_variants(), 3)
+        self.assertEqual(njpa.number_of_fp_journey_variants(), 3)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1 / 3)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1 / 3)
 
@@ -78,7 +78,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), 1)
         self.assertEqual(njpa.most_probable_journey_variant(), 1)
-        self.assertEqual(njpa.number_of_journey_variants(), 1)
+        self.assertEqual(njpa.number_of_fp_journey_variants(), 1)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1)
 
@@ -87,7 +87,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), None)
         self.assertEqual(njpa.most_probable_journey_variant(), None)
-        self.assertEqual(njpa.number_of_journey_variants(), None)
+        self.assertEqual(njpa.number_of_fp_journey_variants(), None)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), None)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), None)
 
@@ -100,7 +100,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), None)
         self.assertEqual(njpa.most_probable_journey_variant(), None)
-        self.assertEqual(njpa.number_of_journey_variants(), None)
+        self.assertEqual(njpa.number_of_fp_journey_variants(), None)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), None)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), None)
 
@@ -110,7 +110,7 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), 1)
         self.assertEqual(njpa.most_probable_journey_variant(), 1)
-        self.assertEqual(njpa.number_of_journey_variants(), 3)
+        self.assertEqual(njpa.number_of_fp_journey_variants(), 3)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1)
 
@@ -120,10 +120,44 @@ class TestNodeJourneyPathAnalyzer(TestCase):
         """
         label_list = self._get_simple_label_list()
         print(label_list)
+        # No journey after timespan
         njpa = self._get_analyzer(label_list, 0, 1000, float("inf"))
+
         self.assertEqual(njpa.number_of_fp_journeys(), 3)
+        self.assertEqual(njpa.number_of_fp_journey_variants(), 1)
+        self.assertEqual(njpa.number_of_journeys(), 3)
+        self.assertEqual(njpa.number_of_journey_variants(), 1)
+        self.assertEqual(njpa.number_of_most_common_journey_variant(), 3)
+        self.assertEqual(njpa.proportion_fp_journeys(), 1)
+        self.assertEqual(njpa.largest_headway_gap(), None)
+        self.assertEqual(njpa.expected_pre_journey_waiting_time(), None)
 
+        print(njpa.min_temporal_distance())
+        print(njpa.max_temporal_distance())
+        # walking is faster
         njpa = self._get_analyzer(label_list, 0, 1000, 500)
-        self.assertEqual(njpa.number_of_fp_journeys(), float("inf"))
+        print(njpa.min_temporal_distance())
 
+        print(njpa.max_temporal_distance())
+        self.assertEqual(njpa.number_of_fp_journeys(), float("inf"))
+        self.assertEqual(njpa.number_of_fp_journey_variants(), 1)
+        self.assertEqual(njpa.number_of_journeys(), float("inf"))
+        self.assertEqual(njpa.number_of_journey_variants(), 1)
+        self.assertEqual(njpa.number_of_most_common_journey_variant(), float("inf"))
+        self.assertEqual(njpa.proportion_fp_journeys(), 1)
+        self.assertEqual(njpa.largest_headway_gap(), None)
+        self.assertEqual(njpa.expected_pre_journey_waiting_time(), None)
+        # walking is faster
+        njpa = self._get_analyzer(label_list, 0, 400, float("inf"))
+        print(njpa.min_temporal_distance())
+
+        print(njpa.max_temporal_distance())
+        self.assertEqual(njpa.number_of_fp_journeys(), 3)
+        self.assertEqual(njpa.number_of_fp_journey_variants(), 1)
+        self.assertEqual(njpa.number_of_journeys(), 3)
+        self.assertEqual(njpa.number_of_journey_variants(), 1)
+        self.assertEqual(njpa.number_of_most_common_journey_variant(), 3)
+        self.assertEqual(njpa.proportion_fp_journeys(), 1)
+        self.assertEqual(njpa.largest_headway_gap(), 4.67)  # 280/60
+        self.assertEqual(njpa.expected_pre_journey_waiting_time(), 1.85)  # 111/60
 

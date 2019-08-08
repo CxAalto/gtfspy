@@ -101,7 +101,8 @@ class FastestPathAnalyzer:
             return None, None
 
         for label in fp_labels:
-            max_pre_journey_wait_considering_walk = max(self.walk_duration - (label.arrival_time_target - label.departure_time), 0)
+            max_pre_journey_wait_considering_walk = max(self.walk_duration - (label.arrival_time_target -
+                                                                              label.departure_time), 0)
             if label.departure_time > self.end_time_dep:
                 assert label == fp_labels[-1]
                 cut_max_pre_journey_wait_considering_walk = \
