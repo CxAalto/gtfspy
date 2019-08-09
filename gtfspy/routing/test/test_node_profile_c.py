@@ -8,13 +8,13 @@ class TestNodeProfileC(TestCase):
 
     def test_earliest_arrival_time(self):
         node_profile = NodeProfileC()
-        self.assertEquals(float("inf"), node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
+        self.assertEqual(float("inf"), node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
 
         node_profile.update_pareto_optimal_tuples(LabelTime(departure_time=3, arrival_time_target=4))
-        self.assertEquals(4, node_profile.evaluate_earliest_arrival_time_at_target(2, 0))
+        self.assertEqual(4, node_profile.evaluate_earliest_arrival_time_at_target(2, 0))
 
         node_profile.update_pareto_optimal_tuples(LabelTime(departure_time=1, arrival_time_target=1))
-        self.assertEquals(1, node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
+        self.assertEqual(1, node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
 
     def test_pareto_optimality(self):
         node_profile = NodeProfileC()
@@ -34,7 +34,7 @@ class TestNodeProfileC(TestCase):
         pt1 = LabelTime(departure_time=5, arrival_time_target=35)
         node_profile.update_pareto_optimal_tuples(pt1)
         print(node_profile._labels)
-        self.assertEquals(len(node_profile.get_final_optimal_labels()), 1)
+        self.assertEqual(len(node_profile.get_final_optimal_labels()), 1)
 
     def test_identity_profile(self):
         identity_profile = NodeProfileC(0)

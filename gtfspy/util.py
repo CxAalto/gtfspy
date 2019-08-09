@@ -339,6 +339,7 @@ def source_csv_to_pandas(path, table, read_csv_args=None):
         df = pd.read_csv(**read_csv_args)
     else:
         df = pd.read_csv(f)
+    f.close()
     return df
 
 

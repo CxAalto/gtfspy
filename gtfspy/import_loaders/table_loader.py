@@ -297,28 +297,6 @@ class TableLoader(object):
             cur.executemany(stmt, rows)
             conn.commit()
 
-            # This was used for debugging the missing service_I:
-            # if self.__class__.__name__ == 'TripLoader': # and False:
-                # for i in self.gen_rows([new_csv_readers[i]], [prefix]):
-                # print(stmt)
-                # rows = cur.execute('SELECT agency_id, trips.service_id FROM agencies, routes, trips
-            # LEFT JOIN calendar ON(calendar.service_id=trips.service_id)
-            # WHERE trips.route_I = routes.route_I and routes.agency_I = agencies.agency_I and trips.service_I is NULL
-            # GROUP BY trips.service_id, agency_id').fetchall()
-                # rows = cur.execute('SELECT distinct trips.service_id FROM trips
-            # LEFT JOIN calendar ON(calendar.service_id=trips.service_id) WHERE trips.service_I is NULL').fetchall()
-
-                # print('trips, etc', [description[0] for description in cur.description])
-                # for i, row in enumerate(rows):
-                    # print(row)
-                    #if i == 100:
-                        #exit(0)
-
-                # rows = cur.execute('SELECT distinct service_id FROM calendar').fetchall()
-                # print('calendar_columns',[description[0] for description in cur.description])
-                # for row in rows:
-                    # print(row)
-
     def run_post_import(self, conn):
         if self.print_progress:
             print('Post-import %s into %s' % (self.fname, self.table))

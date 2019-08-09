@@ -11,13 +11,13 @@ class TestNodeProfileSimple(TestCase):
 
     def test_earliest_arrival_time(self):
         node_profile = NodeProfileSimple()
-        self.assertEquals(float("inf"), node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
+        self.assertEqual(float("inf"), node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
 
         node_profile.update_pareto_optimal_tuples(LabelTimeSimple(departure_time=1, arrival_time_target=1))
-        self.assertEquals(1, node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
+        self.assertEqual(1, node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
 
         node_profile.update_pareto_optimal_tuples(LabelTimeSimple(departure_time=3, arrival_time_target=4))
-        self.assertEquals(4, node_profile.evaluate_earliest_arrival_time_at_target(2, 0))
+        self.assertEqual(4, node_profile.evaluate_earliest_arrival_time_at_target(2, 0))
 
     def test_pareto_optimality(self):
         node_profile = NodeProfileSimple()
@@ -28,11 +28,11 @@ class TestNodeProfileSimple(TestCase):
         pair2 = LabelTimeSimple(departure_time=2, arrival_time_target=3)
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pair2))
 
-        self.assertEquals(2, len(node_profile._labels))
+        self.assertEqual(2, len(node_profile._labels))
 
         pair3 = LabelTimeSimple(departure_time=1, arrival_time_target=1)
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pair3))
-        self.assertEquals(2, len(node_profile._labels), msg=str(node_profile.get_final_optimal_labels()))
+        self.assertEqual(2, len(node_profile._labels), msg=str(node_profile.get_final_optimal_labels()))
 
         pair4 = LabelTimeSimple(departure_time=1, arrival_time_target=2)
         self.assertFalse(node_profile.update_pareto_optimal_tuples(pair4))
@@ -43,7 +43,7 @@ class TestNodeProfileSimple(TestCase):
         self.assertTrue(node_profile.update_pareto_optimal_tuples(pt2))
         pt1 = LabelTimeSimple(departure_time=5, arrival_time_target=35)
         self.assertFalse(node_profile.update_pareto_optimal_tuples(pt1))
-        self.assertEquals(len(node_profile.get_final_optimal_labels()), 1)
+        self.assertEqual(len(node_profile.get_final_optimal_labels()), 1)
 
     def test_identity_profile(self):
         identity_profile = NodeProfileSimple(0)

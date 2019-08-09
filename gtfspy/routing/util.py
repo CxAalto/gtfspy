@@ -1,5 +1,6 @@
 import time
 
+
 def timeit(method):
     """
     A Python decorator for printing out the execution time for a function.

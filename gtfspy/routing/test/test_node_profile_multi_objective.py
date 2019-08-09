@@ -13,10 +13,10 @@ class TestNodeProfileMultiObjective(TestCase):
         node_profile = NodeProfileMultiObjective(dep_times=[3, 1], label_class=LabelTime)
 
         node_profile.update([LabelTime(departure_time=3, arrival_time_target=4)])
-        self.assertEquals(4, min_arrival_time_target(node_profile.evaluate(3)))
+        self.assertEqual(4, min_arrival_time_target(node_profile.evaluate(3)))
 
         node_profile.update([LabelTime(departure_time=1, arrival_time_target=1)])
-        self.assertEquals(1, min_arrival_time_target(node_profile.evaluate(1)))
+        self.assertEqual(1, min_arrival_time_target(node_profile.evaluate(1)))
 
     def test_pareto_optimality2(self):
         node_profile = NodeProfileMultiObjective(dep_times=[5, 10], label_class=LabelTime)
@@ -24,7 +24,7 @@ class TestNodeProfileMultiObjective(TestCase):
         node_profile.update([pt2])
         pt1 = LabelTime(departure_time=5, arrival_time_target=35, last_leg_is_walk=False)
         node_profile.update([pt1])
-        self.assertEquals(len(node_profile.get_labels_for_real_connections()), 1)
+        self.assertEqual(len(node_profile.get_labels_for_real_connections()), 1)
 
     def test_identity_profile(self):
         identity_profile = NodeProfileMultiObjective(dep_times=[10])
@@ -74,7 +74,6 @@ class TestNodeProfileMultiObjective(TestCase):
     def test_same_dep_times_fail_in_init(self):
         with self.assertRaises(AssertionError):
             node_profile = NodeProfileMultiObjective(label_class=LabelTimeWithBoardingsCount, dep_times=[10, 10, 20, 20])
-
 
     def test_dep_time_skipped_in_update(self):
         label3 = LabelTimeWithBoardingsCount(departure_time=30, arrival_time_target=20, n_boardings=0,
