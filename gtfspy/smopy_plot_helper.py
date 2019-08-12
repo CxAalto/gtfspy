@@ -1,12 +1,8 @@
-import matplotlib.lines as mlines
-import numpy
-import smopy
 from contextlib import contextmanager
 from matplotlib.axes import Axes
 from matplotlib.projections import register_projection
 from matplotlib.collections import LineCollection
 import matplotlib.lines as mlines
-from matplotlib_scalebar.scalebar import ScaleBar
 from urllib.error import URLError
 from shapely.geometry import LineString
 import smopy

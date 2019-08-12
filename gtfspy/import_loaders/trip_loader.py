@@ -59,9 +59,10 @@ class TripLoader(TableLoader):
 def update_trip_travel_times_ds(conn):
     cur = conn.cursor()
 
-    cur.execute('''UPDATE trips SET (start_time_ds, end_time_ds) = 
+    cur.execute("""UPDATE trips SET (start_time_ds, end_time_ds) = 
                    (SELECT min(dep_time_ds), max(arr_time_ds) 
                    FROM stop_times 
                    WHERE stop_times.trip_I = trips.trip_I 
-                   GROUP BY trip_I)''')
+                   GROUP BY trip_I)""")
+
     conn.commit()

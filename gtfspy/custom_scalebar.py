@@ -1,26 +1,11 @@
 from matplotlib_scalebar.scalebar import ScaleBar
-# Standard library modules.
-import bisect
-
-# Third party modules.
-import matplotlib
 from matplotlib.text import Text
-from matplotlib.artist import Artist
-from matplotlib.font_manager import FontProperties
-from matplotlib.rcsetup import \
-    (defaultParams, validate_float, validate_legend_loc, validate_bool,
-     validate_color, ValidateInStrings)
 from matplotlib.offsetbox import \
     AuxTransformBox, TextArea, VPacker, HPacker, AnchoredOffsetbox
 from matplotlib.patches import Rectangle, FancyArrow
 from matplotlib.lines import Line2D
 
 import six
-
-# Local modules.
-from matplotlib_scalebar.dimension import \
-    (_Dimension, SILengthDimension, SILengthReciprocalDimension,
-     ImperialLengthDimension)
 
 
 class CustomScaleBar(ScaleBar):
