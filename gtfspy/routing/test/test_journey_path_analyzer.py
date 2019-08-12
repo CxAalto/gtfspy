@@ -69,7 +69,6 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), 2/3)
         self.assertEqual(njpa.most_probable_journey_variant(), 1/3)
-        self.assertEqual(njpa.number_of_fp_journey_variants(), 3)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1 / 3)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1 / 3)
 
@@ -78,7 +77,6 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), 1)
         self.assertEqual(njpa.most_probable_journey_variant(), 1)
-        self.assertEqual(njpa.number_of_fp_journey_variants(), 1)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1)
 
@@ -87,7 +85,6 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), None)
         self.assertEqual(njpa.most_probable_journey_variant(), None)
-        self.assertEqual(njpa.number_of_fp_journey_variants(), None)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), None)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), None)
 
@@ -100,7 +97,6 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), None)
         self.assertEqual(njpa.most_probable_journey_variant(), None)
-        self.assertEqual(njpa.number_of_fp_journey_variants(), None)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), None)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), None)
 
@@ -110,7 +106,6 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         self.assertEqual(njpa.most_probable_departure_stop(), 1)
         self.assertEqual(njpa.most_probable_journey_variant(), 1)
-        self.assertEqual(njpa.number_of_fp_journey_variants(), 3)
         self.assertEqual(njpa.simpson_diversity(stop_sets=njpa.journey_set_variants), 1)
         self.assertEqual(njpa.simpson_diversity(weights=njpa.variant_proportions), 1)
 

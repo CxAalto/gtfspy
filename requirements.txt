@@ -11,3 +11,4 @@ geojson
 shapely
 pyproj
 matplotlib-scalebar
+geopandas
