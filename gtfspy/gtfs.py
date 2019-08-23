@@ -56,6 +56,9 @@ class GTFS(object):
         # Set timezones
         self._timezone = pytz.timezone(self.get_timezone_name())
 
+    from .route_trajectories import calculate_hubs, calculate_route_trajectories, calculate_terminus_coords, \
+        calculate_trajectory_segments
+
     def __del__(self):
         if not getattr(self, '_dont_close', False) and hasattr(self, "conn"):
             self.conn.close()
