@@ -1,13 +1,14 @@
 pandas
 networkx==1.11
 pyshp
-smopy
+smopy<0.0.6
 nose
 Cython
 six
 geoindex
 osmread
-geojson
+geojson>=2.0.0
 shapely
 pyproj
 matplotlib-scalebar
+geopandas
