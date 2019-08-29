@@ -442,6 +442,8 @@ def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
                                         " (map_style parameter) is not a valid CartoDB mapping style. Options are " + \
                                         str(MAP_STYLES)
         smopy.TILE_SERVER = "http://1.basemaps.cartocdn.com/" + map_style + "/{z}/{x}/{y}.png"
+    else:
+        smopy.TILE_SERVER = "http://1.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
 
     args = (lat_min, lat_max, lon_min, lon_max, map_style, z)
     if args not in get_smopy_map.maps:
