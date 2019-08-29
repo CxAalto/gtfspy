@@ -240,10 +240,13 @@ class ExportsTest(unittest.TestCase):
         in_memory_file = io.StringIO()
         exports.write_stops_geojson(self.gtfs, in_memory_file)
         in_memory_file.seek(0)
-        self.assertTrue(geojson.is_valid(in_memory_file.read(-1)))
-        in_memory_file.seek(0)
+
         gjson = geojson.loads(in_memory_file.read(-1))
+
+        self.assertTrue(gjson.is_valid)
+
         gjson_properties = gjson['features'][0]['properties']
+
         self.assertIn("name", gjson_properties.keys())
         self.assertIn("stop_I", gjson_properties.keys())
 
@@ -251,10 +254,13 @@ class ExportsTest(unittest.TestCase):
         in_memory_file = io.StringIO()
         exports.write_sections_geojson(self.gtfs, in_memory_file)
         in_memory_file.seek(0)
-        self.assertTrue(geojson.is_valid(in_memory_file.read(-1)))
-        in_memory_file.seek(0)
+
         gjson = geojson.loads(in_memory_file.read(-1))
+
+        self.assertTrue(gjson.is_valid)
+
         gjson_properties = gjson['features'][0]['properties']
+
         self.assertIn("from_stop_I", gjson_properties.keys())
         self.assertIn("to_stop_I", gjson_properties.keys())
         self.assertIn("n_vehicles", gjson_properties.keys())
@@ -266,10 +272,13 @@ class ExportsTest(unittest.TestCase):
         in_memory_file = io.StringIO()
         exports.write_routes_geojson(self.gtfs, in_memory_file)
         in_memory_file.seek(0)
-        self.assertTrue(geojson.is_valid(in_memory_file.read(-1)))
-        in_memory_file.seek(0)
+
         gjson = geojson.loads(in_memory_file.read(-1))
+
+        self.assertTrue(gjson.is_valid)
+
         gjson_properties = gjson['features'][0]['properties']
+
         self.assertIn("route_type", gjson_properties.keys())
         self.assertIn("route_I", gjson_properties.keys())
         self.assertIn("route_name", gjson_properties.keys())
