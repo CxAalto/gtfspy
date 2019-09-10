@@ -45,8 +45,7 @@ def calculate_trajectory_segments(self, day_start, start_time, end_time, trips=N
     :param ignore_order_of_stop_ids: bool
     :return:
     """
-    if isinstance(trips, GeoDataFrame) or isinstance(trips, DataFrame):
-        trips = trips.tolist()
+
     if trips:
         trip_string = "WHERE trip_I in ({trips})".format(trips=",".join(trips))
     else:

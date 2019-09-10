@@ -51,6 +51,20 @@ def legend_pt_modes(ax, route_types, **kwargs):
     return ax
 
 
+def custom_legend(ax, labels, colors, markersize=4, **kwargs):
+    lines = []
+
+    for label, color in zip(labels, colors):
+        line = mlines.Line2D([], [], color=color, markersize=markersize, label=label)
+        lines.append(line)
+
+    handles = lines
+    labels = [h.get_label() for h in handles]
+
+    ax.legend(handles=handles, labels=labels, **kwargs)
+    return ax
+
+
 class SmopyAxes(Axes):
     """
     Subclass of Axes, that
