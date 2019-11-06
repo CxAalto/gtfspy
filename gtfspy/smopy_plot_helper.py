@@ -232,7 +232,7 @@ class SmopyAxes(Axes):
                            update=True, **kwargs):
         """
 
-        :param coords: list of coordinate trajectories eg: [(row.from_lon, row.from_lat), (row.to_lon, row.to_lat)]
+        :param coords: list of coordinate trajectories eg: [[(row.from_lon, row.from_lat), (row.to_lon, row.to_lat)],..]
         :param linewidths: list
         :param colors: list
         :param zorders:

@@ -1373,11 +1373,27 @@ class GTFS(object):
         """
         return pd.read_sql_query("SELECT * FROM stops WHERE stop_I={stop_I}".format(stop_I=stop_I), self.conn)
 
-    def add_coordinates_to_df(self, df, stop_id_column='stop_I', lat_name="lat", lon_name="lon", retain_stop_I=False):
-        assert stop_id_column in df.columns
+    def add_coordinates_to_df(self, df, stop_id_column=None, lat_name=None, lon_name=None, retain_stop_I=False):
+        from_lat = "from_lat"
+        from_lon = "from_lon"
+        to_lat = "to_lat"
+        to_lon = "to_lon"
+        if not stop_id_column:
+            if 'stop_I' in df.columns:
+                stop_id_column = "stop_I"
+                lat_name = "lat"
+                lon_name = "lon"
+            elif "from_stop_I" in df.columns and from_lat not in df.columns and from_lon not in df.columns:
+                stop_id_column = "from_stop_I"
+                lat_name = from_lat
+                lon_name = from_lon
+            elif "to_stop_I" in df.columns and to_lat not in df.columns and to_lon not in df.columns:
+                stop_id_column = "to_stop_I"
+                lat_name = to_lat
+                lon_name = to_lon
+
         stops_df = self.stops()
         coord_df = stops_df[["stop_I", "lat", "lon"]]
-
         df_merged = pd.merge(coord_df, df, left_on='stop_I', right_on=stop_id_column)
         if not retain_stop_I:
             df_merged.drop(["stop_I"], axis=1, inplace=True)
