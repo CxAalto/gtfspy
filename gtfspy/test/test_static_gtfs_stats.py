@@ -4,7 +4,7 @@ import os
 import unittest
 
 from gtfspy.gtfs import GTFS
-from research.route_diversity.route_type_analyzer import StaticGTFSStats
+from research.route_diversity.static_route_type_analyzer import StaticGTFSStats
 
 
 class TestGTFS(unittest.TestCase):
