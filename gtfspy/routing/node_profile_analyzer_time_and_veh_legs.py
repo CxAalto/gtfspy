@@ -97,7 +97,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                 min_n_boardings_observed = candidate_after_label.n_boardings
 
         self.all_labels.extend(after_labels)
-        if len(after_labels) is 0:
+        if len(after_labels) == 0:
             self._labels_within_time_frame = self.all_labels
         else:
             self._labels_within_time_frame = self.all_labels[: -len(after_labels)]
@@ -127,7 +127,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         if self._walk_to_target_duration < float("inf"):
             return 0
         else:
-            if len(self.all_labels) is 0:
+            if len(self.all_labels) == 0:
                 return float("inf")
             else:
                 return min([label.n_boardings for label in self.all_labels])
@@ -301,7 +301,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         cmap = cm.get_cmap("cubehelix_r")
         start = 0.1
         end = 0.9
-        if max_n_boardings is 0:
+        if max_n_boardings == 0:
             step = 0
         else:
             divider = max(n_default, max_n_boardings)
@@ -349,9 +349,9 @@ class NodeProfileAnalyzerTimeAndVehLegs:
 
     @classmethod
     def n_boardings_to_label(self, n):
-        if n is 0:
+        if n == 0:
             return "walk"
-        elif n is 1:
+        elif n == 1:
             return "1 boarding"
         else:
             return str(n) + " boardings"
@@ -447,7 +447,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
                         continue
 
                 prev_dep_time = self.start_time_dep
-                if i is not 0:
+                if i != 0:
                     prev_dep_time = labels[i - 1].departure_time
                 # this could perhaps be made a while loop of some sort
                 # to not loop over things multiple times
@@ -651,7 +651,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             else:
                 prob = pdf_areas[n_boardings] - pdf_areas[n_boardings + 1]
             pdf_values_to_plot = pdf_values_to_plot_by_n_boardings[n_boardings]
-            if n_boardings is 0:
+            if n_boardings == 0:
                 label = "$P(\\mathrm{walk})= %.2f $" % (prob)
             else:
                 label = "$P(b=" + str(n_boardings) + ")= %.2f $" % (prob)

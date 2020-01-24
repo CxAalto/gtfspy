@@ -164,7 +164,7 @@ def create_walk_network_from_osm(osm_file):
 
     # Remove all singleton nodes (note that taking the giant component does not necessarily provide proper results.
     for node, degree in walk_network.degree().items():
-        if degree is 0:
+        if degree == 0:
             walk_network.remove_node(node)
 
     node_lats = networkx.get_node_attributes(walk_network, "lat")

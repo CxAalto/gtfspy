@@ -1487,7 +1487,7 @@ class GTFS(object):
         if len(where_clauses) > 0:
             event_query += " WHERE "
             for i, where_clause in enumerate(where_clauses):
-                if i is not 0:
+                if i != 0:
                     event_query += " AND "
                 event_query += where_clause
         # ordering is required for later stages

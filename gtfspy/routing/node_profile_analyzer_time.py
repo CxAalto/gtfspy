@@ -561,7 +561,7 @@ class NodeProfileAnalyzerTime:
         vertical_lines, slopes = self.profile_block_analyzer.get_vlines_and_slopes_for_plotting()
         for i, line in enumerate(slopes):
             xs = [_ut_to_unloc_datetime(x) for x in line["x"]]
-            if i is 0:
+            if i == 0:
                 label = "profile"
             else:
                 label = None

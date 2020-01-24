@@ -38,8 +38,8 @@ class DayTripsMaterializer(TableLoader):
         conn.execute(
             "CREATE VIEW day_trips AS   "
             "SELECT day_trips2.*, trips.* "
-            #'days.day_start_ut+trips.start_time_ds AS start_time_ut, '
-            #'days.day_start_ut+trips.end_time_ds AS end_time_ut   '
+            # 'days.day_start_ut+trips.start_time_ds AS start_time_ut, '
+            # 'days.day_start_ut+trips.end_time_ds AS end_time_ut   '
             "FROM day_trips2 JOIN trips USING (trip_I);"
         )
         conn.commit()
@@ -48,8 +48,8 @@ class DayTripsMaterializer(TableLoader):
         conn.execute(
             "CREATE VIEW day_stop_times AS   "
             "SELECT day_trips2.*, trips.*, stop_times.*, "
-            #'days.day_start_ut+trips.start_time_ds AS start_time_ut, '
-            #'days.day_start_ut+trips.end_time_ds AS end_time_ut, '
+            # 'days.day_start_ut+trips.start_time_ds AS start_time_ut, '
+            # 'days.day_start_ut+trips.end_time_ds AS end_time_ut, '
             "day_trips2.day_start_ut+stop_times.arr_time_ds AS arr_time_ut, "
             "day_trips2.day_start_ut+stop_times.dep_time_ds AS dep_time_ut   "
             "FROM day_trips2 "

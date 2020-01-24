@@ -11,11 +11,11 @@ class TripLoader(TableLoader):
         "headsign TEXT, "
         "start_time_ds INT, end_time_ds INT)"
     )
-    extra_keys = ["route_I", "service_I"]  #'shape_I']
+    extra_keys = ["route_I", "service_I"]  # 'shape_I']
     extra_values = [
         "(SELECT route_I FROM routes WHERE route_id=:_route_id )",
         "(SELECT service_I FROM calendar WHERE service_id=:_service_id )",
-        #'(SELECT shape_I FROM shapes WHERE shape_id=:_shape_id )'
+        # '(SELECT shape_I FROM shapes WHERE shape_id=:_shape_id )'
     ]
 
     # route_id,service_id,trip_id,trip_headsign,direction_id,shape_id,wheelchair_accessible,bikes_allowed
