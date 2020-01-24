@@ -2,16 +2,34 @@ language: python
 python:
   - "3.8"
 
-# command to install dependencies
+install: "pip install . pre-commit"
 
-install: "pip install ."
+jobs:
+  include:
+
+    - python: 3.6
+      stage: test
+
+    - python: 3.7
+      stage: test
+
+    - python: 3.8
+      stage: test
+
 # command to run tests
 services:
   - xvfb
 before_script: # configure a headless display for testing plot generation
 - "export DISPLAY=:99.0"
 
-script: nosetests .
+script:
+  - pre-commit run --all-files
+  - nosetests .
+
+cache:
+  directories:
+    - $HOME/.cache/pre-commit
+    - $HOME/.cache/pip
 
 notifications:
   email:
