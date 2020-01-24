@@ -1,8 +1,8 @@
-import functools
 import os
 
 from example_import import load_or_import_example_gtfs
 from matplotlib import pyplot as plt
+
 from gtfspy.gtfs import GTFS
 
 G = load_or_import_example_gtfs()

@@ -1,20 +1,21 @@
+import math
 from urllib.error import URLError
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy
 import smopy
-import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
-import math
+from matplotlib_scalebar.scalebar import ScaleBar
+
+from gtfspy import util
 from gtfspy.gtfs import GTFS
-from gtfspy.stats import get_spatial_bounds, get_percentile_stop_bounds, get_median_lat_lon_of_stops
 from gtfspy.route_types import (
     ROUTE_TYPE_TO_COLOR,
     ROUTE_TYPE_TO_ZORDER,
     ROUTE_TYPE_TO_SHORT_DESCRIPTION,
 )
-import matplotlib as mpl
-from matplotlib_scalebar.scalebar import ScaleBar
-from gtfspy import util
+from gtfspy.stats import get_spatial_bounds, get_median_lat_lon_of_stops
 
 """
 This module contains functions for plotting (static) visualizations of the public transport networks using matplotlib.

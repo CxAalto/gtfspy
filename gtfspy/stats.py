@@ -1,11 +1,11 @@
 from __future__ import unicode_literals
 
 import csv
-import pandas as pd
+import os
+import sys
 
 import numpy
-import sys
-import os
+import pandas as pd
 
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance

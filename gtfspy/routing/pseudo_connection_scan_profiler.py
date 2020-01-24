@@ -29,13 +29,13 @@ Implements
 from collections import defaultdict
 
 import networkx
-
-from gtfspy.routing.connection import Connection
 from gtfspy.routing.label import LabelTime
-from gtfspy.routing.node_profile_simple import NodeProfileSimple
+
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
-from gtfspy.routing.pseudo_connections import compute_pseudo_connections
+from gtfspy.routing.connection import Connection
 from gtfspy.routing.node_profile_c import NodeProfileC
+from gtfspy.routing.node_profile_simple import NodeProfileSimple
+from gtfspy.routing.pseudo_connections import compute_pseudo_connections
 
 
 class PseudoConnectionScanProfiler(AbstractRoutingAlgorithm):

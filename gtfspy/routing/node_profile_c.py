@@ -1,5 +1,3 @@
-import copy
-
 from gtfspy.routing.label import LabelTime, compute_pareto_front_naive
 
 

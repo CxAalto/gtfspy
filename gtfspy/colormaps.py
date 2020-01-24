@@ -1,8 +1,8 @@
-import matplotlib.colors
 import matplotlib.cm
 import matplotlib.colorbar
+import matplotlib.colors
 import matplotlib.pyplot
-import numpy
+
 
 # colormaps: "viridis", "plasma_r","seismic"
 

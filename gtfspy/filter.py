@@ -1,22 +1,22 @@
-import time
+import datetime
+import logging
 import os
 import shutil
-import logging
 import sqlite3
-import datetime
+import time
 
 import pandas
 
 import gtfspy
+from gtfspy import gtfs
+from gtfspy import stats
 from gtfspy import util
 from gtfspy.gtfs import GTFS
 from gtfspy.import_loaders.day_loader import recreate_days_table
 from gtfspy.import_loaders.day_trips_materializer import recreate_day_trips2_table
 from gtfspy.import_loaders.stop_times_loader import resequence_stop_times_seq_values
 from gtfspy.import_loaders.trip_loader import update_trip_travel_times_ds
-from gtfspy.util import wgs84_distance, set_process_timezone
-from gtfspy import stats
-from gtfspy import gtfs
+from gtfspy.util import wgs84_distance
 
 FILTERED = True
 NOT_FILTERED = False

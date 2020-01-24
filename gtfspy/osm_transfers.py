@@ -1,15 +1,12 @@
 import os
+from warnings import warn
 
 import networkx
-import pandas
+from geoindex import GeoGridIndex, GeoPoint
 from osmread import parse_file, Way, Node
 
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
-
-from warnings import warn
-
-from geoindex import GeoGridIndex, GeoPoint
 
 
 def add_walk_distances_to_db_python(gtfs, osm_path, cutoff_distance_m=1000):

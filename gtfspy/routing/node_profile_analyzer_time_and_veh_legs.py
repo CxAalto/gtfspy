@@ -1,22 +1,21 @@
 from __future__ import print_function
 
+import datetime
 import warnings
 from collections import defaultdict
 
-import datetime
 import matplotlib
-import numpy
 import matplotlib.pyplot as plt
+import numpy
 import pytz
-from matplotlib import lines
-
+from gtfspy.routing.label import LabelTimeWithBoardingsCount, compute_pareto_front, LabelTimeSimple
 from matplotlib import dates as md
+from matplotlib import lines
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 from gtfspy.routing.fastest_path_analyzer import FastestPathAnalyzer
-from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.label import LabelTimeWithBoardingsCount, compute_pareto_front, LabelTimeSimple
 from gtfspy.routing.node_profile_analyzer_time import NodeProfileAnalyzerTime
+from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.routing.node_profile_simple import NodeProfileSimple
 from gtfspy.routing.profile_block_analyzer import ProfileBlockAnalyzer
 

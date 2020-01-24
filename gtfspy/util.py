@@ -4,11 +4,11 @@ import datetime
 import io
 import math
 import os
-import zipfile
 import shutil
 import sys
 import tempfile
 import time
+import zipfile
 from math import cos
 
 import networkx

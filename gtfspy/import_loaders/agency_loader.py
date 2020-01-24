@@ -1,5 +1,3 @@
-import os
-import time
 from datetime import datetime
 
 from gtfspy.import_loaders.table_loader import TableLoader, decode_six
