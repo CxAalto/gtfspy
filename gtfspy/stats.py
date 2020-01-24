@@ -498,8 +498,8 @@ def trip_stats(gtfs, results_by_mode=False):
 
     if results_by_mode:
         q_results = {}
-        for type in q_result["type"].unique().tolist():
-            q_results[type] = q_result.loc[q_result["type"] == type]
+        for type in q_result["type"].unique().tolist():  # noqa: A003, A001
+            q_results[type] = q_result.loc[q_result["type"] == type]  # noqa: A003
         return q_results
     else:
         return q_result
@@ -535,8 +535,8 @@ def get_section_stats(gtfs, results_by_mode=False):
 
     if results_by_mode:
         q_results = {}
-        for type in q_result["type"].unique().tolist():
-            q_results[type] = q_result.loc[q_result["type"] == type]
+        for type in q_result["type"].unique().tolist():  # noqa: A003, A001
+            q_results[type] = q_result.loc[q_result["type"] == type]  # noqa: A003
         return q_results
     else:
         return q_result

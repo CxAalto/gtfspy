@@ -16,10 +16,10 @@ class ProfileBlock:
     def width(self):
         return self.end_time - self.start_time
 
-    def max(self):
+    def max(self):  # noqa: A003
         return max(self.distance_start, self.distance_end)
 
-    def min(self):
+    def min(self):  # noqa: A003
         return min(self.distance_start, self.distance_end)
 
     def is_flat(self):

@@ -296,14 +296,14 @@ def write_gtfs(gtfs, output):
     output = os.path.abspath(output)
     uuid_str = "tmp_" + str(uuid.uuid1())
     if output[-4:] == ".zip":
-        zip = True
+        zip_file = True
         out_basepath = os.path.dirname(os.path.abspath(output))
         if not os.path.exists(out_basepath):
             raise IOError(out_basepath + " does not exist, cannot write gtfs as a zip")
         tmp_dir = os.path.join(out_basepath, str(uuid_str))
         # zip_file_na,e = ../out_basedir + ".zip
     else:
-        zip = False
+        zip_file = False
         out_basepath = output
         tmp_dir = os.path.join(out_basepath + "_" + str(uuid_str))
 
@@ -330,7 +330,7 @@ def write_gtfs(gtfs, output):
         print(fname_to_write)
         writer(gtfs, open(os.path.join(tmp_dir, table + ".txt"), "w"))
 
-    if zip:
+    if zip_file:
         shutil.make_archive(output[:-4], "zip", tmp_dir)
         shutil.rmtree(tmp_dir)
     else:

@@ -109,12 +109,12 @@ class ProfileBlockAnalyzer:
         else:
             return distance_split_points_ordered[left]
 
-    def min(self):
+    def min(self):  # noqa: A003
         return min(
             [min(block.distance_end, block.distance_start) for block in self._profile_blocks]
         )
 
-    def max(self):
+    def max(self):  # noqa: A003
         return max(
             [max(block.distance_end, block.distance_start) for block in self._profile_blocks]
         )

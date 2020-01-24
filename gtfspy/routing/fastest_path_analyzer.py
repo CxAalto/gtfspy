@@ -193,13 +193,13 @@ class FastestPathAnalyzer:
             prop_blocks.append(prop_block)
         return ProfileBlockAnalyzer(prop_blocks, **kwargs)
 
-    def get_prop_analyzer_flat(self, property, value_no_next_journey, value_cutoff):
+    def get_prop_analyzer_flat(self, property_name, value_no_next_journey, value_cutoff):
         """
         Get a journey property analyzer, where each journey is weighted by the number of.
 
         Parameters
         ----------
-        property: string
+        property_name: string
             Name of the property, needs to be one of label_props given on initialization.
         value_no_next_journey:
             Value of the profile, when there is no next journey available.
@@ -220,7 +220,7 @@ class FastestPathAnalyzer:
                 else:
                     prop_value = value_no_next_journey
             else:
-                prop_value = b[property]
+                prop_value = b[property_name]
             prop_block = ProfileBlock(b.start_time, b.end_time, prop_value, prop_value)
             prop_blocks.append(prop_block)
         return ProfileBlockAnalyzer(prop_blocks, **kwargs)

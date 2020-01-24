@@ -7,7 +7,7 @@ from gtfspy.warnings_container import WarningsContainer
 
 if __name__ == "__main__" and __package__ is None:
     # import gtfspy
-    __package__ = "gtfspy"
+    __package__ = "gtfspy"  # noqa: A001
 
 
 from gtfspy import route_types
