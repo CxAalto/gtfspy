@@ -20,7 +20,8 @@ class TableLoader(object):
     This class is just instantiated, and it does its stuff, and then
     it is destroyed.
     """
-    mode = 'all'  # None or 'import' or 'index'.  "None" does everything.
+
+    mode = "all"  # None or 'import' or 'index'.  "None" does everything.
 
     # The following properties need to be defined in a subclass. Examples here.
     # fname = 'routes.txt'
@@ -88,19 +89,16 @@ class TableLoader(object):
                 if os.path.isdir(source):
                     self.gtfs_sources.append(source)
                 else:
-                    z = zipfile.ZipFile(source, mode='r')
+                    z = zipfile.ZipFile(source, mode="r")
                     zip_commonprefix = os.path.commonprefix(z.namelist())
-                    zip_source_datum = {
-                        "zipfile": source,
-                        "zip_commonprefix": zip_commonprefix
-                    }
+                    zip_source_datum = {"zipfile": source, "zip_commonprefix": zip_commonprefix}
                     self.gtfs_sources.append(zip_source_datum)
 
     # Methods that should be implemented by inheriting classes
     # when necessary.
     #
-    #def post_import(self, cur):
-    #def index(self, cur):
+    # def post_import(self, cur):
+    # def index(self, cur):
 
     # Methods for these classes:
 
@@ -122,13 +120,13 @@ class TableLoader(object):
             # Handle zipfiles specially
             if "zipfile" in source:
                 try:
-                    Z = zipfile.ZipFile(source['zipfile'], mode='r')
-                    Z.getinfo(os.path.join(source['zip_commonprefix'], self.fname))
+                    Z = zipfile.ZipFile(source["zipfile"], mode="r")
+                    Z.getinfo(os.path.join(source["zip_commonprefix"], self.fname))
                     exists_list.append(True)
                     continue
                 # File does not exist in the zip archive
                 except KeyError:
-                    print(self.fname, ' missing in ', source)
+                    print(self.fname, " missing in ", source)
                     exists_list.append(False)
                     continue
             # Normal filename
@@ -141,7 +139,13 @@ class TableLoader(object):
         return exists_list
 
     def assert_exists_if_required(self):
-        REQUIRED_FILES_GTFS = ["agency.txt", "stops.txt", "routes.txt", "trips.txt", "stop_times.txt"]
+        REQUIRED_FILES_GTFS = [
+            "agency.txt",
+            "stops.txt",
+            "routes.txt",
+            "trips.txt",
+            "stop_times.txt",
+        ]
         if self.fname in REQUIRED_FILES_GTFS:
             for gtfs_source, exists in zip(self.gtfs_sources, self.exists_by_source()):
                 if not exists:
@@ -189,9 +193,9 @@ class TableLoader(object):
                         f = data_obj
                 elif "zipfile" in source:
                     try:
-                        Z = zipfile.ZipFile(source['zipfile'], mode='r')
+                        Z = zipfile.ZipFile(source["zipfile"], mode="r")
                         # print(Z.namelist())
-                        f = util.zip_open(Z, os.path.join(source['zip_commonprefix'], self.fname))
+                        f = util.zip_open(Z, os.path.join(source["zip_commonprefix"], self.fname))
                     except KeyError:
                         pass
             elif isinstance(source, string_types):
@@ -214,22 +218,26 @@ class TableLoader(object):
                 # `skipinitialspace` option, but let's make sure that we strip
                 # it from both sides.
                 # The following results in a generator, the complicated
-                csv_reader_stripped = (dict((k, (v.strip() if v is not None else None))  # v is not always a string
-                                            for k, v in row.items())
-                                       for row in csv_reader)
+                csv_reader_stripped = (
+                    dict(
+                        (k, (v.strip() if v is not None else None))  # v is not always a string
+                        for k, v in row.items()
+                    )
+                    for row in csv_reader
+                )
                 csv_reader_generators.append(csv_reader_stripped)
             except TypeError as e:
                 if "NoneType" in str(e):
                     print(self.fname + " missing from feed " + str(i))
                     csv_reader_generators.append(iter(()))
-                    #raise e here will make every multifeed download with incompatible number of tables fail
+                    # raise e here will make every multifeed download with incompatible number of tables fail
                 else:
                     raise e
-        prefixes = [u"feed_{i}_".format(i=i) for i in range(len(csv_reader_generators))]
+        prefixes = ["feed_{i}_".format(i=i) for i in range(len(csv_reader_generators))]
 
         if len(prefixes) == 1:
             # no prefix for a single source feed
-            prefixes = [u""]
+            prefixes = [""]
         return csv_reader_generators, prefixes
 
     def gen_rows(self, csv_readers, prefixes):
@@ -243,15 +251,13 @@ class TableLoader(object):
         # Drop table if it already exists, to be recreated.  This
         # could in the future abort if table already exists, and not
         # recreate it from scratch.
-        #cur.execute('''DROP TABLE IF EXISTS %s'''%self.table)
-        #conn.commit()
+        # cur.execute('''DROP TABLE IF EXISTS %s'''%self.table)
+        # conn.commit()
         if self.tabledef is None:
             return
-        if not self.tabledef.startswith('CREATE'):
+        if not self.tabledef.startswith("CREATE"):
             # "normal" table creation.
-            cur.execute('CREATE TABLE IF NOT EXISTS %s %s'
-                        % (self.table, self.tabledef)
-                        )
+            cur.execute("CREATE TABLE IF NOT EXISTS %s %s" % (self.table, self.tabledef))
         else:
             # When tabledef contains the full CREATE statement (for
             # virtual tables).
@@ -279,59 +285,60 @@ class TableLoader(object):
                 # proceed.  Since there is nothing to import, just continue the loop
                 print("Not importing %s into %s for %s" % (self.fname, self.table, prefix))
                 continue
-            stmt = '''INSERT INTO %s (%s) VALUES (%s)''' % (
+            stmt = """INSERT INTO %s (%s) VALUES (%s)""" % (
                 self.table,
-                (', '.join([x for x in fields if x[0] != '_'] + self.extra_keys)),
-                (', '.join([":" + x for x in fields if x[0] != '_'] + self.extra_values))
+                (", ".join([x for x in fields if x[0] != "_"] + self.extra_keys)),
+                (", ".join([":" + x for x in fields if x[0] != "_"] + self.extra_values)),
             )
 
             # This does the actual insertions.  Passed the INSERT
             # statement and then an iterator over dictionaries.  Each
             # dictionary is inserted.
             if self.print_progress:
-                print('Importing %s into %s for %s' % (self.fname, self.table, prefix))
+                print("Importing %s into %s for %s" % (self.fname, self.table, prefix))
             # the first row was consumed by fetching the fields
             # (this could be optimized)
             from itertools import chain
+
             rows = chain([row], self.gen_rows([csv_reader], [prefix]))
             cur.executemany(stmt, rows)
             conn.commit()
 
             # This was used for debugging the missing service_I:
             # if self.__class__.__name__ == 'TripLoader': # and False:
-                # for i in self.gen_rows([new_csv_readers[i]], [prefix]):
-                # print(stmt)
-                # rows = cur.execute('SELECT agency_id, trips.service_id FROM agencies, routes, trips
+            # for i in self.gen_rows([new_csv_readers[i]], [prefix]):
+            # print(stmt)
+            # rows = cur.execute('SELECT agency_id, trips.service_id FROM agencies, routes, trips
             # LEFT JOIN calendar ON(calendar.service_id=trips.service_id)
             # WHERE trips.route_I = routes.route_I and routes.agency_I = agencies.agency_I and trips.service_I is NULL
             # GROUP BY trips.service_id, agency_id').fetchall()
-                # rows = cur.execute('SELECT distinct trips.service_id FROM trips
+            # rows = cur.execute('SELECT distinct trips.service_id FROM trips
             # LEFT JOIN calendar ON(calendar.service_id=trips.service_id) WHERE trips.service_I is NULL').fetchall()
 
-                # print('trips, etc', [description[0] for description in cur.description])
-                # for i, row in enumerate(rows):
-                    # print(row)
-                    #if i == 100:
-                        #exit(0)
+            # print('trips, etc', [description[0] for description in cur.description])
+            # for i, row in enumerate(rows):
+            # print(row)
+            # if i == 100:
+            # exit(0)
 
-                # rows = cur.execute('SELECT distinct service_id FROM calendar').fetchall()
-                # print('calendar_columns',[description[0] for description in cur.description])
-                # for row in rows:
-                    # print(row)
+            # rows = cur.execute('SELECT distinct service_id FROM calendar').fetchall()
+            # print('calendar_columns',[description[0] for description in cur.description])
+            # for row in rows:
+            # print(row)
 
     def run_post_import(self, conn):
         if self.print_progress:
-            print('Post-import %s into %s' % (self.fname, self.table))
+            print("Post-import %s into %s" % (self.fname, self.table))
         cur = conn.cursor()
         self.post_import(cur)
         conn.commit()
 
     def create_index(self, conn):
-        if not hasattr(self, 'index'):
+        if not hasattr(self, "index"):
             return
         cur = conn.cursor()
         if self.print_progress:
-            print('Indexing %s' % (self.table,))
+            print("Indexing %s" % (self.table,))
         self.index(cur)
         conn.commit()
 
@@ -347,19 +354,24 @@ class TableLoader(object):
           after all tables are loaded.
         """
         if self.print_progress:
-            print('Beginning', self.__class__.__name__)
+            print("Beginning", self.__class__.__name__)
         # what is this mystical self._conn ?
         self._conn = conn
 
         self.create_table(conn)
         # This does insertions
-        if self.mode in ('all', 'import') and self.fname and self.exists() and self.table not in ignore_tables:
+        if (
+            self.mode in ("all", "import")
+            and self.fname
+            and self.exists()
+            and self.table not in ignore_tables
+        ):
             self.insert_data(conn)
         # This makes indexes in the DB.
-        if self.mode in ('all', 'index') and hasattr(self, 'index'):
+        if self.mode in ("all", "index") and hasattr(self, "index"):
             self.create_index(conn)
         # Any post-processing to be done after the full import.
-        if self.mode in ('all', 'import') and hasattr(self, 'post_import'):
+        if self.mode in ("all", "import") and hasattr(self, "post_import"):
             self.run_post_import(conn)
         # Commit it all
         conn.commit()
@@ -369,7 +381,7 @@ class TableLoader(object):
         """The make views should be run after all tables imported."""
         pass
 
-    copy_where = ''
+    copy_where = ""
 
     @classmethod
     def copy(cls, conn, **where):
@@ -387,9 +399,10 @@ class TableLoader(object):
             copy_where = cls.copy_where.format(**where)
             # print(copy_where)
         else:
-            copy_where = ''
-        cur.execute('INSERT INTO %s '
-                    'SELECT * FROM source.%s %s' % (cls.table, cls.table, copy_where))
+            copy_where = ""
+        cur.execute(
+            "INSERT INTO %s " "SELECT * FROM source.%s %s" % (cls.table, cls.table, copy_where)
+        )
 
     @classmethod
     def post_import_round2(cls, conn):
@@ -402,7 +415,7 @@ ignore_tables = set()
 def decode_six(string):
     version = sys.version_info[0]
     if version == 2:
-        return string.decode('utf-8')
+        return string.decode("utf-8")
     else:
-        assert(isinstance(string, str))
+        assert isinstance(string, str)
         return string

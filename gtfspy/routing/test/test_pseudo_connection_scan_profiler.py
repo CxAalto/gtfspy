@@ -17,7 +17,7 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
             (3, 4, 32, 35, "trip_4", 1),
             (2, 3, 25, 30, "trip_3", 1),
             (1, 2, 10, 20, "trip_2", 1),
-            (0, 1, 0, 10, "trip_1", 1)
+            (0, 1, 0, 10, "trip_1", 1),
         ]
         self.transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         self.walk_network = networkx.Graph()
@@ -31,9 +31,15 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         self.end_time = 50
 
     def test_basics(self):
-        csa_profile = PseudoConnectionScanProfiler(self.transit_connections, self.target_stop,
-                                                   self.start_time, self.end_time, self.transfer_margin,
-                                                   self.walk_network, self.walk_speed)
+        csa_profile = PseudoConnectionScanProfiler(
+            self.transit_connections,
+            self.target_stop,
+            self.start_time,
+            self.end_time,
+            self.transfer_margin,
+            self.walk_network,
+            self.walk_speed,
+        )
         csa_profile.run()
 
         stop_3_labels = csa_profile.stop_profiles[3].get_final_optimal_labels()
@@ -53,10 +59,7 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         labels.append(LabelTime(departure_time=20, arrival_time_target=50))
         labels.append(LabelTime(departure_time=32, arrival_time_target=55))
 
-        self._assert_pareto_tuple_sets_equal(
-            labels,
-            source_stop_pareto_optimal_tuples
-        )
+        self._assert_pareto_tuple_sets_equal(labels, source_stop_pareto_optimal_tuples)
 
     def test_simple(self):
         event_list_raw_data = [
@@ -76,22 +79,23 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         labels = []
         labels.append(LabelTime(departure_time=20, arrival_time_target=50))
 
-        csa_profile = PseudoConnectionScanProfiler(transit_connections, target_stop,
-                                                   start_time, end_time, transfer_margin,
-                                                   walk_network, walk_speed)
+        csa_profile = PseudoConnectionScanProfiler(
+            transit_connections,
+            target_stop,
+            start_time,
+            end_time,
+            transfer_margin,
+            walk_network,
+            walk_speed,
+        )
         csa_profile.run()
         source_stop_profile = csa_profile.stop_profiles[source_stop]
         source_stop_labels = source_stop_profile.get_final_optimal_labels()
 
-        self._assert_pareto_tuple_sets_equal(
-            labels,
-            source_stop_labels
-        )
+        self._assert_pareto_tuple_sets_equal(labels, source_stop_labels)
 
     def test_last_leg_is_walk(self):
-        event_list_raw_data = [
-            (0, 1, 0, 10, "trip_1", 1)
-        ]
+        event_list_raw_data = [(0, 1, 0, 10, "trip_1", 1)]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
         walk_network.add_edge(1, 2, d_walk=20)
@@ -105,17 +109,21 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         labels = []
         labels.append(LabelTime(departure_time=0, arrival_time_target=30))
 
-        csa_profile = PseudoConnectionScanProfiler(transit_connections, target_stop,
-                                                   start_time, end_time, transfer_margin,
-                                                   walk_network, walk_speed)
+        csa_profile = PseudoConnectionScanProfiler(
+            transit_connections,
+            target_stop,
+            start_time,
+            end_time,
+            transfer_margin,
+            walk_network,
+            walk_speed,
+        )
         csa_profile.run()
         found_tuples = csa_profile.stop_profiles[source_stop].get_final_optimal_labels()
         self._assert_pareto_tuple_sets_equal(found_tuples, labels)
 
     def test_walk_is_faster_than_by_trip(self):
-        event_list_raw_data = [
-            (0, 1, 0, 10, "trip_1", 1)
-        ]
+        event_list_raw_data = [(0, 1, 0, 10, "trip_1", 1)]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_speed = 2
         source_stop = 0
@@ -136,9 +144,7 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         self.assertEqual(len(found_tuples), 0)
 
     def test_target_node_not_in_walk_network(self):
-        event_list_raw_data = [
-            (0, 1, 0, 10, "trip_1", 1)
-        ]
+        event_list_raw_data = [(0, 1, 0, 10, "trip_1", 1)]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_speed = 2
         source_stop = 0
@@ -148,9 +154,15 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
         end_time = 50
 
         walk_network = networkx.Graph()
-        csa_profile = PseudoConnectionScanProfiler(transit_connections, target_stop,
-                                                   start_time, end_time, transfer_margin,
-                                                   walk_network, walk_speed)
+        csa_profile = PseudoConnectionScanProfiler(
+            transit_connections,
+            target_stop,
+            start_time,
+            end_time,
+            transfer_margin,
+            walk_network,
+            walk_speed,
+        )
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
         self.assertEqual(source_profile.evaluate_earliest_arrival_time_at_target(0, 0), 10)

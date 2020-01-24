@@ -44,15 +44,17 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
     http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf
     """
 
-    def __init__(self,
-                 transit_events,
-                 target_stop,
-                 start_time=None,
-                 end_time=None,
-                 transfer_margin=0,
-                 walk_network=None,
-                 walk_speed=1.5,
-                 verbose=False):
+    def __init__(
+        self,
+        transit_events,
+        target_stop,
+        start_time=None,
+        end_time=None,
+        transfer_margin=0,
+        walk_network=None,
+        walk_speed=1.5,
+        verbose=False,
+    ):
         """
         Parameters
         ----------
@@ -114,8 +116,8 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             # basic checking + printing progress:
             if self._verbose and i % 1000 == 0:
                 print(i, "/", n_connections)
-            assert (isinstance(connection, Connection))
-            assert (connection.departure_time <= previous_departure_time)
+            assert isinstance(connection, Connection)
+            assert connection.departure_time <= previous_departure_time
             previous_departure_time = connection.departure_time
 
             # get all different "accessible" / arrival times (Pareto-optimal sets)
@@ -132,8 +134,9 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             earliest_arrival_time_via_same_trip = self.__trip_min_arrival_time[connection.trip_id]
 
             # then, take the minimum (or the Pareto-optimal set) of these three alternatives.
-            min_arrival_time = min(earliest_arrival_time_via_same_trip,
-                                   earliest_arrival_time_via_transfer)
+            min_arrival_time = min(
+                earliest_arrival_time_via_same_trip, earliest_arrival_time_via_transfer
+            )
 
             # If there are no 'labels' to progress, nothing needs to be done.
             if min_arrival_time == float("inf"):
@@ -141,7 +144,9 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
 
             # Update information for the trip
             if earliest_arrival_time_via_same_trip > min_arrival_time:
-                self.__trip_min_arrival_time[connection.trip_id] = earliest_arrival_time_via_transfer
+                self.__trip_min_arrival_time[
+                    connection.trip_id
+                ] = earliest_arrival_time_via_transfer
 
             # Compute the new "best" pareto_tuple possible (later: merge the sets of pareto-optimal labels)
             pareto_tuple = LabelTimeSimple(connection.departure_time, min_arrival_time)
@@ -151,17 +156,21 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
             updated_dep_stop = dep_stop_profile.update_pareto_optimal_tuples(pareto_tuple)
             # if the departure stop is updated, one also needs to scan the footpaths from the departure stop
             if updated_dep_stop:
-                self._scan_footpaths_to_departure_stop(connection.departure_stop,
-                                                       connection.departure_time,
-                                                       min_arrival_time)
+                self._scan_footpaths_to_departure_stop(
+                    connection.departure_stop, connection.departure_time, min_arrival_time
+                )
 
-    def _scan_footpaths_to_departure_stop(self, connection_dep_stop, connection_dep_time, arrival_time_target):
+    def _scan_footpaths_to_departure_stop(
+        self, connection_dep_stop, connection_dep_time, arrival_time_target
+    ):
         """ A helper method for scanning the footpaths. Updates self._stop_profiles accordingly"""
         for _, neighbor, data in self._walk_network.edges(nbunch=[connection_dep_stop],
                                                                data=True):
             d_walk = data['d_walk']
             neighbor_dep_time = connection_dep_time - d_walk / self._walk_speed
-            pt = LabelTimeSimple(departure_time=neighbor_dep_time, arrival_time_target=arrival_time_target)
+            pt = LabelTimeSimple(
+                departure_time=neighbor_dep_time, arrival_time_target=arrival_time_target
+            )
             self._stop_profiles[neighbor].update_pareto_optimal_tuples(pt)
 
     @property

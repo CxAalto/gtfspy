@@ -7,7 +7,7 @@ class NodeProfileSimple:
     that stores information on the Pareto-Optimal (departure_time_this_node, arrival_time_target_node) tuples.
     """
 
-    def __init__(self, walk_to_target_duration=float('inf'), label_class=LabelTimeSimple):
+    def __init__(self, walk_to_target_duration=float("inf"), label_class=LabelTimeSimple):
         self._labels = []  # list[LabelTimeSimple] # always ordered by decreasing departure_time
         self._walk_to_target_duration = walk_to_target_duration
         self._label_class = label_class
@@ -29,11 +29,14 @@ class NodeProfileSimple:
             whether new_pareto_tuple was added to the set of pareto-optimal tuples
         """
         if new_pareto_tuple.duration() > self._walk_to_target_duration:
-            direct_walk_label = self._label_class.direct_walk_label(new_pareto_tuple.departure_time,
-                                                                    self._walk_to_target_duration)
+            direct_walk_label = self._label_class.direct_walk_label(
+                new_pareto_tuple.departure_time, self._walk_to_target_duration
+            )
             if not direct_walk_label.dominates(new_pareto_tuple):
                 raise
-        direct_walk_label = self._label_class.direct_walk_label(new_pareto_tuple.departure_time, self._walk_to_target_duration)
+        direct_walk_label = self._label_class.direct_walk_label(
+            new_pareto_tuple.departure_time, self._walk_to_target_duration
+        )
         if direct_walk_label.dominates(new_pareto_tuple):
             return False
 
@@ -92,10 +95,12 @@ class NodeProfileSimple:
         minimum = dep_time + self._walk_to_target_duration
         dep_time_plus_transfer_margin = dep_time + transfer_margin
         for label in self._labels:
-            if label.departure_time >= dep_time_plus_transfer_margin and label.arrival_time_target < minimum:
+            if (
+                label.departure_time >= dep_time_plus_transfer_margin
+                and label.arrival_time_target < minimum
+            ):
                 minimum = label.arrival_time_target
         return float(minimum)
 
     def get_final_optimal_labels(self):
         return [label.get_copy() for label in self._labels]
-
