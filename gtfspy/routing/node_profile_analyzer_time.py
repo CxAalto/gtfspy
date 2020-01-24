@@ -679,9 +679,6 @@ class NodeProfileAnalyzerTime:
     def get_temporal_distance_at(self, dep_time):
         return self.profile_block_analyzer.interpolate(dep_time)
 
-    def get_temporal_distance_at(self, dep_time):
-        return self.profile_block_analyzer
-
     @staticmethod
     def all_measures_and_names_as_lists():
         NPA = NodeProfileAnalyzerTime

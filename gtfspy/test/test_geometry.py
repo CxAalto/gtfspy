@@ -49,21 +49,6 @@ class GeometryTest(unittest.TestCase):
         computed = approximate_convex_hull_area(lons, lats)
         self.assertTrue(approximate_reference * 0.9 < computed < approximate_reference * 1.1)
 
-    def test_approximate_convex_hull_area(self):
-        # helsinki railway station, Helsinki
-        # leppavaara station, Helsinki
-        # pasila railway station, Helsinki
-        leppavaara_coords = 60.219163, 24.813390
-        pasila_coords = 60.199136, 24.934090
-        main_railway_station_coords = 60.171545, 24.940734
-        # lat, lon
-        lats, lons = list(zip(leppavaara_coords, pasila_coords, main_railway_station_coords))
-        approximate_reference = (
-            9.91  # computed using https://asiointi.maanmittauslaitos.fi/karttapaikka/
-        )
-        computed = approximate_convex_hull_area(lons, lats)
-        self.assertTrue(approximate_reference * 0.9 < computed < approximate_reference * 1.1)
-
     def test_get_buffered_area_of_stops(self):
         # stop1 is far from stop2, theres no overlap
         # stop1 and stop3 are close and could have overlap

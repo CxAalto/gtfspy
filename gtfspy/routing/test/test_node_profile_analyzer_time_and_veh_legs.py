@@ -158,7 +158,7 @@ class TestNodeProfileAnalyzerTimeAndVehLegs(TestCase):
         )
         self.assertEqual(analyzer.n_boardings_on_fastest_trip(), 4)
 
-    @unittest.skip
+    @unittest.skip  # type: ignore
     def test_plot(self):
         labels = [
             LabelTimeWithBoardingsCount(

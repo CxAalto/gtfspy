@@ -542,4 +542,4 @@ def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
     return get_smopy_map.maps[args]
 
 
-get_smopy_map.maps = {}
+get_smopy_map.maps = {}  # type: ignore

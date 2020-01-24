@@ -157,7 +157,7 @@ class TestImport(unittest.TestCase):
             print(row)
         self.conn.row_factory = prev_row_factory
 
-    def tearDown(self):
+    def tearDown(self):  # type: ignore
         """This method is run once after _each_ test method is executed"""
         pass
 
