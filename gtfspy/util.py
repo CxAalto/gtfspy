@@ -370,7 +370,7 @@ def zip_open(z, filename):
     if sys.version_info[0] == 2:
         return z.open(filename, 'rU')
     else:
-        return io.TextIOWrapper(z.open(filename, 'r'))
+        return io.TextIOWrapper(z.open(filename, 'r'), "utf-8")
 
 
 def draw_net_using_node_coords(net):
