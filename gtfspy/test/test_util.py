@@ -6,7 +6,6 @@ from gtfspy import util
 
 
 class TestUtil(unittest.TestCase):
-
     @staticmethod
     def _approximately_equal(a, b):
         return abs(a - b) / float(abs(a + b)) < 1e-2
@@ -37,7 +36,16 @@ class TestUtil(unittest.TestCase):
 
     def test_txt_to_pandas(self):
         source_dir = os.path.join(os.path.dirname(__file__), "test_data")
-        txtnames = ['agency', 'routes', 'trips', 'calendar', 'calendar_dates', 'stop_times', 'stops', 'shapes']
+        txtnames = [
+            "agency",
+            "routes",
+            "trips",
+            "calendar",
+            "calendar_dates",
+            "stop_times",
+            "stops",
+            "shapes",
+        ]
         df = util.source_csv_to_pandas(source_dir, txtnames[3])
         self.assertIsInstance(df, pd.DataFrame)
         source_zip = os.path.join(os.path.dirname(__file__), "test_data/test_gtfs.zip")

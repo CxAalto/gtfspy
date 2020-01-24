@@ -9,13 +9,12 @@ from gtfspy.gtfs import GTFS
 
 
 class SpreadingTest(unittest.TestCase):
-
     @staticmethod
     def test_get_min_visit_time():
         stop_I = 1
         min_transfer_time = 60
         ss = SpreadingStop(stop_I, min_transfer_time)
-        assert ss.get_min_visit_time() == float('inf')
+        assert ss.get_min_visit_time() == float("inf")
         ss.visit_events = [Event(10, 0, stop_I, stop_I, -1)]
         assert ss.get_min_visit_time() == 10
         ss.visit_events.append(Event(5, 0, stop_I, stop_I, -1))
@@ -74,5 +73,3 @@ class SpreadingTest(unittest.TestCase):
         keys = "lats lons times route_type name".split()
         for key in keys:
             assert key in el, el
-
-

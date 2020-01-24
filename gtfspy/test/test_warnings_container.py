@@ -5,7 +5,6 @@ from gtfspy.warnings_container import WarningsContainer
 
 
 class TestWarningsContainer(TestCase):
-
     def test_summary_print(self):
         wc = WarningsContainer()
         wc.add_warning("DUMMY_WARNING", ["dummy1", "dummy2"], 2)

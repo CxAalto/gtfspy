@@ -7,8 +7,15 @@ from gtfspy.routing.profile_block import ProfileBlock
 
 
 class FastestPathAnalyzer:
-
-    def __init__(self, labels, start_time_dep, end_time_dep, walk_duration=float('inf'), label_props_to_consider=None, **kwargs):
+    def __init__(
+        self,
+        labels,
+        start_time_dep,
+        end_time_dep,
+        walk_duration=float("inf"),
+        label_props_to_consider=None,
+        **kwargs
+    ):
         """
         Parameters
         ----------
@@ -19,8 +26,8 @@ class FastestPathAnalyzer:
         label_props_to_consider: list
         """
         for label in labels:
-            assert (hasattr(label, "departure_time"))
-            assert (hasattr(label, "arrival_time_target"))
+            assert hasattr(label, "departure_time")
+            assert hasattr(label, "arrival_time_target")
         self.start_time_dep = start_time_dep
         self.end_time_dep = end_time_dep
         self.walk_duration = walk_duration
@@ -32,17 +39,23 @@ class FastestPathAnalyzer:
         # assert each label has the required properties
         for label in self._fastest_path_labels:
             for prop in self.label_props:
-                assert (hasattr(label, prop))
+                assert hasattr(label, prop)
         self.kwargs = kwargs
 
     def _compute_fastest_path_labels(self, labels):
-        relevant_labels = [label.get_copy() for label in labels if (self.start_time_dep < label.departure_time <= self.end_time_dep)]
+        relevant_labels = [
+            label.get_copy()
+            for label in labels
+            if (self.start_time_dep < label.departure_time <= self.end_time_dep)
+        ]
         if len(relevant_labels) is 0 or relevant_labels[-1].departure_time < self.end_time_dep:
             # add an after label
-            smallest_arr_time_after_end_time = float('inf')
+            smallest_arr_time_after_end_time = float("inf")
             smallest_arr_time_label = None
             for label in labels:
-                if self.end_time_dep < label.departure_time and (label.arrival_time_target < smallest_arr_time_after_end_time):
+                if self.end_time_dep < label.departure_time and (
+                    label.arrival_time_target < smallest_arr_time_after_end_time
+                ):
                     smallest_arr_time_after_end_time = label.arrival_time_target
                     smallest_arr_time_label = label
             if smallest_arr_time_label is not None:
@@ -56,8 +69,8 @@ class FastestPathAnalyzer:
         # assert ordered:
         for i in range(len(fp_labels) - 1):
             try:
-                assert (fp_labels[i].arrival_time_target <= fp_labels[i + 1].arrival_time_target)
-                assert (fp_labels[i].departure_time < fp_labels[i + 1].departure_time)
+                assert fp_labels[i].arrival_time_target <= fp_labels[i + 1].arrival_time_target
+                assert fp_labels[i].departure_time < fp_labels[i + 1].departure_time
             except AssertionError as e:
                 for fp_label in fp_labels:
                     print(fp_label)
@@ -90,12 +103,13 @@ class FastestPathAnalyzer:
         -------
         blocks: list[ProfileBlock]
         """
+
         def _label_to_prop_dict(label):
             return {prop: getattr(label, prop) for prop in self.label_props}
 
         labels = self._fastest_path_labels
         for i in range(len(labels) - 1):
-            assert (labels[i].departure_time < labels[i + 1].departure_time)
+            assert labels[i].departure_time < labels[i + 1].departure_time
 
         previous_dep_time = self.start_time_dep
         blocks = []
@@ -103,26 +117,33 @@ class FastestPathAnalyzer:
             if previous_dep_time >= self.end_time_dep:
                 break
             end_time = min(label.departure_time, self.end_time_dep)
-            assert (end_time >= previous_dep_time)
+            assert end_time >= previous_dep_time
 
             temporal_distance_start = label.duration() + (label.departure_time - previous_dep_time)
 
             if temporal_distance_start > self.walk_duration:
-                split_point_x_computed = label.departure_time - (self.walk_duration - label.duration())
+                split_point_x_computed = label.departure_time - (
+                    self.walk_duration - label.duration()
+                )
                 split_point_x = min(split_point_x_computed, end_time)
                 if previous_dep_time < split_point_x:
                     # add walk block, only if it is required
-                    walk_block = ProfileBlock(previous_dep_time,
-                                              split_point_x,
-                                              self.walk_duration,
-                                              self.walk_duration,
-                                              **_label_to_prop_dict(label))
+                    walk_block = ProfileBlock(
+                        previous_dep_time,
+                        split_point_x,
+                        self.walk_duration,
+                        self.walk_duration,
+                        **_label_to_prop_dict(label),
+                    )
                     blocks.append(walk_block)
                 if split_point_x < end_time:
-                    trip_block = ProfileBlock(split_point_x, end_time,
-                                              label.duration() + (end_time - split_point_x),
-                                              label.duration(),
-                                              **_label_to_prop_dict(label))
+                    trip_block = ProfileBlock(
+                        split_point_x,
+                        end_time,
+                        label.duration() + (end_time - split_point_x),
+                        label.duration(),
+                        **_label_to_prop_dict(label),
+                    )
                     blocks.append(trip_block)
             else:
                 journey_block = ProfileBlock(
@@ -130,15 +151,15 @@ class FastestPathAnalyzer:
                     end_time,
                     temporal_distance_start,
                     temporal_distance_start - (end_time - previous_dep_time),
-                    **_label_to_prop_dict(label))
+                    **_label_to_prop_dict(label),
+                )
                 blocks.append(journey_block)
             previous_dep_time = blocks[-1].end_time
 
         if previous_dep_time < self.end_time_dep:
-            last_block = ProfileBlock(previous_dep_time,
-                                      self.end_time_dep,
-                                      self.walk_duration,
-                                      self.walk_duration)
+            last_block = ProfileBlock(
+                previous_dep_time, self.end_time_dep, self.walk_duration, self.walk_duration
+            )
             blocks.append(last_block)
         return blocks
 
@@ -148,10 +169,9 @@ class FastestPathAnalyzer:
         -------
         NodeProfileAnalyzerTime
         """
-        return NodeProfileAnalyzerTime(self._fastest_path_labels,
-                                       self.walk_duration,
-                                       self.start_time_dep,
-                                       self.end_time_dep)
+        return NodeProfileAnalyzerTime(
+            self._fastest_path_labels, self.walk_duration, self.start_time_dep, self.end_time_dep
+        )
 
     def get_props(self):
         return list(self.label_props)
@@ -196,7 +216,7 @@ class FastestPathAnalyzer:
         prop_blocks = []
         for b in fp_blocks:
             if b.is_flat():
-                if b.distance_end == self.walk_duration and b.distance_end != float('inf'):
+                if b.distance_end == self.walk_duration and b.distance_end != float("inf"):
                     prop_value = value_cutoff
                 else:
                     prop_value = value_no_next_journey
@@ -205,6 +225,3 @@ class FastestPathAnalyzer:
             prop_block = ProfileBlock(b.start_time, b.end_time, prop_value, prop_value)
             prop_blocks.append(prop_block)
         return ProfileBlockAnalyzer(prop_blocks, **kwargs)
-
-
-

@@ -15,8 +15,17 @@ class Spreader(object):
     shortest path spreading dynamics as trips, or "events".
     """
 
-    def __init__(self, gtfs, start_time_ut, lat, lon, max_duration_ut, min_transfer_time=30,
-                 shapes=True, walk_speed=0.5):
+    def __init__(
+        self,
+        gtfs,
+        start_time_ut,
+        lat,
+        lon,
+        max_duration_ut,
+        min_transfer_time=30,
+        shapes=True,
+        walk_speed=0.5,
+    ):
         """
         Parameters
         ----------
@@ -56,8 +65,10 @@ class Spreader(object):
 
     def _initialize(self):
         if self._initialized:
-            raise RuntimeError("This spreader instance has already been initialized: "
-                               "create a new Spreader object for a new run.")
+            raise RuntimeError(
+                "This spreader instance has already been initialized: "
+                "create a new Spreader object for a new run."
+            )
         # events are sorted by arrival time, so in order to use the
         # heapq, we need to have events coded as
         # (arrival_time, (from_stop, to_stop))
@@ -66,7 +77,7 @@ class Spreader(object):
 
         print("Computing/fetching events")
         events_df = self.gtfs.get_transit_events(self.start_time_ut, end_time_ut)
-        all_stops = set(self.gtfs.stops()['stop_I'])
+        all_stops = set(self.gtfs.stops()["stop_I"])
 
         self._uninfected_stops = all_stops.copy()
         self._uninfected_stops.remove(start_stop_I)
@@ -74,9 +85,7 @@ class Spreader(object):
         # match stop_I to a more advanced stop object
         seed_stop = SpreadingStop(start_stop_I, self.min_transfer_time)
 
-        self._stop_I_to_spreading_stop = {
-            start_stop_I: seed_stop
-        }
+        self._stop_I_to_spreading_stop = {start_stop_I: seed_stop}
         for stop in self._uninfected_stops:
             self._stop_I_to_spreading_stop[stop] = SpreadingStop(stop, self.min_transfer_time)
 
@@ -84,11 +93,9 @@ class Spreader(object):
         print("intializing heap")
         self.event_heap = EventHeap(events_df)
 
-        start_event = Event(self.start_time_ut - 1,
-                            self.start_time_ut - 1,
-                            start_stop_I,
-                            start_stop_I,
-                            -1)
+        start_event = Event(
+            self.start_time_ut - 1, self.start_time_ut - 1, start_stop_I, start_stop_I, -1
+        )
 
         seed_stop.visit(start_event)
         assert len(seed_stop.visit_events) > 0
@@ -100,7 +107,7 @@ class Spreader(object):
             self.start_time_ut,
             self.walk_speed,
             self._uninfected_stops,
-            self.max_duration_ut
+            self.max_duration_ut,
         )
         self._initialized = True
 
@@ -109,8 +116,10 @@ class Spreader(object):
         Run the actual simulation.
         """
         if self._has_run:
-            raise RuntimeError("This spreader instance has already been run: "
-                               "create a new Spreader object for a new run.")
+            raise RuntimeError(
+                "This spreader instance has already been run: "
+                "create a new Spreader object for a new run."
+            )
         i = 1
         while self.event_heap.size() > 0 and len(self._uninfected_stops) > 0:
             event = self.event_heap.pop_next_event()
@@ -128,10 +137,17 @@ class Spreader(object):
                 if not already_visited:
                     self._uninfected_stops.remove(event.to_stop_I)
                     print(i, self.event_heap.size())
-                    transfer_distances = self.gtfs.get_straight_line_transfer_distances(event.to_stop_I)
-                    self.event_heap.add_walk_events_to_heap(transfer_distances, event, self.start_time_ut,
-                                                            self.walk_speed, self._uninfected_stops,
-                                                            self.max_duration_ut)
+                    transfer_distances = self.gtfs.get_straight_line_transfer_distances(
+                        event.to_stop_I
+                    )
+                    self.event_heap.add_walk_events_to_heap(
+                        transfer_distances,
+                        event,
+                        self.start_time_ut,
+                        self.walk_speed,
+                        self._uninfected_stops,
+                        self.max_duration_ut,
+                    )
                     i += 1
         self._has_run = True
 
@@ -151,13 +167,17 @@ class Spreader(object):
         if not self._has_run:
             raise RuntimeError("This spreader object has not run yet. Can not return any trips.")
         # create new transfer events and add them to the heap (=queue)
-        inf_times = [[stop_I, el.get_min_visit_time() - self.start_time_ut]
-                     for stop_I, el in self._stop_I_to_spreading_stop.items()]
+        inf_times = [
+            [stop_I, el.get_min_visit_time() - self.start_time_ut]
+            for stop_I, el in self._stop_I_to_spreading_stop.items()
+        ]
         inf_times = numpy.array(inf_times)
         inf_time_data = pd.DataFrame(inf_times, columns=["stop_I", "inf_time_ut"])
         stop_data = self.gtfs.stops()
 
-        combined = inf_time_data.merge(stop_data, how='inner', on='stop_I', suffixes=('_infs', '_stops'), copy=True)
+        combined = inf_time_data.merge(
+            stop_data, how="inner", on="stop_I", suffixes=("_infs", "_stops"), copy=True
+        )
 
         trips = []
         for stop_I, dest_stop_obj in self._stop_I_to_spreading_stop.items():
@@ -165,11 +185,11 @@ class Spreader(object):
             if inf_event is None:
                 continue
             dep_stop_I = inf_event.from_stop_I
-            dep_lat = float(combined[combined['stop_I'] == dep_stop_I]['lat'].values)
-            dep_lon = float(combined[combined['stop_I'] == dep_stop_I]['lon'].values)
+            dep_lat = float(combined[combined["stop_I"] == dep_stop_I]["lat"].values)
+            dep_lon = float(combined[combined["stop_I"] == dep_stop_I]["lon"].values)
 
-            dest_lat = float(combined[combined['stop_I'] == stop_I]['lat'].values)
-            dest_lon = float(combined[combined['stop_I'] == stop_I]['lon'].values)
+            dest_lat = float(combined[combined["stop_I"] == stop_I]["lat"].values)
+            dest_lon = float(combined[combined["stop_I"] == stop_I]["lon"].values)
 
             if inf_event.trip_I == -1:
                 name = "walk"
@@ -178,11 +198,11 @@ class Spreader(object):
                 name, rtype = self.gtfs.get_route_name_and_type_of_tripI(inf_event.trip_I)
 
             trip = {
-                "lats"      : [dep_lat, dest_lat],
-                "lons"      : [dep_lon, dest_lon],
-                "times"     : [inf_event.dep_time_ut, inf_event.arr_time_ut],
-                "name"      : name,
-                "route_type": rtype
+                "lats": [dep_lat, dest_lat],
+                "lons": [dep_lon, dest_lon],
+                "times": [inf_event.dep_time_ut, inf_event.arr_time_ut],
+                "name": name,
+                "route_type": rtype,
             }
             trips.append(trip)
         return {"trips": trips}
