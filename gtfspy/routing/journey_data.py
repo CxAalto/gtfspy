@@ -1052,13 +1052,13 @@ class DiffDataManager:
         return rows
 
     def get_largest_component(self, target, threshold=180):
-        query = """SELECT diff_pre_journey_wait_fp.from_stop_I AS stop_I, 
-                    diff_pre_journey_wait_fp.diff_mean AS pre_journey_wait, 
+        query = """SELECT diff_pre_journey_wait_fp.from_stop_I AS stop_I,
+                    diff_pre_journey_wait_fp.diff_mean AS pre_journey_wait,
                     diff_in_vehicle_duration.diff_mean AS in_vehicle_duration,
-                    diff_transfer_wait_duration.diff_mean AS transfer_wait, 
+                    diff_transfer_wait_duration.diff_mean AS transfer_wait,
                     diff_walking_duration.diff_mean AS walking_duration,
                     diff_temporal_distance.diff_mean AS temporal_distance
-                    FROM diff_pre_journey_wait_fp, diff_in_vehicle_duration, 
+                    FROM diff_pre_journey_wait_fp, diff_in_vehicle_duration,
                     diff_transfer_wait_duration, diff_walking_duration, diff_temporal_distance
                     WHERE diff_pre_journey_wait_fp.rowid = diff_in_vehicle_duration.rowid
                     AND diff_pre_journey_wait_fp.rowid = diff_transfer_wait_duration.rowid

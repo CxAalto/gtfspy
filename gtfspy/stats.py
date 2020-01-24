@@ -627,10 +627,10 @@ def frequencies_by_generated_route(gtfs, st, et, day=None):
     hours = timeframe / 3600
     if not day:
         day = gtfs.get_suitable_date_for_daily_extract()
-    query = """SELECT count(*)/{h} AS frequency, count(*) AS n_trips, route, type FROM 
+    query = """SELECT count(*)/{h} AS frequency, count(*) AS n_trips, route, type FROM
     (SELECT trip_I, group_concat(stop_I) AS route, name, type FROM
     (SELECT * FROM stop_times, days, trips, routes
-    WHERE stop_times.trip_I = days.trip_I AND stop_times.trip_I = trips.trip_I AND  routes.route_I = trips.route_I AND 
+    WHERE stop_times.trip_I = days.trip_I AND stop_times.trip_I = trips.trip_I AND  routes.route_I = trips.route_I AND
     days.date = '{day}' AND start_time_ds >= {st} AND start_time_ds < {et}
     ORDER BY trip_I, seq) q1
     GROUP BY trip_I) q2
@@ -643,7 +643,7 @@ def frequencies_by_generated_route(gtfs, st, et, day=None):
 
 def departure_stops(gtfs, st, et):
     day = gtfs.get_suitable_date_for_daily_extract()
-    query = """select stop_I, count(*) as n_departures from 
+    query = """select stop_I, count(*) as n_departures from
                 (select min(seq), * from stop_times, days, trips
                 where stop_times.trip_I = days.trip_I and stop_times.trip_I = trips.trip_I and days.date = '{day}'
                  and start_time_ds >= {st} and start_time_ds < {et}

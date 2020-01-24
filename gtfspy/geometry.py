@@ -67,7 +67,7 @@ def get_buffered_area_of_stops(gtfs, buffer_meters, resolution):
     ----------
     gtfs: gtfs.GTFS
     buffer_meters: meters around the stop to buffer.
-    resolution: increases the accuracy of the calculated area with computation time. Default = 16 
+    resolution: increases the accuracy of the calculated area with computation time. Default = 16
 
     Returns
     -------

@@ -291,11 +291,11 @@ def route_to_route_network(gtfs, walking_threshold, start_time, end_time):
 
     query = """SELECT stop1.route_id AS route_id1, stop1.type, stop2.route_id AS route_id2, stop2.type FROM
                 (SELECT * FROM stop_distances WHERE d_walk < %s) sd,
-                (SELECT * FROM stop_times, trips, routes 
-                WHERE stop_times.trip_I=trips.trip_I AND trips.route_I=routes.route_I 
+                (SELECT * FROM stop_times, trips, routes
+                WHERE stop_times.trip_I=trips.trip_I AND trips.route_I=routes.route_I
                 AND stop_times.dep_time_ds > %s AND stop_times.dep_time_ds < %s) stop1,
-                (SELECT * FROM stop_times, trips, routes 
-                WHERE stop_times.trip_I=trips.trip_I AND trips.route_I=routes.route_I 
+                (SELECT * FROM stop_times, trips, routes
+                WHERE stop_times.trip_I=trips.trip_I AND trips.route_I=routes.route_I
                 AND stop_times.dep_time_ds > %s AND stop_times.dep_time_ds < %s) stop2
                 WHERE sd.from_stop_I = stop1.stop_I AND sd.to_stop_I = stop2.stop_I AND stop1.route_id != stop2.route_id
                 GROUP BY stop1.route_id, stop2.route_id""" % (

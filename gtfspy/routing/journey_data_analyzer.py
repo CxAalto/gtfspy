@@ -154,7 +154,7 @@ class JourneyDataAnalyzer:
                      count(*) AS n_trips, group_concat(dep_time) AS dep_times
                      FROM
                      (SELECT legs.*, journeys.departure_time as dep_time FROM legs, journeys
-                     WHERE journeys.journey_id = legs.journey_id AND journeys.from_stop_I = %s 
+                     WHERE journeys.journey_id = legs.journey_id AND journeys.from_stop_I = %s
                      AND journeys.to_stop_I = %s %s
                      ORDER BY dep_time
                      ) q1
@@ -193,9 +193,9 @@ class JourneyDataAnalyzer:
         if ignore_walk:
             added_constraints += " AND legs.trip_I >= 0"
 
-        query = """SELECT from_stop_I, to_stop_I, coalesce(type, -1) AS type, route FROM 
+        query = """SELECT from_stop_I, to_stop_I, coalesce(type, -1) AS type, route FROM
                     (SELECT legs.*, route FROM journeys, legs WHERE legs.journey_id=journeys.journey_id AND journeys.to_stop_I = %s %s) q1
-                    LEFT JOIN 
+                    LEFT JOIN
                     (SELECT * FROM other.trips, other.routes WHERE trips.route_I = routes.route_I) q2
                     ON q1.trip_I = q2.trip_I
                     """ % (
@@ -232,8 +232,8 @@ class JourneyDataAnalyzer:
 
     def journey_alternatives_per_stop_pair(self, target, start_time, end_time):
         query = """SELECT from_stop_I, to_stop_I, ifnull(1.0*sum(n_sq)/(sum(n_trips)*(sum(n_trips)-1)), 1) AS simpson,
-                    sum(n_trips) AS n_trips, count(*) AS n_routes FROM 
-                    (SELECT from_stop_I, to_stop_I, count(*) AS n_trips, count(*)*(count(*)-1) AS n_sq 
+                    sum(n_trips) AS n_trips, count(*) AS n_routes FROM
+                    (SELECT from_stop_I, to_stop_I, count(*) AS n_trips, count(*)*(count(*)-1) AS n_sq
                     FROM journeys
                     WHERE pre_journey_wait_fp > 0 AND to_stop_I = %s AND departure_time >= %s AND departure_time <= %s
                     GROUP BY route) sq1
@@ -249,13 +249,13 @@ class JourneyDataAnalyzer:
 
     def journey_alternative_data_time_weighted(self, target, start_time, end_time):
         query = """SELECT sum(p*p) AS simpson, sum(n_trips) AS n_trips, count(*) AS n_routes, from_stop_I, to_stop_I FROM
-                    (SELECT 1.0*sum(pre_journey_wait_fp)/total_time AS p, count(*) AS n_trips, route, 
+                    (SELECT 1.0*sum(pre_journey_wait_fp)/total_time AS p, count(*) AS n_trips, route,
                     journeys.from_stop_I, journeys.to_stop_I FROM journeys,
                     (SELECT sum(pre_journey_wait_fp) AS total_time, from_stop_I, to_stop_I FROM journeys
                     WHERE departure_time >= %s AND departure_time <= %s
                     GROUP BY from_stop_I, to_stop_I) sq1
-                    WHERE pre_journey_wait_fp > 0 AND sq1.to_stop_I=journeys.to_stop_I AND departure_time >= %s 
-                    AND departure_time <= %s AND journeys.to_stop_I = %s AND sq1.from_stop_I = journeys.from_stop_I 
+                    WHERE pre_journey_wait_fp > 0 AND sq1.to_stop_I=journeys.to_stop_I AND departure_time >= %s
+                    AND departure_time <= %s AND journeys.to_stop_I = %s AND sq1.from_stop_I = journeys.from_stop_I
                     GROUP BY route) sq2
                     GROUP BY from_stop_I, to_stop_I""" % (
             start_time,
@@ -279,8 +279,8 @@ class JourneyDataAnalyzer:
         return df
 
     def get_upstream_stops(self, target, stop):
-        query = """SELECT stops.* FROM other.stops, 
-                    (SELECT journeys.from_stop_I AS stop_I FROM journeys, legs 
+        query = """SELECT stops.* FROM other.stops,
+                    (SELECT journeys.from_stop_I AS stop_I FROM journeys, legs
                     WHERE journeys.journey_id=legs.journey_id AND legs.from_stop_I = %s AND journeys.to_stop_I = %s AND pre_journey_wait_fp >= 0
                     GROUP BY journeys.from_stop_I) q1
                     WHERE stops.stop_I = q1.stop_I""" % (
@@ -300,12 +300,12 @@ class JourneyDataAnalyzer:
         """
         if isinstance(trough_stops, list):
             trough_stops = ",".join(trough_stops)
-        query = """SELECT stops.* FROM other.stops, 
-                    (SELECT q2.from_stop_I AS stop_I FROM 
+        query = """SELECT stops.* FROM other.stops,
+                    (SELECT q2.from_stop_I AS stop_I FROM
                     (SELECT journeys.from_stop_I, count(*) AS n_total FROM journeys
-                    WHERE journeys.to_stop_I = {target} 
+                    WHERE journeys.to_stop_I = {target}
                     GROUP BY from_stop_I) q1,
-                    (SELECT journeys.from_stop_I, count(*) AS n_trough FROM journeys, legs 
+                    (SELECT journeys.from_stop_I, count(*) AS n_trough FROM journeys, legs
                     WHERE journeys.journey_id=legs.journey_id AND legs.from_stop_I IN ({trough_stops}) AND journeys.to_stop_I = {target}
                     GROUP BY journeys.from_stop_I) q2
                     WHERE q1.from_stop_I = q2.from_stop_I AND n_trough/(n_total*1.0) >= {ratio}) q1
