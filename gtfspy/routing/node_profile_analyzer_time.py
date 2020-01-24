@@ -149,7 +149,7 @@ class NodeProfileAnalyzerTime:
                     assert trip_block.start_time <= trip_block.end_time
                     assert trip_block.distance_end <= trip_block.distance_start
                     self._profile_blocks.append(trip_block)
-                except AssertionError as e:
+                except AssertionError:
                     # the error was due to a very small waiting timesmall numbers
                     assert trip_waiting_time < 10 ** -5
 
@@ -411,12 +411,12 @@ class NodeProfileAnalyzerTime:
 
         if delta_peaks:
             peak_height = max(ys) * 1.4
-            max_x = max(xs)
-            min_x = min(xs)
-            now_max_x = max(xs) + 0.3 * (max_x - min_x)
-            now_min_x = min_x - 0.1 * (max_x - min_x)
-
-            text_x_offset = 0.1 * (now_max_x - max_x)
+            # max_x = max(xs)
+            # min_x = min(xs)
+            # now_max_x = max(xs) + 0.3 * (max_x - min_x)
+            # now_min_x = min_x - 0.1 * (max_x - min_x)
+            #
+            # text_x_offset = 0.1 * (now_max_x - max_x)
 
             for loc, mass in delta_peaks.items():
                 text = "$P(\\mathrm{walk}) = " + ("%.2f$" % (mass))

@@ -184,7 +184,7 @@ class TestNodeProfileAnalyzerTimeAndVehLegs(TestCase):
                 departure_time=5, arrival_time_target=10, n_boardings=1, first_leg_is_walk=True
             ),
         ]
-        analyzer = self._get_analyzer(labels, 0, 20, 35)
+        self._get_analyzer(labels, 0, 20, 35)
         print(fig)
         import matplotlib.pyplot as plt
 

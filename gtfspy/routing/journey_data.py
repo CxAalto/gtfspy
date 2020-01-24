@@ -141,7 +141,7 @@ class JourneyDataManager:
         print("Collecting journey data")
         journey_id = 1
         journey_list = []
-        tot = len(stop_profiles)
+        # tot = len(stop_profiles)
         for i, (origin_stop, labels) in enumerate(stop_profiles.items(), start=1):
             # print("\r Stop " + str(i) + " of " + str(tot), end='', flush=True)
             for label in labels:

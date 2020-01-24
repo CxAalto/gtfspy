@@ -202,8 +202,8 @@ class TableLoader(object):
                 # now source is a directory
                 try:
                     f = open(os.path.join(source, self.fname))
-                # except OSError as e:
-                except IOError as e:
+                # except OSError:
+                except IOError:
                     f = []
             fs.append(f)
 

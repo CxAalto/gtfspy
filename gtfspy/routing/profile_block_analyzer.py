@@ -84,7 +84,7 @@ class ProfileBlockAnalyzer:
     def median(self):
         try:
             distance_split_points_ordered, norm_cdf = self._temporal_distance_cdf()
-        except RuntimeError as e:
+        except RuntimeError:
             return float("inf")
 
         if len(distance_split_points_ordered) == 0:

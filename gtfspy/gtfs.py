@@ -1575,7 +1575,7 @@ class GTFS(object):
             for j_key, j in other_routes.items():
                 union = i | j
                 intersection = i & j
-                symmetric_difference = i ^ j
+                # symmetric_difference = i ^ j
                 if uniqueness_ratio:
                     if len(intersection) / len(union) >= uniqueness_ratio:
                         try:
@@ -1869,12 +1869,12 @@ class GTFS(object):
     def regenerate_parent_stop_I(self):
         raise NotImplementedError
         # get max stop_I
-        cur = self.conn.cursor()
+        # cur = self.conn.cursor()
 
-        query = "SELECT stop_I FROM stops ORDER BY stop_I DESC LIMIT 1"
-        max_stop_I = cur.execute(query).fetchall()[0]
+        # query = "SELECT stop_I FROM stops ORDER BY stop_I DESC LIMIT 1"
+        # max_stop_I = cur.execute(query).fetchall()[0]
 
-        query_update_row = """UPDATE stops SET parent_I=? WHERE parent_I=?"""
+        # query_update_row = """UPDATE stops SET parent_I=? WHERE parent_I=?"""
 
     def add_stops_from_csv(self, csv_dir):
         stops_to_add = pd.read_csv(csv_dir, encoding="utf-8")

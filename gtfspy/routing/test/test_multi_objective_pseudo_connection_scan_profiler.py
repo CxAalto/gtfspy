@@ -151,8 +151,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             stop_2_labels,
         )
 
-        stop_one_profile = csa_profile.stop_profiles[1]
-        stop_one_pareto_labels = stop_one_profile.get_final_optimal_labels()
+        # stop_one_profile = csa_profile.stop_profiles[1]
+        # stop_one_pareto_labels = stop_one_profile.get_final_optimal_labels()
 
         labels = list()
         # these should exist at least:

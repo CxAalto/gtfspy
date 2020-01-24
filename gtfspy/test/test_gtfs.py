@@ -118,8 +118,8 @@ class TestGTFS(unittest.TestCase):
         self.assertIn(tz_string[0], "+-")
         for i in range(1, 5):
             self.assertIn(tz_string[i], "0123456789")
-        dt = datetime.datetime(1970, 1, 1)
-        tz_string_epoch = self.gtfs.get_timezone_string(dt)
+        # dt = datetime.datetime(1970, 1, 1)
+        # tz_string_epoch = self.gtfs.get_timezone_string(dt)
         # self.assertEqual(tz_string, tz_string_epoch)
 
     def test_timezone_conversions(self):

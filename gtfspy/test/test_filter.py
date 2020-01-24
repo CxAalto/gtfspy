@@ -212,10 +212,10 @@ class TestGTFSFilter(unittest.TestCase):
         paris_lat = 48.832781
         paris_lon = 2.360734
 
-        SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL = "SELECT trips.trip_I, shape_id, min(shape_break) as min_shape_break, max(shape_break) as max_shape_break FROM trips, stop_times WHERE trips.trip_I=stop_times.trip_I GROUP BY trips.trip_I"
-        trip_min_max_shape_seqs = pandas.read_sql(
-            SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL, self.G_filter_test.conn
-        )
+        # SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL = "SELECT trips.trip_I, shape_id, min(shape_break) as min_shape_break, max(shape_break) as max_shape_break FROM trips, stop_times WHERE trips.trip_I=stop_times.trip_I GROUP BY trips.trip_I"
+        # trip_min_max_shape_seqs = pandas.read_sql(
+        #     SELECT_MIN_MAX_SHAPE_BREAKS_BY_TRIP_I_SQL, self.G_filter_test.conn
+        # )
 
         for distance_km, n_rows_after in zip([1000, 3000], [n_rows_after_1000, n_rows_after_3000]):
             try:

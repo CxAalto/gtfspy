@@ -96,7 +96,7 @@ class TestNodeProfileMultiObjective(TestCase):
 
     def test_same_dep_times_fail_in_init(self):
         with self.assertRaises(AssertionError):
-            node_profile = NodeProfileMultiObjective(
+            NodeProfileMultiObjective(
                 label_class=LabelTimeWithBoardingsCount, dep_times=[10, 10, 20, 20]
             )
 

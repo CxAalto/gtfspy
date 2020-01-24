@@ -281,7 +281,7 @@ class ExportsTest(unittest.TestCase):
                 exports.write_gtfs(self.gtfs, test_output_dir + ending)
                 self.assertTrue(os.path.exists(test_output_dir + ending))
                 try:
-                    G = import_gtfs(test_output_dir + ending, os.path.join(sqlite_fname))
+                    import_gtfs(test_output_dir + ending, os.path.join(sqlite_fname))
                     self.assertTrue(os.path.exists(sqlite_fname))
                 finally:
                     os.remove(sqlite_fname)

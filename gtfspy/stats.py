@@ -468,7 +468,6 @@ def trip_stats(gtfs, results_by_mode=False):
     conn = gtfs.conn
 
     conn.create_function("find_distance", 4, wgs84_distance)
-    cur = conn.cursor()
     # this query calculates the distance and travel time for each complete trip
     # stop_data_df = pd.read_sql_query(query, self.conn, params=params)
 
@@ -510,7 +509,6 @@ def get_section_stats(gtfs, results_by_mode=False):
     conn = gtfs.conn
 
     conn.create_function("find_distance", 4, wgs84_distance)
-    cur = conn.cursor()
     # this query calculates the distance and travel time for each stop to stop section for each trip
     # stop_data_df = pd.read_sql_query(query, self.conn, params=params)
 

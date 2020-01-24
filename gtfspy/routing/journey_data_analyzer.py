@@ -186,7 +186,6 @@ class JourneyDataAnalyzer:
         diff_threshold=None,
         diff_path=None,
     ):
-        name = "ojdb"
         added_constraints = ""
         if fastest_path:
             added_constraints += " AND journeys.pre_journey_wait_fp>=0"
