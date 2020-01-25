@@ -43,7 +43,7 @@ setup(
         "geoindex",
         "osmread==0.2",
         "shapely",
-        "geojson==1.3.5",
+        "geojson>=2.0.0",
         "pyproj",
         "matplotlib-scalebar==0.3.1"
     ],
