@@ -45,7 +45,7 @@ setup(
         "shapely",
         "geojson>=2.0.0",
         "pyproj",
-        "matplotlib-scalebar==0.3.1"
+        "matplotlib-scalebar==0.6.1"
     ],
     ext_modules=[
         Extension(
