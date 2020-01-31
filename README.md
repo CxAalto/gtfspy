@@ -74,6 +74,7 @@ More precise versioning scheme will be decided upon later.
 
 * Manuel Rios ([marz7002](https://github.com/marz7002))
 * Nils Haglund
+* Michaela Ockova ([evelyn9191](https://github.com/evelyn9191))
 
 * You?
 
