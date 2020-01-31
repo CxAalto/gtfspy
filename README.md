@@ -18,8 +18,8 @@
 
 
 ## Prerequisites
-* [Python 3.5](https://www.python.org/)
-* Supported platforms: Linux + OSX (Windows is currently not supported, please creat an issue in Github if you would be interested in running ``gtfspy`` on Windows)
+* [Python 3.8](https://www.python.org/)
+* Supported platforms: Linux, OSX & Windows
 * Optional: [git](https://git-scm.com/) is used for development.
 
 

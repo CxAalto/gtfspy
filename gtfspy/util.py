@@ -40,12 +40,13 @@ def set_process_timezone(TZ):
     except KeyError:
         prev_timezone = None
     os.environ['TZ'] = TZ
-    try:
-        time.tzset()  # Cause C-library functions to notice the update.
-    except AttributeError:    # tzset() does not work on Windows
+
+    if sys.platform == 'win32': # tzset() does not work on Windows
         system_time = SystemTime()
         lpSystemTime = ctypes.pointer(system_time)
         ctypes.windll.kernel32.GetLocalTime(lpSystemTime)
+    else:
+        time.tzset()  # Cause C-library functions to notice the update.
 
     return prev_timezone
 
