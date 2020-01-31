@@ -1,4 +1,5 @@
 import contextlib
+import ctypes
 import datetime
 import io
 import math
@@ -39,8 +40,26 @@ def set_process_timezone(TZ):
     except KeyError:
         prev_timezone = None
     os.environ['TZ'] = TZ
-    time.tzset()  # Cause C-library functions to notice the update.
+    try:
+        time.tzset()  # Cause C-library functions to notice the update.
+    except AttributeError:    # tzset() does not work on Windows
+        system_time = SystemTime()
+        lpSystemTime = ctypes.pointer(system_time)
+        ctypes.windll.kernel32.GetLocalTime(lpSystemTime)
+
     return prev_timezone
+
+
+class SystemTime(ctypes.Structure):
+    _fields_ = [
+        ('wYear', ctypes.c_int16),
+        ('wMonth', ctypes.c_int16),
+        ('wDayOfWeek', ctypes.c_int16),
+        ('wDay', ctypes.c_int16),
+        ('wHour', ctypes.c_int16),
+        ('wMinute', ctypes.c_int16),
+        ('wSecond', ctypes.c_int16),
+        ('wMilliseconds', ctypes.c_int16)]
 
 
 def wgs84_distance(lat1, lon1, lat2, lon2):
