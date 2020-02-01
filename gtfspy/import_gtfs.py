@@ -56,9 +56,9 @@ Loaders = [
     DayLoader,  # deps: (pi: Calendar, CalendarDates, Trip)  |
     DayTripsMaterializer,  # deps:                                      | (pi2: Day)
 ]
-postprocessors = [
-    # validate_day_start_ut,
-]
+
+# postprocessors = [validate_day_start_ut]
+postprocessors = []  # type: ignore
 
 
 def import_gtfs(

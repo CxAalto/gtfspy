@@ -87,7 +87,7 @@ def wgs84_width(meters, lat):
 
 # cython implementation of this.  It is called _often_.
 try:
-    from gtfspy.cutil import wgs84_distance
+    from gtfspy.cutil import wgs84_distance  # type: ignore
 except ImportError:
     pass
 

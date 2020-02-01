@@ -36,8 +36,8 @@ class TableLoader(object):
     # Finally, a subclass needs to define these methods:
     # def gen_rows(self, reader):
     # def index(self):
-    extra_keys = []
-    extra_values = []
+    extra_keys = []  # type: ignore
+    extra_values = []  # type: ignore
     is_zipfile = False
     table = ""  # e.g. stops for StopLoader
 
@@ -409,7 +409,7 @@ class TableLoader(object):
         pass
 
 
-ignore_tables = set()
+ignore_tables = set()  # type: ignore
 
 
 def decode_six(string):
