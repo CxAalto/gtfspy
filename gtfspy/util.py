@@ -36,12 +36,12 @@ def set_process_timezone(TZ):
     TZ: string
     """
     try:
-        prev_timezone = os.environ['TZ']
+        prev_timezone = os.environ["TZ"]
     except KeyError:
         prev_timezone = None
-    os.environ['TZ'] = TZ
+    os.environ["TZ"] = TZ
 
-    if sys.platform == 'win32': # tzset() does not work on Windows
+    if sys.platform == "win32":  # tzset() does not work on Windows
         system_time = SystemTime()
         lpSystemTime = ctypes.pointer(system_time)
         ctypes.windll.kernel32.GetLocalTime(lpSystemTime)
@@ -53,14 +53,15 @@ def set_process_timezone(TZ):
 
 class SystemTime(ctypes.Structure):
     _fields_ = [
-        ('wYear', ctypes.c_int16),
-        ('wMonth', ctypes.c_int16),
-        ('wDayOfWeek', ctypes.c_int16),
-        ('wDay', ctypes.c_int16),
-        ('wHour', ctypes.c_int16),
-        ('wMinute', ctypes.c_int16),
-        ('wSecond', ctypes.c_int16),
-        ('wMilliseconds', ctypes.c_int16)]
+        ("wYear", ctypes.c_int16),
+        ("wMonth", ctypes.c_int16),
+        ("wDayOfWeek", ctypes.c_int16),
+        ("wDay", ctypes.c_int16),
+        ("wHour", ctypes.c_int16),
+        ("wMinute", ctypes.c_int16),
+        ("wSecond", ctypes.c_int16),
+        ("wMilliseconds", ctypes.c_int16),
+    ]
 
 
 def wgs84_distance(lat1, lon1, lat2, lon2):
@@ -388,7 +389,7 @@ def zip_open(z, filename):
     if sys.version_info[0] == 2:
         return z.open(filename, "rU")
     else:
-        return io.TextIOWrapper(z.open(filename, 'r'), "utf-8")
+        return io.TextIOWrapper(z.open(filename, "r"), "utf-8")
 
 
 def draw_net_using_node_coords(net):

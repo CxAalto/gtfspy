@@ -519,9 +519,11 @@ def plot_all_stops(g, ax=None, scalebar=False):
 def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
 
     if map_style is not None:
-        assert map_style in MAP_STYLES, map_style + \
-                                        " (map_style parameter) is not a valid CartoDB mapping style. Options are " + \
-                                        str(MAP_STYLES)
+        assert map_style in MAP_STYLES, (
+            map_style
+            + " (map_style parameter) is not a valid CartoDB mapping style. Options are "
+            + str(MAP_STYLES)
+        )
         tileserver = "http://1.basemaps.cartocdn.com/" + map_style + "/{z}/{x}/{y}.png"
     else:
         tileserver = "http://1.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
@@ -531,14 +533,18 @@ def get_smopy_map(lon_min, lon_max, lat_min, lat_max, z=None, map_style=None):
         kwargs = {}
         if z is not None:  # this hack may not work
             smopy.Map.get_allowed_zoom = lambda self, z: z
-            kwargs['z'] = z
+            kwargs["z"] = z
         try:
-            get_smopy_map.maps[args] = smopy.Map((lat_min, lon_min, lat_max, lon_max), tileserver=tileserver, **kwargs)
+            get_smopy_map.maps[args] = smopy.Map(
+                (lat_min, lon_min, lat_max, lon_max), tileserver=tileserver, **kwargs
+            )
         except URLError:
-            raise RuntimeError("\n Could not load background map from the tile server: "
-                               + tileserver +
-                               "\n Please check that the tile server exists and "
-                               "that your are connected to the internet.")
+            raise RuntimeError(
+                "\n Could not load background map from the tile server: "
+                + tileserver
+                + "\n Please check that the tile server exists and "
+                "that your are connected to the internet."
+            )
 
     return get_smopy_map.maps[args]
 
