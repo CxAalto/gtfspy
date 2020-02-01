@@ -24,7 +24,8 @@ class DayTripsMaterializer(TableLoader):
     def post_import_round2(cls, conn):
         insert_data_to_day_trips2(conn)
 
-    def index(cls, cur):
+    @staticmethod
+    def index(cur):
         create_day_trips_indices(cur)
 
     @classmethod

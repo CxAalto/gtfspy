@@ -166,7 +166,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         if max_n_boardings is None:
             max_n_boardings = self.max_trip_n_boardings()
         # compute only if not yet computed
-        if not max_n_boardings in self._n_boardings_to_simple_time_analyzers:
+        if max_n_boardings not in self._n_boardings_to_simple_time_analyzers:
             if max_n_boardings == 0:
                 valids = []
             else:
@@ -348,7 +348,7 @@ class NodeProfileAnalyzerTimeAndVehLegs:
         return n_boardings_to_fill_color, n_boardings_to_line_color
 
     @classmethod
-    def n_boardings_to_label(self, n):
+    def n_boardings_to_label(cls, n):
         if n == 0:
             return "walk"
         elif n == 1:
