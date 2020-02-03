@@ -32,12 +32,11 @@ setup(
     ],
     setup_requires=["setuptools>=18.0", "cython"],
     install_requires=[
-        "setuptools>=18.0",
         "pandas",
         "networkx==1.11",
         "pyshp",
         "smopy",
-        "Cython",
+        "nose",
         "six",
         "geoindex",
         "osmread==0.2",
@@ -46,8 +45,7 @@ setup(
         "pyproj",
         "matplotlib-scalebar==0.6.1",
     ],
-    tests_require=["nose"],
-    ext_modules=[Extension("gtfspy.routing.label", sources=["gtfspy/routing/label.pyx"],),],
+    ext_modules=[Extension("gtfspy.routing.label", sources=["gtfspy/routing/label.pyx"])],
     keywords=[
         "transit",
         "routing" "gtfs",
