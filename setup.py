@@ -37,7 +37,7 @@ setup(
     setup_requires=["setuptools>=18.0", "cython"],
     install_requires = requirements,
     tests_require=["nose"],
-    ext_modules=[Extension("gtfspy.routing.label", sources=["gtfspy/routing/label.pyx"],),],
+    ext_modules=[Extension("gtfspy.routing.label", sources=["gtfspy/routing/label.pyx"])],
     keywords=[
         "transit",
         "routing" "gtfs",

@@ -10,6 +10,7 @@ env:
 # command to install dependencies
 
 install:
+  - pip install -r requirements-dev.txt
   - pip install .
   - pip install networkx==$NETWORKX_VERSION
   - pip install pre-commit
