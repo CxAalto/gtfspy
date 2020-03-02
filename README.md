@@ -10,7 +10,7 @@
 * Import one or multiple GTFS feeds into one [SQLite](https://www.sqlite.org/) database for efficient querying of the data.
 * Augment the sqlite with real walking distances between PT stops using Open Street Map (OSM) data.
 * Compute simple statistics for the public transport networks such as number of stops, routes, network length.
-* Filter databases spatially and temporally to match your area and time region of interst.
+* Filter databases spatially and temporally to match your area and time region of interest.
 * Perform accessibility analyses using a routing/profiling engine
     - Adapted from the [Connection Scan Algorithm](http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf) (CSA).
     - Compute all Pareto-optimal journey alternatives between an origin-destination pair, and summarize connectivity with measures on travel time and number of transfers.
