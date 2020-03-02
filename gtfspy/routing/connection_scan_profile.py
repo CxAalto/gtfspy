@@ -34,6 +34,7 @@ from gtfspy.routing.connection import Connection
 from gtfspy.routing.label import LabelTimeSimple
 from gtfspy.routing.node_profile_simple import NodeProfileSimple
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
+from gtfspy.util import graph_has_node
 
 
 class ConnectionScanProfiler(AbstractRoutingAlgorithm):
@@ -98,7 +99,7 @@ class ConnectionScanProfiler(AbstractRoutingAlgorithm):
         self._stop_profiles = defaultdict(lambda: NodeProfileSimple())
         # initialize stop_profiles for target stop, and its neighbors
         self._stop_profiles[self._target] = NodeProfileSimple(0)
-        if target_stop in walk_network.nodes():
+        if graph_has_node(walk_network, target_stop):
             for target_neighbor in walk_network.neighbors(target_stop):
                 edge_data = walk_network.get_edge_data(target_neighbor, target_stop)
                 walk_duration = edge_data["d_walk"] / self._walk_speed
