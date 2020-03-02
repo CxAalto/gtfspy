@@ -1,6 +1,6 @@
 setuptools>=18.0
 pandas
-networkx>=2.0
+networkx
 pyshp
 smopy
 nose
