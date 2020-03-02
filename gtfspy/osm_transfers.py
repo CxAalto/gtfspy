@@ -1,15 +1,12 @@
 import os
+from warnings import warn
 
 import networkx
-import pandas
+from geoindex import GeoGridIndex, GeoPoint
 from osmread import parse_file, Way, Node
 
 from gtfspy.gtfs import GTFS
 from gtfspy.util import wgs84_distance
-
-from warnings import warn
-
-from geoindex import GeoGridIndex, GeoPoint
 
 
 def add_walk_distances_to_db_python(gtfs, osm_path, cutoff_distance_m=1000):
@@ -36,11 +33,13 @@ def add_walk_distances_to_db_python(gtfs, osm_path, cutoff_distance_m=1000):
     """
     if isinstance(gtfs, str):
         gtfs = GTFS(gtfs)
-    assert (isinstance(gtfs, GTFS))
+    assert isinstance(gtfs, GTFS)
     print("Reading in walk network")
     walk_network = create_walk_network_from_osm(osm_path)
     print("Matching stops to the OSM network")
-    stop_I_to_nearest_osm_node, stop_I_to_nearest_osm_node_distance = match_stops_to_nodes(gtfs, walk_network)
+    stop_I_to_nearest_osm_node, stop_I_to_nearest_osm_node_distance = match_stops_to_nodes(
+        gtfs, walk_network
+    )
 
     transfers = gtfs.get_straight_line_transfer_distances()
 
@@ -54,22 +53,31 @@ def add_walk_distances_to_db_python(gtfs, osm_path, cutoff_distance_m=1000):
     for from_I, to_stop_Is in from_I_to_to_stop_Is.items():
         from_node = stop_I_to_nearest_osm_node[from_I]
         from_dist = stop_I_to_nearest_osm_node_distance[from_I]
-        shortest_paths = networkx.single_source_dijkstra_path_length(walk_network,
-                                                                     from_node,
-                                                                     cutoff=cutoff_distance_m - from_dist,
-                                                                     weight="distance")
+        shortest_paths = networkx.single_source_dijkstra_path_length(
+            walk_network, from_node, cutoff=cutoff_distance_m - from_dist, weight="distance"
+        )
         for to_I in to_stop_Is:
             to_distance = stop_I_to_nearest_osm_node_distance[to_I]
             to_node = stop_I_to_nearest_osm_node[to_I]
-            osm_distance = shortest_paths.get(to_node, float('inf'))
+            osm_distance = shortest_paths.get(to_node, float("inf"))
             total_distance = from_dist + osm_distance + to_distance
-            from_stop_I_transfers = transfers[transfers['from_stop_I'] == from_I]
-            straigth_distance = from_stop_I_transfers[from_stop_I_transfers["to_stop_I"] == to_I]["d"].values[0]
-            assert (straigth_distance < total_distance + 2)  # allow for a maximum  of 2 meters in calculations
+            from_stop_I_transfers = transfers[transfers["from_stop_I"] == from_I]
+            straigth_distance = from_stop_I_transfers[from_stop_I_transfers["to_stop_I"] == to_I][
+                "d"
+            ].values[0]
+            assert (
+                straigth_distance < total_distance + 2
+            )  # allow for a maximum  of 2 meters in calculations
             if total_distance <= cutoff_distance_m:
-                gtfs.conn.execute("UPDATE stop_distances "
-                                  "SET d_walk = " + str(int(total_distance)) +
-                                  " WHERE from_stop_I=" + str(from_I) + " AND to_stop_I=" + str(to_I))
+                gtfs.conn.execute(
+                    "UPDATE stop_distances "
+                    "SET d_walk = "
+                    + str(int(total_distance))
+                    + " WHERE from_stop_I="
+                    + str(from_I)
+                    + " AND to_stop_I="
+                    + str(to_I)
+                )
 
     gtfs.conn.commit()
 
@@ -90,19 +98,19 @@ def match_stops_to_nodes(gtfs, walk_network):
     """
     network_nodes = walk_network.nodes(data="true")
 
-    stop_Is = set(gtfs.get_straight_line_transfer_distances()['from_stop_I'])
+    stop_Is = set(gtfs.get_straight_line_transfer_distances()["from_stop_I"])
     stops_df = gtfs.stops()
 
     geo_index = GeoGridIndex(precision=6)
     for net_node, data in network_nodes:
-        geo_index.add_point(GeoPoint(data['lat'], data['lon'], ref=net_node))
+        geo_index.add_point(GeoPoint(data["lat"], data["lon"], ref=net_node))
     stop_I_to_node = {}
     stop_I_to_dist = {}
     for stop_I in stop_Is:
         stop_lat = float(stops_df[stops_df.stop_I == stop_I].lat)
         stop_lon = float(stops_df[stops_df.stop_I == stop_I].lon)
         geo_point = GeoPoint(stop_lat, stop_lon)
-        min_dist = float('inf')
+        min_dist = float("inf")
         min_dist_node = None
         search_distances_m = [0.100, 0.500]
         for search_distance_m in search_distances_m:
@@ -119,14 +127,29 @@ def match_stops_to_nodes(gtfs, walk_network):
     return stop_I_to_node, stop_I_to_dist
 
 
-OSM_HIGHWAY_WALK_TAGS = {"trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link", "tertiary",
-                         "tertiary_link", "unclassified", "residential", "living_street", "road", "pedestrian", "path",
-                         "cycleway", "footway"}
+OSM_HIGHWAY_WALK_TAGS = {
+    "trunk",
+    "trunk_link",
+    "primary",
+    "primary_link",
+    "secondary",
+    "secondary_link",
+    "tertiary",
+    "tertiary_link",
+    "unclassified",
+    "residential",
+    "living_street",
+    "road",
+    "pedestrian",
+    "path",
+    "cycleway",
+    "footway",
+}
 
 
 def create_walk_network_from_osm(osm_file):
     walk_network = networkx.Graph()
-    assert (os.path.exists(osm_file))
+    assert os.path.exists(osm_file)
     ways = []
     for i, entity in enumerate(parse_file(osm_file)):
         if isinstance(entity, Node):
@@ -141,16 +164,15 @@ def create_walk_network_from_osm(osm_file):
 
     # Remove all singleton nodes (note that taking the giant component does not necessarily provide proper results.
     for node, degree in walk_network.degree().items():
-        if degree is 0:
+        if degree == 0:
             walk_network.remove_node(node)
 
-    node_lats = networkx.get_node_attributes(walk_network, 'lat')
-    node_lons = networkx.get_node_attributes(walk_network, 'lon')
+    node_lats = networkx.get_node_attributes(walk_network, "lat")
+    node_lons = networkx.get_node_attributes(walk_network, "lon")
     for source, dest, data in walk_network.edges(data=True):
-        data["distance"] = wgs84_distance(node_lats[source],
-                                          node_lons[source],
-                                          node_lats[dest],
-                                          node_lons[dest])
+        data["distance"] = wgs84_distance(
+            node_lats[source], node_lons[source], node_lats[dest], node_lons[dest]
+        )
     return walk_network
 
 

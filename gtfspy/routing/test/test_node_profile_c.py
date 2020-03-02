@@ -5,15 +5,18 @@ from gtfspy.routing.node_profile_c import NodeProfileC
 
 
 class TestNodeProfileC(TestCase):
-
     def test_earliest_arrival_time(self):
         node_profile = NodeProfileC()
         self.assertEquals(float("inf"), node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
 
-        node_profile.update_pareto_optimal_tuples(LabelTime(departure_time=3, arrival_time_target=4))
+        node_profile.update_pareto_optimal_tuples(
+            LabelTime(departure_time=3, arrival_time_target=4)
+        )
         self.assertEquals(4, node_profile.evaluate_earliest_arrival_time_at_target(2, 0))
 
-        node_profile.update_pareto_optimal_tuples(LabelTime(departure_time=1, arrival_time_target=1))
+        node_profile.update_pareto_optimal_tuples(
+            LabelTime(departure_time=1, arrival_time_target=1)
+        )
         self.assertEquals(1, node_profile.evaluate_earliest_arrival_time_at_target(0, 0))
 
     def test_pareto_optimality(self):

@@ -1,0 +1,8 @@
+[flake8]
+# Exceptions below are ignored because their solution was not clear to the author of the PR,
+# but they should be solved and taken out from the ignore.
+ignore = E203, E501, W503, B950, F821, B007, E402, E722, F401, F811, B001, B008, C901, E731, E231, B009, B303, E731, B903, B011
+max-line-length = 100
+max-complexity = 18
+select = A,B,C,E,F,W,T4,B9
+exclude = .git,__pycache__,misc

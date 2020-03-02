@@ -25,7 +25,7 @@ ROUTE_TYPE_TO_ZORDER = {
     CABLE_CAR: 8,
     GONDOLA: 9,
     FUNICULAR: 10,
-    AIRCRAFT: 11
+    AIRCRAFT: 11,
 }
 
 ROUTE_TYPE_TO_DESCRIPTION = {
@@ -35,11 +35,11 @@ ROUTE_TYPE_TO_DESCRIPTION = {
     BUS: "Bus. Used for short- and long-distance bus routes.",
     FERRY: "Ferry. Used for short- and long-distance boat service.",
     CABLE_CAR: "Cable car. Used for street-level cable cars "
-                           "where the cable runs beneath the car.",
+    "where the cable runs beneath the car.",
     GONDOLA: "Gondola, Suspended cable car. "
-                         "Typically used for aerial cable cars where "
-                         "the car is suspended from the cable.",
-    FUNICULAR: "Funicular. Any rail system designed for steep inclines."
+    "Typically used for aerial cable cars where "
+    "the car is suspended from the cable.",
+    FUNICULAR: "Funicular. Any rail system designed for steep inclines.",
 }
 
 ROUTE_TYPE_TO_SHORT_DESCRIPTION = {
@@ -52,7 +52,7 @@ ROUTE_TYPE_TO_SHORT_DESCRIPTION = {
     CABLE_CAR: "Cable car",
     GONDOLA: "Gondola",
     FUNICULAR: "Funicular",
-    AIRCRAFT: "Aircraft"
+    AIRCRAFT: "Aircraft",
 }
 
 ROUTE_TYPE_TO_LOWERCASE_TAG = {
@@ -64,7 +64,7 @@ ROUTE_TYPE_TO_LOWERCASE_TAG = {
     FERRY: "ferry",
     CABLE_CAR: "cablecar",
     GONDOLA: "gondola",
-    FUNICULAR: "funicular"
+    FUNICULAR: "funicular",
 }
 
 # Use these on your own risk!
@@ -77,26 +77,26 @@ ROUTE_TYPE_TO_APPROXIMATE_CAPACITY = {
     FERRY: 200,
     CABLE_CAR: 40,
     GONDOLA: 20,
-    FUNICULAR: 20
+    FUNICULAR: 20,
 }
 
 ROUTE_TYPE_TO_COLOR = {
     WALK: "black",
-    TRAM: '#33a02c',
+    TRAM: "#33a02c",
     SUBWAY: "#ff7f00",
-    RAIL: '#e31a1c',
-    BUS: '#1f78b4',
+    RAIL: "#e31a1c",
+    BUS: "#1f78b4",
     FERRY: "#ffff99",
     CABLE_CAR: "#6a3d9a",
     GONDOLA: "#b15928",
     FUNICULAR: "#fb9a99",
-    AIRCRAFT: "#fb9a99"
+    AIRCRAFT: "#fb9a99",
 }
 
 
-def route_type_to_color_iterable(type):
-    return [ROUTE_TYPE_TO_COLOR[x] for x in type]
+def route_type_to_color_iterable(route_type):
+    return [ROUTE_TYPE_TO_COLOR[x] for x in route_type]
 
 
-def route_type_to_zorder(type):
-    return [ROUTE_TYPE_TO_ZORDER[x] for x in type]
+def route_type_to_zorder(route_type):
+    return [ROUTE_TYPE_TO_ZORDER[x] for x in route_type]

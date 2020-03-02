@@ -3,7 +3,6 @@ import sys
 
 
 class WarningsContainer(object):
-
     def __init__(self):
         self._warnings_counter = Counter()
         # key: "warning type" string, value: "number of errors" int
@@ -22,14 +21,14 @@ class WarningsContainer(object):
     def write_summary(self, output_stream=None):
         if output_stream is None:
             output_stream = sys.stdout
-        output_stream.write('The feed produced the following warnings:\n')
+        output_stream.write("The feed produced the following warnings:\n")
         for warning, count in self._warnings_counter.most_common():
             output_stream.write(warning + ": " + str(count) + "\n")
 
     def write_details(self, output_stream=None):
         if output_stream is None:
             output_stream = sys.stdout
-        output_stream.write('The feed produced the following warnings (with details):\n')
+        output_stream.write("The feed produced the following warnings (with details):\n")
         for warning, count in self._warnings_counter.most_common():
             output_stream.write(warning + ": " + str(count) + "\n")
             for reason in self._warnings_records[warning]:

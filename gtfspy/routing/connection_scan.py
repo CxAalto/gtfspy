@@ -17,8 +17,16 @@ class ConnectionScan(AbstractRoutingAlgorithm):
     http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf
     """
 
-    def __init__(self, transit_events, seed_stop, start_time,
-                 end_time, transfer_margin, walk_network, walk_speed):
+    def __init__(
+        self,
+        transit_events,
+        seed_stop,
+        start_time,
+        end_time,
+        transfer_margin,
+        walk_network,
+        walk_speed,
+    ):
         """
         Parameters
         ----------
@@ -46,7 +54,7 @@ class ConnectionScan(AbstractRoutingAlgorithm):
         self._walk_speed = walk_speed
 
         # algorithm internals
-        self.__stop_labels = defaultdict(lambda: float('inf'))
+        self.__stop_labels = defaultdict(lambda: float("inf"))
         self.__stop_labels[seed_stop] = start_time
 
         # trip flags:
@@ -101,5 +109,3 @@ class ConnectionScan(AbstractRoutingAlgorithm):
             d_walk = data["d_walk"]
             arrival_time = walk_departure_time + d_walk / self._walk_speed
             self._update_stop_label(neighbor, arrival_time)
-
-

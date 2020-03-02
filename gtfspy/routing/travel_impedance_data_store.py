@@ -3,17 +3,14 @@ import pandas as pd
 
 
 class TravelImpedanceDataStore:
-
     def __init__(self, db_fname, timeout=100):
         self.db_fname = db_fname
         self.timeout = timeout
         self.conn = sqlite3.connect(self.db_fname, timeout)
 
-    def read_data_as_dataframe(self,
-                               travel_impedance_measure,
-                               from_stop_I=None,
-                               to_stop_I=None,
-                               statistic=None):
+    def read_data_as_dataframe(
+        self, travel_impedance_measure, from_stop_I=None, to_stop_I=None, statistic=None
+    ):
         """
         Recover pre-computed travel_impedance between od-pairs from the database.
 
@@ -39,18 +36,22 @@ class TravelImpedanceDataStore:
         to_select_clause = ",".join(to_select)
         if not to_select_clause:
             to_select_clause = "*"
-        sql = "SELECT " + to_select_clause + " FROM " + travel_impedance_measure + where_clause + ";"
+        sql = (
+            "SELECT " + to_select_clause + " FROM " + travel_impedance_measure + where_clause + ";"
+        )
         df = pd.read_sql(sql, self.conn)
         return df
 
     def create_table(self, travel_impedance_measure, ensure_uniqueness=True):
         print("Creating table: ", travel_impedance_measure)
-        sql = "CREATE TABLE IF NOT EXISTS " + travel_impedance_measure + " (from_stop_I INT, " \
-            "to_stop_I INT, " \
-            "min REAL, " \
-            "max REAL, " \
-            "median REAL, " \
-            "mean REAL" 
+        sql = (
+            "CREATE TABLE IF NOT EXISTS " + travel_impedance_measure + " (from_stop_I INT, "
+            "to_stop_I INT, "
+            "min REAL, "
+            "max REAL, "
+            "median REAL, "
+            "mean REAL"
+        )
         if ensure_uniqueness:
             sql = sql + ", UNIQUE (from_stop_I, to_stop_I) )"
         else:
@@ -69,8 +70,16 @@ class TravelImpedanceDataStore:
 
     def create_indices(self, travel_impedance_measure_name):
         table = travel_impedance_measure_name
-        sql_from_to = "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_from_stop_I_to_stop_I ON " + table + " (from_stop_I, to_stop_I)" 
-        sql_from = "CREATE INDEX IF NOT EXISTS " + table + "_from_stop_I ON " + table + " (from_stop_I)"
+        sql_from_to = (
+            "CREATE UNIQUE INDEX IF NOT EXISTS "
+            + table
+            + "_from_stop_I_to_stop_I ON "
+            + table
+            + " (from_stop_I, to_stop_I)"
+        )
+        sql_from = (
+            "CREATE INDEX IF NOT EXISTS " + table + "_from_stop_I ON " + table + " (from_stop_I)"
+        )
         sql_to = "CREATE INDEX IF NOT EXISTS " + table + "_to_stop_I ON " + table + " (to_stop_I)"
         print("Executing: " + sql_from_to)
         self.conn.execute(sql_from_to)
@@ -90,20 +99,30 @@ class TravelImpedanceDataStore:
             "from_stop_I", "to_stop_I", "min", "max", "median" and "mean"
         """
         f = float
-        data_tuple = [(int(x["from_stop_I"]), int(x["to_stop_I"]), f(x["min"]), f(x["max"]), f(x["median"]), f(x["mean"])) for
-                      x in data]
-        insert_stmt = '''INSERT OR REPLACE INTO ''' + travel_impedance_measure_name + ''' (
+        data_tuple = [
+            (
+                int(x["from_stop_I"]),
+                int(x["to_stop_I"]),
+                f(x["min"]),
+                f(x["max"]),
+                f(x["median"]),
+                f(x["mean"]),
+            )
+            for x in data
+        ]
+        insert_stmt = (
+            """INSERT OR REPLACE INTO """
+            + travel_impedance_measure_name
+            + """ (
                               from_stop_I,
                               to_stop_I,
                               min,
                               max,
                               median,
-                              mean) VALUES (?, ?, ?, ?, ?, ?) '''
+                              mean) VALUES (?, ?, ?, ?, ?, ?) """
+        )
         self.conn.executemany(insert_stmt, data_tuple)
         self.conn.commit()
 
     def apply_insertion_speedups(self):
         self.conn.execute("PRAGMA SYNCHRONOUS = OFF")
-
-
-

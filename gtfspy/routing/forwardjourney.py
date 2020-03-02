@@ -30,7 +30,7 @@ class ForwardJourney:
         ----------
         leg: Connection
         """
-        assert(isinstance(leg, Connection))
+        assert isinstance(leg, Connection)
         if not self.legs:
             self.departure_time = leg.departure_time
         self.arrival_time = leg.arrival_time
@@ -68,7 +68,11 @@ class ForwardJourney:
         previous_arrival_stop = None
         current_trip_id = None
         for leg in self.legs:
-            if leg.trip_id is not None and leg.trip_id != current_trip_id and previous_arrival_stop is not None:
+            if (
+                leg.trip_id is not None
+                and leg.trip_id != current_trip_id
+                and previous_arrival_stop is not None
+            ):
                 transfer_stop_pair = (previous_arrival_stop, leg.departure_stop)
                 transfer_stop_pairs.append(transfer_stop_pair)
             previous_arrival_stop = leg.arrival_stop
@@ -96,7 +100,7 @@ class ForwardJourney:
     def get_invehicle_times(self):
         invehicle_times = []
         for leg in self.legs:
-            assert(isinstance(leg, Connection))
+            assert isinstance(leg, Connection)
             if leg.trip_id is not None:
                 invehicle_times.append(leg.duration())
         return invehicle_times
@@ -116,15 +120,15 @@ class ForwardJourney:
 
     def dominates(self, other, consider_time=True, consider_boardings=True):
         if consider_time:
-            dominates_time = (self.departure_time >= other.departure_time and
-                              self.arrival_time <= other.arrival_time)
+            dominates_time = (
+                self.departure_time >= other.departure_time
+                and self.arrival_time <= other.arrival_time
+            )
             if not dominates_time:
                 return False
         if consider_boardings:
-            dominates_boardings = (self.n_boardings <= other.n_boardings)
+            dominates_boardings = self.n_boardings <= other.n_boardings
             if not dominates_boardings:
                 return False
         # dominates w.r.t all aspects:
         return True
-
-

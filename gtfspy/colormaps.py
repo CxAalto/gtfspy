@@ -1,8 +1,8 @@
-import matplotlib.colors
 import matplotlib.cm
 import matplotlib.colorbar
+import matplotlib.colors
 import matplotlib.pyplot
-import numpy
+
 
 # colormaps: "viridis", "plasma_r","seismic"
 
@@ -68,11 +68,9 @@ def get_list_of_colors(values, observable_name=None):
         colorvalues.append(colorvalue)
     return colorvalues, norm, cmap
 
+
 def createcolorbar(cmap, norm):
     """Create a colourbar with limits of lwr and upr"""
     cax, kw = matplotlib.colorbar.make_axes(matplotlib.pyplot.gca())
     c = matplotlib.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm)
     return c
-
-
-

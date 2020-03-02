@@ -52,9 +52,12 @@ class TestGTFS(unittest.TestCase):
         self.assertEquals(day_start_ut_should_be, day_start_ut_is)
 
     def test_get_main_database_path(self):
-        self.assertEqual(self.gtfs.get_main_database_path(),  "", "path of an in-memory database should equal ''")
+        self.assertEqual(
+            self.gtfs.get_main_database_path(), "", "path of an in-memory database should equal ''"
+        )
 
         from gtfspy.import_gtfs import import_gtfs
+
         try:
             fname = self.gtfs_source_dir + "/test_gtfs.sqlite"
             if os.path.exists(fname) and os.path.isfile(fname):
@@ -63,37 +66,37 @@ class TestGTFS(unittest.TestCase):
             import_gtfs(self.gtfs_source_dir, conn, preserve_connection=True, print_progress=False)
             G = GTFS(conn)
             self.assertTrue(os.path.exists(G.get_main_database_path()))
-            self.assertIn(u"/test_gtfs.sqlite", G.get_main_database_path(), "path should be correct")
+            self.assertIn("/test_gtfs.sqlite", G.get_main_database_path(), "path should be correct")
         finally:
             if os.path.exists(fname) and os.path.isfile(fname):
                 os.remove(fname)
 
     def test_get_table(self):
-        df = self.gtfs.get_table(u"agencies")
+        df = self.gtfs.get_table("agencies")
         self.assertTrue(isinstance(df, pandas.DataFrame))
 
     def test_get_table_names(self):
         tables = self.gtfs.get_table_names()
         self.assertTrue(isinstance(tables, list))
-        self.assertGreater(len(tables), 11, u"quite many tables should be available")
-        self.assertIn(u"routes", tables)
+        self.assertGreater(len(tables), 11, "quite many tables should be available")
+        self.assertIn("routes", tables)
 
     def test_get_all_route_shapes(self):
         res = self.gtfs.get_all_route_shapes()
         self.assertTrue(isinstance(res, list))
         el = res[0]
-        keys = u"name type agency lats lons".split()
+        keys = "name type agency lats lons".split()
         for key in keys:
             self.assertTrue(key in el)
 
         for el in res:
-            self.assertTrue(isinstance(el[u"name"], string_types), type(el[u"name"]))
-            self.assertTrue(isinstance(el[u"type"], (int, numpy.int_)), type(el[u'type']))
-            self.assertTrue(isinstance(el[u"agency"], string_types))
-            self.assertTrue(isinstance(el[u"lats"], list), type(el[u'lats']))
-            self.assertTrue(isinstance(el[u"lons"], list))
-            self.assertTrue(isinstance(el[u'lats'][0], float))
-            self.assertTrue(isinstance(el[u'lons'][0], float))
+            self.assertTrue(isinstance(el["name"], string_types), type(el["name"]))
+            self.assertTrue(isinstance(el["type"], (int, numpy.int_)), type(el["type"]))
+            self.assertTrue(isinstance(el["agency"], string_types))
+            self.assertTrue(isinstance(el["lats"], list), type(el["lats"]))
+            self.assertTrue(isinstance(el["lons"], list))
+            self.assertTrue(isinstance(el["lats"][0], float))
+            self.assertTrue(isinstance(el["lons"][0], float))
 
     def test_get_shape_distance_between_stops(self):
         # tested as a part of test_to_directed_graph, although this could be made a separate test as well
@@ -115,8 +118,8 @@ class TestGTFS(unittest.TestCase):
         self.assertIn(tz_string[0], "+-")
         for i in range(1, 5):
             self.assertIn(tz_string[i], "0123456789")
-        dt = datetime.datetime(1970, 1, 1)
-        tz_string_epoch = self.gtfs.get_timezone_string(dt)
+        # dt = datetime.datetime(1970, 1, 1)
+        # tz_string_epoch = self.gtfs.get_timezone_string(dt)
         # self.assertEqual(tz_string, tz_string_epoch)
 
     def test_timezone_conversions(self):
@@ -155,7 +158,7 @@ class TestGTFS(unittest.TestCase):
                 self.assertTrue(isinstance(el, float))
             if c in ["name"]:
                 self.assertTrue(isinstance(el, string_types), type(el))
-        self.assertTrue((df['count'].values > 0).any())
+        self.assertTrue((df["count"].values > 0).any())
 
     def test_get_segment_count_data(self):
         dt_start_query = datetime.datetime(2007, 1, 1, 7, 59, 59)
@@ -181,8 +184,10 @@ class TestGTFS(unittest.TestCase):
         df = self.gtfs.get_tripIs_active_in_range(start_query, end_query)
         self.assertGreater(len(df), 0)
         for row in df.itertuples():
-            self.assertTrue((row.start_time_ut <= end_query) and \
-                   (row.end_time_ut >= start_query), "some trip does not overlap!")
+            self.assertTrue(
+                (row.start_time_ut <= end_query) and (row.end_time_ut >= start_query),
+                "some trip does not overlap!",
+            )
             if row.start_time_ut == start_real and row.end_time_ut == end_real:
                 found = True
                 # check that overlaps
@@ -214,11 +219,11 @@ class TestGTFS(unittest.TestCase):
         # First row in test_data:
         # FUR_CREEK_RES, Furnace Creek Resort (Demo),, 36.425288, -117.133162,,
         lat_s, lon_s = 36.425288, -117.133162
-        lat, lon = lat_s + 10**-5, lon_s + 10**-5
+        lat, lon = lat_s + 10 ** -5, lon_s + 10 ** -5
         stop_I = self.gtfs.get_closest_stop(lat, lon)
         self.assertTrue(isinstance(stop_I, int))
         df = self.gtfs.stop(stop_I)
-        name = df['name'][0]
+        name = df["name"][0]
         # print name
         # check that correct stop has been found:
         self.assertTrue(name == "Furnace Creek Resort (Demo)")
@@ -238,23 +243,23 @@ class TestGTFS(unittest.TestCase):
         dsut, trip_Is = list(dsut_dict.items())[0]
         df = self.gtfs.get_trip_stop_time_data(trip_Is[0], dsut)
         self.assertTrue(isinstance(df, pandas.DataFrame))
-        columns = u"dep_time_ut lat lon seq shape_break".split(" ")
+        columns = "dep_time_ut lat lon seq shape_break".split(" ")
         el = df.iloc[0]
         for c in columns:
             self.assertTrue(c in df.columns)
-            if c in u"dep_time_ut lat lon".split(" "):
+            if c in "dep_time_ut lat lon".split(" "):
                 self.assertTrue(isinstance(el[c], float))
-            if c in u"seq".split(" "):
+            if c in "seq".split(" "):
                 self.assertTrue(isinstance(el[c], (int, numpy.int_)), type(el[c]))
 
     def test_get_straight_line_transfer_distances(self):
         data = self.gtfs.get_straight_line_transfer_distances()
         a_stop_I = None
         for index, row in data.iterrows():
-            self.assertTrue(row[u'from_stop_I'] is not None)
-            a_stop_I = row[u'from_stop_I']
-            self.assertTrue(row[u'to_stop_I'] is not None)
-            self.assertTrue(row[u'd'] is not None)
+            self.assertTrue(row["from_stop_I"] is not None)
+            a_stop_I = row["from_stop_I"]
+            self.assertTrue(row["to_stop_I"] is not None)
+            self.assertTrue(row["d"] is not None)
         data = self.gtfs.get_straight_line_transfer_distances(a_stop_I)
         self.assertGreater(len(data), 0)
 
@@ -291,11 +296,14 @@ class TestGTFS(unittest.TestCase):
 
     def test_get_weekly_extract_start_date(self):
         trip_counts_per_day = self.G.get_trip_counts_per_day()
-        first_day = trip_counts_per_day['date'].min()
-        last_day = trip_counts_per_day['date'].max()  # a monday not in reach
+        first_day = trip_counts_per_day["date"].min()
+        last_day = trip_counts_per_day["date"].max()  # a monday not in reach
         # print(first_day, last_day)
         first_monday = self.G.get_weekly_extract_start_date(download_date_override=first_day)
         early_monday = self.G.get_weekly_extract_start_date(
-            download_date_override=first_day + datetime.timedelta(days=10))
-        end_monday = self.G.get_weekly_extract_start_date(download_date_override=last_day - datetime.timedelta(days=5))
+            download_date_override=first_day + datetime.timedelta(days=10)
+        )
+        end_monday = self.G.get_weekly_extract_start_date(
+            download_date_override=last_day - datetime.timedelta(days=5)
+        )
         assert first_monday < early_monday < end_monday

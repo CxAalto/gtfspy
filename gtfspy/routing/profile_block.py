@@ -1,11 +1,8 @@
-
-
 class ProfileBlock:
-
     def __init__(self, start_time, end_time, distance_start, distance_end, **extra_properties):
         self.start_time = start_time
         self.end_time = end_time
-        assert(self.start_time < self.end_time)
+        assert self.start_time < self.end_time
         self.distance_start = distance_start
         self.distance_end = distance_end
         self.extra_properties = extra_properties
@@ -19,10 +16,10 @@ class ProfileBlock:
     def width(self):
         return self.end_time - self.start_time
 
-    def max(self):
+    def max(self):  # noqa: A003
         return max(self.distance_start, self.distance_end)
 
-    def min(self):
+    def min(self):  # noqa: A003
         return min(self.distance_start, self.distance_end)
 
     def is_flat(self):
@@ -30,7 +27,7 @@ class ProfileBlock:
 
     def interpolate(self, time):
         p = (time - self.start_time) / (self.end_time - self.start_time)
-        return (1-p) * self.distance_start + p * self.distance_end
+        return (1 - p) * self.distance_start + p * self.distance_end
 
     def __getitem__(self, extra_property_name):
         return self.extra_properties[extra_property_name]
