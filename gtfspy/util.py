@@ -456,3 +456,16 @@ def graph_has_node(g, node):
         return node in g.node
     # networkx >= 2.0
     return node in g.nodes
+
+def graph_node_attrs(g, node):
+    """Backwards compatability function for networkx < 2.0
+
+    <2.0:   g.node[n]  --> attribute dict
+    >2.2:   g.nodes[n] --> attribute dict
+
+    """
+    if hasattr(g, 'node'):
+        # networkx <= 2.4
+        return g.node[node]
+    # networkx >= 2.0
+    return g.nodes[node]

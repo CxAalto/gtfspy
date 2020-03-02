@@ -2,7 +2,7 @@ import networkx
 import pandas as pd
 from math import isnan
 from gtfspy import route_types
-from gtfspy.util import wgs84_distance
+from gtfspy.util import wgs84_distance, graph_node_attrs
 from warnings import warn
 
 ALL_STOP_TO_STOP_LINK_ATTRIBUTES = [
@@ -140,10 +140,10 @@ def stop_to_stop_network_for_route_type(gtfs,
                 link_data['capacity_estimate'] = route_types.ROUTE_TYPE_TO_APPROXIMATE_CAPACITY[route_type] \
                                                  * int(link_events.shape[0])
             if "d" in link_attributes:
-                from_lat = net.nodes[from_stop_I]['lat']
-                from_lon = net.nodes[from_stop_I]['lon']
-                to_lat = net.nodes[to_stop_I]['lat']
-                to_lon = net.nodes[to_stop_I]['lon']
+                from_lat = graph_node_attrs(net, from_stop_I)['lat']
+                from_lon = graph_node_attrs(net, from_stop_I)['lon']
+                to_lat = graph_node_attrs(net, to_stop_I)['lat']
+                to_lon = graph_node_attrs(net, to_stop_I)['lon']
                 distance = wgs84_distance(from_lat, from_lon, to_lat, to_lon)
                 link_data['d'] = int(distance)
             if "distance_shape" in link_attributes:
