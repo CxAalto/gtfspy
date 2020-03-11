@@ -1,3 +1,4 @@
+setuptools>=18.0
 pandas
 networkx==1.11
 pyshp
@@ -6,8 +7,8 @@ nose
 Cython
 six
 geoindex
-osmread
-geojson
+osmread==0.2
+geojson>=2.0.0
 shapely
 pyproj
-matplotlib-scalebar
+matplotlib-scalebar==0.6.1

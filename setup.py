@@ -1,6 +1,10 @@
+import os
 from setuptools import setup, Extension, find_packages
 
 version="0.0.4"
+
+requirementstxt = os.path.join(os.path.dirname(__file__), 'requirements.txt')
+requirements = open(requirementstxt).read().strip().split('\n')
 
 setup(
     name="gtfspy",
@@ -31,22 +35,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.5'
     ], 
-    install_requires = [
-        "setuptools>=18.0",
-        "pandas",
-        "networkx==1.11",
-        "pyshp",
-        "smopy",
-        "nose",
-        "Cython",
-        "six",
-        "geoindex",
-        "osmread==0.2",
-        "shapely",
-        "geojson>=2.0.0",
-        "pyproj",
-        "matplotlib-scalebar==0.6.1"
-    ],
+    install_requires = requirements,
     ext_modules=[
         Extension(
             'gtfspy.routing.label',
