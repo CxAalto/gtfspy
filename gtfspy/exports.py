@@ -194,12 +194,12 @@ def _write_stop_to_stop_network_edges(net, file_name, data=True, fmt=None):
     elif fmt == "csv":
         with open(file_name, 'w') as f:
             # writing out the header
-            edge_iter = net.edges_iter(data=True)
+            edge_iter = net.edges(data=True)
             _, _, edg_data = next(edge_iter)
             edg_data_keys = list(sorted(edg_data.keys()))
             header = ";".join(["from_stop_I", "to_stop_I"] + edg_data_keys)
             f.write(header)
-            for from_node_I, to_node_I, data in net.edges_iter(data=True):
+            for from_node_I, to_node_I, data in net.edges(data=True):
                 f.write("\n")
                 values = [str(from_node_I), str(to_node_I)]
                 data_values = []

@@ -8,7 +8,8 @@ from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
 from gtfspy.routing.label import merge_pareto_frontiers, LabelTimeWithBoardingsCount, LabelTime, compute_pareto_front, \
     LabelVehLegCount, LabelTimeBoardingsAndRoute, LabelTimeAndRoute
-from gtfspy.util import timeit
+from gtfspy.util import timeit, graph_has_node
+
 
 
 class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
@@ -294,7 +295,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             neighbor_label_bags = []
             walk_durations_to_neighbors = []
             departure_arrival_stop_pairs = []
-            if stop_profile.get_walk_to_target_duration() != 0 and stop in self._walk_network.node:
+            if stop_profile.get_walk_to_target_duration() != 0 and graph_has_node(self._walk_network, stop):
                 neighbors = networkx.all_neighbors(self._walk_network, stop)
                 for neighbor in neighbors:
                     neighbor_profile = self._stop_profiles[neighbor]

@@ -63,6 +63,10 @@ This library is not yet stabilised, and new features are being developed.
 Thus code organization and interfaces may change at a fast pace. 
 More precise versioning scheme will be decided upon later.
 
+## Changelog
+
+View the [changelog](CHANGELOG.md).
+
 ## Authors
 
 ### Package maintainers

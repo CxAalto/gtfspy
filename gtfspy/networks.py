@@ -2,7 +2,7 @@ import networkx
 import pandas as pd
 from math import isnan
 from gtfspy import route_types
-from gtfspy.util import wgs84_distance
+from gtfspy.util import wgs84_distance, graph_node_attrs
 from warnings import warn
 
 ALL_STOP_TO_STOP_LINK_ATTRIBUTES = [
@@ -63,7 +63,7 @@ def walk_transfer_stop_to_stop_network(gtfs, max_link_distance=None):
             if stop_distance_tuple.d > max_link_distance:
                 continue
             data = {'d': stop_distance_tuple.d}
-        net.add_edge(from_node, to_node, data)
+        net.add_edge(from_node, to_node, **data)
     return net
 
 
@@ -140,10 +140,10 @@ def stop_to_stop_network_for_route_type(gtfs,
                 link_data['capacity_estimate'] = route_types.ROUTE_TYPE_TO_APPROXIMATE_CAPACITY[route_type] \
                                                  * int(link_events.shape[0])
             if "d" in link_attributes:
-                from_lat = net.node[from_stop_I]['lat']
-                from_lon = net.node[from_stop_I]['lon']
-                to_lat = net.node[to_stop_I]['lat']
-                to_lon = net.node[to_stop_I]['lon']
+                from_lat = graph_node_attrs(net, from_stop_I)['lat']
+                from_lon = graph_node_attrs(net, from_stop_I)['lon']
+                to_lat = graph_node_attrs(net, to_stop_I)['lat']
+                to_lon = graph_node_attrs(net, to_stop_I)['lon']
                 distance = wgs84_distance(from_lat, from_lon, to_lat, to_lon)
                 link_data['d'] = int(distance)
             if "distance_shape" in link_attributes:
@@ -165,7 +165,7 @@ def stop_to_stop_network_for_route_type(gtfs,
                     link_data['distance_shape'] = distance
             if "route_I_counts" in link_attributes:
                 link_data["route_I_counts"] = link_events.groupby("route_I").size().to_dict()
-            net.add_edge(from_stop_I, to_stop_I, attr_dict=link_data)
+            net.add_edge(from_stop_I, to_stop_I, **link_data)
     return net
 
 
@@ -233,7 +233,7 @@ def _add_stops_to_net(net, stops):
             "lon": stop.lon,
             "name": stop.name
         }
-        net.add_node(stop.stop_I, data)
+        net.add_node(stop.stop_I, **data)
 
 
 def temporal_network(gtfs,
@@ -291,7 +291,7 @@ def route_to_route_network(gtfs, walking_threshold, start_time, end_time):
     routes = gtfs.get_table("routes")
 
     for i in routes.itertuples():
-        graph.add_node(i.route_id, attr_dict={"type": i.type, "color": route_types.ROUTE_TYPE_TO_COLOR[i.type]})
+        graph.add_node(i.route_id, type=i.type, color=route_types.ROUTE_TYPE_TO_COLOR[i.type])
 
 
     query = """SELECT stop1.route_id AS route_id1, stop1.type, stop2.route_id AS route_id2, stop2.type FROM
