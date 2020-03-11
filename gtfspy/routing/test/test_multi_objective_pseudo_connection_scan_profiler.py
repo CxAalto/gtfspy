@@ -25,8 +25,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         self.transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         self.walk_network = networkx.Graph()
-        self.walk_network.add_edge(1, 2, {"d_walk": 20})
-        self.walk_network.add_edge(3, 4, {"d_walk": 15})
+        self.walk_network.add_edge(1, 2, d_walk=20)
+        self.walk_network.add_edge(3, 4, d_walk=15)
         self.walk_speed = 1
         self.target_stop = 4
         self.transfer_margin = 0
@@ -40,7 +40,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 20})
+        walk_network.add_edge(1, 2, d_walk=20)
         walk_speed = 1
         target_stop = 3
         transfer_margin = 0
@@ -88,7 +88,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 10})
+        walk_network.add_edge(1, 2, d_walk=10)
         walk_speed = 1
         target_stop = 3
         transfer_margin = 5
@@ -159,8 +159,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 20})
-        walk_network.add_edge(3, 4, {"d_walk": 15})
+        walk_network.add_edge(1, 2, d_walk=20)
+        walk_network.add_edge(3, 4, d_walk=15)
         walk_speed = 1
         source_stop = 1
         target_stop = 4
@@ -195,7 +195,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 20})
+        walk_network.add_edge(1, 2, d_walk=20)
 
         walk_speed = 1
         source_stop = 0
@@ -226,7 +226,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         end_time = 50
 
         walk_network = networkx.Graph()
-        walk_network.add_edge(0, 1, {"d_walk": 1})
+        walk_network.add_edge(0, 1, d_walk=1)
         csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                       start_time, end_time, transfer_margin,
                                                       walk_network, walk_speed)
@@ -251,8 +251,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(0, 1, {"d_walk": 1})
-        walk_network.add_edge(2, 1, {"d_walk": 1})
+        walk_network.add_edge(0, 1, d_walk=1)
+        walk_network.add_edge(2, 1, d_walk=1)
         walk_speed = 10
         transfer_margin = 0
         start_time = 0
@@ -359,7 +359,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             Connection(2, 3, 106, 108, "trip_2", 1)
         ]
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 1})
+        walk_network.add_edge(1, 2, d_walk=1)
         csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                       start_time, end_time, transfer_margin,
                                                       walk_network, walk_speed)
@@ -386,7 +386,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
 
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 5})
+        walk_network.add_edge(1, 2, d_walk=5)
         transfer_margins = [10, 20, 30, 40, 0]
         journey_dep_times = [1030, 1020, 1010, 1000, 1030]
 
@@ -437,8 +437,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 2, {"d_walk": 20})
-        walk_network.add_edge(3, 4, {"d_walk": 15})
+        walk_network.add_edge(1, 2, d_walk=20)
+        walk_network.add_edge(3, 4, d_walk=15)
         walk_speed = 1
         target_stop = 4
         transfer_margin = 0
@@ -560,9 +560,9 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             Connection(1, target_stop, 70, 100, "trip_5", 1)
         ]
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 3, {"d_walk": 1})
-        walk_network.add_edge(1, 4, {"d_walk": 1})
-        walk_network.add_edge(1, 5, {"d_walk": 1})
+        walk_network.add_edge(1, 3, d_walk=1)
+        walk_network.add_edge(1, 4, d_walk=1)
+        walk_network.add_edge(1, 5, d_walk=1)
         csa_profiler = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                        start_time, end_time, transfer_margin,
                                                        walk_network, walk_speed)
@@ -584,8 +584,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
             Connection(4, 3, 0, 1, "trip_3", 1)
         ]
         walk_network = networkx.Graph()
-        walk_network.add_edge(2, 3, {"d_walk": 1})
-        walk_network.add_edge(1, 0, {"d_walk": 1})
+        walk_network.add_edge(2, 3, d_walk=1)
+        walk_network.add_edge(1, 0, d_walk=1)
         csa_profiler = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                        start_time, end_time, transfer_margin,
                                                        walk_network, walk_speed)
@@ -612,9 +612,9 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
 
         walk_network = networkx.Graph()
-        walk_network.add_edge(7, 3, {"d_walk": 1})
-        walk_network.add_edge(1, 0, {"d_walk": 1})
-        walk_network.add_edge(5, 3, {"d_walk": 1})
+        walk_network.add_edge(7, 3, d_walk=1)
+        walk_network.add_edge(1, 0, d_walk=1)
+        walk_network.add_edge(5, 3, d_walk=1)
         csa_profiler = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
                                                        start_time, end_time, transfer_margin,
                                                        walk_network, walk_speed)
@@ -679,7 +679,7 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(1, 3, {"d_walk": 11})
+        walk_network.add_edge(1, 3, d_walk=11)
         walk_speed = 1
         target_stop = 1
         transfer_margin = 0
@@ -721,8 +721,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(2, 4, {"d_walk": 10})
-        walk_network.add_edge(3, 4, {"d_walk": 10})
+        walk_network.add_edge(2, 4, d_walk=10)
+        walk_network.add_edge(3, 4, d_walk=10)
         walk_speed = 1
         target_stop = 5
         transfer_margin = 0
@@ -774,9 +774,9 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(2, 4, {"d_walk": 10})
-        walk_network.add_edge(3, 4, {"d_walk": 10})
-        walk_network.add_edge(5, 6, {"d_walk": 10})
+        walk_network.add_edge(2, 4, d_walk=10)
+        walk_network.add_edge(3, 4, d_walk=10)
+        walk_network.add_edge(5, 6, d_walk=10)
         walk_speed = 1
         target_stop = 5
         transfer_margin = 0
@@ -813,8 +813,8 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         transit_connections = list(map(lambda el: Connection(*el), event_list_raw_data))
         walk_network = networkx.Graph()
-        walk_network.add_edge(10, 1, {"d_walk": 20})
-        walk_network.add_edge(1, 11, {"d_walk": 20})
+        walk_network.add_edge(10, 1, d_walk=20)
+        walk_network.add_edge(1, 11, d_walk=20)
         walk_speed = 1
         target_stop = 11
         transfer_margin = 0

@@ -442,3 +442,30 @@ def difference_of_pandas_dfs(df_self, df_other, col_names=None):
     idx = [x[0] for x in list(df_gpby.groups.values()) if len(x) == 2]
     df_diff = df_diff.reindex(idx)
     return df_diff
+
+
+def graph_has_node(g, node):
+    """Backwards compatability function for networkx < 2.0
+
+    <2.0:  n in g.node
+    >2.2:  n in g.nodes
+
+    """
+    if hasattr(g, 'node'):
+        # networkx <= 2.4
+        return node in g.node
+    # networkx >= 2.0
+    return node in g.nodes
+
+def graph_node_attrs(g, node):
+    """Backwards compatability function for networkx < 2.0
+
+    <2.0:   g.node[n]  --> attribute dict
+    >2.2:   g.nodes[n] --> attribute dict
+
+    """
+    if hasattr(g, 'node'):
+        # networkx <= 2.4
+        return g.node[node]
+    # networkx >= 2.0
+    return g.nodes[node]

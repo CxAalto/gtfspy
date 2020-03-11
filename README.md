@@ -10,7 +10,7 @@
 * Import one or multiple GTFS feeds into one [SQLite](https://www.sqlite.org/) database for efficient querying of the data.
 * Augment the sqlite with real walking distances between PT stops using Open Street Map (OSM) data.
 * Compute simple statistics for the public transport networks such as number of stops, routes, network length.
-* Filter databases spatially and temporally to match your area and time region of interst.
+* Filter databases spatially and temporally to match your area and time region of interest.
 * Perform accessibility analyses using a routing/profiling engine
     - Adapted from the [Connection Scan Algorithm](http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf) (CSA).
     - Compute all Pareto-optimal journey alternatives between an origin-destination pair, and summarize connectivity with measures on travel time and number of transfers.
@@ -24,10 +24,30 @@
 
 
 ## Install
-
+### Linux and Mac OS
 ```
 pip install gtfspy
 ```
+
+### Windows
+Windows should work, but has not been tested or and may not be
+supported as much.  Please report problems.
+
+Windows users may need to install Shapely library first. [Download Shapely wheel](https://www.lfd.uci.edu/~gohlke/pythonlibs/#shapely) and then run:
+```
+pip install wheel
+pip install {path to the Shapely wheel file on your PC}
+```
+
+If you come across the `Microsoft Visual C++ 14.0 is required` error, you may need to download the latest Microsoft Visual C++ Build Tools.
+You can download it [from here](https://visualstudio.microsoft.com/cs/downloads/).
+
+After that, continue with:
+```
+pip install gtfspy
+```
+
+
 
 ## Development quickstart
 
@@ -62,6 +82,10 @@ In your pull request, please also add yourself as a contributor in the list belo
 This library is not yet stabilised, and new features are being developed. 
 Thus code organization and interfaces may change at a fast pace. 
 More precise versioning scheme will be decided upon later.
+
+## Changelog
+
+View the [changelog](CHANGELOG.md).
 
 ## Authors
 
