@@ -24,10 +24,30 @@
 
 
 ## Install
-
+### Linux and Mac OS
 ```
 pip install gtfspy
 ```
+
+### Windows
+Windows should work, but has not been tested or and may not be
+supported as much.  Please report problems.
+
+Windows users may need to install Shapely library first. [Download Shapely wheel](https://www.lfd.uci.edu/~gohlke/pythonlibs/#shapely) and then run:
+```
+pip install wheel
+pip install {path to the Shapely wheel file on your PC}
+```
+
+If you come across the `Microsoft Visual C++ 14.0 is required` error, you may need to download the latest Microsoft Visual C++ Build Tools.
+You can download it [from here](https://visualstudio.microsoft.com/cs/downloads/).
+
+After that, continue with:
+```
+pip install gtfspy
+```
+
+
 
 ## Development quickstart
 
