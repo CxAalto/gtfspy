@@ -134,9 +134,15 @@ class TestPseudoPseudoConnectionScanProfiler(TestCase):
 
         walk_network = networkx.Graph()
         walk_network.add_edge(0, 1, d_walk=1)
-        csa_profile = PseudoConnectionScanProfiler(transit_connections, target_stop,
-                                                   start_time, end_time, transfer_margin,
-                                                   walk_network, walk_speed)
+        csa_profile = PseudoConnectionScanProfiler(
+            transit_connections,
+            target_stop,
+            start_time,
+            end_time,
+            transfer_margin,
+            walk_network,
+            walk_speed,
+        )
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
         self.assertEqual(source_profile.evaluate_earliest_arrival_time_at_target(0, 0), 0.5)

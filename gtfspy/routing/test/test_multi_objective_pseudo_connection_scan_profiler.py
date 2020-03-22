@@ -284,9 +284,15 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
 
         walk_network = networkx.Graph()
         walk_network.add_edge(0, 1, d_walk=1)
-        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
-                                                      start_time, end_time, transfer_margin,
-                                                      walk_network, walk_speed)
+        csa_profile = MultiObjectivePseudoCSAProfiler(
+            transit_connections,
+            target_stop,
+            start_time,
+            end_time,
+            transfer_margin,
+            walk_network,
+            walk_speed,
+        )
         csa_profile.run()
         source_profile = csa_profile.stop_profiles[source_stop]
         self.assertEqual(
@@ -445,9 +451,15 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         ]
         walk_network = networkx.Graph()
         walk_network.add_edge(1, 2, d_walk=1)
-        csa_profile = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
-                                                      start_time, end_time, transfer_margin,
-                                                      walk_network, walk_speed)
+        csa_profile = MultiObjectivePseudoCSAProfiler(
+            transit_connections,
+            target_stop,
+            start_time,
+            end_time,
+            transfer_margin,
+            walk_network,
+            walk_speed,
+        )
         csa_profile.run()
         profile = csa_profile.stop_profiles[4]
         self.assertEqual(len(profile.get_final_optimal_labels()), 0)
@@ -683,9 +695,15 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         walk_network.add_edge(1, 3, d_walk=1)
         walk_network.add_edge(1, 4, d_walk=1)
         walk_network.add_edge(1, 5, d_walk=1)
-        csa_profiler = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
-                                                       start_time, end_time, transfer_margin,
-                                                       walk_network, walk_speed)
+        csa_profiler = MultiObjectivePseudoCSAProfiler(
+            transit_connections,
+            target_stop,
+            start_time,
+            end_time,
+            transfer_margin,
+            walk_network,
+            walk_speed,
+        )
         csa_profiler.run()
         profiles = csa_profiler.stop_profiles
         assert profiles[0].get_final_optimal_labels()[0]
@@ -705,9 +723,15 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         walk_network = networkx.Graph()
         walk_network.add_edge(2, 3, d_walk=1)
         walk_network.add_edge(1, 0, d_walk=1)
-        csa_profiler = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
-                                                       start_time, end_time, transfer_margin,
-                                                       walk_network, walk_speed)
+        csa_profiler = MultiObjectivePseudoCSAProfiler(
+            transit_connections,
+            target_stop,
+            start_time,
+            end_time,
+            transfer_margin,
+            walk_network,
+            walk_speed,
+        )
         csa_profiler.run()
         profiles = csa_profiler.stop_profiles
         assert len(profiles[4].get_final_optimal_labels()) == 1
@@ -734,9 +758,15 @@ class TestMultiObjectivePseudoCSAProfiler(TestCase):
         walk_network.add_edge(7, 3, d_walk=1)
         walk_network.add_edge(1, 0, d_walk=1)
         walk_network.add_edge(5, 3, d_walk=1)
-        csa_profiler = MultiObjectivePseudoCSAProfiler(transit_connections, target_stop,
-                                                       start_time, end_time, transfer_margin,
-                                                       walk_network, walk_speed)
+        csa_profiler = MultiObjectivePseudoCSAProfiler(
+            transit_connections,
+            target_stop,
+            start_time,
+            end_time,
+            transfer_margin,
+            walk_network,
+            walk_speed,
+        )
         csa_profiler.run()
         profiles = csa_profiler.stop_profiles
         print(profiles[4].get_final_optimal_labels()[0])

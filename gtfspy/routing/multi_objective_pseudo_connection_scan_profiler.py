@@ -339,7 +339,9 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             neighbor_label_bags = []
             walk_durations_to_neighbors = []
             departure_arrival_stop_pairs = []
-            if stop_profile.get_walk_to_target_duration() != 0 and graph_has_node(self._walk_network, stop):
+            if stop_profile.get_walk_to_target_duration() != 0 and graph_has_node(
+                self._walk_network, stop
+            ):
                 neighbors = networkx.all_neighbors(self._walk_network, stop)
                 for neighbor in neighbors:
                     neighbor_profile = self._stop_profiles[neighbor]

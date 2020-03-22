@@ -234,11 +234,7 @@ def _add_stops_to_net(net, stops):
     stops: pandas.DataFrame
     """
     for stop in stops.itertuples():
-        data = {
-            "lat": stop.lat,
-            "lon": stop.lon,
-            "name": stop.name
-        }
+        data = {"lat": stop.lat, "lon": stop.lon, "name": stop.name}
         net.add_node(stop.stop_I, **data)
 
 
@@ -290,7 +286,6 @@ def route_to_route_network(gtfs, walking_threshold, start_time, end_time):
 
     for i in routes.itertuples():
         graph.add_node(i.route_id, type=i.type, color=route_types.ROUTE_TYPE_TO_COLOR[i.type])
-
 
     query = """SELECT stop1.route_id AS route_id1, stop1.type, stop2.route_id AS route_id2, stop2.type FROM
                 (SELECT * FROM stop_distances WHERE d_walk < %s) sd,

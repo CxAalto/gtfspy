@@ -3,8 +3,8 @@ from setuptools import setup, Extension, find_packages
 
 version = "0.0.4"
 
-requirementstxt = os.path.join(os.path.dirname(__file__), 'requirements.txt')
-requirements = open(requirementstxt).read().strip().split('\n')
+requirementstxt = os.path.join(os.path.dirname(__file__), "requirements.txt")
+requirements = open(requirementstxt).read().strip().split("\n")
 
 setup(
     name="gtfspy",
@@ -35,7 +35,7 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     setup_requires=["setuptools>=18.0", "cython"],
-    install_requires = requirements,
+    install_requires=requirements,
     tests_require=["nose"],
     ext_modules=[Extension("gtfspy.routing.label", sources=["gtfspy/routing/label.pyx"])],
     keywords=[

@@ -38,6 +38,7 @@ from gtfspy.routing.pseudo_connections import compute_pseudo_connections
 from gtfspy.routing.node_profile_c import NodeProfileC
 from gtfspy.util import graph_has_node
 
+
 class PseudoConnectionScanProfiler(AbstractRoutingAlgorithm):
     """
     Implementation of the profile connection scan algorithm presented in
