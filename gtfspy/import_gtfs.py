@@ -16,7 +16,7 @@ Entry point: see main part at the bottom and/or the import_gtfs function.
 """
 
 import re
-import sqlite3
+import spatialite
 import time
 from six import string_types
 
@@ -55,9 +55,9 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
         Alternatively, a dict can be provide that maps gtfs filenames
         (like 'stops.txt' and 'agencies.txt') to their string presentations.
 
-    output: str or sqlite3.Connection
+    output: str or spatialite.Connection
         path to the new database to be created, or an existing
-        sqlite3 connection
+        spatialite connection
     preserve_connection: bool, optional
         Whether to close the connection in the end, or not.
     print_progress: bool, optional
@@ -65,12 +65,13 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
     location_name: str, optional
         set the location of this database
     """
-    if isinstance(output, sqlite3.Connection):
+    if isinstance(output, spatialite.Connection):
         conn = output
     else:
         # if os.path.isfile(output):
         #  raise RuntimeError('File already exists')
-        conn = sqlite3.connect(output)
+        print(output)
+        conn = spatialite.connect(output)
     if not isinstance(gtfs_sources, list):
         gtfs_sources = [gtfs_sources]
     cur = conn.cursor()
@@ -293,14 +294,14 @@ def main():
     #     date_end   = d + timedelta(7-d.isoweekday()+1 + 1)  # exclusive
     #     G.copy_and_filter(args.dest, start_date=date_start, end_date=date_end)
     elif args.cmd == 'export-stop-distances':
-        conn = sqlite3.connect(args.gtfs)
+        conn = spatialite.connect(args.gtfs)
         L = StopDistancesLoader(conn)
         L.export_stop_distances(conn, open(args.output, 'w'))
     elif args.cmd == 'custom':
         pass
         # This is designed for just testing things.  This code should
         # always be commented out in the VCS.
-        # conn = sqlite3.connect(args.gtfs)
+        # conn = spatialite.connect(args.gtfs)
         # L = StopDistancesLoader(conn)
         # L.post_import(None)
         # L.export_stop_distances(conn, open('sd.txt', 'w'))

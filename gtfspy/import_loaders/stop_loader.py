@@ -7,7 +7,8 @@ class StopLoader(TableLoader):
     # the CREATE TABLE syntax (last part only).
     fname = 'stops.txt'
     table = 'stops'
-    tabledef = '''(stop_I INTEGER PRIMARY KEY, stop_id TEXT UNIQUE NOT NULL, code TEXT, name TEXT, desc TEXT, lat REAL, lon REAL, parent_I INT, location_type INT, wheelchair_boarding BOOL, self_or_parent_I INT)'''
+    tabledef = '''(stop_I INTEGER PRIMARY KEY, stop_id TEXT UNIQUE NOT NULL, code TEXT, name TEXT, desc TEXT, lat REAL, 
+    lon REAL, parent_I INT, location_type INT, wheelchair_boarding BOOL, self_or_parent_I INT)'''
 
     def gen_rows(self, readers, prefixes):
         for reader, prefix in zip(readers, prefixes):
@@ -41,10 +42,28 @@ class StopLoader(TableLoader):
         stmt = 'UPDATE %s ' \
                'SET self_or_parent_I=coalesce(parent_I, stop_I)' % self.table
         cur.execute(stmt)
+        cur.execute("SELECT InitSpatialMetaData()")
+        cur.execute("SELECT AddGeometryColumn ('stops', 'geometry', 4326, 'POINT', 2)")
+        cur.execute("""UPDATE stops SET geometry=MakePoint(lon, lat, 4326)""")
+        
+        cur.execute("""CREATE TABLE stop_intervals AS
+        WITH 
+        stimes AS (SELECT * FROM stop_times),
+        s AS (SELECT * FROM stops)
+        SELECT 
+        MakeLine(s1.geom, s2.geom) AS the_geom, 
+        CAST(COUNT(*) AS INTEGER) AS freq FROM
+        (stimes) q1,
+        (stimes) q2,
+        (s) s1,
+        (s) s2
+        WHERE q1.seq+1=q2.seq AND q1.trip_I=q2.trip_I AND s1.stop_I = q1.stop_I AND s2.stop_I = q2.stop_I
+        GROUP BY q1.stop_I, q2.stop_I""")
 
     def index(self, cur):
         # Make indexes/ views as needed.
         #cur.execute('CREATE INDEX IF NOT EXISTS idx_stop_sid ON stop (stop_id)')
         #cur.execute('CREATE INDEX IF NOT EXISTS idx_stops_pid_sid ON stops (parent_id, stop_I)')
-        #conn.commit()
-        pass
+        cur.execute("SELECT CreateSpatialIndex('stops', 'geometry');")
+        #cur.commit()
+        #pass
