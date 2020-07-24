@@ -543,8 +543,8 @@ class NodeProfileAnalyzerTime:
 
             for x, y, letter in zip(xs, ys, journey_letters_iterator):
                 walking = - self._walk_time_to_target / 30 if numpy.isfinite(self._walk_time_to_target) else 0
-                ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 60),
-                        (y + walking) / duration_divider, letter, va="top", ha="left")
+                ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 120),
+                        (y + walking) / duration_divider, letter, va="top", ha="left", color="m")
         elif not self.trip_departure_times:
             print(self.trip_departure_times)
             print("no trips, terminating")

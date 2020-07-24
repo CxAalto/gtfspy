@@ -467,8 +467,8 @@ class NodeProfileAnalyzerTimeAndVehLegs:
             for (x, y), letter in zip(journeys, journey_letters):
                 if x < _ut_to_unloc_datetime(self.end_time_dep):
                     ax.plot(x, y, "o", ms=8, color="k")
-                    ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 40.),
-                            y, letter, va="center", ha="left")
+                    ax.text(x + datetime.timedelta(seconds=(self.end_time_dep - self.start_time_dep) / 120.),
+                            y, letter, va="center", ha="left", color="m")
             p = lines.Line2D([0, 0], [1, 1], ls="", marker="o", ms=8, color="k", label="journeys")
             legend_patches.append(p)
 

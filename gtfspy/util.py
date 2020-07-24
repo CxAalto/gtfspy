@@ -340,6 +340,7 @@ def source_csv_to_pandas(path, table, read_csv_args=None):
     else:
         df = pd.read_csv(f)
     f.close()
+    df.columns = df.columns.str.strip()
     return df
 
 

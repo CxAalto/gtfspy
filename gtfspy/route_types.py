@@ -10,6 +10,8 @@ FERRY = 4
 CABLE_CAR = 5
 GONDOLA = 6
 FUNICULAR = 7
+TROLLEYBUS = 11
+MONORAIL = 12
 AIRCRAFT = 99
 
 ALL_ROUTE_TYPES = {WALK, TRAM, SUBWAY, RAIL, BUS, FERRY, CABLE_CAR, GONDOLA, FUNICULAR}
@@ -25,7 +27,9 @@ ROUTE_TYPE_TO_ZORDER = {
     CABLE_CAR: 8,
     GONDOLA: 9,
     FUNICULAR: 10,
-    AIRCRAFT: 11
+    TROLLEYBUS: 11,
+    MONORAIL: 12,
+    AIRCRAFT: 13
 }
 
 ROUTE_TYPE_TO_DESCRIPTION = {
@@ -52,6 +56,8 @@ ROUTE_TYPE_TO_SHORT_DESCRIPTION = {
     CABLE_CAR: "Cable car",
     GONDOLA: "Gondola",
     FUNICULAR: "Funicular",
+    TROLLEYBUS: "Trolleybus",
+    MONORAIL: "Monorail",
     AIRCRAFT: "Aircraft"
 }
 
@@ -64,7 +70,9 @@ ROUTE_TYPE_TO_LOWERCASE_TAG = {
     FERRY: "ferry",
     CABLE_CAR: "cablecar",
     GONDOLA: "gondola",
-    FUNICULAR: "funicular"
+    FUNICULAR: "funicular",
+    TROLLEYBUS: "trolleybus",
+    MONORAIL: "monorail"
 }
 
 # Use these on your own risk!
@@ -77,7 +85,9 @@ ROUTE_TYPE_TO_APPROXIMATE_CAPACITY = {
     FERRY: 200,
     CABLE_CAR: 40,
     GONDOLA: 20,
-    FUNICULAR: 20
+    FUNICULAR: 20,
+    TROLLEYBUS: 80,
+    MONORAIL: 80
 }
 
 ROUTE_TYPE_TO_COLOR = {
@@ -90,6 +100,8 @@ ROUTE_TYPE_TO_COLOR = {
     CABLE_CAR: "#6a3d9a",
     GONDOLA: "#b15928",
     FUNICULAR: "#fb9a99",
+    TROLLEYBUS: "#114569",
+    MONORAIL: "#ba5d00",
     AIRCRAFT: "#fb9a99"
 }
 

@@ -52,6 +52,8 @@ GTFS_TYPE_TO_MAX_SPEED = {
     route_types.CABLE_CAR: 50,
     route_types.GONDOLA: 50,
     route_types.FUNICULAR: 50,
+    route_types.TROLLEYBUS: 100,
+    route_types.MONORAIL: 150,
     route_types.AIRCRAFT: 1000
 }
 MAX_TRIP_TIME = 7200  # seconds
@@ -201,6 +203,7 @@ def main():
         validator = TimetableValidator(args[0])
         warningscontainer = validator.validate_and_get_warnings()
         warningscontainer.write_summary()
+
 
 if __name__ == "__main__":
     main()

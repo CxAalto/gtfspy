@@ -45,25 +45,44 @@ class StopLoader(TableLoader):
         cur.execute("SELECT InitSpatialMetaData()")
         cur.execute("SELECT AddGeometryColumn ('stops', 'geometry', 4326, 'POINT', 2)")
         cur.execute("""UPDATE stops SET geometry=MakePoint(lon, lat, 4326)""")
-        
-        cur.execute("""CREATE TABLE stop_intervals AS
+        cur.execute("SELECT CreateSpatialIndex('stops', 'geometry');")
+
+    def index(self, cur):
+        # Make indexes/ views as needed.
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_stop_sid ON stops (stop_id)')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_stops_pid_sid ON stops (parent_I, stop_I)')
+        #cur.commit()
+        #pass
+
+    def post_import_round2(self, cur):
+        q1 = """CREATE TABLE stop_intervals (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                from_stop_I INTEGER,
+                to_stop_I INTEGER,
+                type INTEGER,
+                freq INTEGER);"""
+
+        q2 = """SELECT AddGeometryColumn('stop_intervals', 'geometry', 4326, 'LINESTRING', 'XY');"""
+        q3 = """INSERT INTO stop_intervals (geometry, from_stop_I, to_stop_I, type, freq)
         WITH 
-        stimes AS (SELECT * FROM stop_times),
+        stimes AS (SELECT * FROM stop_times, trips, routes 
+                   WHERE stop_times.trip_I = trips.trip_I 
+                   AND trips.route_I = routes.route_I),
         s AS (SELECT * FROM stops)
         SELECT 
-        MakeLine(s1.geom, s2.geom) AS the_geom, 
-        CAST(COUNT(*) AS INTEGER) AS freq FROM
+        MakeLine(s1.geometry, s2.geometry) AS geometry, 
+        s1.stop_I AS from_stop_I,
+        s2.stop_I AS to_stop_I,
+        q1.type,
+        CAST(COUNT(*) AS INTEGER) AS freq 
+        FROM
         (stimes) q1,
         (stimes) q2,
         (s) s1,
         (s) s2
         WHERE q1.seq+1=q2.seq AND q1.trip_I=q2.trip_I AND s1.stop_I = q1.stop_I AND s2.stop_I = q2.stop_I
-        GROUP BY q1.stop_I, q2.stop_I""")
+        GROUP BY q1.stop_I, q2.stop_I"""
 
-    def index(self, cur):
-        # Make indexes/ views as needed.
-        #cur.execute('CREATE INDEX IF NOT EXISTS idx_stop_sid ON stop (stop_id)')
-        #cur.execute('CREATE INDEX IF NOT EXISTS idx_stops_pid_sid ON stops (parent_id, stop_I)')
-        cur.execute("SELECT CreateSpatialIndex('stops', 'geometry');")
-        #cur.commit()
-        #pass
+        q4 = "SELECT CreateSpatialIndex('stop_intervals', 'geometry');"
+        for q in [q1, q2, q3, q4]:
+            cur.execute(q)

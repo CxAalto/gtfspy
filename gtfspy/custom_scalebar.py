@@ -1,3 +1,5 @@
+import bisect
+
 from matplotlib_scalebar.scalebar import ScaleBar
 from matplotlib.text import Text
 from matplotlib.offsetbox import \
@@ -9,7 +11,7 @@ import six
 
 
 class CustomScaleBar(ScaleBar):
-    def __init__(self, n_fields=5, *args, **kwargs):
+    def __init__(self, n_fields=4, *args, **kwargs):
         super(CustomScaleBar, self).__init__(*args, **kwargs)
         self.n_fields = n_fields
 
@@ -62,7 +64,6 @@ class CustomScaleBar(ScaleBar):
         if self.fixed_value is None:
             length_px = abs(xlim[1] - xlim[0]) * length_fraction
             length_px, value, units = self._calculate_best_length(length_px)
-
         # Mode 2: Fixed
         else:
             value = fixed_value
@@ -86,7 +87,6 @@ class CustomScaleBar(ScaleBar):
         na_offset = size_vertical * -2
 
         style = "zigzag"
-        # TODO: somehow take into account the length of the figures to determine needed space
         font_size = 7  # for some reason font size does not scale with the figure
         for n in range(self.n_fields):
             if style == "rectangles":
@@ -98,7 +98,11 @@ class CustomScaleBar(ScaleBar):
                 y = size_vertical if n % 2 else 0
                 sizebar.add_artist(Line2D((n * increment, (n + 1) * increment), (y, y),
                                           color=color, linewidth=linewidth))
-            sizebar.add_artist(Text(n * increment, size_vertical*4, str(int(n * label_increment)),
+            if n % 2 == 0:
+                bar_label = str(int(n * label_increment))
+            else:
+                bar_label = ""
+            sizebar.add_artist(Text(n * increment, size_vertical*4, str(round(n * label_increment, 1)),
                                     fontsize=font_size, color=color, horizontalalignment="center"))
 
         if style == "zigzag":
@@ -117,7 +121,6 @@ class CustomScaleBar(ScaleBar):
                                     color=color, horizontalalignment="center"))
 
         txtscale = TextArea(scale_label, minimumdescent=False, textprops=textprops)
-
         if style:
             children = [sizebar]
         else:

@@ -12,6 +12,7 @@ from datetime import timedelta
 import numpy
 import pandas as pd
 import pytz
+import spatialite
 from six import string_types
 
 from gtfspy import shapes
@@ -32,7 +33,7 @@ class GTFS(object):
         """
         if isinstance(fname_or_conn, string_types):
             if os.path.isfile(fname_or_conn):
-                self.conn = sqlite3.connect(fname_or_conn)
+                self.conn = spatialite.connect(fname_or_conn)
                 self.fname = fname_or_conn
                 # memory-mapped IO size, in bytes
                 self.conn.execute('PRAGMA mmap_size = 1000000000;')
@@ -40,7 +41,7 @@ class GTFS(object):
                 self.conn.execute('PRAGMA cache_size = -2000000;')
             else:
                 raise FileNotFoundError("File " + fname_or_conn + " missing")
-        elif isinstance(fname_or_conn, sqlite3.Connection):
+        elif isinstance(fname_or_conn, spatialite.Connection):
             self.conn = fname_or_conn
             self._dont_close = True
         else:

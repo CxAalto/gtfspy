@@ -100,10 +100,10 @@ def import_gtfs(gtfs_sources, output, preserve_connection=False,
 
     # Do initial import.  This consists of making tables, raw insert
     # of the CSVs, and then indexing.
-
+    print("import round")
     for loader in loaders:
         loader.import_(conn)
-
+    print("post import round")
     # Do any operations that require all tables present.
     for Loader in loaders:
         Loader.post_import_round2(conn)

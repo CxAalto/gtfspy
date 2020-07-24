@@ -3,6 +3,9 @@ from matplotlib.axes import Axes
 from matplotlib.projections import register_projection
 from matplotlib.collections import LineCollection
 import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
+import matplotlib.text as mtext
+
 from urllib.error import URLError
 from shapely.geometry import LineString
 import smopy
@@ -51,14 +54,22 @@ def legend_pt_modes(ax, route_types, **kwargs):
     return ax
 
 
-def custom_legend(ax, labels, colors, markersize=4, **kwargs):
-    lines = []
+def custom_legend(ax, label_dicts, markersize=4, **kwargs):
+    handles = []
 
-    for label, color in zip(labels, colors):
-        line = mlines.Line2D([], [], color=color, markersize=markersize, label=label)
-        lines.append(line)
+    for label_dict in label_dicts:
+        label = label_dict["label"]
+        color = label_dict["color"]
+        type = label_dict["type"]
+        marker = label_dict["marker"]
+        if type == "line":
+            handle = mlines.Line2D([], [], color=color, markersize=markersize, label=label)
+        elif type == "patch":
+            handle = mpatches.Patch([], [], color=color, markersize=markersize, label=label)
+        else:
+            handle = mtext.Text([], [], marker, color=color, markersize=markersize, label=label)
+        handles.append(handle)
 
-    handles = lines
     labels = [h.get_label() for h in handles]
 
     ax.legend(handles=handles, labels=labels, **kwargs)

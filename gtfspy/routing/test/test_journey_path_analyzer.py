@@ -45,15 +45,15 @@ class TestNodeJourneyPathAnalyzer(TestCase):
 
         njpa = self._get_analyzer(label_list, 0, 700, float("inf"))
 
-        self.assertEqual(njpa.get_fp_all_journey_stops(), [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
+        self.assertEqual(njpa.get_fp_journey_stops(), [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
         self.assertEqual(njpa.journey_set_variants, [(791, 1090)])
 
         njpa = self._get_analyzer(label_list, 0, 700, 600)
-        self.assertEqual(njpa.get_fp_all_journey_stops(), [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
+        self.assertEqual(njpa.get_fp_journey_stops(), [[791, 1090, 1117, 1040], [791, 1090, 1117, 1040]])
         self.assertEqual(set(njpa.journey_set_variants), {(791, 1090), (791,)})
 
         njpa = self._get_analyzer(label_list, 0, 700, 500)
-        self.assertEqual(njpa.get_fp_all_journey_stops(), [])
+        self.assertEqual(njpa.get_fp_journey_stops(), [])
         self.assertEqual(set(njpa.journey_set_variants), {(791,)})
 
     def test_basic_diversity(self):

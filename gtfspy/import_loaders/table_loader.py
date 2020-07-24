@@ -294,7 +294,27 @@ class TableLoader(object):
             # (this could be optimized)
             from itertools import chain
             rows = chain([row], self.gen_rows([csv_reader], [prefix]))
-            cur.executemany(stmt, rows)
+            try:
+                cur.executemany(stmt, rows)
+
+            except:
+                print(stmt)
+                for row in rows:
+                    try:
+                        cur.execute(stmt, row)
+                    except:
+                        print(row)
+                raise
+                count_dict = {}
+                for row in rows:
+                    r_val = count_dict.get(row["trip_id"], 0)
+                    count_dict[row["trip_id"]] = r_val + 1
+                for k, v in count_dict.items():
+                    if v > 1:
+                        print(k, v)
+                raise
+                exit()
+
             conn.commit()
 
     def run_post_import(self, conn):
