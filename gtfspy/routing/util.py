@@ -24,7 +24,7 @@ def seconds_to_minutes(function):
         if isinstance(func, dict):
             return {k: round(v / 60.0, 2) for k, v in func.items()}
         else:
-            return round(func / 60.0, 2)
+            return round(func / 60.0, 2) if func is not None else func
     return wrapper
 
 

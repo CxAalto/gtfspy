@@ -1,4 +1,5 @@
 import datetime
+import math
 from collections import Counter
 
 from matplotlib import dates as md
@@ -718,11 +719,13 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         min_boardings = npatavl.min_n_boardings()
         first_mtd = None
         result_dict = {}
-        for i in range(max_boardings, min_boardings-1, -1):
-            tpa = npatavl.get_time_profile_analyzer(max_n_boardings=i)
-            if not first_mtd:
-                first_mtd = tpa.mean_temporal_distance()
-            else:
-                mtd = tpa.mean_temporal_distance()
-                result_dict[param_name + "_" + str(max_boardings) + "->" + str(i)] = mtd - first_mtd
+        if not math.isnan(max_boardings) and not math.isnan(min_boardings):
+            for i in range(max_boardings, min_boardings-1, -1):
+                tpa = npatavl.get_time_profile_analyzer(max_n_boardings=i)
+                if not first_mtd:
+                    first_mtd = tpa.mean_temporal_distance()
+                else:
+                    mtd = tpa.mean_temporal_distance()
+                    result_dict[param_name + "_" + str(max_boardings) + "->" + str(i)] = mtd - first_mtd
+
         return result_dict
