@@ -6,10 +6,16 @@ import numpy
 from gtfspy.routing.connection import Connection
 from gtfspy.routing.abstract_routing_algorithm import AbstractRoutingAlgorithm
 from gtfspy.routing.node_profile_multiobjective import NodeProfileMultiObjective
-from gtfspy.routing.label import merge_pareto_frontiers, LabelTimeWithBoardingsCount, LabelTime, compute_pareto_front, \
-    LabelVehLegCount, LabelTimeBoardingsAndRoute, LabelTimeAndRoute
+from gtfspy.routing.label import (
+    merge_pareto_frontiers,
+    LabelTimeWithBoardingsCount,
+    LabelTime,
+    compute_pareto_front,
+    LabelVehLegCount,
+    LabelTimeBoardingsAndRoute,
+    LabelTimeAndRoute,
+)
 from gtfspy.util import timeit, graph_has_node
-
 
 
 class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
@@ -19,18 +25,20 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
     http://i11www.iti.uni-karlsruhe.de/extra/publications/dpsw-isftr-13.pdf
     """
 
-    def __init__(self,
-                 transit_events,
-                 targets,
-                 start_time_ut=None,
-                 end_time_ut=None,
-                 transfer_margin=0,
-                 walk_network=None,
-                 walk_speed=1.5,
-                 verbose=False,
-                 track_vehicle_legs=True,
-                 track_time=True,
-                 track_route=False):
+    def __init__(
+        self,
+        transit_events,
+        targets,
+        start_time_ut=None,
+        end_time_ut=None,
+        transfer_margin=0,
+        walk_network=None,
+        walk_speed=1.5,
+        verbose=False,
+        track_vehicle_legs=True,
+        track_time=True,
+        track_route=False,
+    ):
         """
         Parameters
         ----------
@@ -56,7 +64,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             whether to consider time in the set of pareto_optimal
         """
         AbstractRoutingAlgorithm.__init__(self)
-        assert (len(transit_events) == len(set(transit_events))), "Duplicate transit events spotted!"
+        assert len(transit_events) == len(set(transit_events)), "Duplicate transit events spotted!"
         self._transit_connections = transit_events
         if start_time_ut is None:
             start_time_ut = transit_events[-1].departure_time
@@ -77,7 +85,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         self._count_vehicle_legs = track_vehicle_legs
         self._consider_time = track_time
 
-        assert(track_time or track_vehicle_legs)
+        assert track_time or track_vehicle_legs
         if track_vehicle_legs:
             if track_time:
                 if track_route:
@@ -93,15 +101,22 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                 self._label_class = LabelTime
 
         print("using label:", str(self._label_class))
-        self._stop_departure_times, self._stop_arrival_times = self.__compute_stop_dep_and_arrival_times()
-        self._all_nodes = set.union(set(self._stop_departure_times.keys()),
-                                    set(self._stop_arrival_times.keys()),
-                                    set(self._walk_network.nodes()))
+        (
+            self._stop_departure_times,
+            self._stop_arrival_times,
+        ) = self.__compute_stop_dep_and_arrival_times()
+        self._all_nodes = set.union(
+            set(self._stop_departure_times.keys()),
+            set(self._stop_arrival_times.keys()),
+            set(self._walk_network.nodes()),
+        )
 
         self._pseudo_connections = self.__compute_pseudo_connections()
         self._add_pseudo_connection_departures_to_stop_departure_times()
         self._all_connections = self._pseudo_connections + self._transit_connections
-        self._all_connections.sort(key=lambda connection: (-connection.departure_time, -connection.seq))
+        self._all_connections.sort(
+            key=lambda connection: (-connection.departure_time, -connection.seq)
+        )
         self._augment_all_connections_with_arrival_stop_next_dep_time()
         if isinstance(targets, list):
             self._targets = targets
@@ -118,18 +133,20 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         for key, value in self._stop_departure_times_with_pseudo_connections.items():
             self._stop_departure_times_with_pseudo_connections[key] = list(value)
         for pseudo_connection in self._pseudo_connections:
-            assert(isinstance(pseudo_connection, Connection))
-            self._stop_departure_times_with_pseudo_connections[pseudo_connection.departure_stop]\
-                .append(pseudo_connection.departure_time)
+            assert isinstance(pseudo_connection, Connection)
+            self._stop_departure_times_with_pseudo_connections[
+                pseudo_connection.departure_stop
+            ].append(pseudo_connection.departure_time)
         for stop, dep_times in self._stop_departure_times_with_pseudo_connections.items():
-            self._stop_departure_times_with_pseudo_connections[stop] = numpy.array(list(sorted(set(dep_times))))
-
+            self._stop_departure_times_with_pseudo_connections[stop] = numpy.array(
+                list(sorted(set(dep_times)))
+            )
 
     @timeit
     def __initialize_node_profiles(self):
         self._stop_profiles = dict()
         for node in self._all_nodes:
-            walk_duration_to_target = float('inf')
+            walk_duration_to_target = float("inf")
             closest_target = None
             if node in self._targets:
                 walk_duration_to_target = 0
@@ -143,12 +160,15 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                             walk_duration_to_target = walk_duration
                             closest_target = target
 
-            self._stop_profiles[node] = NodeProfileMultiObjective(dep_times=self._stop_departure_times_with_pseudo_connections[node],
-                                                                  label_class=self._label_class,
-                                                                  walk_to_target_duration=walk_duration_to_target,
-                                                                  transit_connection_dep_times=self._stop_departure_times[node],
-                                                                  closest_target=closest_target,
-                                                                  node_id=node)
+            self._stop_profiles[node] = NodeProfileMultiObjective(
+                dep_times=self._stop_departure_times_with_pseudo_connections[node],
+                label_class=self._label_class,
+                walk_to_target_duration=walk_duration_to_target,
+                transit_connection_dep_times=self._stop_departure_times[node],
+                closest_target=closest_target,
+                node_id=node,
+            )
+
     @timeit
     def __compute_stop_dep_and_arrival_times(self):
         stop_departure_times = defaultdict(lambda: list())
@@ -162,14 +182,15 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
             stop_arrival_times[stop] = numpy.array(sorted(list(set(stop_arrival_times[stop]))))
         return stop_departure_times, stop_arrival_times
 
-
     @timeit
     def __compute_pseudo_connections(self):
         print("Started computing pseudoconnections")
         pseudo_connections = []
         # DiGraph makes things iterate both ways (!)
         for u, v, data in networkx.DiGraph(self._walk_network).edges(data=True):
-            walk_duration = int(data["d_walk"] / float(self._walk_speed))  # round to one second accuracy
+            walk_duration = int(
+                data["d_walk"] / float(self._walk_speed)
+            )  # round to one second accuracy
             total_walk_time_with_transfer = walk_duration + self._transfer_margin
             in_times = self._stop_arrival_times[u]
             out_times = self._stop_departure_times[v]
@@ -184,18 +205,26 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                     j += 1  # connection j cannot be reached -> need to check next j -> increase out_time
                 else:
                     # if next element still satisfies the wanted condition, go on and increase i!
-                    while i + 1 < n_in_times and in_times[i + 1] + total_walk_time_with_transfer < out_times[j]:
+                    while (
+                        i + 1 < n_in_times
+                        and in_times[i + 1] + total_walk_time_with_transfer < out_times[j]
+                    ):
                         i += 1
                     dep_time = in_times[i]
                     arr_time = out_times[j]
                     from_stop = u
                     to_stop = v
                     waiting_time = arr_time - dep_time - total_walk_time_with_transfer
-                    assert(waiting_time >= 0)
-                    pseudo = Connection(from_stop, to_stop, arr_time - walk_duration, arr_time,
-                                        Connection.WALK_TRIP_ID,
-                                        Connection.WALK_SEQ,
-                                        is_walk=True)
+                    assert waiting_time >= 0
+                    pseudo = Connection(
+                        from_stop,
+                        to_stop,
+                        arr_time - walk_duration,
+                        arr_time,
+                        Connection.WALK_TRIP_ID,
+                        Connection.WALK_SEQ,
+                        is_walk=True,
+                    )
                     pseudo_connections.append(pseudo)
                     i += 1
         print("Computed pseudoconnections")
@@ -204,39 +233,43 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
     @timeit
     def _augment_all_connections_with_arrival_stop_next_dep_time(self):
         for connection in self._all_connections:
-            assert(isinstance(connection, Connection))
+            assert isinstance(connection, Connection)
             to_stop = connection.arrival_stop
 
             arr_stop_dep_times = self._stop_departure_times_with_pseudo_connections[to_stop]
 
-            arr_stop_next_dep_time = float('inf')
+            arr_stop_next_dep_time = float("inf")
             if len(arr_stop_dep_times) > 0:
                 if connection.is_walk:
                     index = numpy.searchsorted(arr_stop_dep_times, connection.arrival_time)
                 else:
-                    index = numpy.searchsorted(arr_stop_dep_times, connection.arrival_time + self._transfer_margin)
+                    index = numpy.searchsorted(
+                        arr_stop_dep_times, connection.arrival_time + self._transfer_margin
+                    )
                 if 0 <= index < len(arr_stop_dep_times):
                     arr_stop_next_dep_time = arr_stop_dep_times[index]
-            if connection.is_walk and not (arr_stop_next_dep_time < float('inf')):
-                assert (arr_stop_next_dep_time < float('inf'))
+            if connection.is_walk and not (arr_stop_next_dep_time < float("inf")):
+                assert arr_stop_next_dep_time < float("inf")
             connection.arrival_stop_next_departure_time = arr_stop_next_dep_time
 
     def _get_modified_arrival_node_labels(self, connection):
         # get all different "accessible" / arrival times (Pareto-optimal sets)
         arrival_profile = self._stop_profiles[connection.arrival_stop]  # NodeProfileMultiObjective
-        assert (isinstance(arrival_profile, NodeProfileMultiObjective))
+        assert isinstance(arrival_profile, NodeProfileMultiObjective)
 
-        arrival_node_labels_orig = arrival_profile.evaluate(connection.arrival_stop_next_departure_time,
-                                                            first_leg_can_be_walk=not connection.is_walk,
-                                                            connection_arrival_time=connection.arrival_time)
+        arrival_node_labels_orig = arrival_profile.evaluate(
+            connection.arrival_stop_next_departure_time,
+            first_leg_can_be_walk=not connection.is_walk,
+            connection_arrival_time=connection.arrival_time,
+        )
 
-        increment_vehicle_count = (self._count_vehicle_legs and not connection.is_walk)
+        increment_vehicle_count = self._count_vehicle_legs and not connection.is_walk
         # TODO: (?) this copying / modification logic should be moved to the Label / ForwardJourney class ?
         arrival_node_labels_modified = self._copy_and_modify_labels(
             arrival_node_labels_orig,
             connection,
             increment_vehicle_count=increment_vehicle_count,
-            first_leg_is_walk=connection.is_walk
+            first_leg_is_walk=connection.is_walk,
         )
         if connection.is_walk:
             connection.is_walk = True
@@ -246,10 +279,12 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
     def _get_trip_labels(self, connection):
         # best labels from this current trip
         if not connection.is_walk:
-            trip_labels = self._copy_and_modify_labels(self.__trip_labels[connection.trip_id],
-                                                       connection,
-                                                       increment_vehicle_count=False,
-                                                       first_leg_is_walk=False)
+            trip_labels = self._copy_and_modify_labels(
+                self.__trip_labels[connection.trip_id],
+                connection,
+                increment_vehicle_count=False,
+                first_leg_is_walk=False,
+            )
         else:
             trip_labels = list()
         return trip_labels
@@ -261,9 +296,18 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         for i, connection in enumerate(self._all_connections):
             # basic checking + printing progress:
             if self._verbose and i % 1000 == 0:
-                print("\r", i, "/", n_connections_tot, " : ", "%.2f" % round(float(i) / n_connections_tot, 3), end='', flush=True)
-            assert (isinstance(connection, Connection))
-            assert (connection.departure_time <= previous_departure_time)
+                print(
+                    "\r",
+                    i,
+                    "/",
+                    n_connections_tot,
+                    " : ",
+                    "%.2f" % round(float(i) / n_connections_tot, 3),
+                    end="",
+                    flush=True,
+                )
+            assert isinstance(connection, Connection)
+            assert connection.departure_time <= previous_departure_time
             previous_departure_time = connection.departure_time
 
             # Get labels from the stop (possibly subject to buffer time)
@@ -279,9 +323,9 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
                 self.__trip_labels[connection.trip_id] = all_pareto_optimal_labels
 
             # Update labels for the departure stop profile (later: with the sets of pareto-optimal labels)
-            self._stop_profiles[connection.departure_stop].update(all_pareto_optimal_labels,
-                                                                  connection.departure_time)
-
+            self._stop_profiles[connection.departure_stop].update(
+                all_pareto_optimal_labels, connection.departure_time
+            )
 
         print("finalizing profiles!")
         self._finalize_profiles()
@@ -291,21 +335,31 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         Deal with the first walks by joining profiles to other stops within walking distance.
         """
         for stop, stop_profile in self._stop_profiles.items():
-            assert (isinstance(stop_profile, NodeProfileMultiObjective))
+            assert isinstance(stop_profile, NodeProfileMultiObjective)
             neighbor_label_bags = []
             walk_durations_to_neighbors = []
             departure_arrival_stop_pairs = []
-            if stop_profile.get_walk_to_target_duration() != 0 and graph_has_node(self._walk_network, stop):
+            if stop_profile.get_walk_to_target_duration() != 0 and graph_has_node(
+                self._walk_network, stop
+            ):
                 neighbors = networkx.all_neighbors(self._walk_network, stop)
                 for neighbor in neighbors:
                     neighbor_profile = self._stop_profiles[neighbor]
-                    assert (isinstance(neighbor_profile, NodeProfileMultiObjective))
-                    neighbor_real_connection_labels = neighbor_profile.get_labels_for_real_connections()
+                    assert isinstance(neighbor_profile, NodeProfileMultiObjective)
+                    neighbor_real_connection_labels = (
+                        neighbor_profile.get_labels_for_real_connections()
+                    )
                     neighbor_label_bags.append(neighbor_real_connection_labels)
-                    walk_durations_to_neighbors.append(int(self._walk_network.get_edge_data(stop, neighbor)["d_walk"] /
-                                                       self._walk_speed))
+                    walk_durations_to_neighbors.append(
+                        int(
+                            self._walk_network.get_edge_data(stop, neighbor)["d_walk"]
+                            / self._walk_speed
+                        )
+                    )
                     departure_arrival_stop_pairs.append((stop, neighbor))
-            stop_profile.finalize(neighbor_label_bags, walk_durations_to_neighbors, departure_arrival_stop_pairs)
+            stop_profile.finalize(
+                neighbor_label_bags, walk_durations_to_neighbors, departure_arrival_stop_pairs
+            )
 
     @property
     def stop_profiles(self):
@@ -318,15 +372,23 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         assert self._has_run
         return self._stop_profiles
 
-    def _copy_and_modify_labels(self, labels, connection, increment_vehicle_count=False, first_leg_is_walk=False):
-        if self._label_class == LabelTimeBoardingsAndRoute or self._label_class == LabelTimeAndRoute:
+    def _copy_and_modify_labels(
+        self, labels, connection, increment_vehicle_count=False, first_leg_is_walk=False
+    ):
+        if (
+            self._label_class == LabelTimeBoardingsAndRoute
+            or self._label_class == LabelTimeAndRoute
+        ):
             labels_copy = [label.get_label_with_connection_added(connection) for label in labels]
         else:
             labels_copy = [label.get_copy() for label in labels]
 
         for label in labels_copy:
             label.departure_time = connection.departure_time
-            if self._label_class == LabelTimeAndRoute or self._label_class == LabelTimeBoardingsAndRoute:
+            if (
+                self._label_class == LabelTimeAndRoute
+                or self._label_class == LabelTimeBoardingsAndRoute
+            ):
                 label.movement_duration += connection.duration()
             if increment_vehicle_count:
                 label.n_boardings += 1
@@ -340,7 +402,7 @@ class MultiObjectivePseudoCSAProfiler(AbstractRoutingAlgorithm):
         else:
             self._targets = [targets]
         for target in targets:
-            assert(target in self._all_nodes)
+            assert target in self._all_nodes
         self.__initialize_node_profiles()
         self.__trip_labels = defaultdict(lambda: list())
         self._has_run = False

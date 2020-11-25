@@ -1,7 +1,4 @@
-
-
 class Segments(object):
-
     def __init__(self, gtfs):
         self._gtfs
 
@@ -16,7 +13,8 @@ class Segments(object):
         cur = self._gtfs.get_cursor()
 
         # Find our IDs that are relevant.
-        cur.execute('''SELECT trip_I, cnt, seq1, seq2, S1.code, S2.code,
+        cur.execute(
+            """SELECT trip_I, cnt, seq1, seq2, S1.code, S2.code,
                               S1.name AS name1,
                               S2.name AS name2,
                               S1.lat, S1.lon, S2.lat, S2.lon
@@ -32,13 +30,14 @@ class Segments(object):
                        LEFT JOIN stops S1 ON (sid1=S1.stop_I)
                        LEFT JOIN stops S2 ON (sid2=S2.stop_I)
                        --ORDER BY cnt DESC LIMIT 10 ;
-                   ''')
-
+                   """
+        )
 
 
 class Segment(object):
-
-    def __init__(self, from_node, to_node, distance, time, vehicle_count, capacity_per_hour, lines, modes):
+    def __init__(
+        self, from_node, to_node, distance, time, vehicle_count, capacity_per_hour, lines, modes
+    ):
         self.from_node = from_node
         self.to_node = to_node
         self.distance = distance
@@ -47,4 +46,3 @@ class Segment(object):
         self.capacity_per_hour = capacity_per_hour
         self.lines = lines
         self.modes = modes
-

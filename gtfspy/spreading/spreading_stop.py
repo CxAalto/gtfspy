@@ -1,5 +1,4 @@
 class SpreadingStop:
-
     def __init__(self, stop_I, min_transfer_time):
         self.stop_I = stop_I
         self.min_transfer_time = min_transfer_time
@@ -10,7 +9,7 @@ class SpreadingStop:
         Get the earliest visit time of the stop.
         """
         if not self.visit_events:
-            return float('inf')
+            return float("inf")
         else:
             return min(self.visit_events, key=lambda event: event.arr_time_ut).arr_time_ut
 
@@ -36,7 +35,7 @@ class SpreadingStop:
             if visit is stored, returns True, otherwise False
         """
         to_visit = False
-        if event.arr_time_ut <= self.min_transfer_time+self.get_min_visit_time():
+        if event.arr_time_ut <= self.min_transfer_time + self.get_min_visit_time():
             to_visit = True
         else:
             for ve in self.visit_events:
@@ -47,7 +46,9 @@ class SpreadingStop:
             self.visit_events.append(event)
             min_time = self.get_min_visit_time()
             # remove any visits that are 'too old'
-            self.visit_events = [v for v in self.visit_events if v.arr_time_ut <= min_time+self.min_transfer_time]
+            self.visit_events = [
+                v for v in self.visit_events if v.arr_time_ut <= min_time + self.min_transfer_time
+            ]
         return to_visit
 
     def has_been_visited(self):
@@ -63,7 +64,7 @@ class SpreadingStop:
         if not self.has_been_visited():
             return False
         else:
-            time_sep = event.dep_time_ut-self.get_min_visit_time()
+            time_sep = event.dep_time_ut - self.get_min_visit_time()
             # if the gap between the earliest visit_time and current time is
             # smaller than the min. transfer time, the stop can pass the spreading
             # forward

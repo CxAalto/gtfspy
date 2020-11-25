@@ -25,8 +25,8 @@ Various unrelated utility functions.
 current_umask = os.umask(0)
 os.umask(current_umask)
 
-TORADIANS = 3.141592653589793 / 180.
-EARTH_RADIUS = 6378137.
+TORADIANS = 3.141592653589793 / 180.0
+EARTH_RADIUS = 6378137.0
 
 
 def set_process_timezone(TZ):
@@ -36,12 +36,12 @@ def set_process_timezone(TZ):
     TZ: string
     """
     try:
-        prev_timezone = os.environ['TZ']
+        prev_timezone = os.environ["TZ"]
     except KeyError:
         prev_timezone = None
-    os.environ['TZ'] = TZ
+    os.environ["TZ"] = TZ
 
-    if sys.platform == 'win32': # tzset() does not work on Windows
+    if sys.platform == "win32":  # tzset() does not work on Windows
         system_time = SystemTime()
         lpSystemTime = ctypes.pointer(system_time)
         ctypes.windll.kernel32.GetLocalTime(lpSystemTime)
@@ -53,23 +53,24 @@ def set_process_timezone(TZ):
 
 class SystemTime(ctypes.Structure):
     _fields_ = [
-        ('wYear', ctypes.c_int16),
-        ('wMonth', ctypes.c_int16),
-        ('wDayOfWeek', ctypes.c_int16),
-        ('wDay', ctypes.c_int16),
-        ('wHour', ctypes.c_int16),
-        ('wMinute', ctypes.c_int16),
-        ('wSecond', ctypes.c_int16),
-        ('wMilliseconds', ctypes.c_int16)]
+        ("wYear", ctypes.c_int16),
+        ("wMonth", ctypes.c_int16),
+        ("wDayOfWeek", ctypes.c_int16),
+        ("wDay", ctypes.c_int16),
+        ("wHour", ctypes.c_int16),
+        ("wMinute", ctypes.c_int16),
+        ("wSecond", ctypes.c_int16),
+        ("wMilliseconds", ctypes.c_int16),
+    ]
 
 
 def wgs84_distance(lat1, lon1, lat2, lon2):
     """Distance (in meters) between two points in WGS84 coord system."""
     dLat = math.radians(lat2 - lat1)
     dLon = math.radians(lon2 - lon1)
-    a = (math.sin(dLat / 2) * math.sin(dLat / 2) +
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
-         math.sin(dLon / 2) * math.sin(dLon / 2))
+    a = math.sin(dLat / 2) * math.sin(dLat / 2) + math.cos(math.radians(lat1)) * math.cos(
+        math.radians(lat2)
+    ) * math.sin(dLon / 2) * math.sin(dLon / 2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     d = EARTH_RADIUS * c
     return d
@@ -90,15 +91,11 @@ try:
 except ImportError:
     pass
 
-possible_tmpdirs = [
-    '/tmp',
-    ''
-]
+possible_tmpdirs = ["/tmp", ""]
 
 
 @contextlib.contextmanager
-def create_file(fname=None, fname_tmp=None, tmpdir=None,
-                save_tmpfile=False, keepext=False):
+def create_file(fname=None, fname_tmp=None, tmpdir=None, save_tmpfile=False, keepext=False):
     """Context manager for making files with possibility of failure.
 
     If you are creating a file, it is possible that the code will fail
@@ -135,7 +132,7 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
     Re-raises any except occuring during the context block.
     """
     # Do nothing if requesting sqlite memory DB.
-    if fname == ':memory:':
+    if fname == ":memory:":
         yield fname
         return
     if fname_tmp is None:
@@ -147,7 +144,7 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
         # automatic things itself.
         if not keepext:
             root = root + ext
-            ext = ''
+            ext = ""
         if tmpdir:
             # we should use a different temporary directory
             if tmpdir is True:
@@ -161,7 +158,8 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
         # extension.  Set it to not delete automatically, since on
         # success we will move it to elsewhere.
         tmpfile = tempfile.NamedTemporaryFile(
-            prefix='tmp-' + root + '-', suffix=ext, dir=dir_, delete=False)
+            prefix="tmp-" + root + "-", suffix=ext, dir=dir_, delete=False
+        )
         fname_tmp = tmpfile.name
     try:
         yield fname_tmp
@@ -184,7 +182,8 @@ def create_file(fname=None, fname_tmp=None, tmpdir=None,
     except OSError as e:
         # New temporary file in same directory
         tmpfile2 = tempfile.NamedTemporaryFile(
-            prefix='tmp-' + root + '-', suffix=ext, dir=this_dir, delete=False)
+            prefix="tmp-" + root + "-", suffix=ext, dir=this_dir, delete=False
+        )
         # Copy contents over
         shutil.copy(fname_tmp, tmpfile2.name)
         # Rename new tmpfile, unlink old one on other filesystem.
@@ -204,7 +203,7 @@ def execute(cur, *args):
     """
     stmt = args[0]
     if len(args) > 1:
-        stmt = stmt.replace('%', '%%').replace('?', '%r')
+        stmt = stmt.replace("%", "%%").replace("?", "%r")
         print(stmt % (args[1]))
     return cur.execute(*args)
 
@@ -212,7 +211,7 @@ def execute(cur, *args):
 def to_date_string(date):
     if isinstance(date, numpy.int64) or isinstance(date, int):
         date = str(date)
-        date = '%s-%s-%s' % (date[:4], date[4:6], date[6:8])
+        date = "%s-%s-%s" % (date[:4], date[4:6], date[6:8])
         return date
 
 
@@ -227,7 +226,7 @@ def str_time_to_day_seconds(time):
     :param time: %H:%M:%S string
     :return: integer seconds
     """
-    t = str(time).split(':')
+    t = str(time).split(":")
     seconds = int(t[0]) * 3600 + int(t[1]) * 60 + int(t[2])
     return seconds
 
@@ -263,7 +262,7 @@ def timeit(method):
         time_start = time.time()
         result = method(*args, **kw)
         time_end = time.time()
-        print('timeit: %r %2.2f sec ' % (method.__name__, time_end - time_start))
+        print("timeit: %r %2.2f sec " % (method.__name__, time_end - time_start))
         return result
 
     return timed
@@ -271,6 +270,7 @@ def timeit(method):
 
 def corrupted_zip(zip_path):
     import zipfile
+
     try:
         zip_to_test = zipfile.ZipFile(zip_path)
         # warning = zip_to_test.testzip()
@@ -297,8 +297,8 @@ def source_csv_to_pandas(path, table, read_csv_args=None):
     -------
     df: pandas:DataFrame
     """
-    if '.txt' not in table:
-        table += '.txt'
+    if ".txt" not in table:
+        table += ".txt"
 
     if isinstance(path, dict):
         data_obj = path[table]
@@ -328,6 +328,7 @@ def source_csv_to_pandas(path, table, read_csv_args=None):
 
 def write_shapefile(data, shapefile_path):
     from numpy import int64
+
     """
     :param data: list of dicts where dictionary contains the keys lons and lats
     :param shapefile_path: path where shapefile is saved
@@ -345,28 +346,28 @@ def write_shapefile(data, shapefile_path):
     # datastoring phase. Encode_strings stores .encode methods as strings for all fields that are strings
     if not fields:
         for key, value in data[0].items():
-            if key != u'lats' and key != u'lons':
+            if key != "lats" and key != "lons":
                 fields.append(key)
 
                 if type(value) == float:
-                    w.field(key.encode('ascii'), fieldType='N', size=11, decimal=3)
+                    w.field(key.encode("ascii"), fieldType="N", size=11, decimal=3)
                     print("float", type(value))
                 elif type(value) == int or type(value) == int64:
                     print("int", type(value))
 
                     # encode_strings.append(".encode('ascii')")
-                    w.field(key.encode('ascii'), fieldType='N', size=6, decimal=0)
+                    w.field(key.encode("ascii"), fieldType="N", size=6, decimal=0)
                 else:
                     print("other type", type(value))
 
-                    w.field(key.encode('ascii'))
+                    w.field(key.encode("ascii"))
 
     for dict_item in data:
         line = []
         lineparts = []
         records = []
-        records_string = ''
-        for lat, lon in zip(dict_item[u'lats'], dict_item[u'lons']):
+        records_string = ""
+        for lat, lon in zip(dict_item["lats"], dict_item["lons"]):
             line.append([float(lon), float(lat)])
         lineparts.append(line)
         w.line(parts=lineparts)
@@ -388,9 +389,9 @@ def write_shapefile(data, shapefile_path):
 # Opening files with Universal newlines is done differently in py3
 def zip_open(z, filename):
     if sys.version_info[0] == 2:
-        return z.open(filename, 'rU')
+        return z.open(filename, "rU")
     else:
-        return io.TextIOWrapper(z.open(filename, 'r'), "utf-8")
+        return io.TextIOWrapper(z.open(filename, "r"), "utf-8")
 
 
 def draw_net_using_node_coords(net):
@@ -405,10 +406,11 @@ def draw_net_using_node_coords(net):
         the figure object where the network is plotted
     """
     import matplotlib.pyplot as plt
+
     fig = plt.figure()
     node_coords = {}
     for node, data in net.nodes(data=True):
-        node_coords[node] = (data['lon'], data['lat'])
+        node_coords[node] = (data["lon"], data["lat"])
     ax = fig.add_subplot(111)
     networkx.draw(net, pos=node_coords, ax=ax, node_size=50)
     return fig
@@ -417,11 +419,13 @@ def draw_net_using_node_coords(net):
 def make_sure_path_exists(path):
     import os
     import errno
+
     try:
         os.makedirs(path)
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             raise
+
 
 def difference_of_pandas_dfs(df_self, df_other, col_names=None):
     """
@@ -451,11 +455,12 @@ def graph_has_node(g, node):
     >2.2:  n in g.nodes
 
     """
-    if hasattr(g, 'node'):
+    if hasattr(g, "node"):
         # networkx <= 2.4
         return node in g.node
     # networkx >= 2.0
     return node in g.nodes
+
 
 def graph_node_attrs(g, node):
     """Backwards compatability function for networkx < 2.0
@@ -464,7 +469,7 @@ def graph_node_attrs(g, node):
     >2.2:   g.nodes[n] --> attribute dict
 
     """
-    if hasattr(g, 'node'):
+    if hasattr(g, "node"):
         # networkx <= 2.4
         return g.node[node]
     # networkx >= 2.0
