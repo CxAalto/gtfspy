@@ -1,7 +1,7 @@
 import os
 from setuptools import setup, Extension, find_packages
 
-version="0.0.4"
+version="0.0.5"
 
 requirementstxt = os.path.join(os.path.dirname(__file__), 'requirements.txt')
 requirements = open(requirementstxt).read().strip().split('\n')
