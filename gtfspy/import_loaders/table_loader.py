@@ -279,7 +279,7 @@ class TableLoader(object):
                 # proceed.  Since there is nothing to import, just continue the loop
                 print("Not importing %s into %s for %s" % (self.fname, self.table, prefix))
                 continue
-            stmt = '''INSERT INTO %s (%s) VALUES (%s)''' % (
+            stmt = '''INSERT OR REPLACE INTO %s (%s) VALUES (%s)''' % (
                 self.table,
                 (', '.join([x for x in fields if x[0] != '_'] + self.extra_keys)),
                 (', '.join([":" + x for x in fields if x[0] != '_'] + self.extra_values))

@@ -57,7 +57,7 @@ class StopTimesLoader(TableLoader):
         # This is used for the stop frequencies analysis.
         #cur.execute('CREATE INDEX idx_stop_times_tid_ath_sid ON stop_times (trip_I, arr_time_hour, stop_id)')
             # ^-- much slower than the next index.
-        cur.execute('CREATE INDEX idx_stop_times_ath_tid_sid ON stop_times (arr_time_hour, trip_I, stop_I)')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_stop_times_ath_tid_sid ON stop_times (arr_time_hour, trip_I, stop_I)')
 
     # This has now been moved to DayTripsMaterializer, but is left
     # here in case we someday want to make DayTripsMaterializer
