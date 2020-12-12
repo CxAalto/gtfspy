@@ -22,6 +22,8 @@
 * Supported platforms: Linux, OSX & Windows
 * Optional: [git](https://git-scm.com/) is used for development.
 
+## Documentation
+https://docs.contour.so/CxAalto/gtfspy/getting-started
 
 ## Install
 ### Linux and Mac OS
