@@ -1,5 +1,5 @@
 pandas
-networkx>=2.0
+networkx==2.0
 pyshp
 smopy==0.0.6
 nose
@@ -12,3 +12,9 @@ shapely
 pyproj
 matplotlib-scalebar
 geopandas
+spatialite
+osmread
+geoindex
+geojson==1.3.5
+matplotlib-scalebar==0.4.1
+pyshp

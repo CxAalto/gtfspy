@@ -40,6 +40,7 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
         self.unpack_fastest_path_journeys()
         self.processed_labels = None
 
+
     def _get_fastest_path_analyzer(self):
         self.fpa = \
             get_fastest_path_analyzer_after_transfer_penalties(self.all_labels,
@@ -697,18 +698,6 @@ class NodeJourneyPathAnalyzer(NodeProfileAnalyzerTimeAndVehLegs):
 
         fig = npat.plot_temporal_distance_profile(timezone=timezone,
                                                   **kwargs)
-        return fig
-
-    def plot_temporal_distance_profiles(self, timezone=None, **kwargs):
-        if "ax" not in kwargs:
-            fig = plt.figure(figsize=(10, 6))
-            ax = fig.add_subplot(111)
-            kwargs["ax"] = ax
-        npatavl = NodeProfileAnalyzerTimeAndVehLegs(self.candidate_labels, self._walk_to_target_duration,
-                                                    self.start_time_dep, self.end_time_dep)
-
-        fig = npatavl.plot_new_transfer_temporal_distance_profile(timezone=timezone,
-                                                                  **kwargs)
         return fig
 
     @seconds_to_minutes

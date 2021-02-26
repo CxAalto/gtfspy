@@ -81,6 +81,7 @@ def get_utm_srid_from_wgs(lon, lat):
     return epsg_code
 
 # cython implementation of this.  It is called _often_.
+
 try:
     from gtfspy.cutil import wgs84_distance
 except ImportError:
@@ -423,6 +424,9 @@ def df_to_utm_gdf(df):
     elif all(["from_lon" in list(df), "from_lat" in list(df), "to_lon" in list(df), "to_lat" in list(df)]):
         df["geometry"] = df.apply(lambda row: LineString([Point(row.from_lon, row.from_lat),
                                                           Point(row.to_lon, row.to_lat)]), axis=1)
+    elif "coords" in list(df):
+        df["geometry"] = df.apply(lambda row: LineString([Point([float(y) for y in x.split(";")])
+                                                          for x in row.coords.split(",")]), axis=1)
     else:
         raise NameError
 

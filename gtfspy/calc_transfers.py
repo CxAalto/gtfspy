@@ -112,7 +112,7 @@ def calc_transfers_using_geopandas(conn, threshold_meters=1000, return_sd_table=
         gdf_poly["to_stop_I"] = gdf_poly["from_stop_I"]
         gdf_poly = gdf_poly[["to_stop_I", "point_b", "geometry"]]
 
-        gdf_poly["geometry"] = gdf_poly["geometry"].buffer(threshold_meters)
+        gdf_poly["geometry"] = gdf_poly["geometry"].buffer_distance(threshold_meters)
         gdf_joined = sjoin(gdf, gdf_poly, how="left", op='within')
         gdf_joined["d"] = gdf_joined.apply(lambda row: int(row.point_a.distance(row.point_b)), axis=1)
         gdf_joined = gdf_joined.loc[gdf_joined.from_stop_I != gdf_joined.to_stop_I]

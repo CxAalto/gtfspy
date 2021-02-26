@@ -117,7 +117,7 @@ def remove_unmatching_stops_multi(gtfs_cons, new_gtfs_paths, max_distance=500):
 
         all_stops_gdf, srid = df_to_utm_gdf(all_stops)
         active_stops_gdf, _ = df_to_utm_gdf(active_stops)
-        active_stops_gdf["geometry"] = active_stops_gdf["geometry"].buffer(max_distance)
+        active_stops_gdf["geometry"] = active_stops_gdf["geometry"].buffer_distance(max_distance)
         active_stops_gdf["everything"] = 1
         active_stops_gdf = active_stops_gdf[["geometry", "everything"]]
         active_stops_gdf = active_stops_gdf.dissolve(by="everything")
@@ -308,7 +308,7 @@ def _cluster_stops_multi(df, distance):
     gdf, srid = df_to_utm_gdf(df)
 
     gdf_poly = gdf.copy()
-    gdf_poly["geometry"] = gdf_poly["geometry"].buffer(distance)
+    gdf_poly["geometry"] = gdf_poly["geometry"].buffer_distance(distance)
     gdf_poly["everything"] = 1
     gdf_poly = gdf_poly.dissolve(by="everything")
 
@@ -366,7 +366,7 @@ def cluster_stops(gtfs_a, gtfs_b, distance=2):
     gdf_ab = pd.concat([gdf_a, gdf_b])
     gdf_ab = gdf_ab.reset_index()
     gdf_poly = gdf_ab.copy()
-    gdf_poly["geometry"] = gdf_poly["geometry"].buffer(distance/2)
+    gdf_poly["geometry"] = gdf_poly["geometry"].buffer_distance(distance / 2)
     gdf_poly["everything"] = 1
 
     gdf_poly = gdf_poly.dissolve(by="everything")
