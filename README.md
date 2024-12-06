@@ -33,7 +33,7 @@ pip install gtfspy
 Windows should work, but has not been tested or and may not be
 supported as much.  Please report problems.
 
-Windows users may need to install Shapely library first. [Download Shapely wheel](https://www.lfd.uci.edu/~gohlke/pythonlibs/#shapely) and then run:
+Windows users may need to install Shapely library first. [Download Shapely wheel](https://github.com/CxAalto/gtfspy/tree/master) and then run:
 ```
 pip install wheel
 pip install {path to the Shapely wheel file on your PC}
